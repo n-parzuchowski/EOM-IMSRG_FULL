@@ -1,6 +1,7 @@
 FC = gfortran $(FFLAGS)  
 
 p1 = run_IMSRG
+p2 = run_HO_energies
 
 FFLAGS =  -O3 -fbounds-check -fopenmp
 TFLAGS =  -g  
@@ -16,10 +17,13 @@ basic_IMSRG.o: basic_IMSRG.f90
 main_IMSRG.o:  main_IMSRG.f90
 	${FC} -c  main_IMSRG.f90 ${LIBS}
 
+HO: add_sp_energies.f90
+	${FC} add_sp_energies.f90 -o ${p2} 
 
 
 clean:
 	rm -f ${p1} $
+	rm -f ${p2} $
 	rm -f *.o
 	rm -f *.mod
 	rm -f *~
