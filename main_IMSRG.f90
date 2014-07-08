@@ -3,14 +3,20 @@ program main_IMSRG
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
-  type(single_particle_descript) :: jbasis 
-  character(50) :: sp_input_file 
-  integer :: i 
+  type(spd) :: jbasis 
+  type(sq_op) :: HS 
+  character(50) :: sp_input_file,interaction_file
+  integer :: i
   
+  HS%nbody = 2
+  HS%herm = 1  
   sp_input_file ='nl4.sps'
-  call read_sp_basis(jbasis,sp_input_file) 
+  interaction_file = 'vsrg.int' 
   
-  do i = 1, jbasis%total_orbits
-     print*, jbasis%nn(i),jbasis%ll(i),jbasis%jj(i),jbasis%itzp(i),jbasis%e(i)
-  end do 
+  call read_sp_basis(jbasis,sp_input_file,HS%nbody) 
+   
+  call allocate_blocks(jbasis,HS) 
+  
+  call read_interaction(HS,interaction_file,jbasis) 
+  
 end program
