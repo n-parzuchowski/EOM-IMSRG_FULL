@@ -8,14 +8,20 @@ TFLAGS =  -g
 
 LIBS =  -L/user/local/lib/ -llapack -lblas
 
-all: basic_IMSRG.o main_IMSRG.o
-	${FC} basic_IMSRG.o main_IMSRG.o -o ${p1} ${LIBS}
+all: anglib.o basic_IMSRG.o HF_mod.o main_IMSRG.o
+	${FC} anglib.o basic_IMSRG.o HF_mod.o main_IMSRG.o -o ${p1} ${LIBS}
 
 basic_IMSRG.o: basic_IMSRG.f90
 	${FC} -c basic_IMSRG.f90 ${LIBS}
 
 main_IMSRG.o:  main_IMSRG.f90
 	${FC} -c  main_IMSRG.f90 ${LIBS}
+
+anglib.o: anglib.f
+	${FC} -c anglib.f ${LIBS}
+
+HF_mod.o: HF_mod.f90
+	${FC} -c HF_mod.f90 ${LIBS}
 
 HO: add_sp_energies.f90
 	${FC} add_sp_energies.f90 -o ${p2} 
