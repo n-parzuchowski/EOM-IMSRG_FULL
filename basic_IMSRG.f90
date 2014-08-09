@@ -2,11 +2,12 @@ module basic_IMSRG
   ! contains basic type declarations, constants, and adminstrative routines
   real(8),public,parameter :: al = 1.d0 , bet = 0.d0  
   integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) 
-  real(8),public,allocatable,dimension(:,:,:,:,:,:) :: store6j
+
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   TYPE :: spd    ! single particle discriptor
      INTEGER :: total_orbits,Jtotal_max,lmax
-     INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue,con
+     INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
+     INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holesb4,partsb4 
      ! for clarity:  nn, ll, nshell are all the true value
      ! jj is j+1/2 (so it's an integer) 
      ! likewise itzp is 2*tz 
@@ -26,7 +27,12 @@ module basic_IMSRG
      integer,allocatable,dimension(:) :: Z
   END TYPE int_vec
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-TYPE :: sq_block
+  TYPE ::  six_index_store
+     type(real_mat),allocatable,dimension(:,:) :: tp_mat
+     integer :: nf,nb,nhalf
+  END TYPE six_index_store
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  TYPE :: sq_block
      integer :: lam(3) ! specifices J,Par,Tz of the block 
      type(real_mat),dimension(6) :: gam !Vpppp,Vhhhh,Vphph,Vpphh,Vphhh,Vppph
      integer :: npp, nph , nhh ! dimensions
@@ -37,7 +43,7 @@ TYPE :: sq_block
   TYPE :: sq_op !second quantized operator 
      type(sq_block),allocatable,dimension(:) :: mat
      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
-     integer :: nblock,Abody,Nsp,herm,belowEF
+     integer :: nblock,Aprot,Aneut,Nsp,herm,belowEF
      real(8) :: E0 
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
@@ -55,10 +61,13 @@ type full_sp_block_mat
    integer :: blocks
 end type full_sp_block_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   type(six_index_store),public :: store6j
+
 contains 
 !====================================================
 !====================================================
-subroutine read_sp_basis(jbas,sp_input_file,holes)
+subroutine read_sp_basis(jbas,sp_input_file,hp,hn)
   ! fills jscheme_basis array with single particle data from file
   ! file format must be: 5 integers and one real 
   ! for each state we have:   | label |  n  | l | 2 * j | 2*tz | E_sp |  
@@ -66,7 +75,7 @@ subroutine read_sp_basis(jbas,sp_input_file,holes)
   
   type(spd) :: jbas
   character(50) :: sp_input_file
-  integer :: ist,i,label,ni,li,ji,tzi,ix,holes
+  integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
   real(8) :: e
   
   open(unit=39,file='../sp_inputs/'//trim(adjustl(sp_input_file)))
@@ -95,6 +104,8 @@ subroutine read_sp_basis(jbas,sp_input_file,holes)
   allocate(jbas%nshell(ix)) !shell number
   allocate(jbas%e(ix)) ! sp energies
   allocate(jbas%con(ix)) ! hole or particle (1 or 0) 
+  allocate(jbas%holesb4(ix)) !number of holes beneath this index
+  allocate(jbas%partsb4(ix)) !number of particles beneath this index
   
   ! go back to the start and read them in. 
   rewind(39) 
@@ -112,37 +123,54 @@ subroutine read_sp_basis(jbas,sp_input_file,holes)
 
   end do 
   
-  call find_holes(jbas,holes) 
+  call find_holes(jbas,hp,hn) 
   
   jbas%Jtotal_max = maxval(jbas%jj) 
   jbas%lmax = maxval(jbas%ll) 
   ! this is the maximum value of J, this code always uses 2*J 
-  !call store_6j(jbas) 
+  call store_6j(jbas) 
   close(39) 
   
 end subroutine 
 !==============================================
 !==============================================
-subroutine find_holes(jbas,holes) 
+subroutine find_holes(jbas,pholes,nholes) 
   implicit none 
   
   type(spd) :: jbas
-  integer :: holes,i,minpos(1),r
+  integer :: pholes,nholes,i,minpos(1),rn,rp
   real(8),dimension(jbas%total_orbits) :: temp
   
   temp = jbas%e
   jbas%con = 0 ! zero if particle, one if hole
   
-  r = 0
-  i = 1
-  do while (r < holes)
-     minpos = minloc(temp) !find lowest energy 
+  rn = 0
+  rp = 0 
+  do while ((rn < nholes) .or. (rp < pholes))
+     minpos = minloc(temp) !find lowest energy
      jbas%con(minpos(1)) = 1 ! thats a hole
      temp(minpos(1)) = 9.e9  ! replace it with big number
-     r = r + (jbas%jj(i)+1)
-     i = i + 1
+     if ( jbas%itzp(minpos(1)) == -1 ) then
+        if (rn < nholes ) then 
+           rn = rn + (jbas%jj(minpos(1))+1)  
+        else 
+           jbas%con(minpos(1)) = 0 
+        end if 
+     else
+        if (rp < pholes ) then 
+           rp = rp + (jbas%jj(minpos(1))+1)  
+        else 
+           jbas%con(minpos(1)) = 0 
+        end if 
+     end if 
+        
   end do 
-     
+  
+  ! these arrays help us later in f_elem (in this module) 
+  do i = 1, jbas%total_orbits
+     jbas%holesb4(i) = sum(jbas%con(1:i-1)) 
+     jbas%partsb4(i) = i - jbas%holesb4(i) - 1 
+  end do 
 end subroutine  
 !==============================================
 !==============================================
@@ -152,11 +180,9 @@ subroutine allocate_blocks(jbas,op)
   
   type(spd) :: jbas
   type(sq_op) :: op
-  integer :: N,A,AX,q,i,j,j1,j2,tz1,tz2,l1,l2
+  integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2
   integer :: Jtot,Tz,Par,nph,npp,nhh,CX
   
- 
-  A = op%Abody !number of holes
   AX = sum(jbas%con) !number of shells under eF 
   op%belowEF = AX  
   op%Nsp = jbas%total_orbits
@@ -381,6 +407,37 @@ integer function block_index(J,T,P)
 end function 
 !=================================================================     
 !=================================================================
+real(8) function f_elem(a,b,op,jbas) 
+  implicit none 
+  
+  integer :: a,b,x1,x2,c1,c2
+  type(spd) :: jbas
+  type(sq_op) :: op 
+  
+  ! are they holes or particles
+  c1 = jbas%con(a)
+  c2 = jbas%con(b) 
+  
+  select case(c1+c2) 
+     case(0) 
+        ! pp 
+        f_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
+  
+     case(1) 
+        ! ph 
+        if (c1 > c2) then 
+           f_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) 
+        else 
+           f_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+        end if
+     case(2) 
+        ! hh 
+        f_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
+  end select
+
+end function
+!==============================================================
+!==============================================================
 real(8) function v_elem(a,b,c,d,J,T,P,op,jbas) 
   ! grabs the matrix element you are looking for
   implicit none
@@ -392,12 +449,20 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
  
   q = block_index(J,T,P) 
      
+  !! this is a ridiculous but efficient? way of 
+  !! figuring out which Vpppp,Vhhhh,Vphph.... 
+  !! array we are referencing. QX is a number between 
+  !! 1 and 6 which refers to a unique array for the pphh characteristic
+  
   C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
   C2 = jbas%con(c)+jbas%con(d) + 1
     
   qx = C1*C2
   qx = qx + adjust_index(qx)   !Vpppp nature  
-     
+  
+  ! see subroutine "allocate_blocks" for mapping from qx to each 
+  ! of the 6 storage arrays
+  
   i1 = 1
   i2 = 1
   
@@ -418,8 +483,10 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
      int2 = op%Nsp*(c-1) + d
   end if 
      
+! int1 and int2 are unique integers which refer to the 
+! two-p pair in the bra and ket respectively 
 
-! find the indeces
+! find the indeces by searching for unique integers
   do 
      if (int1 == op%mat(q)%pnt(C1)%Z(i1) ) exit
      i1 = i1 + 1
@@ -453,9 +520,8 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
   
   !Htype =  |[1]: T - Tcm + V |[2]: T + Uho + V |[3]: T+V | 
 
- 
   AX = H%belowEF
-  mass = H%Abody
+  mass = H%Aprot + H%Aneut
 
   
   H%fpp = 0.d0
@@ -506,17 +572,17 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
         
         select case (cx) 
            case(0) 
-              H%fpp(i-AX,j-AX) = T
-              H%fpp(j-AX,i-AX) = T
+              H%fpp(i-jbas%holesb4(i),j-jbas%holesb4(j)) = T
+              H%fpp(j-jbas%holesb4(j),i-jbas%holesb4(i)) = T
            case(1) 
               if (c2 > c1) then 
-                 H%fph(i-AX,j) = T
+                 H%fph(i-jbas%holesb4(i),j-jbas%partsb4(j)) = T
               else
-                 H%fph(j-AX,i) = T
+                 H%fph(j-jbas%holesb4(j),i-jbas%partsb4(i)) = T
               end if 
            case(2) 
-              H%fhh(i,j) = T
-              H%fhh(j,i) = T
+              H%fhh(i-jbas%partsb4(i),j-jbas%partsb4(j)) = T
+              H%fhh(j-jbas%partsb4(j),i-jbas%partsb4(i)) = T
         end select
      
      end do
@@ -558,48 +624,151 @@ end subroutine
 !======================================================
 subroutine store_6j(jbas) 
   ! run this once. use sixj in code to call elements 
-  ! this is kind of shitty, make the storage more efficient 
-  ! when you get a chance. 
+  ! kind of complicated, but if fills a public array (store6j) 
+  ! which theoretically doesn't need to be touched when 
+  ! making changes to the code ( this is all background stuff ) 
+  ! so DFWT subroutine because it will be a huge mess
   implicit none 
   
   type(spd) :: jbas
-  integer :: i,j,k,l,m,n,num_half,num_whole
+  integer :: j1,j2,j3,j4,j5,j6,num_half,num_whole,r1,r2
+  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max
   real(8) :: d6ji
   
   call dfact0() ! prime the anglib 6j calculator 
   
   num_half = (jbas%Jtotal_max + 1)/2
-  num_whole = jbas%Jtotal_max + 1 
+  store6j%nhalf = num_half
+  nbos = num_half*(num_half+1)/2
+  nferm = num_half*(num_half-1)/2
   
-  allocate(store6j(num_half,num_half,num_whole,&
-       num_half,num_half,num_whole)) 
+  store6j%nb = nbos
+  store6j%nf = nferm 
   
-  do i = 1, num_half
-     do j = 1, num_half
-        do k = 1,num_whole 
-           
-           do l = 1, num_half
-              do m = 1, num_half
-                 do n = 1, num_whole
-                    
-        store6j(i,j,k,l,m,n) = d6ji( 2*i-1 , 2*j - 1 , 2*(k-1), &
-                         2*l - 1 , 2*m-1 , 2*(n-1) ) 
+  allocate(store6j%tp_mat(nbos,nbos+nferm)) 
+  ! The first index refers to j1,j2 
+  ! which are forcibly ordered
+  
+  ! the second index refers to j4,j5 which cannot be ordered
+  ! so we need an extra set of states for the reverse ordering (nferm) 
+  
+  do j1 = 1, num_half
+     do j2 = j1, num_half 
+
+        X12 = bosonic_tp_index(j1,j2,num_half)
         
-   end do ; end do ; end do ; end do ; end do ; end do
+        do j4 = 1, num_half
+           do j5 = 1, j4-1
+           
+              ! if j5<j4 use fermionic index
+              X45 = fermionic_tp_index(j5,j4,num_half) 
+              
+              ! find the allowed values of j3,j6
+            j3min = max(  abs( 2*j1-1 -  (2*j2-1) ) , abs( 2*j4-1 -  (2*j5-1) )   )               
+            j3max = min(  2*j1-1 +  2*j2-1 , 2*j4-1 +  2*j5-1 ) 
+
+            j6min = max(  abs( 2*j1-1 -  (2*j5-1) ) , abs( 2*j4-1 -  (2*j2-1) )   )               
+            j6max = min(  2*j1-1 +  2*j5-1 , 2*j4-1 +  2*j2-1 ) 
+            
+            ! allocate second part of storage array to hold them 
+              allocate(store6j%tp_mat(X12,X45)%X((j3max-j3min)/2+1,(j6max-j6min)/2+1 ) ) 
+              
+              ! fill the array with 6j symbols
+              r1 = 1 
+             
+              do j3 = j3min,j3max,2
+                 r2 = 1
+                 do j6 = j6min,j6max,2
+                    store6j%tp_mat(X12,X45)%X(r1,r2) =  d6ji( 2*j1-1 , 2*j2 - 1 , j3, &
+                         2*j4 - 1 , 2*j5-1 , j6 )  
+                    ! d6ji is the anglib sixj calculator (takes 2*j as arguments) 
+                    r2 = r2 + 1
+                 end do 
+                 r1 = r1 + 1
+              end do 
+                 
+           end do 
+           
+           do j5 = j4,num_half
+              ! same deal, but with bosonic index, offset by fermionic
+              X45 = bosonic_tp_index(j4,j5,num_half) + nferm  
+            !  print*, j4,j5,X45,nferm,bosonic_tp_index(j4,j5,nbos),nbos
+            j3min = max(  abs( 2*j1-1 -  (2*j2-1) ) , abs( 2*j4-1 -  (2*j5-1) )   )               
+            j3max = min(  2*j1-1 +  2*j2-1 , 2*j4-1 +  2*j5-1 ) 
+
+            j6min = max(  abs( 2*j1-1 -  (2*j5-1) ) , abs( 2*j4-1 -  (2*j2-1) )   )               
+            j6max = min(  2*j1-1 +  2*j5-1 , 2*j4-1 +  2*j2-1 ) 
+            
+              allocate(store6j%tp_mat(X12,X45)%X((j3max-j3min)/2+1,(j6max-j6min)/2+1 ) )   
+ 
+              !print*, j1,j2,j4,j5,(j3max-j3min)/2+1,(j6max-j6min)/2+1 ,j3min,j3max,j6min,j6max
+              r1 = 1
+              do j3 = j3min,j3max,2
+                 r2 = 1
+                 do j6 = j6min,j6max,2
+                    store6j%tp_mat(X12,X45)%X(r1,r2) =  d6ji( 2*j1-1 , 2*j2 - 1 , j3, &
+                         2*j4 - 1 , 2*j5-1 , j6 )  
+                    
+                    r2 = r2 + 1
+                 end do 
+                 
+                 r1 = r1 + 1
+              end do 
+                     
+           end do 
+        end do 
+        
+     end do 
+  end do 
    
 end subroutine    
 !=========================================================
 !=========================================================
-real(8) function sixj(i,j,k,l,m,n)
+real(8) function sixj(j1,j2,j3,j4,j5,j6)
   ! twice the angular momentum
   ! so you don't have to carry that obnoxious array around
   implicit none 
   
-  integer :: i,j,k,l,m,n
+  integer :: j1,j2,j3,j4,j5,j6
+  integer :: l1,l2,l3,l4,l5,l6
+  integer :: x1,x2,j3min,j6min
   
-  sixj = store6j( (i+1)/2 , (j+1)/2,  k/2+1, &
-       (l+1)/2, (m+1)/2 , n/2+1 ) 
+  
+  ! check triangle inequalities
+  if ( (triangle(j1,j2,j3)) .and. (triangle(j4,j5,j3)) &
+  .and. (triangle(j1,j5,j6)) .and. (triangle(j4,j2,j6)) ) then 
+     
+     l1 = j1; l2 = j2; l3 = j3; l4 = j4; l5 = j5; l6 = j6 
+          
+     ! find lowest possible momentums
+     j3min = max(  abs( j1 -  j2)  , abs( j4 -  j5)    )/2               
+     
+     j6min = max(  abs( j1 -  j5)  , abs( j4 -  j2 )   )/2               
+    
 
+     ! make sure j1 < = j2
+     if  ( j1 > j2 ) then 
+        l1 = j2 ; l2 = j1 
+        l4 = j5 ; l5 = j4
+     end if 
+     ! allowed by 6j symmetry
+     
+     ! find indeces
+     x1 = bosonic_tp_index((l1+1)/2,(l2+1)/2,store6j%nhalf) 
+     
+     if (l4 > l5 )  then 
+        x2 = fermionic_tp_index((l5+1)/2,(l4+1)/2,store6j%nhalf) 
+     else
+        x2 = bosonic_tp_index((l4+1)/2,(l5+1)/2,store6j%nhalf) + store6j%nf 
+     end if 
+     
+     ! figure out indeces for j3,j6 based on lowest possible
+     sixj = store6j%tp_mat(x1,x2)%X(l3/2 - j3min + 1 , l6/2 - j6min + 1 ) 
+     
+     
+  else 
+     sixj = 0.d0 
+  end if 
 end function
 !=======================================================
 !=======================================================
@@ -697,7 +866,28 @@ subroutine duplicate_sp_mat(H,T)
 
 end subroutine
 !=====================================================
-     
+integer function bosonic_tp_index(i,j,n)
+  ! n is total number of sp states
+  ! assume i <= j 
+  implicit none 
+  
+  integer :: i,j,n
+  
+  bosonic_tp_index = n*(i-1) + (3*i-i*i)/2 + j - i 
+  
+end function 
+!=====================================================  
+integer function fermionic_tp_index(i,j,n)
+  ! n is total number of sp states
+  ! assume i <= j 
+  implicit none 
+  
+  integer :: i,j,n
+  
+  fermionic_tp_index = n*(i-1) + (i-i*i)/2 + j - i 
+  
+end function 
+!=====================================================  
 end module
        
   

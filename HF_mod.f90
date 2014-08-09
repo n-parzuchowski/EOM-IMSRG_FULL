@@ -11,10 +11,11 @@ subroutine calc_HF( H ,jbas )
   type(spd) :: jbas
   type(sq_op) :: H 
   type(full_sp_block_mat) :: T,F,Vgam,rho,D,Dx 
-  integer :: A,q,r,i
+  integer :: q,r,i
   real(8) :: crit
 
   ! allocate the workspace  
+
   call allocate_sp_mat(jbas,T) 
   call duplicate_sp_mat(T,F) 
   call duplicate_sp_mat(T,Vgam) 
@@ -22,8 +23,6 @@ subroutine calc_HF( H ,jbas )
   call duplicate_sp_mat(T,D)
   call duplicate_sp_mat(T,Dx)
   
-  A = H%Abody
-
   call write_kin_matrix(T,H,jbas) 
 
   !initial eigenvectors
@@ -88,29 +87,9 @@ subroutine write_kin_matrix(T,H,jbas)
            n1 = T%blkM(q)%states(i) 
            n2 = T%blkM(q)%states(j) 
            
-           c1 = jbas%con(n1) 
-           c2 = jbas%con(n2) 
+           T%blkM(q)%matrix(i,j) = f_elem(n1,n2,H,jbas) 
+           T%blkM(q)%matrix(j,i) = T%blkM(q)%matrix(i,j) 
            
-           ! ph nature
-           cx = c1 + c2 
-           
-           select case (cx) 
-           ! map from pp,ph,hh strategy to block strategy 
-           case(0) 
-              T%blkM(q)%matrix(i,j) = H%fpp(n1-AX,n2-AX)
-              T%blkM(q)%matrix(j,i) = H%fpp(n1-AX,n2-AX)
-           case(1) 
-              if (c2 > c1) then 
-                 T%blkM(q)%matrix(i,j) = H%fph(n1-AX,n2) 
-                 T%blkM(q)%matrix(j,i) = H%fph(n1-AX,n2) 
-              else
-                 T%blkM(q)%matrix(i,j) = H%fph(n2-AX,n1)
-                 T%blkM(q)%matrix(j,i) = H%fph(n2-AX,n1)
-              end if 
-           case(2) 
-              T%blkM(q)%matrix(i,j) = H%fhh(n1,n2)
-              T%blkM(q)%matrix(j,i) = H%fhh(n1,n2)
-           end select
            
            end do 
         end do 

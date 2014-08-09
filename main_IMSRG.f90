@@ -7,17 +7,18 @@ program main_IMSRG
   type(spd) :: jbasis 
   type(sq_op) :: HS 
   character(50) :: sp_input_file,interaction_file
-  integer :: i,T,P,J,a,b,c,d,ham_type
-  real(8) :: hw 
+  integer :: i,T,P,J,a,b,c,d,ham_type,j3
+  real(8) :: hw ,sm
   
-  HS%Abody = 4
+  HS%Aprot = 2
+  HS%Aneut = 2
   HS%herm = 1  
   ham_type = 1
   hw = 28.0
   sp_input_file ='nl4.sps'
   interaction_file = 'vsrg.int' 
   
-  call read_sp_basis(jbasis,sp_input_file,HS%Abody) 
+  call read_sp_basis(jbasis,sp_input_file,HS%Aprot,HS%Aneut) 
 
   call allocate_blocks(jbasis,HS)
    
@@ -27,5 +28,5 @@ program main_IMSRG
 
   call calc_HF(HS,jbasis) 
 
-end program
+end program main_IMSRG
 
