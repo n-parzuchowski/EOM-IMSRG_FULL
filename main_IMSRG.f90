@@ -7,11 +7,11 @@ program main_IMSRG
   type(spd) :: jbasis 
   type(sq_op) :: HS 
   character(50) :: sp_input_file,interaction_file
-  integer :: i,T,P,J,a,b,c,d,ham_type,j3
+  integer :: i,j,T,P,JT,a,b,c,d,ham_type,j3
   real(8) :: hw ,sm
   
-  HS%Aprot = 2
-  HS%Aneut = 2
+  HS%Aprot = 20
+  HS%Aneut = 20
   HS%herm = 1  
   ham_type = 1
   hw = 28.0
@@ -22,11 +22,11 @@ program main_IMSRG
 
   call allocate_blocks(jbasis,HS)
    
-  call read_interaction(HS,interaction_file,jbasis)
+  call read_interaction(HS,interaction_file,jbasis,ham_type,hw)
  
   call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
-
+ 
   call calc_HF(HS,jbasis) 
-
+  
 end program main_IMSRG
 

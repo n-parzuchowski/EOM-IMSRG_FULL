@@ -1,8 +1,5 @@
 module basic_IMSRG 
-  ! contains basic type declarations, constants, and adminstrative routines
-  real(8),public,parameter :: al = 1.d0 , bet = 0.d0  
-  integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) 
-
+  ! contains basic type declarations, constants, and adminstrative routines  
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   TYPE :: spd    ! single particle discriptor
      INTEGER :: total_orbits,Jtotal_max,lmax
@@ -11,7 +8,6 @@ module basic_IMSRG
      ! for clarity:  nn, ll, nshell are all the true value
      ! jj is j+1/2 (so it's an integer) 
      ! likewise itzp is 2*tz 
-     CHARACTER (LEN=10), ALLOCATABLE,DIMENSION(:) :: orbit_status, model_space,basis
      REAL(8), ALLOCATABLE,DIMENSION(:) :: e, evalence, e_original
   END TYPE spd
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -43,7 +39,7 @@ module basic_IMSRG
   TYPE :: sq_op !second quantized operator 
      type(sq_block),allocatable,dimension(:) :: mat
      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
-     integer :: nblock,Aprot,Aneut,Nsp,herm,belowEF
+     integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF
      real(8) :: E0 
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
@@ -61,8 +57,11 @@ type full_sp_block_mat
    integer :: blocks
 end type full_sp_block_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-   type(six_index_store),public :: store6j
+   
+  ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
+   real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
+   integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
+   type(six_index_store),public :: store6j   ! holds 6j-symbols
 
 contains 
 !====================================================
@@ -128,7 +127,7 @@ subroutine read_sp_basis(jbas,sp_input_file,hp,hn)
   jbas%Jtotal_max = maxval(jbas%jj) 
   jbas%lmax = maxval(jbas%ll) 
   ! this is the maximum value of J, this code always uses 2*J 
-  call store_6j(jbas) 
+  call store_6j(jbas) ! save six-j symbols to an array
   close(39) 
   
 end subroutine 
@@ -188,9 +187,9 @@ subroutine allocate_blocks(jbas,op)
   op%Nsp = jbas%total_orbits
   N = op%Nsp  !number of sp shells
   
-  op%nblock =  (jbas%Jtotal_max + 1) * 6    ! 6 possible values of par * Tz    
+  op%nblocks =  (jbas%Jtotal_max + 1) * 6    ! 6 possible values of par * Tz    
   
-  allocate(op%mat(op%nblock)) 
+  allocate(op%mat(op%nblocks)) 
   allocate(op%fpp(N-AX,N-AX))
   allocate(op%fph(N-AX,AX))
   allocate(op%fhh(AX,AX)) 
@@ -306,7 +305,7 @@ subroutine allocate_blocks(jbas,op)
 end subroutine      
 !==================================================================  
 !==================================================================
-subroutine read_interaction(H,intfile,jbas) 
+subroutine read_interaction(H,intfile,jbas,htype,hw) 
   ! read interaction from ASCII file produced by Scott_to_Morten.f90 
   implicit none
   
@@ -314,13 +313,16 @@ subroutine read_interaction(H,intfile,jbas)
   type(spd) :: jbas
   character(50) :: intfile
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N 
-  real(8) :: V,g1,g2,g3
-  integer :: C1,C2,int1,int2,i1,i2,pre
+  real(8) :: V,g1,g2,g3,pre,hw
+  integer :: C1,C2,int1,int2,i1,i2,htype,COM
   
   open(unit=39,file = '../TBME_input/'//trim(adjustl(intfile))) 
   
   read(39,*);read(39,*);read(39,*);read(39,*)
   read(39,*);read(39,*);read(39,*);read(39,*) !skip all of the garbage 
+  
+  COM = 0
+  if (htype == 1) COM = 1 ! center of mass hamiltonian? 
   
   N = jbas%total_orbits 
   do 
@@ -329,6 +331,7 @@ subroutine read_interaction(H,intfile,jbas)
      if (ist > 0) STOP 'interaction file error' 
      if (ist < 0) exit
      
+     V = V - g3*COM*hw/(H%Aneut + H%Aprot) ! center of mass correction
      q = block_index(J,Tz,Par) 
      
      C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
@@ -343,6 +346,7 @@ subroutine read_interaction(H,intfile,jbas)
         int1 = N*(b-1) + a 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
      else
+        if (a == b) pre = pre * sqrt( 2.d0 )
         int1 = N*(a-1) + b
      end if
   
@@ -350,9 +354,12 @@ subroutine read_interaction(H,intfile,jbas)
         int2 = N*(d-1) + c
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
      else 
+        if (c == d) pre = pre * sqrt( 2.d0 )
         int2 = N*(c-1) + d
      end if
-  
+     ! kets/bras are pre-scaled by sqrt(2) if they 
+     ! have two particles in the same sp-shell
+     
      i1 = 1
      i2 = 1
       
@@ -448,7 +455,8 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
   type(spd) :: jbas
  
   q = block_index(J,T,P) 
-     
+
+ 
   !! this is a ridiculous but efficient? way of 
   !! figuring out which Vpppp,Vhhhh,Vphph.... 
   !! array we are referencing. QX is a number between 
@@ -482,7 +490,7 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
   else 
      int2 = op%Nsp*(c-1) + d
   end if 
-     
+
 ! int1 and int2 are unique integers which refer to the 
 ! two-p pair in the bra and ket respectively 
 
@@ -496,7 +504,7 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
      if (int2 == op%mat(q)%pnt(C2)%Z(i2) ) exit
      i2 = i2 + 1
   end do 
-
+ 
   ! grab the matrix element
    If (C1>C2) then 
       v_elem = op%mat(q)%gam(qx)%X(i2,i1) * op%herm * pre 
@@ -692,7 +700,7 @@ subroutine store_6j(jbas)
            do j5 = j4,num_half
               ! same deal, but with bosonic index, offset by fermionic
               X45 = bosonic_tp_index(j4,j5,num_half) + nferm  
-            !  print*, j4,j5,X45,nferm,bosonic_tp_index(j4,j5,nbos),nbos
+          
             j3min = max(  abs( 2*j1-1 -  (2*j2-1) ) , abs( 2*j4-1 -  (2*j5-1) )   )               
             j3max = min(  2*j1-1 +  2*j2-1 , 2*j4-1 +  2*j5-1 ) 
 
@@ -701,7 +709,6 @@ subroutine store_6j(jbas)
             
               allocate(store6j%tp_mat(X12,X45)%X((j3max-j3min)/2+1,(j6max-j6min)/2+1 ) )   
  
-              !print*, j1,j2,j4,j5,(j3max-j3min)/2+1,(j6max-j6min)/2+1 ,j3min,j3max,j6min,j6max
               r1 = 1
               do j3 = j3min,j3max,2
                  r2 = 1
@@ -866,6 +873,66 @@ subroutine duplicate_sp_mat(H,T)
 
 end subroutine
 !=====================================================
+subroutine duplicate_sq_op(H,op) 
+  ! make a copy of the shape of H onto op
+  implicit none 
+  
+  type(sq_op) :: H,op
+  integer :: q,i,j,holes,parts,nh,np,nb
+  
+  op%herm = 1 ! default, change it in the calling program
+             ! if you want anti-herm (-1) 
+  op%Aprot = H%Aprot
+  op%Aneut = H%Aprot
+  op%Nsp = H%Nsp
+  op%belowEF = H%belowEF
+  op%nblocks = H%nblocks
+  
+  holes = op%belowEF ! number of shells below eF 
+  parts = op%Nsp - holes 
+  
+  allocate(op%fhh(holes,holes)) 
+  allocate(op%fpp(parts,parts)) 
+  allocate(op%fph(parts,holes)) 
+  
+  op%fhh = 0.d0
+  op%fpp = 0.d0
+  op%fph = 0.d0 
+  
+  allocate(op%mat(op%nblocks)) 
+  
+  do q = 1, op%nblocks
+     
+     op%mat(q)%lam = H%mat(q)%lam
+     nh = H%mat(q)%nhh
+     np = H%mat(q)%npp
+     nb = H%mat(q)%nph
+     
+     op%mat(q)%npp = np
+     op%mat(q)%nph = nb
+     op%mat(q)%nhh = nh
+     
+     allocate(op%mat(q)%qn(1)%Y(np,2)) !qnpp
+     allocate(op%mat(q)%qn(2)%Y(nb,2)) !qnph
+     allocate(op%mat(q)%qn(3)%Y(nh,2)) !qnhh
+     allocate(op%mat(q)%pnt(1)%Z(np)) !pnpp
+     allocate(op%mat(q)%pnt(2)%Z(nb)) !pnph
+     allocate(op%mat(q)%pnt(3)%Z(nh)) !pnhh
+    
+     allocate(op%mat(q)%gam(1)%X(np,np)) !Vpppp
+     allocate(op%mat(q)%gam(5)%X(nh,nh)) !Vhhhh
+     allocate(op%mat(q)%gam(3)%X(np,nh)) !Vpphh
+     allocate(op%mat(q)%gam(4)%X(nb,nb)) !Vphph
+     allocate(op%mat(q)%gam(2)%X(np,nb)) !Vppph
+     allocate(op%mat(q)%gam(6)%X(nb,nh)) !Vphhh
+     do i = 1,6
+        op%mat(q)%gam(i)%X = 0.0
+     end do 
+     
+  end do 
+  
+end subroutine 
+!=====================================================
 integer function bosonic_tp_index(i,j,n)
   ! n is total number of sp states
   ! assume i <= j 
@@ -887,7 +954,30 @@ integer function fermionic_tp_index(i,j,n)
   fermionic_tp_index = n*(i-1) + (i-i*i)/2 + j - i 
   
 end function 
-!=====================================================  
+!===================================================== 
+!===============================================    
+subroutine print_matrix(matrix)
+	implicit none 
+	
+	integer :: i,m
+	real(8),dimension(:,:) :: matrix
+	character(1) :: y
+	character(10) :: fmt2
+
+    m=size(matrix(1,:))
+
+    write(y,'(i1)') m
+  
+    fmt2= '('//y//'(f12.8))'	
+	
+	print*
+	do i=1,m
+	   write(*,fmt2) matrix(i,:)
+	end do
+	print* 
+	
+end subroutine 
+!===============================================   
 end module
        
   
