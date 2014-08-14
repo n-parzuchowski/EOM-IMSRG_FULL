@@ -447,7 +447,8 @@ real(8) function f_elem(a,b,op,jbas)
      case(1) 
         ! ph 
         if (c1 > c2) then 
-           f_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) 
+           f_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
+                op%herm
         else 
            f_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
         end if
@@ -465,9 +466,45 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
   
   integer :: a,b,c,d,J,T,P,q,qx,c1,c2
   integer :: int1,int2,pre,i1,i2
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
   type(sq_op) :: op 
   type(spd) :: jbas
  
+  
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+  if ( .not. ((triangle(ja,jb,J)) .and. (triangle (jc,jd,J))) ) then 
+     v_elem = 0.d0
+     return
+  end if 
+     
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+     
+  P = mod(la + lb,2) 
+     
+  if ( mod(lc + ld,2) .ne. P ) then 
+     v_elem = 0.d0 
+     return
+  end if 
+        
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)
+     
+  T = (ta + tb)/2
+     
+  if ((tc+tb) .ne. 2*T) then 
+     v_elem = 0.d0
+     return
+  end if 
+
   q = block_index(J,T,P) 
 
  
