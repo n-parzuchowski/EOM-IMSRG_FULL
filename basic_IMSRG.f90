@@ -4,11 +4,11 @@ module basic_IMSRG
   TYPE :: spd    ! single particle discriptor
      INTEGER :: total_orbits,Jtotal_max,lmax
      INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
-     INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holesb4,partsb4 
+     INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holesb4,partsb4,holes,parts 
      ! for clarity:  nn, ll, nshell are all the true value
      ! jj is j+1/2 (so it's an integer) 
      ! likewise itzp is 2*tz 
-     REAL(8), ALLOCATABLE,DIMENSION(:) :: e, evalence, e_original
+     REAL(8), ALLOCATABLE,DIMENSION(:) :: e
   END TYPE spd
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: real_mat !element of an array of matrices
@@ -22,7 +22,7 @@ module basic_IMSRG
   TYPE :: int_vec
      integer,allocatable,dimension(:) :: Z
   END TYPE int_vec
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   TYPE ::  six_index_store
      type(real_mat),allocatable,dimension(:,:) :: tp_mat
      integer :: nf,nb,nhalf
@@ -73,7 +73,7 @@ subroutine read_sp_basis(jbas,sp_input_file,hp,hn)
   implicit none 
   
   type(spd) :: jbas
-  character(50) :: sp_input_file
+  character(200) :: sp_input_file
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
   real(8) :: e
   
@@ -121,7 +121,7 @@ subroutine read_sp_basis(jbas,sp_input_file,hp,hn)
      jbas%e(i) =  e 
 
   end do 
-  
+ 
   call find_holes(jbas,hp,hn) 
   
   jbas%Jtotal_max = maxval(jbas%jj) 
@@ -137,7 +137,7 @@ subroutine find_holes(jbas,pholes,nholes)
   implicit none 
   
   type(spd) :: jbas
-  integer :: pholes,nholes,i,minpos(1),rn,rp
+  integer :: pholes,nholes,i,minpos(1),rn,rp,r1,r2
   real(8),dimension(jbas%total_orbits) :: temp
   
   temp = jbas%e
@@ -164,11 +164,25 @@ subroutine find_holes(jbas,pholes,nholes)
      end if 
         
   end do 
-  
+ 
+  allocate(jbas%holes(sum(jbas%con)))
+  allocate(jbas%parts(jbas%total_orbits - sum(jbas%con))) 
   ! these arrays help us later in f_elem (in this module) 
+  r1 = 1
+  r2 = 1
   do i = 1, jbas%total_orbits
      jbas%holesb4(i) = sum(jbas%con(1:i-1)) 
      jbas%partsb4(i) = i - jbas%holesb4(i) - 1 
+     
+     ! write down the position of the holes and parts
+     if (jbas%con(i) == 1) then 
+        jbas%holes(r1) = i 
+        r1 = r1 + 1
+     else
+        jbas%parts(r2) = i 
+        r2 = r2 + 1
+     end if 
+     
   end do 
 end subroutine  
 !==============================================
@@ -311,7 +325,7 @@ subroutine read_interaction(H,intfile,jbas,htype,hw)
   
   type(sq_op) :: H
   type(spd) :: jbas
-  character(50) :: intfile
+  character(200) :: intfile
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N 
   real(8) :: V,g1,g2,g3,pre,hw
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
@@ -731,6 +745,151 @@ subroutine store_6j(jbas)
 end subroutine    
 !=========================================================
 !=========================================================
+subroutine normal_order(H,jbas) 
+  ! puts H in normal ordering
+  implicit none 
+  
+  type(sq_op) :: H,TEMP
+  type(spd) :: jbas
+  integer :: i,j,q,a,b,JT,T,P
+  integer :: ax,bx,ix
+  real(8) :: sm
+  
+  
+  call duplicate_sq_op(H,TEMP) 
+  call copy_sq_op(H,TEMP) 
+  
+  ! calculate vacuum expectation value
+  
+  sm = 0.d0 
+  do i = 1,TEMP%Nsp
+     sm = sm + f_elem(i,i,TEMP,jbas)*jbas%con(i)* &
+          (jbas%jj(i) + 1)
+  end do 
+  
+  sm = sm * 2.d0 
+  
+  do i = 1,TEMP%Nsp
+     do j = 1,TEMP%Nsp
+        
+        if (jbas%con(i)*jbas%con(j) == 0) cycle
+        T = (jbas%itzp(i) + jbas%itzp(j))/2
+        P = mod(jbas%ll(i)+jbas%ll(j),2) 
+        
+        do JT = abs(jbas%jj(i) - jbas%jj(j)) ,jbas%jj(i)+jbas%jj(j),2 
+           sm = sm + v_elem(i,j,i,j,JT,T,P,TEMP,jbas)*(JT + 1) 
+        end do
+     end do 
+  end do 
+  
+  
+  H%E0 = sm *0.5d0 
+  
+  ! calculate one body part
+  !fhh
+  do a = 1,TEMP%belowEF
+     do b = a,TEMP%belowEF 
+        
+        ax = jbas%holes(a) 
+        bx = jbas%holes(b) 
+        
+        
+        if (jbas%jj(ax) .ne. jbas%jj(bx) ) cycle
+        if (jbas%ll(ax) .ne. jbas%ll(bx) ) cycle
+        if (jbas%itzp(ax) .ne. jbas%itzp(bx) ) cycle
+        
+        sm = 0.d0 
+        
+        do i = 1, TEMP%belowEF
+           ix = jbas%holes(i) 
+           do JT = abs(jbas%jj(ix) - jbas%jj(ax)), &
+                jbas%jj(ix) + jbas%jj(ax), 2
+              
+              T = (jbas%itzp(ix) + jbas%itzp(ax))/2 
+              P = mod(jbas%ll(ix) + jbas%ll(ax),2) 
+              
+              sm = sm + (JT+1.d0)/(jbas%jj(ax) + 1) *&
+                   v_elem(ax,ix,bx,ix,JT,T,P,TEMP,jbas) 
+              
+           end do 
+        end do 
+           
+        H%fhh(a,b) = f_elem(ax,bx,TEMP,jbas) + sm 
+        H%fhh(b,a) = H%fhh(a,b) 
+     end do 
+  end do
+ 
+  !fph          
+  do a = 1,TEMP%Nsp-TEMP%belowEF
+     do b = 1,TEMP%belowEF 
+        
+        ax = jbas%parts(a) 
+        bx = jbas%holes(b) 
+        
+        
+        if (jbas%jj(ax) .ne. jbas%jj(bx) ) cycle
+        if (jbas%ll(ax) .ne. jbas%ll(bx) ) cycle
+        if (jbas%itzp(ax) .ne. jbas%itzp(bx) ) cycle
+        
+        sm = 0.d0 
+        
+        do i = 1, TEMP%belowEF
+           ix = jbas%holes(i) 
+           do JT = abs(jbas%jj(ix) - jbas%jj(ax)), &
+                jbas%jj(ix) + jbas%jj(ax), 2
+              
+              T = (jbas%itzp(ix) + jbas%itzp(ax))/2 
+              P = mod(jbas%ll(ix) + jbas%ll(ax),2) 
+              
+              sm = sm + (JT+1.d0)/(jbas%jj(ax) + 1) *&
+                   v_elem(ax,ix,bx,ix,JT,T,P,TEMP,jbas) 
+              
+           end do 
+        end do 
+           
+        H%fph(a,b) = f_elem(ax,bx,TEMP,jbas) + sm 
+        
+     end do 
+  end do 
+
+  !fpp
+  do a = 1,TEMP%Nsp-TEMP%belowEF
+     do b = a,TEMP%Nsp - TEMP%belowEF 
+        
+        ax = jbas%parts(a) 
+        bx = jbas%parts(b) 
+       
+        if (jbas%jj(ax) .ne. jbas%jj(bx) ) cycle
+        if (jbas%ll(ax) .ne. jbas%ll(bx) ) cycle
+        if (jbas%itzp(ax) .ne. jbas%itzp(bx) ) cycle
+        
+        sm = 0.d0 
+        
+        do i = 1, TEMP%belowEF
+           ix = jbas%holes(i) 
+           do JT = abs(jbas%jj(ix) - jbas%jj(ax)), &
+                jbas%jj(ix) + jbas%jj(ax), 2
+              
+              T = (jbas%itzp(ix) + jbas%itzp(ax))/2 
+              P = mod(jbas%ll(ix) + jbas%ll(ax),2) 
+              
+              sm = sm + (JT+1.d0)/(jbas%jj(ax) + 1) *&
+                   v_elem(ax,ix,bx,ix,JT,T,P,TEMP,jbas) 
+              
+           end do 
+        end do 
+           
+        H%fpp(a,b) = f_elem(ax,bx,TEMP,jbas) + sm 
+        H%fpp(b,a) = H%fpp(a,b) 
+     end do 
+  end do 
+  
+  ! two body part is already normal ordered 
+  ! UNLESS WE HAVE THREE BODY FORCES
+  
+end subroutine   
+!=========================================================
+!=========================================================
 real(8) function sixj(j1,j2,j3,j4,j5,j6)
   ! twice the angular momentum
   ! so you don't have to carry that obnoxious array around
@@ -918,13 +1077,19 @@ subroutine duplicate_sq_op(H,op)
      allocate(op%mat(q)%pnt(1)%Z(np)) !pnpp
      allocate(op%mat(q)%pnt(2)%Z(nb)) !pnph
      allocate(op%mat(q)%pnt(3)%Z(nh)) !pnhh
-    
+     
+     do i = 1,3
+        op%mat(q)%qn(i)%Y = H%mat(q)%qn(i)%Y
+        op%mat(q)%pnt(i)%Z = H%mat(q)%pnt(i)%Z
+     end do 
+     
      allocate(op%mat(q)%gam(1)%X(np,np)) !Vpppp
      allocate(op%mat(q)%gam(5)%X(nh,nh)) !Vhhhh
      allocate(op%mat(q)%gam(3)%X(np,nh)) !Vpphh
      allocate(op%mat(q)%gam(4)%X(nb,nb)) !Vphph
      allocate(op%mat(q)%gam(2)%X(np,nb)) !Vppph
      allocate(op%mat(q)%gam(6)%X(nb,nh)) !Vphhh
+     
      do i = 1,6
         op%mat(q)%gam(i)%X = 0.0
      end do 
@@ -932,6 +1097,51 @@ subroutine duplicate_sq_op(H,op)
   end do 
   
 end subroutine 
+!=====================================================
+!=====================================================
+subroutine copy_sq_op(H,op) 
+  ! make a copy of the shape of H onto op
+  implicit none 
+  
+  type(sq_op) :: H,op
+  integer :: q,i,j,holes,parts,nh,np,nb
+     
+  op%fhh = H%fhh
+  op%fpp = H%fpp
+  op%fph = H%fph
+  
+  do q = 1, op%nblocks
+              
+     do i = 1,6
+        op%mat(q)%gam(i)%X = H%mat(q)%gam(i)%X
+     end do 
+     
+  end do 
+  
+end subroutine 
+!=====================================================
+!=====================================================
+subroutine add_sq_op(A,B,C) 
+  ! make a copy of the shape of H onto op
+  implicit none 
+  
+  type(sq_op) :: A,B,C
+  integer :: q,i,j,holes,parts,nh,np,nb
+     
+  C%fhh = A%fhh + B%fhh
+  C%fpp = A%fpp + B%fpp
+  C%fph = A%fph + B%fph
+  
+  do q = 1, A%nblocks
+              
+     do i = 1,6
+        C%mat(q)%gam(i)%X = A%mat(q)%gam(i)%X + B%mat(q)%gam(i)%X
+     end do 
+     
+  end do 
+  
+end subroutine 
+!=====================================================
 !=====================================================
 integer function bosonic_tp_index(i,j,n)
   ! n is total number of sp states
@@ -955,7 +1165,7 @@ integer function fermionic_tp_index(i,j,n)
   
 end function 
 !===================================================== 
-!===============================================    
+!=====================================================  
 subroutine print_matrix(matrix)
 	implicit none 
 	
@@ -977,7 +1187,42 @@ subroutine print_matrix(matrix)
 	print* 
 	
 end subroutine 
-!===============================================   
+!===============================================  
+subroutine read_main_input_file(input,H,htype,HF,hw,spfile,intfile) 
+  !read inputs from file
+  implicit none 
+  
+  character(200) :: input, spfile,intfile
+  type(sq_op) :: H 
+  integer :: htype,jx
+  logical :: HF
+  real(8) :: hw 
+  
+  input = adjustl(input) 
+  open(unit=22,file=trim(input)) 
+
+  read(22,*);read(22,*);read(22,*)
+  read(22,*);read(22,*);read(22,*)
+
+  read(22,*) intfile
+  read(22,*)
+  read(22,*) spfile
+  read(22,*);read(22,*)
+  read(22,*) htype
+  read(22,*)
+  read(22,*) hw
+  read(22,*)
+  read(22,*) H%Aprot
+  read(22,*)
+  read(22,*) H%Aneut
+  read(22,*);read(22,*)
+  read(22,*) jx
+  
+  HF = .false. 
+  if (jx == 1) HF = .true. 
+
+end subroutine
+!=======================================================  
 end module
        
   

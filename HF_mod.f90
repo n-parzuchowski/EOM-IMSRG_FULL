@@ -6,6 +6,7 @@ module HF_mod
 contains
 !====================================================
 subroutine calc_HF( H ,jbas )
+  ! returns H in the normal orderd Hartree Fock basis
   implicit none 
   
   type(spd) :: jbas
@@ -69,8 +70,9 @@ subroutine calc_HF( H ,jbas )
 
  call transform_1b_to_HF(D,Dx,F,T,H,jbas) 
   
- print*, 'Hartree Fock Energy: '
- print*, e_HF(T,jbas)
+ ! this needs to come after the transformation
+ ! e_HF is calculated in the hartree fock basis
+ H%E0 = e_HF(T,jbas)
 
  call transform_2b_to_HF(D,H,jbas) 
 
@@ -146,7 +148,7 @@ subroutine gamma_matrix(gam,int,rho,jbas)
               ! sum over elements of the block
               do grho = 1,rho%map(qrho) 
                  do hrho = 1,rho%map(qrho) 
-                    !if (abs(rho%blkM(qrho)%matrix(hrho,grho)) < 1e-9) cycle
+                    
                     n2 = rho%blkM(qrho)%states(grho) 
                     n4 = rho%blkM(qrho)%states(hrho) 
                        
@@ -157,10 +159,7 @@ subroutine gamma_matrix(gam,int,rho,jbas)
                        sm = sm + rho%blkM(qrho)%matrix(hrho,grho) &
                             * v_elem(n1,n2,n3,n4,JJ,TZ,PAR,int,jbas) &
                             * (JJ + 1.d0)/(jrho + 1.d0)
-                      ! write(31,*) n1,n2,n3,n4,JJ,TZ,PAR,&
-                       !     v_elem(n1,n2,n3,n4,JJ,TZ,PAR,int,jbas),&
-                       !rho%blkM(qrho)%matrix(hrho,grho)
-       
+                             
                     end do 
                     
                  end do 
@@ -242,6 +241,7 @@ end function
 !===========================================================
 !===========================================================
 subroutine transform_1b_to_HF(D,Dx,F,T,H,jbas) 
+  ! typical transformation, remap to fancy array
   implicit none 
   
   type(sq_op) :: H
@@ -255,11 +255,13 @@ subroutine transform_1b_to_HF(D,Dx,F,T,H,jbas)
      dm = F%map(q)
      if (dm == 0)  cycle
      
+     ! transform the Fock matrix
      call dgemm('N','N',dm,dm,dm,al,F%blkM(q)%matrix&
           ,dm,D%blkM(q)%matrix,dm,bet,Dx%blkM(q)%matrix,dm) 
      call dgemm('T','N',dm,dm,dm,al,D%blkM(q)%matrix&
           ,dm,Dx%blkM(q)%matrix,dm,bet,F%blkM(q)%matrix,dm) 
      
+     ! transform the KE matrix
      call dgemm('N','N',dm,dm,dm,al,T%blkM(q)%matrix&
           ,dm,D%blkM(q)%matrix,dm,bet,Dx%blkM(q)%matrix,dm) 
      call dgemm('T','N',dm,dm,dm,al,D%blkM(q)%matrix&
@@ -275,6 +277,7 @@ subroutine transform_1b_to_HF(D,Dx,F,T,H,jbas)
            c2 = jbas%con(j) 
            cx = c1 + c2 
            
+           ! fancy array remap ( normal ordered now ) 
      select case (cx) 
         case(0) 
            H%fpp(i-jbas%holesb4(i),j-jbas%holesb4(j)) = &
@@ -305,6 +308,7 @@ end subroutine
 !===========================================================
 !===========================================================  
 subroutine transform_2b_to_HF(D,H,jbas)
+  ! map TBME into HF basis.DFWT
   ! huge mess. It's way too much of a hastle if you don't
   ! put everything into large square matrices and work from there
   implicit none 
@@ -319,7 +323,7 @@ subroutine transform_2b_to_HF(D,H,jbas)
   real(8),allocatable,dimension(:,:) :: Vfull,Cfull,temp,Dsmall
   real(8),allocatable,dimension(:,:) :: V1,V2,V3,V4,crevfull
   
-  ! construct full D matrix 
+  ! construct full D matrix (with zeros) 
   allocate(Dsmall(H%Nsp,H%Nsp)) 
   Dsmall = 0.d0 
   do q = 1, D%blocks
@@ -371,7 +375,7 @@ subroutine transform_2b_to_HF(D,H,jbas)
      qnbig(nh+1:nh+nb,:) = H%mat(q)%qn(2)%Y
      qnbig(nh+nb+1:nt,:) = H%mat(q)%qn(1)%Y
      
-     ! filling the C matrix 
+     ! filling the C matrices
    
      do II = 1,nt
            

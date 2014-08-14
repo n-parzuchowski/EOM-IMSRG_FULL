@@ -6,17 +6,17 @@ program main_IMSRG
   
   type(spd) :: jbasis 
   type(sq_op) :: HS 
-  character(50) :: sp_input_file,interaction_file
+  character(200) :: sp_input_file,interaction_file
+  character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,ham_type,j3
   real(8) :: hw ,sm
+  logical :: hartree_fock 
   
-  HS%Aprot = 20
-  HS%Aneut = 20
-  HS%herm = 1  
-  ham_type = 1
-  hw = 28.0
-  sp_input_file ='nl4.sps'
-  interaction_file = 'vsrg.int' 
+  call getarg(1,inputs_from_command) 
+  call read_main_input_file(inputs_from_command,HS,ham_type,&
+       hartree_fock,hw,sp_input_file,interaction_file)
+ 
+  HS%herm = 1
   
   call read_sp_basis(jbasis,sp_input_file,HS%Aprot,HS%Aneut) 
 
@@ -26,7 +26,15 @@ program main_IMSRG
  
   call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
  
-  call calc_HF(HS,jbasis) 
+  IF (hartree_fock) then 
+     call calc_HF(HS,jbasis) 
+     ! calc_HF normal orders the hamiltonian
+  else 
+     call normal_order(HS,jbasis) 
+  END IF
   
+  print*, HS%E0
+     
+     
 end program main_IMSRG
 
