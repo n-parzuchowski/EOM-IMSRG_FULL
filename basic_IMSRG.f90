@@ -1,15 +1,5 @@
 module basic_IMSRG 
   ! contains basic type declarations, constants, and adminstrative routines  
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-  TYPE :: spd    ! single particle discriptor
-     INTEGER :: total_orbits,Jtotal_max,lmax
-     INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
-     INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holesb4,partsb4,holes,parts 
-     ! for clarity:  nn, ll, nshell are all the true value
-     ! jj is j+1/2 (so it's an integer) 
-     ! likewise itzp is 2*tz 
-     REAL(8), ALLOCATABLE,DIMENSION(:) :: e
-  END TYPE spd
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: real_mat !element of an array of matrices
      real(8),allocatable,dimension(:,:) :: X 
@@ -22,6 +12,17 @@ module basic_IMSRG
   TYPE :: int_vec
      integer,allocatable,dimension(:) :: Z
   END TYPE int_vec
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  TYPE :: spd    ! single particle discriptor
+     INTEGER :: total_orbits,Jtotal_max,lmax,spblocks
+     INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
+     INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holesb4,partsb4,holes,parts 
+     type(int_vec), allocatable,dimension(:) :: states
+     ! for clarity:  nn, ll, nshell are all the true value
+     ! jj is j+1/2 (so it's an integer) 
+     ! likewise itzp is 2*tz  
+     REAL(8), ALLOCATABLE,DIMENSION(:) :: e
+  END TYPE spd
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   TYPE ::  six_index_store
      type(real_mat),allocatable,dimension(:,:) :: tp_mat
@@ -75,6 +76,7 @@ subroutine read_sp_basis(jbas,sp_input_file,hp,hn)
   type(spd) :: jbas
   character(200) :: sp_input_file
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
+  integer :: q,r
   real(8) :: e
   
   open(unit=39,file='../sp_inputs/'//trim(adjustl(sp_input_file)))
@@ -130,7 +132,47 @@ subroutine read_sp_basis(jbas,sp_input_file,hp,hn)
   call store_6j(jbas) ! save six-j symbols to an array
   close(39) 
   
-end subroutine 
+  jbas%spblocks =  (jbas%Jtotal_max + 1) * (jbas%lmax + 1)
+  allocate(jbas%states(jbas%spblocks)) 
+
+  ! this set of loops fills jbas%states
+  ! which tells us which sp states 
+  ! are contained in each block
+  q = 1
+  do tzi = -1,1,2
+     do li = 0,jbas%lmax
+        do ji = 1,jbas%Jtotal_max,2
+           
+           ! count states
+           r = 0
+           do i = 1, jbas%total_orbits
+              
+              if (jbas%jj(i) .ne. ji) cycle
+              if (jbas%ll(i) .ne. li) cycle
+              if (jbas%itzp(i) .ne. tzi) cycle 
+              
+              r = r + 1
+           end do 
+           
+           allocate(jbas%states(q)%Z(r)) 
+           
+           ! fill array
+           r = 0
+           do i = 1, jbas%total_orbits
+              
+              if (jbas%jj(i) .ne. ji) cycle
+              if (jbas%ll(i) .ne. li) cycle
+              if (jbas%itzp(i) .ne. tzi) cycle 
+              
+              r = r + 1
+              jbas%states(q)%Z(r) = i 
+           end do 
+           q = q + 1
+        end do
+     end do 
+  end do 
+
+end subroutine  
 !==============================================
 !==============================================
 subroutine find_holes(jbas,pholes,nholes) 
@@ -410,12 +452,12 @@ logical function triangle(j1,j2,J)
   
   integer :: j1,j2,J
   
-
   if ( ( J .le. j1+j2 ) .and. (J .ge. abs(j1-j2) ) )then
      triangle = .true. 
   else 
      triangle = .false.
   end if 
+  
 end function 
 !=================================================================     
 !=================================================================
@@ -460,7 +502,7 @@ real(8) function f_elem(a,b,op,jbas)
 end function
 !==============================================================
 !==============================================================
-real(8) function v_elem(a,b,c,d,J,T,P,op,jbas) 
+real(8) function v_elem(a,b,c,d,J,op,jbas) 
   ! grabs the matrix element you are looking for
   implicit none
   
@@ -470,16 +512,18 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
   type(sq_op) :: op 
   type(spd) :: jbas
  
+  !make sure the matrix element exists first
   
-  ja = jbas%jj(a)
-  jb = jbas%jj(b)
-  jc = jbas%jj(c)
-  jd = jbas%jj(d)
+
+ ja = jbas%jj(a)
+ jb = jbas%jj(b)
+ jc = jbas%jj(c)
+ jd = jbas%jj(d)
   
-  if ( .not. ((triangle(ja,jb,J)) .and. (triangle (jc,jd,J))) ) then 
-     v_elem = 0.d0
-     return
-  end if 
+ if ( .not. ((triangle(ja,jb,J)) .and. (triangle (jc,jd,J))) ) then 
+    v_elem = 0.d0
+    return
+ end if 
      
   la = jbas%ll(a)
   lb = jbas%ll(b)
@@ -488,9 +532,9 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
      
   P = mod(la + lb,2) 
      
-  if ( mod(lc + ld,2) .ne. P ) then 
-     v_elem = 0.d0 
-     return
+  if ( mod(lc + ld,2) .ne. P ) then
+    v_elem = 0.d0 
+    return
   end if 
         
   ta = jbas%itzp(a)
@@ -500,9 +544,10 @@ real(8) function v_elem(a,b,c,d,J,T,P,op,jbas)
      
   T = (ta + tb)/2
      
-  if ((tc+tb) .ne. 2*T) then 
-     v_elem = 0.d0
-     return
+  
+  if ((tc+td) .ne. 2*T) then     
+    v_elem = 0.d0
+    return
   end if 
 
   q = block_index(J,T,P) 
@@ -810,11 +855,9 @@ subroutine normal_order(H,jbas)
      do j = 1,TEMP%Nsp
         
         if (jbas%con(i)*jbas%con(j) == 0) cycle
-        T = (jbas%itzp(i) + jbas%itzp(j))/2
-        P = mod(jbas%ll(i)+jbas%ll(j),2) 
         
         do JT = abs(jbas%jj(i) - jbas%jj(j)) ,jbas%jj(i)+jbas%jj(j),2 
-           sm = sm + v_elem(i,j,i,j,JT,T,P,TEMP,jbas)*(JT + 1) 
+           sm = sm + v_elem(i,j,i,j,JT,TEMP,jbas)*(JT + 1) 
         end do
      end do 
   end do 
@@ -841,12 +884,9 @@ subroutine normal_order(H,jbas)
            ix = jbas%holes(i) 
            do JT = abs(jbas%jj(ix) - jbas%jj(ax)), &
                 jbas%jj(ix) + jbas%jj(ax), 2
-              
-              T = (jbas%itzp(ix) + jbas%itzp(ax))/2 
-              P = mod(jbas%ll(ix) + jbas%ll(ax),2) 
-              
+                  
               sm = sm + (JT+1.d0)/(jbas%jj(ax) + 1) *&
-                   v_elem(ax,ix,bx,ix,JT,T,P,TEMP,jbas) 
+                   v_elem(ax,ix,bx,ix,JT,TEMP,jbas) 
               
            end do 
         end do 
@@ -875,11 +915,8 @@ subroutine normal_order(H,jbas)
            do JT = abs(jbas%jj(ix) - jbas%jj(ax)), &
                 jbas%jj(ix) + jbas%jj(ax), 2
               
-              T = (jbas%itzp(ix) + jbas%itzp(ax))/2 
-              P = mod(jbas%ll(ix) + jbas%ll(ax),2) 
-              
               sm = sm + (JT+1.d0)/(jbas%jj(ax) + 1) *&
-                   v_elem(ax,ix,bx,ix,JT,T,P,TEMP,jbas) 
+                   v_elem(ax,ix,bx,ix,JT,TEMP,jbas) 
               
            end do 
         end do 
@@ -907,11 +944,8 @@ subroutine normal_order(H,jbas)
            do JT = abs(jbas%jj(ix) - jbas%jj(ax)), &
                 jbas%jj(ix) + jbas%jj(ax), 2
               
-              T = (jbas%itzp(ix) + jbas%itzp(ax))/2 
-              P = mod(jbas%ll(ix) + jbas%ll(ax),2) 
-              
               sm = sm + (JT+1.d0)/(jbas%jj(ax) + 1) *&
-                   v_elem(ax,ix,bx,ix,JT,T,P,TEMP,jbas) 
+                   v_elem(ax,ix,bx,ix,JT,TEMP,jbas) 
               
            end do 
         end do 

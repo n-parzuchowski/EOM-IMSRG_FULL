@@ -31,14 +31,14 @@ program main_IMSRG
 ! BUILD BASIS
 !============================================================
   call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
- 
+  
   if (hartree_fock) then 
      call calc_HF(HS,jbasis) 
      ! calc_HF normal orders the hamiltonian
   else 
      call normal_order(HS,jbasis) 
   end if 
- 
+  
 !============================================================
 ! PLAYGROUND
 !============================================================ 
@@ -59,12 +59,14 @@ program main_IMSRG
   call build_gs_white(HS,ETA,jbasis) 
 
   t1 = omp_get_wtime()
-  call commutator_111(ETA,HS,DH,jbasis)
+  call commutator_122(ETA,HS,DH,jbasis)
   t2 = omp_get_wtime()
   print*, t2-t1
-  call print_matrix(DH%fph(1:6,:))
-  call print_matrix(DH%fhh)
-  call print_matrix(DH%fpp(1:10,1:10))
+  
+  call print_matrix(DH%mat(1)%gam(1)%X(1:10,1:10))
+ ! call print_matrix(DH%fph(1:6,:))
+ ! call print_matrix(DH%fhh)
+ ! call print_matrix(DH%fpp(1:10,1:10))
   
   
 end program main_IMSRG

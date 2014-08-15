@@ -37,15 +37,12 @@ subroutine build_gs_white(H,ETA,jbas)
         if ( ji .ne. ja) cycle
         if ( li .ne. la) cycle
         if ( ti .ne. ta) cycle 
-        
-        PAR = 0 ! both states have same l
-        TZ = ti ! both states have same tz
-        
+     
         ! energy denominator has a sum over J  to factor out m dep. 
         Eden = 0.0 
         
         do JT = 0, 2*ji , 2
-           Eden = Eden + (JT + 1) * v_elem(ak,ik,ak,ik,JT,TZ,PAR,H,jbas) 
+           Eden = Eden + (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
         end do 
         
         ! sum is averaged over ji ** 2  
@@ -69,11 +66,7 @@ subroutine build_gs_white(H,ETA,jbas)
         b = H%mat(q)%qn(1)%Y(IX,2)
 
         ja = jbas%jj(a)
-        jb = jbas%jj(b)
-        la = jbas%ll(a)
-        lb = jbas%ll(b)
-        ta = jbas%itzp(a)
-        tb = jbas%itzp(b)
+        jb = jbas%jj(b)   
         
         do JX = 1,H%mat(q)%nhh 
 
@@ -82,10 +75,7 @@ subroutine build_gs_white(H,ETA,jbas)
 
            ji = jbas%jj(i)
            jj = jbas%jj(j)
-           li = jbas%ll(i)
-           lj = jbas%ll(j)
-           ti = jbas%itzp(i)
-           tj = jbas%itzp(j)
+         
            
            Eden = 0.d0 
            
@@ -93,12 +83,12 @@ subroutine build_gs_white(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,la,lb,ta,tb,H,jbas) 
-           Eden = Eden + Javerage(i,j,ji,jj,li,lj,ti,tj,H,jbas) 
-           Eden = Eden - Javerage(a,i,ja,ji,la,li,ta,ti,H,jbas) 
-           Eden = Eden - Javerage(a,j,ja,jj,la,lj,ta,tj,H,jbas) 
-           Eden = Eden - Javerage(i,b,ji,jb,li,lb,ti,tb,H,jbas) 
-           Eden = Eden - Javerage(j,b,jj,jb,lj,lb,tj,tb,H,jbas) 
+           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
+           Eden = Eden + Javerage(i,j,ji,jj,H,jbas) 
+           Eden = Eden - Javerage(a,i,ja,ji,H,jbas) 
+           Eden = Eden - Javerage(a,j,ja,jj,H,jbas) 
+           Eden = Eden - Javerage(i,b,ji,jb,H,jbas) 
+           Eden = Eden - Javerage(j,b,jj,jb,H,jbas) 
            
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -115,22 +105,19 @@ end subroutine
 end module
 !==========================================================
 !==========================================================
-real(8) function Javerage(a,b,ja,jb,la,lb,ta,tb,H,jbas) 
+real(8) function Javerage(a,b,ja,jb,H,jbas) 
   ! average over J used a lot in white generator
   use basic_IMSRG
   implicit none 
   
-  integer :: ja,jb,la,lb,ta,tb,PAR,TZ,JT,a,b
+  integer :: ja,jb,JT,a,b
   type(sq_op) :: H 
   type(spd) :: jbas 
   real(8) :: sm
-  
-  PAR = mod(la+lb,2) 
-  TZ = (ta + tb)/2 
-           
+            
   sm = 0.d0 
   do JT = abs(ja-jb),ja+jb,2
-     sm = sm + (JT + 1) * v_elem(a,b,a,b,JT,TZ,PAR,H,jbas) 
+     sm = sm + (JT + 1) * v_elem(a,b,a,b,JT,H,jbas) 
   end do 
   
   Javerage = sm /(ja + 1.d0) / (jb + 1.d0) 

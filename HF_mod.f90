@@ -124,8 +124,6 @@ subroutine gamma_matrix(gam,int,rho,jbas)
 
      gam%blkM(q)%matrix = 0.d0 
      jfoc = rho%blkM(q)%lmda(2)
-     lfoc = rho%blkM(Q)%lmda(1)
-     tzfoc = rho%blkM(q)%lmda(3) 
      
      ! loop over states in this block
      do i = 1, gam%map(q)
@@ -139,12 +137,7 @@ subroutine gamma_matrix(gam,int,rho,jbas)
            do qrho =  1, rho%blocks
            
               jrho = rho%blkM(qrho)%lmda(2) 
-              lrho = rho%blkM(qrho)%lmda(1) 
-              tzrho = rho%blkM(qrho)%lmda(3) 
-      
-              PAR =mod(lfoc + lrho,2) 
-              TZ = (tzrho + tzfoc)/2          
-
+                  
               ! sum over elements of the block
               do grho = 1,rho%map(qrho) 
                  do hrho = 1,rho%map(qrho) 
@@ -157,7 +150,7 @@ subroutine gamma_matrix(gam,int,rho,jbas)
                     do JJ = abs(jrho - jfoc),jrho+jfoc,2
                        
                        sm = sm + rho%blkM(qrho)%matrix(hrho,grho) &
-                            * v_elem(n1,n2,n3,n4,JJ,TZ,PAR,int,jbas) &
+                            * v_elem(n1,n2,n3,n4,JJ,int,jbas) &
                             * (JJ + 1.d0)/(jrho + 1.d0)
                              
                     end do 
