@@ -7,7 +7,7 @@ program main_IMSRG
   implicit none
   
   type(spd) :: jbasis 
-  type(sq_op) :: HS,ETA,DH
+  type(sq_op) :: HS,ETA,DH,w1,w2
   character(200) :: sp_input_file,interaction_file
   character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,ham_type,j3
@@ -54,19 +54,22 @@ program main_IMSRG
      end do 
   end do 
   
-  call duplicate_sq_op(HS,ETA) 
-  call duplicate_sq_op(HS,DH) 
+  call duplicate_sq_op(HS,ETA) !generator
+  call duplicate_sq_op(HS,DH) !derivative
+  call duplicate_sq_op(HS,w1) !workspace
+  call duplicate_sq_op(HS,w2) !workspace
   call build_gs_white(HS,ETA,jbasis) 
 
   t1 = omp_get_wtime()
-  call commutator_122(ETA,HS,DH,jbasis)
+  call commutator_221(ETA,HS,DH,jbasis)
   t2 = omp_get_wtime()
   print*, t2-t1
   
-  call print_matrix(DH%mat(1)%gam(1)%X(1:10,1:10))
- ! call print_matrix(DH%fph(1:6,:))
- ! call print_matrix(DH%fhh)
- ! call print_matrix(DH%fpp(1:10,1:10))
+ ! call print_matrix(DH%mat(1)%gam(1)%X(1:10,1:10))
+  call print_matrix(DH%fph(1:6,:))
+  call print_matrix(DH%fhh)
+  call print_matrix(DH%fpp(1:10,1:10))
+  
   
   
 end program main_IMSRG

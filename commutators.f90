@@ -412,17 +412,213 @@ subroutine commutator_122(L,R,RES,jbas)
   end do 
 
 end subroutine           
-     
-integer function sp_block_index(j,l,t,jbas) 
+!=============================================
+!=============================================
+real(8) function commutator_220(L,R,jbas) 
+  ! zero body part of [L2,R2] 
+  !VERIFIED
   implicit none 
   
   type(spd) :: jbas
-  integer :: j,l,t
+  type(sq_op) :: L,R
+  integer :: IX,JX,q,np,nh
+  real(8) :: sm,smx
   
-  sp_block_index = ((t+1) *  (jbas%Jtotal_max + 1) * (jbas%lmax + 1)) / 4 + &
-       l * (jbas%Jtotal_max + 1) / 2 + (j+1) / 2
-end function 
+  if (R%herm * L%herm == -1) then 
+  
+  sm = 0.d0 
+  do q = 1, L%nblocks
+     nh = L%mat(q)%nhh
+     np = L%mat(q)%npp
+     
+     smx = 0 
+     do IX = 1, np 
+        do JX = 1,nh
+           
+           smx = smx - L%mat(q)%gam(3)%X(IX,JX) * R%mat(q)%gam(3)%X(IX,JX) 
+        end do
+     end do 
+     
+     sm = sm + smx * (L%mat(q)%lam(1) + 1) 
+  end do 
+  
+  commutator_220 = sm * 2.d0 
+  else 
+  commutator_220 = 0.d0
+  end if 
 
+end function              
+!===================================================================
+!===================================================================
+subroutine commutator_221(L,R,RES,jbas) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) :: L,R,RES
+  integer :: i,j,q,Abody,Ntot,a,b,c,d,ix,jx,JT
+  real(8) :: sm
+  
+  Abody = L%belowEF
+  Ntot = L%Nsp
+  
+  do i = 1, Abody
+     do j = 1,Abody
+        
+        ix = jbas%holes(i)
+        jx = jbas%holes(j) 
+        
+        sm = 0.d0 
+        
+        do a = 1, Ntot
+           do b = 1, Ntot
+              do c = 1, Ntot
+                 
+                 do JT = 0,18,2
+                 sm = sm + ( v_elem(c,ix,a,b,JT,L,jbas) * v_elem(a,b,c,jx,JT,R,jbas) + &
+                 v_elem(c,jx,a,b,JT,L,jbas) * v_elem(a,b,c,ix,JT,R,jbas) ) * &
+                 (( 1 - jbas%con(a)) * ( 1 - jbas%con(b)) *jbas%con(c) + &
+                 jbas%con(a) * jbas%con(b) *(1 - jbas%con(c)) ) *(JT + 1)
+                 end do 
+              end do 
+           end do
+        end do 
+        
+        RES%fhh(i,j) = RES%fhh(i,j)  + sm /2.d0/(jbas%jj(ix) + 1.d0 ) 
+        
+     end do 
+  end do 
+  
+  do i = 1, Ntot-Abody
+     do j = 1,Ntot-Abody
+        
+        ix = jbas%parts(i)
+        jx = jbas%parts(j) 
+        
+        sm = 0.d0 
+        
+        do a = 1, Ntot
+           do b = 1, Ntot
+              do c = 1, Ntot
+                 
+                 do JT = 0,18,2
+                 sm = sm + ( v_elem(c,ix,a,b,JT,L,jbas) * v_elem(a,b,c,jx,JT,R,jbas) + &
+                 v_elem(c,jx,a,b,JT,L,jbas) * v_elem(a,b,c,ix,JT,R,jbas) ) * &
+                 (( 1 - jbas%con(a)) * ( 1 - jbas%con(b)) *jbas%con(c) + &
+                 jbas%con(a) * jbas%con(b) *(1 - jbas%con(c)) ) *(JT + 1)
+                 end do 
+              end do 
+           end do
+        end do 
+        
+        RES%fpp(i,j) = RES%fpp(i,j)  + sm /2.d0/(jbas%jj(ix) + 1.d0 ) 
+        
+     end do 
+  end do 
+  
+  do i = 1,Ntot- Abody
+     do j = 1,Abody
+        
+        ix = jbas%parts(i)
+        jx = jbas%holes(j) 
+        
+        
+        sm = 0.d0 
+        
+        do a = 1, Ntot
+           do b = 1, Ntot
+              do c = 1, Ntot
+                 
+                 do JT = 0,18,2
+                 sm = sm + ( v_elem(c,ix,a,b,JT,L,jbas) * v_elem(a,b,c,jx,JT,R,jbas) + &
+                 v_elem(c,jx,a,b,JT,L,jbas) * v_elem(a,b,c,ix,JT,R,jbas) ) * &
+                 (( 1 - jbas%con(a)) * ( 1 - jbas%con(b)) *jbas%con(c) + &
+                 jbas%con(a) * jbas%con(b) *(1 - jbas%con(c)) ) * ( JT + 1) 
+                 end do 
+              end do 
+           end do
+        end do 
+        
+        RES%fph(i,j) = RES%fph(i,j)  + sm /2.d0/(jbas%jj(ix) + 1.d0 ) 
+        
+     end do 
+  end do 
+  
+end subroutine
+!===================================================================
+!===================================================================
+subroutine xcommutator_221(L,R,RES,w1,w2,jbas) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) :: L,R,RES,w1,w2
+  integer :: i,j,q,Abody,Ntot,nh,np,nb
+  real(8) :: sm
+  
+  Abody = L%belowEF
+  Ntot = L%Nsp
+  
+  !construct temporary matrices
+  do q = 1, L%nblocks
+     
+     nh = L%mat(q)%nhh
+     np = L%mat(q)%npp
+     nb = L%mat(q)%nph
+     
+     !L_hhpp . R_pphh = W1_hhhh
+     call dgemm('T','N',nh,nh,np,al,L%mat(q)%gam(3)%X,np,&
+          R%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(5)%X,nh)
+    
+     w1%mat(q)%gam(5)%X = w1%mat(q)%gam(5)%X * L%herm 
+     
+     !L_phhh . R_hhph = W2_phph
+     call dgemm('N','T',nb,nb,nh,al,L%mat(q)%gam(6)%X,nb,&
+          R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(4)%X,nb) 
+     
+     w2%mat(q)%gam(4)%X = w2%mat(q)%gam(4)%X * R%herm
+     
+     !L_phpp . R_ppph = W1_phph
+     call dgemm('T','N',nb,nb,np,al,L%mat(q)%gam(2)%X,np,&
+          R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(4)%X,nb) 
+     
+     w1%mat(q)%gam(2)%X = w1%mat(q)%gam(2)%X * L%herm 
+     
+     !L_pphh . R_hhpp = W2_pppp
+     call dgemm('N','T',np,np,nh,al,L%mat(q)%gam(3)%X,np,&
+          R%mat(q)%gam(3)%X,np,bet,w2%mat(q)%gam(1)%X,np)
+     
+     w2%mat(q)%gam(1)%X = w2%mat(q)%gam(1)%X * R%herm
+     
+     !L_phpp . R_pphh = W1_phhh 
+     call dgemm('T','N',nb,nh,np,al,L%mat(q)%gam(2)%X,np,&
+          R%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(6)%X,nb)
+     
+     w1%mat(q)%gam(6)%X = w1%mat(q)%gam(6)%X * L%herm 
+     
+     !L_pphh . R_hhph = W2_ppph
+     call dgemm('N','T',np,nb,nh,al,L%mat(q)%gam(3)%X,np,&
+          R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(2)%X,np)
+     
+     w2%mat(q)%gam(2)%X = w2%mat(q)%gam(2)%X * R%herm
+     
+     !R_phpp . L_pphh = W2_phhh (this is transposed) 
+     call dgemm('T','N',nb,nh,np,al,R%mat(q)%gam(2)%X,np,&
+          L%mat(q)%gam(3)%X,np,bet,w2%mat(q)%gam(6)%X,nb)
+     
+     ! I think I need to multiply by the opposite herm factor 
+     ! in this case because it's all transposed
+   
+     w2%mat(q)%gam(6)%X = w2%mat(q)%gam(6)%X * L%herm 
+     
+     !R_pphh . L_hhph = W1_ppph (this is transposed) 
+     call dgemm('N','T',np,nb,nh,al,R%mat(q)%gam(3)%X,np,&
+          L%mat(q)%gam(6)%X,nb,bet,w1%mat(q)%gam(2)%X,np)
+     
+     w1%mat(q)%gam(2)%X = w1%mat(q)%gam(2)%X * R%herm
+     
+  end do 
+
+end subroutine
+     
 end module 
   
   

@@ -402,7 +402,7 @@ subroutine read_interaction(H,intfile,jbas,htype,hw)
         int1 = N*(b-1) + a 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
      else
-        if (a == b) pre = pre * sqrt( 2.d0 )
+       ! if (a == b) pre = pre * sqrt( 2.d0 )
         int1 = N*(a-1) + b
      end if
   
@@ -410,7 +410,7 @@ subroutine read_interaction(H,intfile,jbas,htype,hw)
         int2 = N*(d-1) + c
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
      else 
-        if (c == d) pre = pre * sqrt( 2.d0 )
+       ! if (c == d) pre = pre * sqrt( 2.d0 )
         int2 = N*(c-1) + d
      end if
      ! kets/bras are pre-scaled by sqrt(2) if they 
@@ -469,6 +469,17 @@ integer function block_index(J,T,P)
   
 end function 
 !=================================================================     
+!=================================================================     
+integer function sp_block_index(j,l,t,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: j,l,t
+  
+  sp_block_index = ((t+1) *  (jbas%Jtotal_max + 1) * (jbas%lmax + 1)) / 4 + &
+       l * (jbas%Jtotal_max + 1) / 2 + (j+1) / 2
+end function 
+!=================================================================     
 !=================================================================
 real(8) function f_elem(a,b,op,jbas) 
   implicit none 
@@ -507,10 +518,11 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
   implicit none
   
   integer :: a,b,c,d,J,T,P,q,qx,c1,c2
-  integer :: int1,int2,pre,i1,i2
+  integer :: int1,int2,i1,i2
   integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
   type(sq_op) :: op 
   type(spd) :: jbas
+  real(8) :: pre
  
   !make sure the matrix element exists first
   
@@ -577,6 +589,7 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
      int1 = op%Nsp*(b-1) + a 
      pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
   else
+     if (a == b) pre = pre * sqrt( 2.d0 )
      int1 = op%Nsp*(a-1) + b
   end if 
   
@@ -584,6 +597,8 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
      int2 = op%Nsp*(d-1) + c
      pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
   else 
+     if (c == d) pre = pre * sqrt( 2.d0 )
+      
      int2 = op%Nsp*(c-1) + d
   end if 
 

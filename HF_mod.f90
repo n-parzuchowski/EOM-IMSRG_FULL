@@ -380,11 +380,13 @@ subroutine transform_2b_to_HF(D,H,jbas)
            a = qnbig(JJ,1)
            b = qnbig(JJ,2)
                               
-           Cfull(JJ,II) = Dsmall(a,i)*Dsmall(b,j) 
+           Cfull(JJ,II) = Dsmall(a,i)*Dsmall(b,j) * &
+                sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(i,j))  
            
            Crevfull(JJ,II) = Dsmall(b,i)*Dsmall(a,j) *&
                 (1 - kron_del(a,b)) * &
-           (-1)**( (jbas%jj(a) + jbas%jj(b) ) /2 ) 
+           (-1)**( (jbas%jj(a) + jbas%jj(b) ) /2 ) * &
+           sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(i,j)) 
          
            
         end do  
