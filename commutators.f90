@@ -450,112 +450,19 @@ real(8) function commutator_220(L,R,jbas)
 end function              
 !===================================================================
 !===================================================================
-subroutine commutator_221(L,R,RES,jbas) 
-  implicit none
-  
-  type(spd) :: jbas
-  type(sq_op) :: L,R,RES
-  integer :: i,j,q,Abody,Ntot,a,b,c,d,ix,jx,JT
-  real(8) :: sm
-  
-  Abody = L%belowEF
-  Ntot = L%Nsp
-  
-  do i = 1, Abody
-     do j = 1,Abody
-        
-        ix = jbas%holes(i)
-        jx = jbas%holes(j) 
-        
-        sm = 0.d0 
-        
-        do a = 1, Ntot
-           do b = 1, Ntot
-              do c = 1, Ntot
-                 
-                 do JT = 0,18,2
-                 sm = sm + ( v_elem(c,ix,a,b,JT,L,jbas) * v_elem(a,b,c,jx,JT,R,jbas) + &
-                 v_elem(c,jx,a,b,JT,L,jbas) * v_elem(a,b,c,ix,JT,R,jbas) ) * &
-                 (( 1 - jbas%con(a)) * ( 1 - jbas%con(b)) *jbas%con(c) + &
-                 jbas%con(a) * jbas%con(b) *(1 - jbas%con(c)) ) *(JT + 1)
-                 end do 
-              end do 
-           end do
-        end do 
-        
-        RES%fhh(i,j) = RES%fhh(i,j)  + sm /2.d0/(jbas%jj(ix) + 1.d0 ) 
-        
-     end do 
-  end do 
-  
-  do i = 1, Ntot-Abody
-     do j = 1,Ntot-Abody
-        
-        ix = jbas%parts(i)
-        jx = jbas%parts(j) 
-        
-        sm = 0.d0 
-        
-        do a = 1, Ntot
-           do b = 1, Ntot
-              do c = 1, Ntot
-                 
-                 do JT = 0,18,2
-                 sm = sm + ( v_elem(c,ix,a,b,JT,L,jbas) * v_elem(a,b,c,jx,JT,R,jbas) + &
-                 v_elem(c,jx,a,b,JT,L,jbas) * v_elem(a,b,c,ix,JT,R,jbas) ) * &
-                 (( 1 - jbas%con(a)) * ( 1 - jbas%con(b)) *jbas%con(c) + &
-                 jbas%con(a) * jbas%con(b) *(1 - jbas%con(c)) ) *(JT + 1)
-                 end do 
-              end do 
-           end do
-        end do 
-        
-        RES%fpp(i,j) = RES%fpp(i,j)  + sm /2.d0/(jbas%jj(ix) + 1.d0 ) 
-        
-     end do 
-  end do 
-  
-  do i = 1,Ntot- Abody
-     do j = 1,Abody
-        
-        ix = jbas%parts(i)
-        jx = jbas%holes(j) 
-        
-        
-        sm = 0.d0 
-        
-        do a = 1, Ntot
-           do b = 1, Ntot
-              do c = 1, Ntot
-                 
-                 do JT = 0,18,2
-                 sm = sm + ( v_elem(c,ix,a,b,JT,L,jbas) * v_elem(a,b,c,jx,JT,R,jbas) + &
-                 v_elem(c,jx,a,b,JT,L,jbas) * v_elem(a,b,c,ix,JT,R,jbas) ) * &
-                 (( 1 - jbas%con(a)) * ( 1 - jbas%con(b)) *jbas%con(c) + &
-                 jbas%con(a) * jbas%con(b) *(1 - jbas%con(c)) ) * ( JT + 1) 
-                 end do 
-              end do 
-           end do
-        end do 
-        
-        RES%fph(i,j) = RES%fph(i,j)  + sm /2.d0/(jbas%jj(ix) + 1.d0 ) 
-        
-     end do 
-  end do 
-  
-end subroutine
-!===================================================================
-!===================================================================
-subroutine xcommutator_221(L,R,RES,w1,w2,jbas) 
+subroutine commutator_221(L,R,RES,w1,w2,jbas) 
+  ! verified with some interesting quirks
   implicit none
   
   type(spd) :: jbas
   type(sq_op) :: L,R,RES,w1,w2
-  integer :: i,j,q,Abody,Ntot,nh,np,nb
+  integer :: i,j,q,Abody,Ntot,nh,np,nb,a,c
+  integer :: ik,jk,ck,ji,jj,ti,tj,li,lj,jc,JT
   real(8) :: sm
   
   Abody = L%belowEF
   Ntot = L%Nsp
+  
   
   !construct temporary matrices
   do q = 1, L%nblocks
@@ -564,23 +471,14 @@ subroutine xcommutator_221(L,R,RES,w1,w2,jbas)
      np = L%mat(q)%npp
      nb = L%mat(q)%nph
      
+     if (nh+np+nb == 0 ) cycle
+        
+     if (np*nh .ne. 0) then 
      !L_hhpp . R_pphh = W1_hhhh
      call dgemm('T','N',nh,nh,np,al,L%mat(q)%gam(3)%X,np,&
           R%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(5)%X,nh)
     
      w1%mat(q)%gam(5)%X = w1%mat(q)%gam(5)%X * L%herm 
-     
-     !L_phhh . R_hhph = W2_phph
-     call dgemm('N','T',nb,nb,nh,al,L%mat(q)%gam(6)%X,nb,&
-          R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(4)%X,nb) 
-     
-     w2%mat(q)%gam(4)%X = w2%mat(q)%gam(4)%X * R%herm
-     
-     !L_phpp . R_ppph = W1_phph
-     call dgemm('T','N',nb,nb,np,al,L%mat(q)%gam(2)%X,np,&
-          R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(4)%X,nb) 
-     
-     w1%mat(q)%gam(2)%X = w1%mat(q)%gam(2)%X * L%herm 
      
      !L_pphh . R_hhpp = W2_pppp
      call dgemm('N','T',np,np,nh,al,L%mat(q)%gam(3)%X,np,&
@@ -588,6 +486,28 @@ subroutine xcommutator_221(L,R,RES,w1,w2,jbas)
      
      w2%mat(q)%gam(1)%X = w2%mat(q)%gam(1)%X * R%herm
      
+     end if 
+     
+     if (nb*nh .ne. 0) then 
+     
+     !L_phhh . R_hhph = W2_phph
+     call dgemm('N','T',nb,nb,nh,al,L%mat(q)%gam(6)%X,nb,&
+          R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(4)%X,nb) 
+     
+     w2%mat(q)%gam(4)%X = w2%mat(q)%gam(4)%X * R%herm
+     
+     end if
+
+     if (nb*np .ne. 0) then 
+     !L_phpp . R_ppph = W1_phph
+     call dgemm('T','N',nb,nb,np,al,L%mat(q)%gam(2)%X,np,&
+          R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(4)%X,nb) 
+     
+     w1%mat(q)%gam(2)%X = w1%mat(q)%gam(2)%X * L%herm 
+     end if 
+      
+     
+     if(nb*np*nh .ne. 0) then 
      !L_phpp . R_pphh = W1_phhh 
      call dgemm('T','N',nb,nh,np,al,L%mat(q)%gam(2)%X,np,&
           R%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(6)%X,nb)
@@ -615,7 +535,133 @@ subroutine xcommutator_221(L,R,RES,w1,w2,jbas)
      
      w1%mat(q)%gam(2)%X = w1%mat(q)%gam(2)%X * R%herm
      
-  end do 
+     end if 
+  end do
+
+! fhh
+  do i = 1 , Abody
+     ik = jbas%holes(i) 
+     ji = jbas%jj(ik) 
+     li = jbas%ll(ik) 
+     ti = jbas%itzp(ik) 
+     
+     do j = i , Abody
+        
+        jk = jbas%holes(j) 
+        jj = jbas%jj(jk) 
+        if (ji .ne. jj)  cycle
+        lj = jbas%ll(jk) 
+        if (li .ne. lj)  cycle
+        tj = jbas%itzp(jk)
+        if (tj .ne. ti) cycle 
+                
+        sm = 0.d0 
+        do c = 1, Abody
+           ck = jbas%holes(c) 
+           jc = jbas%jj(ck)
+           do JT = abs(jc - ji),jc+ji,2
+              sm = sm + (v_elem(ck,ik,ck,jk,JT,w1,jbas) + &
+                   v_elem(ck,jk,ck,ik,JT,w1,jbas))*(JT + 1) 
+           end do 
+        end do 
+        
+        do c = 1, Ntot - Abody
+           ck = jbas%parts(c) 
+           jc = jbas%jj(ck)
+           do JT = abs(jc - ji),jc+ji,2
+              sm = sm + (v_elem(ck,ik,ck,jk,JT,w2,jbas) + &
+                   v_elem(ck,jk,ck,ik,JT,w2,jbas) )*(JT + 1)
+           end do 
+        end do 
+     
+        RES%fhh(i,j) = RES%fhh(i,j) + sm / (ji + 1.d0 )
+        RES%fhh(j,i) = RES%fhh(i,j) 
+     end do 
+  end do       
+           
+        
+! fpp
+  do i = 1 , Ntot - Abody
+     ik = jbas%parts(i) 
+     ji = jbas%jj(ik) 
+     li = jbas%ll(ik) 
+     ti = jbas%itzp(ik) 
+     
+     do j = 1 , Ntot - Abody
+        
+        jk = jbas%parts(j) 
+        jj = jbas%jj(jk) 
+        if (ji .ne. jj)  cycle
+        lj = jbas%ll(jk) 
+        if (li .ne. lj)  cycle
+        tj = jbas%itzp(jk)
+        if (tj .ne. ti) cycle 
+                
+        sm = 0.d0 
+        do c = 1, Abody
+           ck = jbas%holes(c) 
+           jc = jbas%jj(ck)
+           do JT = abs(jc - ji),jc+ji,2
+              sm = sm + (v_elem(ck,ik,ck,jk,JT,w1,jbas) + &
+                   v_elem(ck,jk,ck,ik,JT,w1,jbas))*(JT + 1) 
+           end do 
+        end do 
+        
+        do c = 1, Ntot - Abody
+           ck = jbas%parts(c) 
+           jc = jbas%jj(ck)
+           do JT = abs(jc - ji),jc+ji,2
+              sm = sm + (v_elem(ck,ik,ck,jk,JT,w2,jbas) + &
+                   v_elem(ck,jk,ck,ik,JT,w2,jbas))*(JT + 1)
+           end do 
+        end do 
+     
+        RES%fpp(i,j) = RES%fpp(i,j) + sm / (ji + 1.d0) 
+        RES%fpp(j,i) = RES%fpp(i,j) 
+     end do 
+  end do       
+  
+
+  ! fph
+  do i = 1 , Ntot - Abody
+     ik = jbas%parts(i) 
+     ji = jbas%jj(ik) 
+     li = jbas%ll(ik) 
+     ti = jbas%itzp(ik) 
+     
+     do j = 1 , Abody
+        
+        jk = jbas%holes(j) 
+        jj = jbas%jj(jk) 
+        if (ji .ne. jj)  cycle
+        lj = jbas%ll(jk) 
+        if (li .ne. lj)  cycle
+        tj = jbas%itzp(jk)
+        if (tj .ne. ti) cycle 
+                
+        sm = 0.d0 
+        do c = 1, Abody
+           ck = jbas%holes(c) 
+           jc = jbas%jj(ck)
+           do JT = abs(jc - ji),jc+ji,2
+              sm = sm + ( v_elem(ck,ik,ck,jk,JT,w1,jbas) + &
+                   v_elem(ck,jk,ck,ik,JT,w2,jbas) ) * ( JT + 1) 
+           end do 
+        end do 
+        
+        do c = 1, Ntot - Abody
+           ck = jbas%parts(c) 
+           jc = jbas%jj(ck)
+           do JT = abs(jc - ji),jc+ji,2
+              sm = sm + (v_elem(ck,ik,ck,jk,JT,w2,jbas) + &
+                   v_elem(ck,jk,ck,ik,JT,w1,jbas)) * (JT + 1)
+           end do 
+        end do 
+     
+        RES%fph(i,j) = RES%fph(i,j) + sm / (ji + 1.d0 )
+
+     end do 
+  end do       
 
 end subroutine
      
