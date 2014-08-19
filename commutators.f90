@@ -402,7 +402,7 @@ subroutine commutator_122(L,R,RES,jbas)
                     + f_elem(i_sp,d,R,jbas)*v_elem(a,b,c,i_sp,JT,L,jbas) 
             end do 
           
-              
+              sm = sm / sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(c,d)) 
            RES%mat(q)%gam(g_ix)%X(IX,JX) = sm 
            if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) = sm
         end do
@@ -451,7 +451,9 @@ end function
 !===================================================================
 !===================================================================
 subroutine commutator_221(L,R,RES,w1,w2,jbas) 
-  ! verified with some interesting quirks
+  ! verified
+  ! THIS NEEDS TO BE RUN AFTER 222_pp_hh 
+  ! 222_pp_hh sets up the intermediary matrices (w1,w2) 
   implicit none
   
   type(spd) :: jbas
@@ -462,82 +464,7 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
   
   Abody = L%belowEF
   Ntot = L%Nsp
-  
-  
-  !construct temporary matrices
-  do q = 1, L%nblocks
-     
-     nh = L%mat(q)%nhh
-     np = L%mat(q)%npp
-     nb = L%mat(q)%nph
-     
-     if (nh+np+nb == 0 ) cycle
-        
-     if (np*nh .ne. 0) then 
-     !L_hhpp . R_pphh = W1_hhhh
-     call dgemm('T','N',nh,nh,np,al,L%mat(q)%gam(3)%X,np,&
-          R%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(5)%X,nh)
-    
-     w1%mat(q)%gam(5)%X = w1%mat(q)%gam(5)%X * L%herm 
-     
-     !L_pphh . R_hhpp = W2_pppp
-     call dgemm('N','T',np,np,nh,al,L%mat(q)%gam(3)%X,np,&
-          R%mat(q)%gam(3)%X,np,bet,w2%mat(q)%gam(1)%X,np)
-     
-     w2%mat(q)%gam(1)%X = w2%mat(q)%gam(1)%X * R%herm
-     
-     end if 
-     
-     if (nb*nh .ne. 0) then 
-     
-     !L_phhh . R_hhph = W2_phph
-     call dgemm('N','T',nb,nb,nh,al,L%mat(q)%gam(6)%X,nb,&
-          R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(4)%X,nb) 
-     
-     w2%mat(q)%gam(4)%X = w2%mat(q)%gam(4)%X * R%herm
-     
-     end if
-
-     if (nb*np .ne. 0) then 
-     !L_phpp . R_ppph = W1_phph
-     call dgemm('T','N',nb,nb,np,al,L%mat(q)%gam(2)%X,np,&
-          R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(4)%X,nb) 
-     
-     w1%mat(q)%gam(2)%X = w1%mat(q)%gam(2)%X * L%herm 
-     end if 
-      
-     
-     if(nb*np*nh .ne. 0) then 
-     !L_phpp . R_pphh = W1_phhh 
-     call dgemm('T','N',nb,nh,np,al,L%mat(q)%gam(2)%X,np,&
-          R%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(6)%X,nb)
-     
-     w1%mat(q)%gam(6)%X = w1%mat(q)%gam(6)%X * L%herm 
-     
-     !L_pphh . R_hhph = W2_ppph
-     call dgemm('N','T',np,nb,nh,al,L%mat(q)%gam(3)%X,np,&
-          R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(2)%X,np)
-     
-     w2%mat(q)%gam(2)%X = w2%mat(q)%gam(2)%X * R%herm
-     
-     !R_phpp . L_pphh = W2_phhh (this is transposed) 
-     call dgemm('T','N',nb,nh,np,al,R%mat(q)%gam(2)%X,np,&
-          L%mat(q)%gam(3)%X,np,bet,w2%mat(q)%gam(6)%X,nb)
-     
-     ! I think I need to multiply by the opposite herm factor 
-     ! in this case because it's all transposed
    
-     w2%mat(q)%gam(6)%X = w2%mat(q)%gam(6)%X * L%herm 
-     
-     !R_pphh . L_hhph = W1_ppph (this is transposed) 
-     call dgemm('N','T',np,nb,nh,al,R%mat(q)%gam(3)%X,np,&
-          L%mat(q)%gam(6)%X,nb,bet,w1%mat(q)%gam(2)%X,np)
-     
-     w1%mat(q)%gam(2)%X = w1%mat(q)%gam(2)%X * R%herm
-     
-     end if 
-  end do
-
 ! fhh
   do i = 1 , Abody
      ik = jbas%holes(i) 
@@ -644,8 +571,8 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
            ck = jbas%holes(c) 
            jc = jbas%jj(ck)
            do JT = abs(jc - ji),jc+ji,2
-              sm = sm + ( v_elem(ck,ik,ck,jk,JT,w1,jbas) + &
-                   v_elem(ck,jk,ck,ik,JT,w2,jbas) ) * ( JT + 1) 
+              sm = sm + ( + & !v_elem(ck,ik,ck,jk,JT,w1,jbas) + &
+                   v_elem(ck,ik,ck,jk,JT,w1,jbas) ) * ( JT + 1) 
            end do 
         end do 
         
@@ -653,8 +580,8 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
            ck = jbas%parts(c) 
            jc = jbas%jj(ck)
            do JT = abs(jc - ji),jc+ji,2
-              sm = sm + (v_elem(ck,ik,ck,jk,JT,w2,jbas) + &
-                   v_elem(ck,jk,ck,ik,JT,w1,jbas)) * (JT + 1)
+              sm = sm + (+&!v_elem(ck,ik,ck,jk,JT,w2,jbas) + &
+                   v_elem(ck,ik,ck,jk,JT,w2,jbas)) * (JT + 1)
            end do 
         end do 
      
@@ -664,7 +591,179 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
   end do       
 
 end subroutine
+!===================================================================
+!===================================================================
+subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) ::  L,R,RES,w1,w2
+  integer :: q
+  integer :: np,nb,nh
+  real(8) :: bet_off,al_off
+  
+   !construct temporary matrices
+  do q = 1, L%nblocks
      
+     nh = L%mat(q)%nhh
+     np = L%mat(q)%npp
+     nb = L%mat(q)%nph
+      
+     bet_off = R%herm*L%herm 
+   
+     if (nh + np == 0 ) cycle 
+     if (np + nb == 0 ) cycle 
+     if (nh + nb == 0 ) cycle
+     
+  
+     if (np .ne. 0)  then 
+     !L_pppp . R_pppp = W1_pppp   
+     call dgemm('N','N',np,np,np,al,L%mat(q)%gam(1)%X,np,&
+          R%mat(q)%gam(1)%X,np,bet,w1%mat(q)%gam(1)%X,np)
+     end if 
+     
+     if (nh .ne. 0) then 
+     !L_hhhh . R_hhhh = W2_hhhh
+     call dgemm('N','N',nh,nh,nh,al,L%mat(q)%gam(5)%X,nh,&
+          R%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(5)%X,nh)
+     end if 
+          
+     if (np*nh .ne. 0) then 
+     !L_hhpp . R_pphh = W1_hhhh
+     call dgemm('T','N',nh,nh,np,al,L%mat(q)%gam(3)%X,np,&
+          R%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(5)%X,nh)
+    
+     w1%mat(q)%gam(5)%X = w1%mat(q)%gam(5)%X * L%herm 
+     
+     !L_pphh . R_hhpp = W2_pppp
+     call dgemm('N','T',np,np,nh,al,L%mat(q)%gam(3)%X,np,&
+          R%mat(q)%gam(3)%X,np,bet,w2%mat(q)%gam(1)%X,np)
+     
+     w2%mat(q)%gam(1)%X = w2%mat(q)%gam(1)%X * R%herm
+  
+    
+     !R_pppp . L_pphh = W1_pphh (Transposed)
+     call dgemm('N','N',np,nh,np,al,R%mat(q)%gam(1)%X,np,&
+          L%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(3)%X,np) 
+    
+     !L_pppp . R_pphh + R_pppp . L_pphh = W1_pphh
+     call dgemm('N','N',np,nh,np,al,L%mat(q)%gam(1)%X,np,&
+          R%mat(q)%gam(3)%X,np,bet_off,w1%mat(q)%gam(3)%X,np) 
+     
+     !R_pphh . L_hhhh = W2_pphh (Transposed)
+     call dgemm('N','N',np,nh,nh,al,R%mat(q)%gam(3)%X,np,&
+          L%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(3)%X,np) 
+      
+     !L_pphh . R_hhhh + R_pphh . L_hhhh = W2_pphh 
+     call dgemm('N','N',np,nh,nh,al,L%mat(q)%gam(3)%X,np,&
+          R%mat(q)%gam(5)%X,nh,bet_off,w2%mat(q)%gam(3)%X,np)           
+     end if
+     
+     ! Vpppp
+     RES%mat(q)%gam(1)%X = RES%mat(q)%gam(1)%X + &
+          w1%mat(q)%gam(1)%X  - w2%mat(q)%gam(1)%X + &
+           ( Transpose(w1%mat(q)%gam(1)%X - w2%mat(q)%gam(1)%X ) ) 
+     
+     ! Vhhhh
+     RES%mat(q)%gam(5)%X = RES%mat(q)%gam(5)%X + &
+          w1%mat(q)%gam(5)%X  - w2%mat(q)%gam(5)%X + &
+           ( Transpose(w1%mat(q)%gam(5)%X - w2%mat(q)%gam(5)%X ) ) 
+     
+     ! Vpphh
+     RES%mat(q)%gam(3)%X = RES%mat(q)%gam(3)%X + &
+          w1%mat(q)%gam(3)%X  - w2%mat(q)%gam(3)%X 
+     
+     
+     
+     
+     if (nb*nh .ne. 0) then 
+     
+     !L_phhh . R_hhph = W2_phph
+     call dgemm('N','T',nb,nb,nh,al,L%mat(q)%gam(6)%X,nb,&
+          R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(4)%X,nb) 
+     
+     w2%mat(q)%gam(4)%X = w2%mat(q)%gam(4)%X * R%herm
+     
+     end if
+
+     if (nb*np .ne. 0) then 
+     !L_phpp . R_ppph = W1_phph
+     call dgemm('T','N',nb,nb,np,al,L%mat(q)%gam(2)%X,np,&
+          R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(4)%X,nb) 
+     
+     w1%mat(q)%gam(4)%X = w1%mat(q)%gam(4)%X * L%herm 
+     end if 
+     
+     ! Vphph
+     RES%mat(q)%gam(4)%X = RES%mat(q)%gam(4)%X + &
+          w1%mat(q)%gam(4)%X  - w2%mat(q)%gam(4)%X + &
+           ( Transpose(w1%mat(q)%gam(4)%X - w2%mat(q)%gam(4)%X ) ) 
+     
+     
+     
+     if(nb*np*nh .ne. 0) then 
+     
+     
+   
+     
+     !R_phhh . L_hhhh = W2_phhh (transposed) 
+     call dgemm('N','N',nb,nh,nh,al,R%mat(q)%gam(6)%X,nb,&
+          L%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(6)%X,nb) 
+     
+     !L_phhh . R_hhhh + R_phhh . L_hhhh = W2_phhh
+     call dgemm('N','N',nb,nh,nh,al,L%mat(q)%gam(6)%X,nb,&
+          R%mat(q)%gam(5)%X,nh,bet_off,w2%mat(q)%gam(6)%X,nb) 
+          
+     !R_pppp . L_ppph = W1_ppph
+     call dgemm('N','N',np,nb,np,al,L%mat(q)%gam(1)%X,np,&
+          R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(2)%X,np) 
+          
+     !L_pppp . R_ppph + R_pppp . L_ppph = W1_ppph 
+     call dgemm('N','N',np,nb,np,al,L%mat(q)%gam(1)%X,np,&
+          R%mat(q)%gam(2)%X,np,bet_off,w1%mat(q)%gam(2)%X,np)
+    
+
+     !  the following are
+     !  slightly messier because they need to be tranposed 
+     !  to matrices which i don't have stored
+     
+     !R_phpp . L_pphh = W1_phhh (transposed) 
+     call dgemm('T','N',nb,nh,np,al,R%mat(q)%gam(2)%X,np,&
+          L%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(6)%X,nb)
+         
+     al_off = L%herm 
+     bet_off = L%herm
+     !L_phpp . R_pphh + R_phpp . L_pphh = W1_phhh 
+     call dgemm('T','N',nb,nh,np,al_off,L%mat(q)%gam(2)%X,np,&
+          R%mat(q)%gam(3)%X,np,bet_off,w1%mat(q)%gam(6)%X,nb)
+
+     
+     !R_pphh . L_hhph = W2_ppph (transposed) 
+     call dgemm('N','T',np,nb,nh,al,R%mat(q)%gam(3)%X,np,&
+          L%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(2)%X,np)
+     
+     al_off = R%herm 
+     bet_off = R%herm 
+     !L_pphh . R_hhph + R_pphh . L_hhph  = W2_ppph
+     call dgemm('N','T',np,nb,nh,al_off,L%mat(q)%gam(3)%X,np,&
+          R%mat(q)%gam(6)%X,nb,bet_off,w2%mat(q)%gam(2)%X,np)
+     end if
+
+
+
+     ! Vphhh
+     RES%mat(q)%gam(6)%X = RES%mat(q)%gam(6)%X + &
+          w1%mat(q)%gam(6)%X  - w2%mat(q)%gam(6)%X
+     
+     ! Vppph
+     RES%mat(q)%gam(2)%X = RES%mat(q)%gam(2)%X + &
+          w1%mat(q)%gam(2)%X  - w2%mat(q)%gam(2)%X
+
+  end do
+
+end subroutine 
+!===============================================
+!===============================================
 end module 
   
   

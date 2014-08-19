@@ -1284,9 +1284,15 @@ subroutine read_main_input_file(input,H,htype,HF,hw,spfile,intfile)
   logical :: HF
   real(8) :: hw 
   
+  
   input = adjustl(input) 
+  if (trim(input) == '') then 
+     print*, 'RUNNING TEST CASE: testcase.ini' 
+     open(unit=22,file='testcase.ini')
+  else   
   open(unit=22,file=trim(input)) 
-
+  end if 
+  
   read(22,*);read(22,*);read(22,*)
   read(22,*);read(22,*);read(22,*)
 
