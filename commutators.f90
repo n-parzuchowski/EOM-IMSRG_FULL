@@ -571,8 +571,7 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
            ck = jbas%holes(c) 
            jc = jbas%jj(ck)
            do JT = abs(jc - ji),jc+ji,2
-              sm = sm + ( + & !v_elem(ck,ik,ck,jk,JT,w1,jbas) + &
-                   v_elem(ck,ik,ck,jk,JT,w1,jbas) ) * ( JT + 1) 
+              sm = sm + v_elem(ck,ik,ck,jk,JT,w1,jbas)* ( JT + 1) 
            end do 
         end do 
         
@@ -580,8 +579,7 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
            ck = jbas%parts(c) 
            jc = jbas%jj(ck)
            do JT = abs(jc - ji),jc+ji,2
-              sm = sm + (+&!v_elem(ck,ik,ck,jk,JT,w2,jbas) + &
-                   v_elem(ck,ik,ck,jk,JT,w2,jbas)) * (JT + 1)
+              sm = sm + v_elem(ck,ik,ck,jk,JT,w2,jbas) * (JT + 1)
            end do 
         end do 
      
@@ -594,6 +592,9 @@ end subroutine
 !===================================================================
 !===================================================================
 subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas) 
+  !VERIFIED
+  !NEEDS TO BE RUN BEFORE 221, because it sets up the 
+  !intermediary matrices
   implicit none
   
   type(spd) :: jbas
@@ -764,6 +765,214 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
 end subroutine 
 !===============================================
 !===============================================
+subroutine commutator_222_ph(LG,R,RES,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: LG,R,RES
+  integer :: i,j,k,l,a,b,q,IX,JX
+  integer :: nh,np,nb,ji,jj,jk,jl
+  integer :: ti,tj,tk,tl,ta,tb
+  integer :: J1,J2,Jtot,ja,jb,JP,Ntot
+  real(8) :: sm,d6ji
+  
+  Ntot = LG%Nsp
+  call dfact0() 
+  
+
+  do q = 1,LG%nblocks
+ 
+     print*, q,LG%nblocks
+     nh = LG%mat(q)%nhh
+     np = LG%mat(q)%npp
+     nb = LG%mat(q)%nph
+     Jtot = LG%mat(q)%lam(1)
+     
+     
+     do IX = 1,np
+        i = LG%mat(q)%qn(1)%Y(IX,1)
+        j = LG%mat(q)%qn(1)%Y(IX,2)
+        ji = jbas%jj(i) 
+        jj = jbas%jj(j) 
+  
+        do JX = 1,nh
+           
+           k = LG%mat(q)%qn(3)%Y(JX,1)
+           l = LG%mat(q)%qn(3)%Y(JX,2)
+           jk = jbas%jj(k) 
+           jl = jbas%jj(l) 
+           
+           
+           sm = 0.d0 
+           do a = 1, Ntot
+              do b = 1, Ntot
+                 
+                 if (jbas%con(a) + jbas%con(b) .ne. 1) cycle
+                 
+                 ja = jbas%jj(a) 
+                 jb = jbas%jj(b)
+                 
+                 do J1 = 0,18,2
+                    do J2 = 0,18,2
+                       do JP = 0,18,2
+                          
+                          sm = sm + (J1 + 1)*(J2 + 1)*(JP + 1) * &
+                               (jbas%con(a) - jbas%con(b)) * (-1)**((ji + jk + J1 -J2 )/2) * &
+                               
+                 ((-1)**(Jtot/2)* d6ji(ja,ji,J2,jk,jb,JP) * d6ji(jj,jl,JP,jk,ji,Jtot) * d6ji(jj,jb,J1,ja,jl,JP)* &
+                  ( v_elem(b,j,a,l,J1,LG,jbas) * v_elem(a,i,b,k,J2,R,jbas) - &
+                  v_elem(b,j,a,l,J1,R,jbas) * v_elem(a,i,b,k,J2,LG,jbas)  )   - &
+                          
+                          d6ji(ji,jb,J1,ja,jl,JP) * d6ji(ja,jj,J2,jk,jb,JP) * d6ji(ji,jl,JP,jk,jj,Jtot) * &
+                          (v_elem(b,i,a,l,J1,R,jbas) * v_elem(a,j,b,k,J2,LG,jbas) - &
+                          v_elem(b,i,a,l,J1,LG,jbas) * v_elem(a,j,b,k,J2,R,jbas) ) )
+                           
+                  
+                      end do 
+                   end do 
+                end do 
+                
+             end do 
+          end do 
+                          
+          RES%mat(q)%gam(3)%X(IX,JX) = sm 
+          
+       end do 
+    end do 
+    
+ end do 
+
+                 
+end subroutine           
+!=================================================================
+!=================================================================
+ ! subroutine xcommutator_222_ph(LCC,RCC,RES,w1,jbas) 
+ !   implicit none 
+   
+ !   type(spd) :: jbas
+ !   type(sq_op) :: RES,w1
+ !   type(cross_coupled_31_mat) :: LCC,RCC
+ !   integer :: nh,np,nb,q,IX,JX,i,j,k,l
+ !   real(8) :: sm
+ !   real(8),dimension(RES%Nsp**2,RES%Nsp**2) :: sub1,sub2,sub3,sub4
+  
+ !   do q = 1,L%nblocks
+      
+ !      nh = RES%mat(q)%nhh
+ !      np = RES%mat(q)%npp
+ !      nb = RES%mat(q)%nph
+                 
+      
+            
+            
+      
+subroutine xcommutator_222_ph(LCC,RCC,RES,jbas) 
+   implicit none 
+  
+   type(spd) :: jbas
+   type(sq_op) :: RES,w1
+   type(cross_coupled_31_mat) :: LCC,RCC
+   integer :: nh,np,nb,q,IX,JX,i,j,k,l,ag,bg,JT,int1
+   integer :: atot,ntot,Jtot,a,b,ja,jb,ji,jk,jl,jj
+   integer :: i1,PAR,TZ,q2,ta,tb,la,lb
+   real(8) :: sm,d6ji 
+   
+   call dfact0()
+   Ntot = RES%nsp
+   Atot = RES%belowEF
+
+   do q = 1,LCC%nblocks
+      
+      nh = RES%mat(q)%nhh
+      np = RES%mat(q)%npp
+      nb = RES%mat(q)%nph
+      
+  
+      Jtot = RES%mat(q)%lam(1) 
+            
+      do IX = 1,np
+         do JX = 1,nh
+            
+            i = RES%mat(q)%qn(1)%Y(IX,1)
+            j = RES%mat(q)%qn(1)%Y(IX,2)
+            k = RES%mat(q)%qn(3)%Y(JX,1)
+            l = RES%mat(q)%qn(3)%Y(JX,2)
+           
+            ji = jbas%jj(i)
+            jj = jbas%jj(j)
+            jk = jbas%jj(k)
+            jl = jbas%jj(l)
+            
+            sm = 0.d0 
+            
+            do ag = 1, Ntot - Atot
+               do bg = 1, Atot 
+                  
+                  a = jbas%parts(ag) 
+                  b = jbas%holes(bg) 
+                  
+                  ja = jbas%jj(a) 
+                  jb = jbas%jj(b) 
+                  la = jbas%ll(a) 
+                  lb = jbas%ll(b)
+                  ta = jbas%itzp(a) 
+                  tb = jbas%itzp(b)
+
+                   int1 = RES%Nsp*(b-1) + a
+                  
+                   TZ = (ta + tb)/2
+                   PAR = mod(la+lb,2) 
+                    
+            do JT = abs(ja-jb),ja+jb,2
+               
+               
+                q2 = block_index(JT,TZ,PAR) 
+               
+                i1 = 1
+                 
+                   do 
+                      if (int1 == RES%mat(q2)%pnt(2)%Z(i1) ) exit
+                      i1 = i1 + 1
+                   end do
+                   
+                   !print*, CCindex(j,l,Ntot),j,l
+               sm = sm + (-1)**((jl + ji + Jtot)/2) * &
+                    d6ji(jj,jl,JT,jk,ji,Jtot) * ((LCC%CCX(q2)%X(CCindex(j,l,Ntot),i1) * &
+                    RCC%CCR(q2)%X(i1,CCindex(i,k,Ntot)) - &
+                    LCC%CCR(q2)%X(i1,CCindex(j,l,Ntot)) * &
+                    RCC%CCX(q2)%X(CCindex(i,k,Ntot),i1) ) - &
+                    
+                    (RCC%CCX(q2)%X(CCindex(j,l,Ntot),i1) * &
+                    LCC%CCR(q2)%X(i1,CCindex(i,k,Ntot)) - &
+                    RCC%CCR(q2)%X(i1,CCindex(j,l,Ntot)) * &
+                    LCC%CCX(q2)%X(CCindex(i,k,Ntot),i1) )  )       
+          
+              
+                sm = sm -  (-1)**((ji+jl)/2) * &
+                     d6ji(jk,jl,Jtot,ji,jj,JT) * ((RCC%CCX(q2)%X(CCindex(i,l,Ntot),i1) * &
+                     LCC%CCR(q2)%X(i1,CCindex(j,k,Ntot)) - &
+                     RCC%CCR(q2)%X(i1,CCindex(i,l,Ntot)) * &
+                     LCC%CCX(q2)%X(CCindex(j,k,Ntot),i1) ) - &
+                    
+                     (LCC%CCX(q2)%X(CCindex(i,l,Ntot),i1) * &
+                     RCC%CCR(q2)%X(i1,CCindex(j,k,Ntot)) - &
+                     LCC%CCR(q2)%X(i1,CCindex(i,l,Ntot)) *  &
+                     RCC%CCX(q2)%X(CCindex(j,k,Ntot),i1) ) )     
+          
+           end do 
+
+                end do 
+            end do 
+            
+!print*, sm
+            RES%mat(q)%gam(3)%X(IX,JX) = sm
+           
+            end do 
+            end do 
+            end do 
+            end subroutine
+
+
 end module 
   
   

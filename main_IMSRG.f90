@@ -6,13 +6,14 @@ program main_IMSRG
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
-  type(spd) :: jbasis 
+  type(spd) :: jbasis
   type(sq_op) :: HS,ETA,DH,w1,w2
+  type(cross_coupled_31_mat) :: CCHS,CCETA
   character(200) :: sp_input_file,interaction_file
   character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb
-  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off
+  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji
   logical :: hartree_fock 
 
 !============================================================
@@ -55,40 +56,52 @@ program main_IMSRG
   call duplicate_sq_op(HS,DH) !derivative
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
+  call allocate_CCMAT(HS,CCHS) !cross coupled ME
+  call allocate_CCMAT(HS,CCETA) !cross coupled ME
   call build_gs_white(HS,ETA,jbasis) 
-
  
-   do i = 1,np
-     do j = 1,nb
-        
-        call random_number(ETA%mat(1)%gam(2)%X(i,j))
-       
-     end do 
-  end do 
-   
-  DH%fph = 0.
-  DH%fpp = 0.
-  DH%fhh = 0. 
-
   t1 = omp_get_wtime()
-  call commutator_222_pp_hh(ETA,HS,DH,w1,w2,jbasis)
-  call commutator_221(ETA,HS,DH,w1,w2,jbasis) 
+  call calculate_cross_coupled(HS,CCHS,jbasis,.true.)
+  call calculate_cross_coupled(ETA,CCETA,jbasis,.false.) 
   t2 = omp_get_wtime()
   print*, t2-t1
-
-  call print_matrix(DH%mat(1)%gam(4)%X(1:4,1:4))
   
-  call print_matrix(DH%fhh)
-  call print_matrix(DH%fpp(1:10,1:10))
-  call print_matrix(DH%fph(1:6,1:6)) 
+  t1 = omp_get_wtime()
+  call commutator_222_ph(ETA,HS,DH,jbasis)
+  t2 = omp_get_wtime()
+  print*, t2-t1
+  
+  call print_matrix(DH%mat(1)%gam(3)%X)
+  !call print_matrix(DH%mat(1)%gam(3)%X(4:6,:))
+  !call print_matrix(DH%mat(1)%gam(3)%X(7:9,:))
+   do q = 1,DH%nblocks
+      write(31,*) DH%mat(q)%gam(3)%X
+  end do 
   
   do q = 1,DH%nblocks
      do g = 1,6
-        DH%mat(q)%gam(g)%X = 0.d0 
+        DH%mat(q)%gam(g)%X = 0.d0
      end do 
   end do 
-  
-  
+  t1 = omp_get_wtime()
+  call xcommutator_222_ph(CCETA,CCHS,DH,jbasis)
+  t2 = omp_get_wtime()
+  print*, t2-t1
+  do q = 1,DH%nblocks
+      write(32,) DH%mat(q)%gam(3)%X
+  end do 
 
+  call print_matrix(DH%mat(1)%gam(3)%X)
+  !call print_matrix(DH%mat(1)%gam(3)%X(4:6,:))
+  !call print_matrix(DH%mat(1)%gam(3)%X(7:9,:))
+  
+  !print*, DH%mat(1)%qn(1)%Y(1:9,1) 
+  !print*, DH%mat(1)%qn(1)%Y(1:9,2) 
+  !print*, DH%mat(1)%qn(3)%Y(1:3,1) 
+  !print*, DH%mat(1)%qn(3)%Y(1:3,2)
+  
+  
+  
+12  stop
 end program main_IMSRG
 

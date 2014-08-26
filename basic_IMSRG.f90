@@ -58,6 +58,11 @@ type full_sp_block_mat
    integer :: blocks
 end type full_sp_block_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+type cross_coupled_31_mat
+   type(real_mat),allocatable,dimension(:) :: CCX,CCR
+   integer,allocatable,dimension(:) :: Jval,nph
+   integer :: nblocks,Nsp
+end type cross_coupled_31_mat
    
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
    real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
@@ -980,12 +985,11 @@ real(8) function sixj(j1,j2,j3,j4,j5,j6)
   ! twice the angular momentum
   ! so you don't have to carry that obnoxious array around
   implicit none 
-  
+ 
   integer :: j1,j2,j3,j4,j5,j6
   integer :: l1,l2,l3,l4,l5,l6
   integer :: x1,x2,j3min,j6min
-  
-  
+    
   ! check triangle inequalities
   if ( (triangle(j1,j2,j3)) .and. (triangle(j4,j5,j3)) &
   .and. (triangle(j1,j5,j6)) .and. (triangle(j4,j2,j6)) ) then 
@@ -1315,6 +1319,134 @@ subroutine read_main_input_file(input,H,htype,HF,hw,spfile,intfile)
 
 end subroutine
 !=======================================================  
+!=======================================================
+subroutine allocate_CCMAT(HS,CCME) 
+  ! currently the only CCME of interest are phab terms    |-------| 
+  ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
+  !                                                      |-------|
+  implicit none 
+  
+  type(sq_op) :: HS
+  type(cross_coupled_31_mat) :: CCME
+  integer :: JT,ja,jp,jb,jh,JC,q1,q2
+  integer :: a,b,p,h,i,j,Jmin,Jmax,NX
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np
+  real(8) :: sm,sm2
+  
+  NX = HS%Nsp
+  CCME%Nsp = NX
+  CCME%nblocks = HS%nblocks
+  allocate(CCME%CCX(HS%nblocks))
+  allocate(CCME%CCR(HS%nblocks))
+  allocate(CCME%nph(HS%nblocks)) 
+  allocate(CCME%Jval(HS%nblocks)) 
+  
+  do q1 = 1, CCME%nblocks
+     
+     JC = HS%mat(q1)%lam(1)
+     np = HS%mat(q1)%npp
+     nh = HS%mat(q1)%nhh
+     nb = HS%mat(q1)%nph
+     
+     allocate( CCME%CCX(q1)%X(NX*NX,nb) )
+     allocate( CCME%CCR(q1)%X(nb,NX*NX) )
+     
+     CCME%nph(q1) = nb
+     CCME%Jval(q1) = JC 
+  end do 
+end subroutine        
+!=======================================================  
+!=======================================================          
+subroutine calculate_cross_coupled(HS,CCME,jbas,phase) 
+  ! currently the only CCME of interest are phab terms    |-------| 
+  ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
+  !                                                      |-------|
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: HS
+  type(cross_coupled_31_mat) :: CCME
+  integer :: JT,ja,jp,jb,jh,JC,q1,q2
+  integer :: a,b,p,h,i,j,Jmin,Jmax
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np
+  real(8) :: sm,sm2,d6ji,pre
+  logical :: phase
+  
+  call dfact0()
+  
+  pre = 1.d0
+  do q1 = 1, CCME%nblocks
+     
+     JC = HS%mat(q1)%lam(1)
+     np = HS%mat(q1)%npp
+     nh = HS%mat(q1)%nhh
+     nb = HS%mat(q1)%nph
+     CCME%CCR(q1)%X = 0.d0
+     CCME%CCX(q1)%X = 0.d0
+         
+     ! ab = ph 
+      
+     do IX = 1, nb
+        
+        h = HS%mat(q1)%qn(2)%Y(IX,1)
+        p = HS%mat(q1)%qn(2)%Y(IX,2)
+         
+        jp = jbas%jj(p) 
+        jh = jbas%jj(h)
+        
+        if (phase) pre = (-1.d0) ** (jp + jh)/2  
+        
+        do a = 1, HS%nsp
+           do b = 1, HS%nsp
+           
+              ja = jbas%jj(a) 
+              jb = jbas%jj(b)
+              
+              if (.not. triangle(ja,jb,JC) )  cycle 
+              ! hapb 
+              Jmin = max(abs(jp - jb),abs(ja - jh)) 
+              Jmax = min(jp+jb,ja+jh) 
+              
+              sm = 0.d0 
+              do JT = Jmin,Jmax,2
+                 sm = sm + (-1)**(JT/2) * (JT + 1) * &
+                      d6ji(jp,jh,JC,ja,jb,JT)  * &
+                      v_elem(h,a,p,b,JT,HS,jbas) 
+              end do 
+              
+              CCME%CCX(q1)%X(CCindex(a,b,HS%Nsp),IX) = sm * pre * &
+                   (-1) **( (jh + jb + JC) / 2) * sqrt(JC + 1.d0)
+              
+              Jmin = max(abs(jh - jb),abs(ja - jp)) 
+              Jmax = min(jh+jb,ja+jp) 
+              
+              sm = 0.d0 
+              do JT = Jmin,Jmax,2
+                 sm = sm + (-1)**(JT/2) * (JT + 1) * &
+                      d6ji(jh,jp,JC,ja,jb,JT)  * &
+                      v_elem(p,a,h,b,JT,HS,jbas) 
+              end do 
+              
+              CCME%CCR(q1)%X(IX,CCindex(a,b,HS%Nsp)) = sm * pre *&
+                   (-1) **( (jp + jb + JC) / 2) * sqrt(JC + 1.d0) 
+              
+                
+           end do 
+        end do 
+     end do 
+
+  end do 
+end subroutine 
+!===========================================================
+!===========================================================     
+integer function CCindex(a,b,N)
+  implicit none 
+  
+  integer :: a,b,N 
+  
+  CCindex = N*(a-1) + b
+end function 
+
 end module
        
   
