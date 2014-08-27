@@ -327,7 +327,7 @@ subroutine commutator_122(L,R,RES,jbas)
            square = .false.
            if (n2 == nh) then 
               c2 = 3 
-           else if (n1 == np) then 
+           else if (n2 == np) then 
               c2 = 1
            else 
               c2 = 2
@@ -780,7 +780,7 @@ subroutine commutator_222_ph(LG,R,RES,jbas)
   !call dfact0() 
   
 
-  do q = 3,3
+  do q = 3,3!LG%nblocks
  
      !print*, q,LG%nblocks
      nh = LG%mat(q)%nhh
@@ -794,10 +794,10 @@ subroutine commutator_222_ph(LG,R,RES,jbas)
         ji = jbas%jj(i) 
         jj = jbas%jj(j) 
   
-        do JX = 1,nh
+        do JX = 1,nb
            
-           k = LG%mat(q)%qn(3)%Y(JX,1)
-           l = LG%mat(q)%qn(3)%Y(JX,2)
+           k = LG%mat(q)%qn(2)%Y(JX,1)
+           l = LG%mat(q)%qn(2)%Y(JX,2)
            jk = jbas%jj(k) 
            jl = jbas%jj(l) 
            
@@ -833,7 +833,7 @@ subroutine commutator_222_ph(LG,R,RES,jbas)
              end do 
           end do 
                           
-          RES%mat(q)%gam(3)%X(IX,JX) = sm 
+          RES%mat(q)%gam(2)%X(IX,JX) = sm 
           
        end do 
     end do 
@@ -851,12 +851,14 @@ end subroutine
    type(sq_op) :: RES
    type(cross_coupled_31_mat) :: LCC,RCC,WCC
    integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx
-   integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll
-   integer :: JP, Jtot,Ntot , qx,jmin,jmax,rik,rjl,ril,rjk
-   real(8) :: sm 
-  
-   Ntot = RES%Nsp
+   integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
+   integer :: JP, Jtot,Ntot , qx,jmin,jmax,rik,rjl,ril,rjk,g_ix
+   real(8) :: sm ,t1,t2,omp_get_wtime
+   logical :: square
+   
+  Ntot = RES%Nsp
    ! construct intermediate matrices
+   !t1 = omp_get_wtime()
    do q = 1,LCC%nblocks
       
       nb = LCC%nph(q)
@@ -872,17 +874,56 @@ end subroutine
            LCC%CCR(q)%X,nb,bet,WCC%CCR(q)%X,rinx) 
       
    end do 
- 
-   do q = 3,3!RES%nblocks
-      
-      Jtot = RES%mat(q)%lam(1) 
-      nh = RES%mat(q)%nhh
-      np = RES%mat(q)%npp
-      
-      do  IX =  1, np 
 
-         i = RES%mat(q)%qn(1)%Y(IX,1)
-         j = RES%mat(q)%qn(1)%Y(IX,2)
+
+   do q = 1, RES%nblocks
+     
+     Jtot = RES%mat(q)%lam(1)
+     
+     nh = RES%mat(q)%nhh
+     np = RES%mat(q)%npp
+     nb = RES%mat(q)%nph
+     
+     if (nh*np*nb == 0) cycle
+     
+     do g_ix = 1,6 
+   
+        ! figure out how big the array is
+        n1 = size(RES%mat(q)%gam(g_ix)%X(:,1))
+        n2 = size(RES%mat(q)%gam(g_ix)%X(1,:))
+        if ((n1*n2) == 0) cycle 
+        
+        ! figure out which type n1 is
+        if (n1 == nh) then 
+           c1 = 3 
+        else if (n1 == np) then 
+           c1 = 1
+        else 
+           c1 = 2
+        end if 
+        
+        
+        ! decide if it's a square array or rectangle
+        if (n1 == n2) then
+           jxstart = 10000
+           square = .true.
+           c2 = c1 
+        else 
+           jxstart = 1
+           square = .false.
+           if (n2 == nh) then 
+              c2 = 3 
+           else if (n2 == np) then 
+              c2 = 1
+           else 
+              c2 = 2
+           end if
+        end if               
+
+      do  IX =  1, n1 
+
+         i = RES%mat(q)%qn(c1)%Y(IX,1)
+         j = RES%mat(q)%qn(c1)%Y(IX,2)
          
          ji = jbas%jj(i) 
          jj = jbas%jj(j) 
@@ -891,10 +932,10 @@ end subroutine
          ti = jbas%itzp(i) 
          tj = jbas%itzp(j)
          
-         do JX = 1, nh 
+         do JX = min(jxstart,IX),n2
    
-            k = RES%mat(q)%qn(3)%Y(JX,1)
-            l = RES%mat(q)%qn(3)%Y(JX,2)
+            k = RES%mat(q)%qn(c2)%Y(JX,1)
+            l = RES%mat(q)%qn(c2)%Y(JX,2)
             
             jk = jbas%jj(k) 
             jl = jbas%jj(l) 
@@ -942,148 +983,17 @@ end subroutine
             
                end do 
             
-            
-            RES%mat(q)%gam(3)%X(IX,JX) = sm
+           RES%mat(q)%gam(g_ix)%X(IX,JX) = sm 
+           if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) = sm
+           
          end do 
+      end do
       end do 
    end do 
 
 end subroutine 
 !=====================================================
 !=====================================================      
-subroutine xcommutator_222_ph(LCC,RCC,RES,jbas) 
-   implicit none 
-  
-   type(spd) :: jbas
-   type(sq_op) :: RES,w1
-   type(cross_coupled_31_mat) :: LCC,RCC
-   integer :: nh,np,nb,q,IX,JX,i,j,k,l,ag,bg,JT,int1
-   integer :: atot,ntot,Jtot,a,b,ja,jb,ji,jk,jl,jj,x,g
-   integer :: i1,PAR,TZ,q2,ta,tb,la,lb,rjl,ril,rik,rjk
-   real(8) :: sm,d6ji 
-   
-   Ntot = RES%nsp
-   Atot = RES%belowEF
-
-   do q = 3,3!LCC%nblocks
-      
-      nh = RES%mat(q)%nhh
-      np = RES%mat(q)%npp
-      nb = RES%mat(q)%nph
-     
-      Jtot = RES%mat(q)%lam(1) 
-            
-      do IX = 1,np
-         do JX = 1,nh
-            
-            i = RES%mat(q)%qn(1)%Y(IX,1)
-            j = RES%mat(q)%qn(1)%Y(IX,2)
-            k = RES%mat(q)%qn(3)%Y(JX,1)
-            l = RES%mat(q)%qn(3)%Y(JX,2)
-           
-            ji = jbas%jj(i)
-            jj = jbas%jj(j)
-            jk = jbas%jj(k)
-            jl = jbas%jj(l)
-                              
-            sm = 0.d0 
-            
-            do ag = 1, Ntot - Atot
-               do bg = 1, Atot 
-                  
-                  a = jbas%parts(ag) 
-                  b = jbas%holes(bg) 
-                  
-                  ja = jbas%jj(a) 
-                  jb = jbas%jj(b) 
-                  la = jbas%ll(a) 
-                  lb = jbas%ll(b)
-                  ta = jbas%itzp(a) 
-                  tb = jbas%itzp(b)
-
-                   int1 = RES%Nsp*(b-1) + a
-                  
-                   TZ = (ta + tb)/2
-                   PAR = mod(la+lb,2) 
-                    
-            do JT = abs(ja-jb),ja+jb,2
-               
-               
-                q2 = block_index(JT,TZ,PAR) 
-                   
-                x = CCindex(i,l,Ntot)
-                g = 1
-                do while (LCC%qmap(x)%Z(g) .ne. q2 )
-                   g = g + 1
-                end do
-                ril  = LCC%rmap(x)%Z(g)  
-                
-                x = CCindex(j,l,Ntot)
-                g = 1
-                do while (LCC%qmap(x)%Z(g) .ne. q2 )
-                   g = g + 1
-                end do
-                rjl  = LCC%rmap(x)%Z(g)  
-                
-                x = CCindex(i,k,Ntot)
-                g = 1
-                do while (LCC%qmap(x)%Z(g) .ne. q2 )
-                   g = g + 1
-                end do
-                rik  = LCC%rmap(x)%Z(g)  
-                
-                x = CCindex(j,k,Ntot)
-                g = 1
-                do while (LCC%qmap(x)%Z(g) .ne. q2 )
-                   g = g + 1
-                end do
-                rjk  = LCC%rmap(x)%Z(g)  
-               
-                
-                i1 = 1
-                 
-                   do 
-                      if (int1 == RES%mat(q2)%pnt(2)%Z(i1) ) exit
-                      i1 = i1 + 1
-                   end do
-                                    
-               sm = sm + (-1)**(( jl + ji + Jtot)/2) * &
-                    sixj(jj,jl,JT,jk,ji,Jtot) * ((LCC%CCX(q2)%X(rjl,i1) * &
-                    RCC%CCR(q2)%X(i1,rik) - &
-                    LCC%CCR(q2)%X(i1,rjl) * &
-                    RCC%CCX(q2)%X(rik,i1) ) - &
-                    
-                    (RCC%CCX(q2)%X(rjl,i1) * &
-                    LCC%CCR(q2)%X(i1,rik) - &
-                    RCC%CCR(q2)%X(i1,rjl) * &
-                    LCC%CCX(q2)%X(rik,i1) )  )       
-          
-              
-                sm = sm - (-1)**((ji+jl)/2) * &
-                     sixj(jk,jl,Jtot,ji,jj,JT) * ((RCC%CCX(q2)%X(ril,i1) * &
-                     LCC%CCR(q2)%X(i1,rjk) - &
-                     RCC%CCR(q2)%X(i1,ril) * &
-                     LCC%CCX(q2)%X(rjk,i1) ) - &
-                    
-                     (LCC%CCX(q2)%X(ril,i1) * &
-                     RCC%CCR(q2)%X(i1,rjk) - &
-                     LCC%CCR(q2)%X(i1,ril) *  &
-                     RCC%CCX(q2)%X(rjk,i1) ) )     
-          
-           end do 
-
-                end do 
-            end do 
-            
-            RES%mat(q)%gam(3)%X(IX,JX) = sm
-           
-            end do 
-            end do 
-            end do 
-            end subroutine
-
-!============================================
-!============================================
 integer function specific_rval(i,l,Ntot,q,LCC) 
   implicit none 
   

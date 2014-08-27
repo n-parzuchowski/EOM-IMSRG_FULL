@@ -89,23 +89,28 @@ program main_IMSRG
   t2 = omp_get_wtime()
   print*, t2-t1
   
-  call print_matrix(DH%mat(3)%gam(3)%X)
+  !do q = 1,DH%nblocks
+     !write(31,'(10(f12.7))') DH%mat(3)%gam(1)%X 
+  !end do 
+
+  call print_matrix(DH%mat(3)%gam(2)%X)
   
   do q = 1,DH%nblocks
      do g = 1,6
         DH%mat(q)%gam(g)%X = 0.d0
      end do 
   end do 
+
   t1 = omp_get_wtime()
   call ycommutator_222_ph(CCETA,CCHS,DH,WCC,jbasis)
   t2 = omp_get_wtime()
   print*, t2-t1
   
+  !do q = 1,DH%nblocks
+     !write(32,'(10(f12.7))') DH%mat(3)%gam(1)%X 
+  !end do 
 
-  call print_matrix(DH%mat(3)%gam(3)%X)
-  
-
-  
+  call print_matrix(DH%mat(3)%gam(2)%X)
   
 12  stop
 end program main_IMSRG
