@@ -777,17 +777,16 @@ subroutine commutator_222_ph(LG,R,RES,jbas)
   real(8) :: sm,d6ji
   
   Ntot = LG%Nsp
-  call dfact0() 
+  !call dfact0() 
   
 
-  do q = 1,LG%nblocks
+  do q = 3,3
  
-     print*, q,LG%nblocks
+     !print*, q,LG%nblocks
      nh = LG%mat(q)%nhh
      np = LG%mat(q)%npp
      nb = LG%mat(q)%nph
      Jtot = LG%mat(q)%lam(1)
-     
      
      do IX = 1,np
         i = LG%mat(q)%qn(1)%Y(IX,1)
@@ -819,15 +818,14 @@ subroutine commutator_222_ph(LG,R,RES,jbas)
                           sm = sm + (J1 + 1)*(J2 + 1)*(JP + 1) * &
                                (jbas%con(a) - jbas%con(b)) * (-1)**((ji + jk + J1 -J2 )/2) * &
                                
-                 ((-1)**(Jtot/2)* d6ji(ja,ji,J2,jk,jb,JP) * d6ji(jj,jl,JP,jk,ji,Jtot) * d6ji(jj,jb,J1,ja,jl,JP)* &
+                 ((-1)**(Jtot/2)* sixj(ja,ji,J2,jk,jb,JP) * sixj(jj,jl,JP,jk,ji,Jtot) * sixj(jj,jb,J1,ja,jl,JP)* &
                   ( v_elem(b,j,a,l,J1,LG,jbas) * v_elem(a,i,b,k,J2,R,jbas) - &
                   v_elem(b,j,a,l,J1,R,jbas) * v_elem(a,i,b,k,J2,LG,jbas)  )   - &
                           
-                          d6ji(ji,jb,J1,ja,jl,JP) * d6ji(ja,jj,J2,jk,jb,JP) * d6ji(ji,jl,JP,jk,jj,Jtot) * &
+                          sixj(ji,jb,J1,ja,jl,JP) * sixj(ja,jj,J2,jk,jb,JP) * sixj(ji,jl,JP,jk,jj,Jtot) * &
                           (v_elem(b,i,a,l,J1,R,jbas) * v_elem(a,j,b,k,J2,LG,jbas) - &
                           v_elem(b,i,a,l,J1,LG,jbas) * v_elem(a,j,b,k,J2,R,jbas) ) )
                            
-                  
                       end do 
                    end do 
                 end do 
@@ -846,26 +844,113 @@ subroutine commutator_222_ph(LG,R,RES,jbas)
 end subroutine           
 !=================================================================
 !=================================================================
- ! subroutine xcommutator_222_ph(LCC,RCC,RES,w1,jbas) 
- !   implicit none 
-   
- !   type(spd) :: jbas
- !   type(sq_op) :: RES,w1
- !   type(cross_coupled_31_mat) :: LCC,RCC
- !   integer :: nh,np,nb,q,IX,JX,i,j,k,l
- !   real(8) :: sm
- !   real(8),dimension(RES%Nsp**2,RES%Nsp**2) :: sub1,sub2,sub3,sub4
+ subroutine ycommutator_222_ph(LCC,RCC,RES,WCC,jbas) 
+   implicit none 
   
- !   do q = 1,L%nblocks
+   type(spd) :: jbas
+   type(sq_op) :: RES
+   type(cross_coupled_31_mat) :: LCC,RCC,WCC
+   integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx
+   integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll
+   integer :: JP, Jtot,Ntot , qx,jmin,jmax,rik,rjl,ril,rjk
+   real(8) :: sm 
+  
+   Ntot = RES%Nsp
+   ! construct intermediate matrices
+   do q = 1,LCC%nblocks
       
- !      nh = RES%mat(q)%nhh
- !      np = RES%mat(q)%npp
- !      nb = RES%mat(q)%nph
-                 
+      nb = LCC%nph(q)
       
+      rinx = LCC%rlen(q)  
+      
+      if (nb * rinx == 0) cycle
+      
+      call dgemm('N','N',rinx,rinx,nb,al,LCC%CCX(q)%X,rinx,&
+           RCC%CCR(q)%X,nb,bet,WCC%CCX(q)%X,rinx) 
+     
+      call dgemm('N','N',rinx,rinx,nb,al,RCC%CCX(q)%X,rinx,&
+           LCC%CCR(q)%X,nb,bet,WCC%CCR(q)%X,rinx) 
+      
+   end do 
+ 
+   do q = 3,3!RES%nblocks
+      
+      Jtot = RES%mat(q)%lam(1) 
+      nh = RES%mat(q)%nhh
+      np = RES%mat(q)%npp
+      
+      do  IX =  1, np 
+
+         i = RES%mat(q)%qn(1)%Y(IX,1)
+         j = RES%mat(q)%qn(1)%Y(IX,2)
+         
+         ji = jbas%jj(i) 
+         jj = jbas%jj(j) 
+         li = jbas%ll(i) 
+         lj = jbas%ll(j)
+         ti = jbas%itzp(i) 
+         tj = jbas%itzp(j)
+         
+         do JX = 1, nh 
+   
+            k = RES%mat(q)%qn(3)%Y(JX,1)
+            l = RES%mat(q)%qn(3)%Y(JX,2)
+            
+            jk = jbas%jj(k) 
+            jl = jbas%jj(l) 
+            lk = jbas%ll(k) 
+            ll = jbas%ll(l)
+            tk = jbas%itzp(k) 
+            tl = jbas%itzp(l)
+            
+            sm = 0.d0 
+                       
+               jmin = max( abs(jj - jl) , abs(ji - jk )) 
+               jmax = min( jj + jl , ji + jk ) 
+               
+               do JP = jmin,jmax,2
+                  
+                  qx = JP/2 + 1
+                  rjl = specific_rval(j,l,Ntot,qx,LCC)
+                  rik = specific_rval(i,k,Ntot,qx,LCC)
+                  
+                  sm = sm + ( WCC%CCX(qx)%X(rjl,rik) - &
+                       WCC%CCR(qx)%X(rjl,rik) - &
+                       WCC%CCR(qx)%X(rik,rjl) + &
+                       WCC%CCX(qx)%X(rik,rjl) ) * &
+                       sixj(jk,jl,Jtot,jj,ji,JP) * &
+                       (-1)**((ji + jl + Jtot)/2) 
+            
+               end do 
+            
+                
+               jmin = max( abs(ji - jl) , abs(jj - jk )) 
+               jmax = min( ji + jl , jj + jk ) 
+               
+               do JP = jmin,jmax,2
+                  
+                  qx = JP/2 + 1
+                  ril = specific_rval(i,l,Ntot,qx,LCC)
+                  rjk = specific_rval(j,k,Ntot,qx,LCC)
+                  
+                  sm = sm - ( WCC%CCR(qx)%X(ril,rjk) - &
+                       WCC%CCX(qx)%X(ril,rjk) - &
+                       WCC%CCX(qx)%X(rjk,ril) + &
+                       WCC%CCR(qx)%X(rjk,ril) ) * &
+                       sixj(jk,jl,Jtot,ji,jj,JP) * &
+                       (-1)**((ji + jl)/2)
+            
+               end do 
             
             
-      
+            RES%mat(q)%gam(3)%X(IX,JX) = sm
+         end do 
+      end do 
+   end do 
+
+end subroutine 
+!=====================================================
+!=====================================================      
 subroutine xcommutator_222_ph(LCC,RCC,RES,jbas) 
    implicit none 
   
@@ -873,21 +958,19 @@ subroutine xcommutator_222_ph(LCC,RCC,RES,jbas)
    type(sq_op) :: RES,w1
    type(cross_coupled_31_mat) :: LCC,RCC
    integer :: nh,np,nb,q,IX,JX,i,j,k,l,ag,bg,JT,int1
-   integer :: atot,ntot,Jtot,a,b,ja,jb,ji,jk,jl,jj
-   integer :: i1,PAR,TZ,q2,ta,tb,la,lb
+   integer :: atot,ntot,Jtot,a,b,ja,jb,ji,jk,jl,jj,x,g
+   integer :: i1,PAR,TZ,q2,ta,tb,la,lb,rjl,ril,rik,rjk
    real(8) :: sm,d6ji 
    
-   call dfact0()
    Ntot = RES%nsp
    Atot = RES%belowEF
 
-   do q = 1,LCC%nblocks
+   do q = 3,3!LCC%nblocks
       
       nh = RES%mat(q)%nhh
       np = RES%mat(q)%npp
       nb = RES%mat(q)%nph
-      
-  
+     
       Jtot = RES%mat(q)%lam(1) 
             
       do IX = 1,np
@@ -902,7 +985,7 @@ subroutine xcommutator_222_ph(LCC,RCC,RES,jbas)
             jj = jbas%jj(j)
             jk = jbas%jj(k)
             jl = jbas%jj(l)
-            
+                              
             sm = 0.d0 
             
             do ag = 1, Ntot - Atot
@@ -927,44 +1010,71 @@ subroutine xcommutator_222_ph(LCC,RCC,RES,jbas)
                
                
                 q2 = block_index(JT,TZ,PAR) 
+                   
+                x = CCindex(i,l,Ntot)
+                g = 1
+                do while (LCC%qmap(x)%Z(g) .ne. q2 )
+                   g = g + 1
+                end do
+                ril  = LCC%rmap(x)%Z(g)  
+                
+                x = CCindex(j,l,Ntot)
+                g = 1
+                do while (LCC%qmap(x)%Z(g) .ne. q2 )
+                   g = g + 1
+                end do
+                rjl  = LCC%rmap(x)%Z(g)  
+                
+                x = CCindex(i,k,Ntot)
+                g = 1
+                do while (LCC%qmap(x)%Z(g) .ne. q2 )
+                   g = g + 1
+                end do
+                rik  = LCC%rmap(x)%Z(g)  
+                
+                x = CCindex(j,k,Ntot)
+                g = 1
+                do while (LCC%qmap(x)%Z(g) .ne. q2 )
+                   g = g + 1
+                end do
+                rjk  = LCC%rmap(x)%Z(g)  
                
+                
                 i1 = 1
                  
                    do 
                       if (int1 == RES%mat(q2)%pnt(2)%Z(i1) ) exit
                       i1 = i1 + 1
                    end do
-                   
-                   !print*, CCindex(j,l,Ntot),j,l
-               sm = sm + (-1)**((jl + ji + Jtot)/2) * &
-                    d6ji(jj,jl,JT,jk,ji,Jtot) * ((LCC%CCX(q2)%X(CCindex(j,l,Ntot),i1) * &
-                    RCC%CCR(q2)%X(i1,CCindex(i,k,Ntot)) - &
-                    LCC%CCR(q2)%X(i1,CCindex(j,l,Ntot)) * &
-                    RCC%CCX(q2)%X(CCindex(i,k,Ntot),i1) ) - &
+                                    
+               sm = sm + (-1)**(( jl + ji + Jtot)/2) * &
+                    sixj(jj,jl,JT,jk,ji,Jtot) * ((LCC%CCX(q2)%X(rjl,i1) * &
+                    RCC%CCR(q2)%X(i1,rik) - &
+                    LCC%CCR(q2)%X(i1,rjl) * &
+                    RCC%CCX(q2)%X(rik,i1) ) - &
                     
-                    (RCC%CCX(q2)%X(CCindex(j,l,Ntot),i1) * &
-                    LCC%CCR(q2)%X(i1,CCindex(i,k,Ntot)) - &
-                    RCC%CCR(q2)%X(i1,CCindex(j,l,Ntot)) * &
-                    LCC%CCX(q2)%X(CCindex(i,k,Ntot),i1) )  )       
+                    (RCC%CCX(q2)%X(rjl,i1) * &
+                    LCC%CCR(q2)%X(i1,rik) - &
+                    RCC%CCR(q2)%X(i1,rjl) * &
+                    LCC%CCX(q2)%X(rik,i1) )  )       
           
               
-                sm = sm -  (-1)**((ji+jl)/2) * &
-                     d6ji(jk,jl,Jtot,ji,jj,JT) * ((RCC%CCX(q2)%X(CCindex(i,l,Ntot),i1) * &
-                     LCC%CCR(q2)%X(i1,CCindex(j,k,Ntot)) - &
-                     RCC%CCR(q2)%X(i1,CCindex(i,l,Ntot)) * &
-                     LCC%CCX(q2)%X(CCindex(j,k,Ntot),i1) ) - &
+                sm = sm - (-1)**((ji+jl)/2) * &
+                     sixj(jk,jl,Jtot,ji,jj,JT) * ((RCC%CCX(q2)%X(ril,i1) * &
+                     LCC%CCR(q2)%X(i1,rjk) - &
+                     RCC%CCR(q2)%X(i1,ril) * &
+                     LCC%CCX(q2)%X(rjk,i1) ) - &
                     
-                     (LCC%CCX(q2)%X(CCindex(i,l,Ntot),i1) * &
-                     RCC%CCR(q2)%X(i1,CCindex(j,k,Ntot)) - &
-                     LCC%CCR(q2)%X(i1,CCindex(i,l,Ntot)) *  &
-                     RCC%CCX(q2)%X(CCindex(j,k,Ntot),i1) ) )     
+                     (LCC%CCX(q2)%X(ril,i1) * &
+                     RCC%CCR(q2)%X(i1,rjk) - &
+                     LCC%CCR(q2)%X(i1,ril) *  &
+                     RCC%CCX(q2)%X(rjk,i1) ) )     
           
            end do 
 
                 end do 
             end do 
             
-!print*, sm
             RES%mat(q)%gam(3)%X(IX,JX) = sm
            
             end do 
@@ -972,7 +1082,27 @@ subroutine xcommutator_222_ph(LCC,RCC,RES,jbas)
             end do 
             end subroutine
 
+!============================================
+!============================================
+integer function specific_rval(i,l,Ntot,q,LCC) 
+  implicit none 
+  
+  type(cross_coupled_31_mat) :: LCC
+  integer :: i,l,Ntot,x,g,q
+  
+  !print*, i,l,Ntot,q
 
+  x = CCindex(i,l,Ntot)
+  g = 1
+  do while (LCC%qmap(x)%Z(g) .ne. q )
+   !  print*, LCC%qmap(x)%Z(g)
+     g = g + 1
+  end do
+  
+  specific_rval = LCC%rmap(x)%Z(g)
+end function 
+!============================================
+!============================================
 end module 
   
   

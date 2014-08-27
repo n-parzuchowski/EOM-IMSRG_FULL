@@ -59,11 +59,12 @@ type full_sp_block_mat
 end type full_sp_block_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 type cross_coupled_31_mat
+   type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
    type(real_mat),allocatable,dimension(:) :: CCX,CCR
-   integer,allocatable,dimension(:) :: Jval,nph
+   integer,allocatable,dimension(:) :: Jval,nph,rlen
    integer :: nblocks,Nsp
 end type cross_coupled_31_mat
-   
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
    real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
@@ -1287,8 +1288,7 @@ subroutine read_main_input_file(input,H,htype,HF,hw,spfile,intfile)
   integer :: htype,jx
   logical :: HF
   real(8) :: hw 
-  
-  
+    
   input = adjustl(input) 
   if (trim(input) == '') then 
      print*, 'RUNNING TEST CASE: testcase.ini' 
@@ -1320,41 +1320,162 @@ subroutine read_main_input_file(input,H,htype,HF,hw,spfile,intfile)
 end subroutine
 !=======================================================  
 !=======================================================
-subroutine allocate_CCMAT(HS,CCME) 
+subroutine allocate_CCMAT(HS,CCME,jbas) 
+  ! allocates a cross-coupled ME storage structure
   ! currently the only CCME of interest are phab terms    |-------| 
   ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
   !                                                      |-------|
   implicit none 
   
+  
+  type(spd) :: jbas
   type(sq_op) :: HS
   type(cross_coupled_31_mat) :: CCME
-  integer :: JT,ja,jp,jb,jh,JC,q1,q2
-  integer :: a,b,p,h,i,j,Jmin,Jmax,NX
-  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np
+  integer :: JT,ji,jp,jj,jh,JC,q1,q2,g,li,lj,ti,tj
+  integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR,x
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
   real(8) :: sm,sm2
   
   NX = HS%Nsp
   CCME%Nsp = NX
-  CCME%nblocks = HS%nblocks
-  allocate(CCME%CCX(HS%nblocks))
-  allocate(CCME%CCR(HS%nblocks))
-  allocate(CCME%nph(HS%nblocks)) 
-  allocate(CCME%Jval(HS%nblocks)) 
+  CCME%nblocks = jbas%Jtotal_max + 1 
+  allocate(CCME%CCX(HS%nblocks)) ! < h a |v | p b> 
+  allocate(CCME%CCR(HS%nblocks)) ! < p a |v | h b> 
+  allocate(CCME%nph(HS%nblocks)) ! number of ph pairs in block 
+  allocate(CCME%rlen(HS%nblocks)) ! number of total pairs in block
+  allocate(CCME%Jval(HS%nblocks)) ! J value for block
+  allocate(CCME%rmap(NX*NX))  ! map of pair index to r indeces
+  allocate(CCME%qmap(NX*NX))  ! map of pair index to q indeces
+  allocate(CCME%nbmap(NX*NX)) 
+  
+  do i = 1, NX
+     do j = 1,NX
+        
+        ji = jbas%jj(i) 
+        jj = jbas%jj(j) 
+        
+        numJ = (ji + jj - abs(ji-jj))/2 + 1
+        
+        x = CCindex(i,j,NX) 
+        allocate(CCME%rmap(x)%Z(numJ)) 
+        allocate(CCME%qmap(x)%Z(numJ))
+        allocate(CCME%nbmap(x)%Z(numJ))
+        CCME%nbmap(x)%Z = 0
+     end do 
+  end do 
+  
   
   do q1 = 1, CCME%nblocks
      
-     JC = HS%mat(q1)%lam(1)
-     np = HS%mat(q1)%npp
-     nh = HS%mat(q1)%nhh
-     nb = HS%mat(q1)%nph
+     JC = (q1 - 1) * 2 
+ 
+     nb = 0 
+     r = 0 
+     do i = 1, NX
+        do j = 1,NX 
+           
+           ji = jbas%jj(i) 
+           jj = jbas%jj(j) 
+           if (.not. (triangle(ji,jj,JC))) cycle 
+           
+           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
+              nb = nb + 1 
+           end if 
+           
+           r = r+1
+        end do 
+     end do 
      
-     allocate( CCME%CCX(q1)%X(NX*NX,nb) )
-     allocate( CCME%CCR(q1)%X(nb,NX*NX) )
+     allocate( CCME%CCX(q1)%X(r,nb) ) 
+     allocate( CCME%CCR(q1)%X(nb,r) ) 
      
+     nb = 0 
+     r = 0 
+     do i = 1, NX
+        do j = 1,NX 
+           
+           ji = jbas%jj(i) 
+           jj = jbas%jj(j) 
+           if (.not. (triangle(ji,jj,JC))) cycle 
+           x = CCindex(i,j,NX) 
+           
+           g = 1
+           do while (CCME%qmap(x)%Z(g) .ne. 0) 
+              g = g + 1
+           end do 
+         
+           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then
+              nb = nb + 1
+              CCME%nbmap(x)%Z(g) = nb 
+           end if
+           
+           r = r+1
+           
+           CCME%qmap(x)%Z(g) = q1
+           CCME%rmap(x)%Z(g) = r
+
+        end do 
+     end do 
+               
      CCME%nph(q1) = nb
+     CCME%rlen(q1) = r
      CCME%Jval(q1) = JC 
   end do 
-end subroutine        
+end subroutine  
+!=======================================================  
+!=======================================================
+subroutine duplicate_CCMAT(C1,CCME) 
+  ! makes a copy of C1 onto CCME
+  implicit none 
+  
+  type(cross_coupled_31_mat) :: CCME,C1
+  integer :: JT,ji,jp,jj,jh,JC,q1,q2
+  integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
+  real(8) :: sm,sm2
+  
+  NX = C1%Nsp
+  CCME%Nsp = NX
+  CCME%nblocks = C1%nblocks
+  allocate(CCME%CCX(C1%nblocks))
+  allocate(CCME%CCR(C1%nblocks))
+  allocate(CCME%nph(C1%nblocks))
+  allocate(CCME%rlen(C1%nblocks)) 
+  allocate(CCME%Jval(C1%nblocks)) 
+  allocate(CCME%rmap(NX*NX))  ! map of pair index to r indeces
+  allocate(CCME%qmap(NX*NX))  ! map of pair index to q indeces
+  allocate(CCME%nbmap(NX*NX)) ! map of ph pair index to nb indeces
+  
+  do i = 1, NX
+     do j = 1,NX
+        
+        r = CCindex(i,j,NX)
+        
+        numJ = size(C1%rmap(r)%Z) 
+        
+        allocate(CCME%rmap(r)%Z(numJ)) 
+        allocate(CCME%qmap(r)%Z(numJ))
+        allocate(CCME%nbmap(r)%Z(numJ)) 
+        CCME%rmap(r)%Z = c1%rmap(r)%Z
+        CCME%qmap(r)%Z = c1%qmap(r)%Z
+        CCME%nbmap(r)%Z = c1%nbmap(r)%Z
+       
+     end do 
+  end do 
+   
+  CCME%nph = C1%nph
+  CCME%rlen = C1%rlen
+  CCME%Jval = C1%Jval
+  
+  do q1 = 1, CCME%nblocks
+     
+     r = CCME%rlen(q1)
+     nb = CCME%nph(q1) 
+     allocate( CCME%CCX(q1)%X(r,nb) ) 
+     allocate( CCME%CCR(q1)%X(nb,r) ) 
+     
+  end do 
+end subroutine              
 !=======================================================  
 !=======================================================          
 subroutine calculate_cross_coupled(HS,CCME,jbas,phase) 
@@ -1366,74 +1487,94 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
   type(spd) :: jbas
   type(sq_op) :: HS
   type(cross_coupled_31_mat) :: CCME
-  integer :: JT,ja,jp,jb,jh,JC,q1,q2
-  integer :: a,b,p,h,i,j,Jmin,Jmax
-  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np
-  real(8) :: sm,sm2,d6ji,pre
+  integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot
+  integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,g,ta,tb,Atot,hg,pg
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx
+  real(8) :: sm,sm2,pre
   logical :: phase
-  
-  call dfact0()
-  
-  pre = 1.d0
+
+  Atot = HS%belowEF
+  Ntot = HS%Nsp
+
+  pre = 1.d0 
   do q1 = 1, CCME%nblocks
      
-     JC = HS%mat(q1)%lam(1)
-     np = HS%mat(q1)%npp
-     nh = HS%mat(q1)%nhh
-     nb = HS%mat(q1)%nph
+     JC = (q1-1)*2
+  
      CCME%CCR(q1)%X = 0.d0
      CCME%CCX(q1)%X = 0.d0
          
      ! ab = ph 
-      
-     do IX = 1, nb
-        
-        h = HS%mat(q1)%qn(2)%Y(IX,1)
-        p = HS%mat(q1)%qn(2)%Y(IX,2)
-         
-        jp = jbas%jj(p) 
-        jh = jbas%jj(h)
-        
-        if (phase) pre = (-1.d0) ** (jp + jh)/2  
-        
-        do a = 1, HS%nsp
-           do b = 1, HS%nsp
+     do hg = 1, Atot
+        do pg = 1, Ntot - Atot 
            
-              ja = jbas%jj(a) 
-              jb = jbas%jj(b)
+           h = jbas%holes(hg) 
+           p = jbas%parts(pg) 
+         
+           jp = jbas%jj(p) 
+           jh = jbas%jj(h)
+        
+           if (.not. triangle(jp,jh,JC) )  cycle
+        
+           gnb = 1
+           do while (CCME%qmap(CCindex(p,h,HS%Nsp))%Z(gnb) .ne. q1 )
+              gnb = gnb + 1
+           end do
               
-              if (.not. triangle(ja,jb,JC) )  cycle 
-              ! hapb 
-              Jmin = max(abs(jp - jb),abs(ja - jh)) 
-              Jmax = min(jp+jb,ja+jh) 
+           NBindx = CCME%nbmap(CCindex(p,h,HS%Nsp))%Z(gnb) 
+
+           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
+           ! for the ph  channel 2body derivative 
+        
+           do a = 1, HS%nsp
+              do b = 1, HS%nsp
+           
+                 ja = jbas%jj(a) 
+                 jb = jbas%jj(b)
+             
+                 if (.not. triangle(ja,jb,JC) )  cycle
               
-              sm = 0.d0 
-              do JT = Jmin,Jmax,2
-                 sm = sm + (-1)**(JT/2) * (JT + 1) * &
-                      d6ji(jp,jh,JC,ja,jb,JT)  * &
-                      v_elem(h,a,p,b,JT,HS,jbas) 
-              end do 
+                 g = 1
+                 do while (CCME%qmap(CCindex(a,b,HS%Nsp))%Z(g) .ne. q1 )
+                    g = g + 1
+                 end do
               
-              CCME%CCX(q1)%X(CCindex(a,b,HS%Nsp),IX) = sm * pre * &
-                   (-1) **( (jh + jb + JC) / 2) * sqrt(JC + 1.d0)
+                 Rindx = CCME%rmap(CCindex(a,b,HS%Nsp))%Z(g)  
+                    
+                 ! hapb 
+                 Jmin = max(abs(jp - jb),abs(ja - jh)) 
+                 Jmax = min(jp+jb,ja+jh) 
               
-              Jmin = max(abs(jh - jb),abs(ja - jp)) 
-              Jmax = min(jh+jb,ja+jp) 
+                 sm = 0.d0 
+                 do JT = Jmin,Jmax,2
+                    sm = sm + (-1)**(JT/2) * (JT + 1) * &
+                         sixj(jp,jh,JC,ja,jb,JT)  * &
+                         v_elem(h,a,p,b,JT,HS,jbas) 
+                 end do
+                 
+                 ! store  < h a | v | p b> 
+                 CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
+                      (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
+                 ! scaled by sqrt(JC + 1) for convience in ph derivative
+                 
+                 Jmin = max(abs(jh - jb),abs(ja - jp)) 
+                 Jmax = min(jh+jb,ja+jp) 
+                 
+                 sm = 0.d0 
+                 do JT = Jmin,Jmax,2
+                    sm = sm + (-1)**(JT/2) * (JT + 1) * &
+                         sixj(jh,jp,JC,ja,jb,JT)  * &
+                         v_elem(p,a,h,b,JT,HS,jbas) 
+                 end do
               
-              sm = 0.d0 
-              do JT = Jmin,Jmax,2
-                 sm = sm + (-1)**(JT/2) * (JT + 1) * &
-                      d6ji(jh,jp,JC,ja,jb,JT)  * &
-                      v_elem(p,a,h,b,JT,HS,jbas) 
-              end do 
-              
-              CCME%CCR(q1)%X(IX,CCindex(a,b,HS%Nsp)) = sm * pre *&
-                   (-1) **( (jp + jb + JC) / 2) * sqrt(JC + 1.d0) 
-              
-                
-           end do 
-        end do 
-     end do 
+                 ! store  < p a | v | h b> 
+                 CCME%CCR(q1)%X(NBindx,Rindx) = sm * &
+                      (-1) **( (jp + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
+           
+              end do
+           end do
+        end do
+     end do
 
   end do 
 end subroutine 
@@ -1446,7 +1587,27 @@ integer function CCindex(a,b,N)
   
   CCindex = N*(a-1) + b
 end function 
-
+!===========================================================
+!===========================================================  
+subroutine allocate_CC_wkspc(CCHS,WCC)
+  implicit none 
+  
+  type(cross_coupled_31_mat) :: CCHS,WCC 
+  integer :: q,r
+  
+  allocate(WCC%CCX(CCHS%nblocks))
+  allocate(WCC%CCR(CCHS%nblocks))
+  
+  do q = 1,CCHS%nblocks
+     
+     r = CCHS%rlen(q) 
+     
+     allocate(WCC%CCX(q)%X(r,r)) 
+     allocate(WCC%CCR(q)%X(r,r)) 
+  end do 
+end subroutine 
+!===========================================================
+!===========================================================  
 end module
        
   
