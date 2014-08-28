@@ -1487,9 +1487,9 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
   type(spd) :: jbas
   type(sq_op) :: HS
   type(cross_coupled_31_mat) :: CCME
-  integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot
+  integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,g,ta,tb,Atot,hg,pg
-  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x
   real(8) :: sm,sm2,pre
   logical :: phase
 
@@ -1510,18 +1510,23 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
            
            h = jbas%holes(hg) 
            p = jbas%parts(pg) 
-         
+           
            jp = jbas%jj(p) 
            jh = jbas%jj(h)
+           lp = jbas%ll(p) 
+           lh = jbas%ll(h)
+           tp = jbas%itzp(p) 
+           th = jbas%itzp(h)
         
            if (.not. triangle(jp,jh,JC) )  cycle
         
+           x = CCindex(p,h,HS%Nsp)
            gnb = 1
-           do while (CCME%qmap(CCindex(p,h,HS%Nsp))%Z(gnb) .ne. q1 )
+           do while (CCME%qmap(x)%Z(gnb) .ne. q1 )
               gnb = gnb + 1
            end do
               
-           NBindx = CCME%nbmap(CCindex(p,h,HS%Nsp))%Z(gnb) 
+           NBindx = CCME%nbmap(x)%Z(gnb) 
 
            if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
            ! for the ph  channel 2body derivative 
@@ -1531,46 +1536,58 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
            
                  ja = jbas%jj(a) 
                  jb = jbas%jj(b)
-             
+                 la = jbas%ll(a) 
+                 lb = jbas%ll(b)
+                 ta = jbas%itzp(a) 
+                 tb = jbas%itzp(b)
+                 
                  if (.not. triangle(ja,jb,JC) )  cycle
-              
+                 
+                 x = CCindex(a,b,HS%Nsp) 
                  g = 1
-                 do while (CCME%qmap(CCindex(a,b,HS%Nsp))%Z(g) .ne. q1 )
+                 do while (CCME%qmap(x)%Z(g) .ne. q1 )
                     g = g + 1
                  end do
               
-                 Rindx = CCME%rmap(CCindex(a,b,HS%Nsp))%Z(g)  
+                 Rindx = CCME%rmap(x)%Z(g)  
+
+                 if ( (mod(la + lh,2) == mod(lb + lp,2)) .and. &
+                      ( (ta + th) == (tb + tp) ) ) then  
+                       
+                    ! hapb 
+                    Jmin = max(abs(jp - jb),abs(ja - jh)) 
+                    Jmax = min(jp+jb,ja+jh) 
                     
-                 ! hapb 
-                 Jmin = max(abs(jp - jb),abs(ja - jh)) 
-                 Jmax = min(jp+jb,ja+jh) 
+                    sm = 0.d0 
+                    do JT = Jmin,Jmax,2
+                       sm = sm + (-1)**(JT/2) * (JT + 1) * &
+                            sixj(jp,jh,JC,ja,jb,JT)  * &
+                            v_elem(h,a,p,b,JT,HS,jbas) 
+                    end do
+                 
+                    ! store  < h a | v | p b> 
+                    CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
+                         (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
+                    ! scaled by sqrt(JC + 1) for convience in ph derivative
+                 end if 
+                 
+                 if ( (mod(la + lp,2) == mod(lb + lh,2)) .and. &
+                      ( (ta + tp) == (tb + th) ) ) then
+                    
+                    Jmin = max(abs(jh - jb),abs(ja - jp)) 
+                    Jmax = min(jh+jb,ja+jp) 
+                    
+                    sm = 0.d0 
+                    do JT = Jmin,Jmax,2
+                       sm = sm + (-1)**(JT/2) * (JT + 1) * &
+                            sixj(jh,jp,JC,ja,jb,JT)  * &
+                            v_elem(p,a,h,b,JT,HS,jbas) 
+                    end do
               
-                 sm = 0.d0 
-                 do JT = Jmin,Jmax,2
-                    sm = sm + (-1)**(JT/2) * (JT + 1) * &
-                         sixj(jp,jh,JC,ja,jb,JT)  * &
-                         v_elem(h,a,p,b,JT,HS,jbas) 
-                 end do
-                 
-                 ! store  < h a | v | p b> 
-                 CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
-                      (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
-                 ! scaled by sqrt(JC + 1) for convience in ph derivative
-                 
-                 Jmin = max(abs(jh - jb),abs(ja - jp)) 
-                 Jmax = min(jh+jb,ja+jp) 
-                 
-                 sm = 0.d0 
-                 do JT = Jmin,Jmax,2
-                    sm = sm + (-1)**(JT/2) * (JT + 1) * &
-                         sixj(jh,jp,JC,ja,jb,JT)  * &
-                         v_elem(p,a,h,b,JT,HS,jbas) 
-                 end do
-              
-                 ! store  < p a | v | h b> 
-                 CCME%CCR(q1)%X(NBindx,Rindx) = sm * &
-                      (-1) **( (jp + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
-           
+                    ! store  < p a | v | h b> 
+                    CCME%CCR(q1)%X(NBindx,Rindx) = sm * &
+                         (-1) **( (jp + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
+                 end if
               end do
            end do
         end do

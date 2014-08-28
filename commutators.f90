@@ -2,7 +2,18 @@ module commutators
   use basic_IMSRG
   ! basic commutator functions 
   
-
+  !The following public arrays give info about the 6 different categories
+  ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
+  
+  ! holds the c values for qn and pn arrays
+  integer,public,dimension(6) :: sea1 = (/1,1,1,2,3,2/), sea2 = (/1,2,3,2,3,3/) 
+  ! true if square matrix
+  logical,public,dimension(6) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false./)
+  ! 100000 if square matrix, 1 if not. 
+  integer,public,dimension(6) :: jst = (/100000,1,1,100000,100000,1/)
+  
+  ! These are used in commutators 122, and 222_ph 
+  
 contains
 !=========================================================
 !=========================================================
@@ -307,35 +318,15 @@ subroutine commutator_122(L,R,RES,jbas)
         n2 = size(L%mat(q)%gam(g_ix)%X(1,:))
         if ((n1*n2) == 0) cycle 
         
-        ! figure out which type n1 is
-        if (n1 == nh) then 
-           c1 = 3 
-        else if (n1 == np) then 
-           c1 = 1
-        else 
-           c1 = 2
-        end if 
+         ! read in information about which 
+        ! array we are using from public arrays
+        c1 = sea1(g_ix) 
+        c2 = sea2(g_ix) 
+        square = sqs(g_ix) 
+        jxstart = jst(g_ix) 
         
-        
-        ! decide if it's a square array or rectangle
-        if (n1 == n2) then
-           jxstart = 10000
-           square = .true.
-           c2 = c1 
-        else 
-           jxstart = 1
-           square = .false.
-           if (n2 == nh) then 
-              c2 = 3 
-           else if (n2 == np) then 
-              c2 = 1
-           else 
-              c2 = 2
-           end if
-        end if 
                 
      ! main calculation
-     !   call print_matrix( L%mat(q)%gam(1)%X )
    
      do IX = 1,n1
         a = L%mat(q)%qn(c1)%Y(IX,1)
@@ -763,88 +754,10 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
   end do
 
 end subroutine 
-!===============================================
-!===============================================
-subroutine commutator_222_ph(LG,R,RES,jbas) 
-  implicit none 
-  
-  type(spd) :: jbas
-  type(sq_op) :: LG,R,RES
-  integer :: i,j,k,l,a,b,q,IX,JX
-  integer :: nh,np,nb,ji,jj,jk,jl
-  integer :: ti,tj,tk,tl,ta,tb
-  integer :: J1,J2,Jtot,ja,jb,JP,Ntot
-  real(8) :: sm,d6ji
-  
-  Ntot = LG%Nsp
-  !call dfact0() 
-  
-
-  do q = 3,3!LG%nblocks
- 
-     !print*, q,LG%nblocks
-     nh = LG%mat(q)%nhh
-     np = LG%mat(q)%npp
-     nb = LG%mat(q)%nph
-     Jtot = LG%mat(q)%lam(1)
-     
-     do IX = 1,np
-        i = LG%mat(q)%qn(1)%Y(IX,1)
-        j = LG%mat(q)%qn(1)%Y(IX,2)
-        ji = jbas%jj(i) 
-        jj = jbas%jj(j) 
-  
-        do JX = 1,nb
-           
-           k = LG%mat(q)%qn(2)%Y(JX,1)
-           l = LG%mat(q)%qn(2)%Y(JX,2)
-           jk = jbas%jj(k) 
-           jl = jbas%jj(l) 
-           
-           
-           sm = 0.d0 
-           do a = 1, Ntot
-              do b = 1, Ntot
-                 
-                 if (jbas%con(a) + jbas%con(b) .ne. 1) cycle
-                 
-                 ja = jbas%jj(a) 
-                 jb = jbas%jj(b)
-                 
-                 do J1 = 0,18,2
-                    do J2 = 0,18,2
-                       do JP = 0,18,2
-                          
-                          sm = sm + (J1 + 1)*(J2 + 1)*(JP + 1) * &
-                               (jbas%con(a) - jbas%con(b)) * (-1)**((ji + jk + J1 -J2 )/2) * &
-                               
-                 ((-1)**(Jtot/2)* sixj(ja,ji,J2,jk,jb,JP) * sixj(jj,jl,JP,jk,ji,Jtot) * sixj(jj,jb,J1,ja,jl,JP)* &
-                  ( v_elem(b,j,a,l,J1,LG,jbas) * v_elem(a,i,b,k,J2,R,jbas) - &
-                  v_elem(b,j,a,l,J1,R,jbas) * v_elem(a,i,b,k,J2,LG,jbas)  )   - &
-                          
-                          sixj(ji,jb,J1,ja,jl,JP) * sixj(ja,jj,J2,jk,jb,JP) * sixj(ji,jl,JP,jk,jj,Jtot) * &
-                          (v_elem(b,i,a,l,J1,R,jbas) * v_elem(a,j,b,k,J2,LG,jbas) - &
-                          v_elem(b,i,a,l,J1,LG,jbas) * v_elem(a,j,b,k,J2,R,jbas) ) )
-                           
-                      end do 
-                   end do 
-                end do 
-                
-             end do 
-          end do 
-                          
-          RES%mat(q)%gam(2)%X(IX,JX) = sm 
-          
-       end do 
-    end do 
-    
- end do 
-
-                 
-end subroutine           
 !=================================================================
 !=================================================================
- subroutine ycommutator_222_ph(LCC,RCC,RES,WCC,jbas) 
+ subroutine commutator_222_ph(LCC,RCC,RES,WCC,jbas) 
+   ! VERIFIED ph channel 2body commutator. DFWT! 
    implicit none 
   
    type(spd) :: jbas
@@ -893,33 +806,13 @@ end subroutine
         n2 = size(RES%mat(q)%gam(g_ix)%X(1,:))
         if ((n1*n2) == 0) cycle 
         
-        ! figure out which type n1 is
-        if (n1 == nh) then 
-           c1 = 3 
-        else if (n1 == np) then 
-           c1 = 1
-        else 
-           c1 = 2
-        end if 
+        ! read in information about which 
+        ! array we are using from public arrays
+        c1 = sea1(g_ix) 
+        c2 = sea2(g_ix) 
+        square = sqs(g_ix) 
+        jxstart = jst(g_ix) 
         
-        
-        ! decide if it's a square array or rectangle
-        if (n1 == n2) then
-           jxstart = 10000
-           square = .true.
-           c2 = c1 
-        else 
-           jxstart = 1
-           square = .false.
-           if (n2 == nh) then 
-              c2 = 3 
-           else if (n2 == np) then 
-              c2 = 1
-           else 
-              c2 = 2
-           end if
-        end if               
-
       do  IX =  1, n1 
 
          i = RES%mat(q)%qn(c1)%Y(IX,1)
@@ -983,7 +876,7 @@ end subroutine
             
                end do 
             
-           RES%mat(q)%gam(g_ix)%X(IX,JX) = sm 
+           RES%mat(q)%gam(g_ix)%X(IX,JX) = RES%mat(q)%gam(g_ix)%X(IX,JX) + sm 
            if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) = sm
            
          end do 

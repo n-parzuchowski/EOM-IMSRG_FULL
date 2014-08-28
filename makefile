@@ -1,10 +1,10 @@
-FC = gfortran $(FFLAGS)  
+FC = gfortran $(TFLAGS)  
 
 p1 = run_IMSRG
 p2 = run_HO_energies
 
 FFLAGS =  -O3 -fbounds-check -fopenmp
-TFLAGS =  -pg
+TFLAGS =  -pg -g
 
 LIBS =  -L/user/local/lib/ -llapack -lblas
 
