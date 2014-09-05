@@ -2,17 +2,7 @@ module commutators
   use basic_IMSRG
   ! basic commutator functions 
   
-  !The following public arrays give info about the 6 different categories
-  ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
   
-  ! holds the c values for qn and pn arrays
-  integer,public,dimension(6) :: sea1 = (/1,1,1,2,3,2/), sea2 = (/1,2,3,2,3,3/) 
-  ! true if square matrix
-  logical,public,dimension(6) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false./)
-  ! 100000 if square matrix, 1 if not. 
-  integer,public,dimension(6) :: jst = (/100000,1,1,100000,100000,1/)
-  
-  ! These are used in commutators 122, and 222_ph 
   
 contains
 !=========================================================
@@ -155,13 +145,13 @@ subroutine commutator_121(L,R,RES,jbas)
                  smy2 = smy2 + v_elem(ik,pk,ak,qk,JT,L,jbas)*(JT + 1) 
               end do 
               
-              sm = sm + L%fph(a,i) * (L%herm*smx - smy) /(ji + 1.d0) - &
-                   (R%fph(a,i) * (R%herm*smx2 - smy2) /(ji + 1.d0)) 
+              sm = sm + L%fph(a,i) * (L%herm*smx - smy) - &
+                   R%fph(a,i) * (R%herm*smx2 - smy2)
            end do 
         end do 
         
-        RES%fhh(p,q) = RES%fhh(p,q) + sm 
-        RES%fhh(q,p) = sm 
+        RES%fhh(p,q) = RES%fhh(p,q) + sm /(jp + 1.d0) 
+        RES%fhh(q,p) = RES%fhh(p,q)
         
      end do 
   end do 
@@ -216,13 +206,13 @@ subroutine commutator_121(L,R,RES,jbas)
                  smy2 = smy2 + v_elem(ik,pk,ak,qk,JT,L,jbas)*(JT + 1) 
               end do 
               
-              sm = sm + L%fph(a,i) * (L%herm*smx - smy) /(ji + 1.d0) - &
-                   (R%fph(a,i) * (R%herm*smx2 - smy2) /(ji + 1.d0)) 
+              sm = sm + L%fph(a,i) * (L%herm*smx - smy)  - &
+                   R%fph(a,i) * (R%herm*smx2 - smy2) 
            end do 
         end do 
         
-        RES%fpp(p,q) = RES%fpp(p,q) + sm 
-        RES%fpp(q,p) = sm 
+        RES%fpp(p,q) = RES%fpp(p,q) + sm/(jp + 1.d0) 
+        RES%fpp(q,p) = RES%fpp(p,q)
         
      end do 
   end do 
@@ -236,7 +226,7 @@ subroutine commutator_121(L,R,RES,jbas)
      
      do q = 1, L%belowEF
       
-        qk = jbas%parts(q) 
+        qk = jbas%holes(q) 
         jq = jbas%jj(qk) 
         tq = jbas%itzp(qk)
         lq = jbas%ll(qk)
@@ -277,12 +267,12 @@ subroutine commutator_121(L,R,RES,jbas)
                  smy2 = smy2 + v_elem(ik,pk,ak,qk,JT,L,jbas)*(JT + 1) 
               end do 
               
-              sm = sm + L%fph(a,i) * (L%herm*smx - smy) /(ji + 1.d0) - &
-                   (R%fph(a,i) * (R%herm*smx2 - smy2) /(ji + 1.d0)) 
+              sm = sm + L%fph(a,i) * (L%herm*smx - smy) - &
+                   R%fph(a,i) * (R%herm*smx2 - smy2)
            end do 
         end do 
         
-        RES%fph(p,q) = RES%fph(p,q) + sm 
+        RES%fph(p,q) = RES%fph(p,q) + sm /(jp + 1.d0)
         
      end do 
   end do             
@@ -394,8 +384,10 @@ subroutine commutator_122(L,R,RES,jbas)
             end do 
           
               sm = sm / sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(c,d)) 
+
            RES%mat(q)%gam(g_ix)%X(IX,JX) = sm 
            if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) = sm
+
         end do
      end do
    
@@ -519,6 +511,7 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
         do c = 1, Abody
            ck = jbas%holes(c) 
            jc = jbas%jj(ck)
+           ! w1 matrix results from multiplying the pp channel
            do JT = abs(jc - ji),jc+ji,2
               sm = sm + (v_elem(ck,ik,ck,jk,JT,w1,jbas) + &
                    v_elem(ck,jk,ck,ik,JT,w1,jbas))*(JT + 1) 
@@ -528,6 +521,7 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
         do c = 1, Ntot - Abody
            ck = jbas%parts(c) 
            jc = jbas%jj(ck)
+           ! w2 matrix results from multiplying the hh channel
            do JT = abs(jc - ji),jc+ji,2
               sm = sm + (v_elem(ck,ik,ck,jk,JT,w2,jbas) + &
                    v_elem(ck,jk,ck,ik,JT,w2,jbas))*(JT + 1)
@@ -741,8 +735,6 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
           R%mat(q)%gam(6)%X,nb,bet_off,w2%mat(q)%gam(2)%X,np)
      end if
 
-
-
      ! Vphhh
      RES%mat(q)%gam(6)%X = RES%mat(q)%gam(6)%X + &
           w1%mat(q)%gam(6)%X  - w2%mat(q)%gam(6)%X
@@ -766,12 +758,12 @@ end subroutine
    integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
    integer :: JP, Jtot,Ntot , qx,jmin,jmax,rik,rjl,ril,rjk,g_ix
-   real(8) :: sm ,t1,t2,omp_get_wtime
+   real(8) :: sm ,pre,pre2
    logical :: square
    
   Ntot = RES%Nsp
    ! construct intermediate matrices
-   !t1 = omp_get_wtime()
+ 
    do q = 1,LCC%nblocks
       
       nb = LCC%nph(q)
@@ -814,10 +806,12 @@ end subroutine
         jxstart = jst(g_ix) 
         
       do  IX =  1, n1 
+         pre = 1.d0 
 
          i = RES%mat(q)%qn(c1)%Y(IX,1)
          j = RES%mat(q)%qn(c1)%Y(IX,2)
-         
+ 
+         if (i == j )  pre  = .70710678118d0
          ji = jbas%jj(i) 
          jj = jbas%jj(j) 
          li = jbas%ll(i) 
@@ -826,10 +820,11 @@ end subroutine
          tj = jbas%itzp(j)
          
          do JX = min(jxstart,IX),n2
-   
+            pre2 = 1.d0 
             k = RES%mat(q)%qn(c2)%Y(JX,1)
             l = RES%mat(q)%qn(c2)%Y(JX,2)
             
+            if (k == l )  pre2 = .70710678118d0
             jk = jbas%jj(k) 
             jl = jbas%jj(l) 
             lk = jbas%ll(k) 
@@ -848,7 +843,7 @@ end subroutine
                   rjl = specific_rval(j,l,Ntot,qx,LCC)
                   rik = specific_rval(i,k,Ntot,qx,LCC)
                   
-                  sm = sm + ( WCC%CCX(qx)%X(rjl,rik) - &
+                  sm = sm - ( WCC%CCX(qx)%X(rjl,rik) - &
                        WCC%CCR(qx)%X(rjl,rik) - &
                        WCC%CCR(qx)%X(rik,rjl) + &
                        WCC%CCX(qx)%X(rik,rjl) ) * &
@@ -867,7 +862,7 @@ end subroutine
                   ril = specific_rval(i,l,Ntot,qx,LCC)
                   rjk = specific_rval(j,k,Ntot,qx,LCC)
                   
-                  sm = sm - ( WCC%CCR(qx)%X(ril,rjk) - &
+                  sm = sm + ( WCC%CCR(qx)%X(ril,rjk) - &
                        WCC%CCX(qx)%X(ril,rjk) - &
                        WCC%CCX(qx)%X(rjk,ril) + &
                        WCC%CCR(qx)%X(rjk,ril) ) * &
@@ -876,8 +871,10 @@ end subroutine
             
                end do 
             
-           RES%mat(q)%gam(g_ix)%X(IX,JX) = RES%mat(q)%gam(g_ix)%X(IX,JX) + sm 
-           if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) = sm
+           RES%mat(q)%gam(g_ix)%X(IX,JX) = &
+                RES%mat(q)%gam(g_ix)%X(IX,JX) + sm * pre * pre2 
+           if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) =  &
+                RES%mat(q)%gam(g_ix)%X(IX,JX)
            
          end do 
       end do

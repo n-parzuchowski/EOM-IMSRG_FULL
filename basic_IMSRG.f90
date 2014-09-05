@@ -40,7 +40,7 @@ module basic_IMSRG
   TYPE :: sq_op !second quantized operator 
      type(sq_block),allocatable,dimension(:) :: mat
      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
-     integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF
+     integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      real(8) :: E0 
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
@@ -69,6 +69,19 @@ end type cross_coupled_31_mat
    real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
    type(six_index_store),public :: store6j   ! holds 6j-symbols
+ 
+
+  !The following public arrays give info about the 6 different categories
+  ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
+  
+  ! holds the c values for qn and pn arrays
+  integer,public,dimension(6) :: sea1 = (/1,1,1,2,3,2/), sea2 = (/1,2,3,2,3,3/) 
+  ! true if square matrix
+  logical,public,dimension(6) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false./)
+  ! 100000 if square matrix, 1 if not. 
+  integer,public,dimension(6) :: jst = (/100000,1,1,100000,100000,1/)
+  
+  ! These are used in commutators 122, and 222_ph 
 
 contains 
 !====================================================
@@ -447,8 +460,10 @@ subroutine read_interaction(H,intfile,jbas,htype,hw)
      end if 
      ! I shouldn't have to worry about hermiticity here, it is assumed to be hermitian
      
-  end do    
+  end do   
+  close(39)
      
+  !print*, 'anus', v_elem(1,29,3,17,0,H,jbas)
 end subroutine
 !==================================================================  
 !==================================================================
@@ -1137,6 +1152,7 @@ subroutine duplicate_sq_op(H,op)
   op%Nsp = H%Nsp
   op%belowEF = H%belowEF
   op%nblocks = H%nblocks
+  op%neq = H%neq
   
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 
@@ -1339,11 +1355,11 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
   NX = HS%Nsp
   CCME%Nsp = NX
   CCME%nblocks = jbas%Jtotal_max + 1 
-  allocate(CCME%CCX(HS%nblocks)) ! < h a |v | p b> 
-  allocate(CCME%CCR(HS%nblocks)) ! < p a |v | h b> 
-  allocate(CCME%nph(HS%nblocks)) ! number of ph pairs in block 
-  allocate(CCME%rlen(HS%nblocks)) ! number of total pairs in block
-  allocate(CCME%Jval(HS%nblocks)) ! J value for block
+  allocate(CCME%CCX(CCME%nblocks)) ! < h a |v | p b> 
+  allocate(CCME%CCR(CCME%nblocks)) ! < p a |v | h b> 
+  allocate(CCME%nph(CCME%nblocks)) ! number of ph pairs in block 
+  allocate(CCME%rlen(CCME%nblocks)) ! number of total pairs in block
+  allocate(CCME%Jval(CCME%nblocks)) ! J value for block
   allocate(CCME%rmap(NX*NX))  ! map of pair index to r indeces
   allocate(CCME%qmap(NX*NX))  ! map of pair index to q indeces
   allocate(CCME%nbmap(NX*NX)) 
@@ -1360,6 +1376,7 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
         allocate(CCME%rmap(x)%Z(numJ)) 
         allocate(CCME%qmap(x)%Z(numJ))
         allocate(CCME%nbmap(x)%Z(numJ))
+        CCME%qmap(x)%Z = 0
         CCME%nbmap(x)%Z = 0
      end do 
   end do 
@@ -1397,6 +1414,7 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
            ji = jbas%jj(i) 
            jj = jbas%jj(j) 
            if (.not. (triangle(ji,jj,JC))) cycle 
+
            x = CCindex(i,j,NX) 
            
            g = 1
@@ -1624,7 +1642,134 @@ subroutine allocate_CC_wkspc(CCHS,WCC)
   end do 
 end subroutine 
 !===========================================================
-!===========================================================  
+!===========================================================
+!=================================================
+!=================================================
+subroutine vectorize(rec,vout)
+  !!! maps full_ham to vector
+  implicit none 
+
+  integer ::  i,j,k,l,gx,Atot,Ntot
+  type(sq_op) :: rec
+  real(8),dimension(rec%neq) :: vout
+  
+  Atot = rec%belowEF
+  Ntot= rec%Nsp
+  
+  Ntot = Ntot - Atot 
+  
+  vout(1) = rec%E0
+  
+  k=2
+  do i=1,Atot
+     do j=1,Atot
+        
+        vout(k) =  rec%fhh(j,i) 
+        k=k+1
+       
+     end do 
+  end do 
+
+  do i=1,Ntot
+     do j=1,Ntot
+        
+        vout(k) = rec%fpp(j,i) 
+        k=k+1
+        
+     end do 
+  end do 
+
+  do i=1,Atot
+     do j=1,Ntot
+        
+        vout(k) = rec%fph(j,i) 
+        k=k+1
+
+     end do 
+  end do 
+   
+  do l=1,rec%nblocks
+     
+     do gx = 1, 6
+        !min(jst(gx),i)
+        do i=1,size(rec%mat(l)%gam(gx)%X(1,:) )
+           do j=min(jst(gx),i),size(rec%mat(l)%gam(gx)%X(:,1))
+           
+              vout(k) = rec%mat(l)%gam(gx)%X(j,i) 
+              k=k+1
+        
+           end do
+        end do
+     end do 
+  end do    
+     
+end subroutine 
+!=================================================
+!=================================================
+subroutine repackage(rec,vout)
+  !!! maps full_ham to vector
+  implicit none 
+
+  integer :: i,j,k,l,gx,Atot,Ntot
+  type(sq_op) :: rec
+  real(8),dimension(rec%neq) :: vout
+  
+
+  Atot = rec%belowEF
+  Ntot= rec%Nsp
+  
+  Ntot = Ntot - Atot 
+  
+  rec%E0 = vout(1)
+  
+  k=2
+  do i=1,Atot
+     do j=1,Atot
+        
+        rec%fhh(j,i) = vout(k) 
+        k=k+1
+       
+     end do 
+  end do 
+
+  do i=1,Ntot
+     do j=1,Ntot
+        
+        rec%fpp(j,i) = vout(k)
+        k=k+1
+        
+
+     end do 
+  end do 
+
+  do i=1,Atot
+     do j=1,Ntot
+        
+        rec%fph(j,i) = vout(k) 
+        k=k+1
+
+     end do 
+  end do 
+    
+  do l=1,rec%nblocks
+     
+     do gx = 1, 6
+        !min(jst(gx),i)
+        do i=1,size(rec%mat(l)%gam(gx)%X(1,:) )
+           do j=min(jst(gx),i),size(rec%mat(l)%gam(gx)%X(:,1))
+           
+              rec%mat(l)%gam(gx)%X(j,i) = vout(k) 
+        if (sqs(gx)) rec%mat(l)%gam(gx)%X(i,j) = vout(k) * rec%herm 
+              k=k+1
+        
+           end do
+        end do
+     end do 
+  end do    
+     
+end subroutine 
+!===============================================================
+!===============================================================  
 end module
        
   

@@ -42,7 +42,7 @@ subroutine build_gs_white(H,ETA,jbas)
         Eden = 0.0 
         
         do JT = 0, 2*ji , 2
-           Eden = Eden + (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
+           Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
         end do 
         
         ! sum is averaged over ji ** 2  
