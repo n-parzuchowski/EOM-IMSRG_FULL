@@ -299,8 +299,7 @@ subroutine commutator_122(L,R,RES,jbas)
      nh = L%mat(q)%nhh
      np = L%mat(q)%npp
      nb = L%mat(q)%nph
-     if (nh*np*nb == 0) cycle
-     
+  
      do g_ix = 1,6 
    
         ! figure out how big the array is
@@ -328,7 +327,7 @@ subroutine commutator_122(L,R,RES,jbas)
         jb = jbas%jj(b)
         lb = jbas%ll(b)
         tb = jbas%itzp(b)
-
+ 
         do JX = min(jxstart,IX),n2
            
            c = L%mat(q)%qn(c2)%Y(JX,1)
@@ -497,7 +496,7 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
      li = jbas%ll(ik) 
      ti = jbas%itzp(ik) 
      
-     do j = 1 , Ntot - Abody
+     do j = i , Ntot - Abody
         
         jk = jbas%parts(j) 
         jj = jbas%jj(jk) 
@@ -507,6 +506,7 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
         tj = jbas%itzp(jk)
         if (tj .ne. ti) cycle 
                 
+       
         sm = 0.d0 
         do c = 1, Abody
            ck = jbas%holes(c) 
@@ -514,7 +514,7 @@ subroutine commutator_221(L,R,RES,w1,w2,jbas)
            ! w1 matrix results from multiplying the pp channel
            do JT = abs(jc - ji),jc+ji,2
               sm = sm + (v_elem(ck,ik,ck,jk,JT,w1,jbas) + &
-                   v_elem(ck,jk,ck,ik,JT,w1,jbas))*(JT + 1) 
+                   v_elem(ck,jk,ck,ik,JT,w1,jbas))*(JT + 1)        
            end do 
         end do 
         
@@ -685,13 +685,8 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
           w1%mat(q)%gam(4)%X  - w2%mat(q)%gam(4)%X + &
            ( Transpose(w1%mat(q)%gam(4)%X - w2%mat(q)%gam(4)%X ) ) 
      
-     
-     
-     if(nb*np*nh .ne. 0) then 
-     
-     
-   
-     
+ 
+     if (nb*nh .ne. 0)  then 
      !R_phhh . L_hhhh = W2_phhh (transposed) 
      call dgemm('N','N',nb,nh,nh,al,R%mat(q)%gam(6)%X,nb,&
           L%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(6)%X,nb) 
@@ -699,7 +694,9 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      !L_phhh . R_hhhh + R_phhh . L_hhhh = W2_phhh
      call dgemm('N','N',nb,nh,nh,al,L%mat(q)%gam(6)%X,nb,&
           R%mat(q)%gam(5)%X,nh,bet_off,w2%mat(q)%gam(6)%X,nb) 
-          
+     end if 
+     
+     if (nb*np .ne. 0) then 
      !R_pppp . L_ppph = W1_ppph
      call dgemm('N','N',np,nb,np,al,L%mat(q)%gam(1)%X,np,&
           R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(2)%X,np) 
@@ -707,13 +704,14 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      !L_pppp . R_ppph + R_pppp . L_ppph = W1_ppph 
      call dgemm('N','N',np,nb,np,al,L%mat(q)%gam(1)%X,np,&
           R%mat(q)%gam(2)%X,np,bet_off,w1%mat(q)%gam(2)%X,np)
-    
+     end if 
 
      !  the following are
      !  slightly messier because they need to be tranposed 
      !  to matrices which i don't have stored
      
      !R_phpp . L_pphh = W1_phhh (transposed) 
+     if (nb*np*nh .ne. 0) then 
      call dgemm('T','N',nb,nh,np,al,R%mat(q)%gam(2)%X,np,&
           L%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(6)%X,nb)
          
@@ -788,9 +786,7 @@ end subroutine
      nh = RES%mat(q)%nhh
      np = RES%mat(q)%npp
      nb = RES%mat(q)%nph
-     
-     if (nh*np*nb == 0) cycle
-     
+          
      do g_ix = 1,6 
    
         ! figure out how big the array is

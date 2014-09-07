@@ -104,8 +104,8 @@ subroutine dHds_white_gs(t,yp,HS,jbas)
  
   DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
 
-  !call commutator_111(ETA,HS,DH,jbas) 
-  !call commutator_121(ETA,HS,DH,jbas)
+  call commutator_111(ETA,HS,DH,jbas) 
+  call commutator_121(ETA,HS,DH,jbas)
   call commutator_122(ETA,HS,DH,jbas)
   
 
@@ -118,30 +118,30 @@ subroutine dHds_white_gs(t,yp,HS,jbas)
   ! the problem is with this matrix element. out of phase somehow? 
   ! seems to be the case with most phph, phhh,phpp
   ! figure it out hoe.
-    do i = 1, HS%nsp
-       do j = i ,HS%nsp
-          do k = 1, HS%nsp
-             do l = k, HS%nsp
+  !    do i = 1, HS%nsp
+  !       do j = i ,HS%nsp
+  !          do k = 1, HS%nsp
+  !             do l = k, HS%nsp
               
-                if (jbas%jj(i) .ne. jbas%jj(j)) cycle 
-                if (jbas%jj(k) .ne. jbas%jj(l)) cycle 
-                if (jbas%itzp(i) + jbas%itzp(j) .ne. jbas%itzp(k) + jbas%itzp(l) ) cycle
-                if (mod(jbas%ll(i)+jbas%ll(j),2) .ne. mod(jbas%ll(k)+jbas%ll(l),2)) cycle
-                write(72,'(4(I4),e20.12)') i,j,k,l,v_elem(i,j,k,l,0,DH,jbas)
+  !                if (jbas%jj(i) .ne. jbas%jj(j)) cycle 
+  !                if (jbas%jj(k) .ne. jbas%jj(l)) cycle 
+  !                if (jbas%itzp(i) + jbas%itzp(j) .ne. jbas%itzp(k) + jbas%itzp(l) ) cycle
+  !                if (mod(jbas%ll(i)+jbas%ll(j),2) .ne. mod(jbas%ll(k)+jbas%ll(l),2)) cycle
+  !                write(72,'(4(I4),e14.6)') i,j,k,l,v_elem(i,j,k,l,0,DH,jbas)
               
-    end do ; end do ; end do; end do
-  ! ! ! ME is -.141992 should be positive.
-    do i = 1, HS%nsp
-       do j = i, HS%nsp
-          if (jbas%jj(i) .ne. jbas%jj(j) ) cycle
-          if (jbas%ll(i) .ne. jbas%ll(j) ) cycle
-          if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
-          write(73,*) i,j,f_elem(i,j,DH,jbas) 
-       end do 
-    end do 
+  !    end do ; end do ; end do; end do
+  ! ! ! ! ! ME is -.141992 should be positive.
+  !    do i = 1, HS%nsp
+  !       do j = i, HS%nsp
+  !          if (jbas%jj(i) .ne. jbas%jj(j) ) cycle
+  !          if (jbas%ll(i) .ne. jbas%ll(j) ) cycle
+  !          if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
+  !          write(73,'(2(I4),e14.6)') i,j,f_elem(i,j,DH,jbas) 
+  !       end do 
+  !    end do 
     
-    print*, DH%E0
-    stop
+  !    print*, DH%E0
+  !    stop
   !print*, 'moo'
   call vectorize(DH,yp)
 
