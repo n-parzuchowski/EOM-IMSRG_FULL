@@ -12,7 +12,7 @@ subroutine calc_HF( H ,jbas )
   type(spd) :: jbas
   type(sq_op) :: H 
   type(full_sp_block_mat) :: T,F,Vgam,rho,D,Dx 
-  integer :: q,r,i
+  integer :: q,r,i,j,k,l
   real(8) :: crit,sm
 
   ! allocate the workspace  
@@ -34,7 +34,7 @@ subroutine calc_HF( H ,jbas )
         D%blkM(q)%matrix(i,i) = 1.d0
      end do 
   end do 
-  
+
   crit = 10.d0 
   r = 0
   !!! HARTREE FOCK MAIN LOOP 
@@ -67,13 +67,13 @@ subroutine calc_HF( H ,jbas )
     F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix
     T%blkM(q)%eigval = F%blkM(q)%eigval    
  end do
-
+ 
  call transform_1b_to_HF(D,Dx,F,T,H,jbas) 
   
  ! this needs to come after the transformation
  ! e_HF is calculated in the hartree fock basis
  H%E0 = e_HF(T,jbas)
-
+ print*, H%E0
  call transform_2b_to_HF(D,H,jbas) 
 
 end subroutine calc_HF
@@ -385,7 +385,7 @@ subroutine transform_2b_to_HF(D,H,jbas)
            
            Crevfull(JJ,II) = Dsmall(b,i)*Dsmall(a,j) *&
                 (1 - kron_del(a,b)) * &
-           (-1)**( (jbas%jj(a) + jbas%jj(b) ) /2 ) * &
+           (-1)**( (jbas%jj(a) + jbas%jj(b)) /2 ) * &
            sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(i,j)) 
          
            
