@@ -34,11 +34,11 @@ module basic_IMSRG
      type(real_mat),dimension(6) :: gam !Vpppp,Vhhhh,Vphph,Vpphh,Vphhh,Vppph
      integer :: npp, nph , nhh ! dimensions
      type(int_mat),dimension(3) :: qn !tp to sp map 
-     type(int_vec),dimension(3) :: pnt ! for mapping from sp to tp (confusing) 
   END TYPE sq_block
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: sq_op !second quantized operator 
      type(sq_block),allocatable,dimension(:) :: mat
+     type(int_vec),allocatable,dimension(:) :: xmap 
      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      real(8) :: E0 
@@ -254,8 +254,8 @@ subroutine allocate_blocks(jbas,op)
   
   type(spd) :: jbas
   type(sq_op) :: op
-  integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2
-  integer :: Jtot,Tz,Par,nph,npp,nhh,CX
+  integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x
+  integer :: Jtot,Tz,Par,nph,npp,nhh,CX,j_min,j_max,numJ
   
   AX = sum(jbas%con) !number of shells under eF 
   op%belowEF = AX  
@@ -271,6 +271,26 @@ subroutine allocate_blocks(jbas,op)
   
   q = 1  ! block index
   
+  allocate(op%xmap(N*(N+1)/2)) 
+ 
+  ! allocate the map array, which is used by 
+  ! v_elem to find matrix elements
+  do i = 1,N
+     do j = i,N
+        
+        j_min = abs(jbas%jj(i)-jbas%jj(j))
+        j_max = jbas%jj(i) + jbas%jj(j) 
+  
+        numJ = (j_max - j_min)/2 + 2
+  
+        x = bosonic_tp_index(i,j,N) 
+        allocate(op%xmap(x)%Z(numJ)) 
+        op%xmap(x)%Z = 0
+        op%xmap(x)%Z(1) = j_min
+        
+     end do 
+  end do 
+        
   do Jtot = 0,2*jbas%Jtotal_max,2 !looping over blocks
      do Tz = -1,1
         do Par = 0,1
@@ -320,10 +340,7 @@ subroutine allocate_blocks(jbas,op)
      allocate(op%mat(q)%qn(1)%Y(npp,2)) !qnpp
      allocate(op%mat(q)%qn(2)%Y(nph,2)) !qnph
      allocate(op%mat(q)%qn(3)%Y(nhh,2)) !qnhh
-     allocate(op%mat(q)%pnt(1)%Z(npp)) !qnpp
-     allocate(op%mat(q)%pnt(2)%Z(nph)) !qnph
-     allocate(op%mat(q)%pnt(3)%Z(nhh)) !qnhh
-    
+     
      allocate(op%mat(q)%gam(1)%X(npp,npp)) !Vpppp
      allocate(op%mat(q)%gam(5)%X(nhh,nhh)) !Vhhhh
      allocate(op%mat(q)%gam(3)%X(npp,nhh)) !Vpphh
@@ -352,23 +369,25 @@ subroutine allocate_blocks(jbas,op)
            if (.not. triangle(j1,j2,Jtot) ) cycle
            
            cX = jbas%con(i) + jbas%con(j)
-           
+       
+           x = bosonic_tp_index(i,j,N) 
+           j_min = op%xmap(x)%Z(1) 
            select case (CX)
               case (0) 
                  npp = npp + 1
                  op%mat(q)%qn(1)%Y(npp,1) = i
                  op%mat(q)%qn(1)%Y(npp,2) = j
-                 op%mat(q)%pnt(1)%Z(npp) = N*(i-1) + j !search for an integer 
-              case (1)                                 ! instead of a pair of them  
+                 op%xmap(x)%Z((Jtot-j_min)/2+2) = npp 
+              case (1)                      
                  nph = nph + 1
                  op%mat(q)%qn(2)%Y(nph,1) = i
                  op%mat(q)%qn(2)%Y(nph,2) = j 
-                 op%mat(q)%pnt(2)%Z(nph) = N*(i-1) + j 
+                 op%xmap(x)%Z((Jtot-j_min)/2+2) = nph
               case (2) 
                  nhh = nhh + 1
                  op%mat(q)%qn(3)%Y(nhh,1) = i
                  op%mat(q)%qn(3)%Y(nhh,2) = j 
-                 op%mat(q)%pnt(3)%Z(nhh) = N*(i-1) + j 
+                 op%xmap(x)%Z((Jtot-j_min)/2+2) = nhh
            end select
                      
         end do 
@@ -387,7 +406,7 @@ subroutine read_interaction(H,intfile,jbas,htype,hw)
   type(sq_op) :: H
   type(spd) :: jbas
   character(200) :: intfile
-  integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N 
+  integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
   real(8) :: V,g1,g2,g3,pre,hw
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
   
@@ -418,37 +437,36 @@ subroutine read_interaction(H,intfile,jbas,htype,hw)
      ! get the indeces in the correct order
      pre = 1
      if ( a > b )  then 
-        int1 = N*(b-1) + a 
+        
+        x = bosonic_tp_index(b,a,N) 
+        j_min = H%xmap(x)%Z(1)  
+        i1 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
      else
        ! if (a == b) pre = pre * sqrt( 2.d0 )
-        int1 = N*(a-1) + b
+       
+        x = bosonic_tp_index(a,b,N) 
+        j_min = H%xmap(x)%Z(1)  
+        i1 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
      end if
   
      if (c > d)  then     
-        int2 = N*(d-1) + c
+        
+        x = bosonic_tp_index(d,c,N) 
+        j_min = H%xmap(x)%Z(1)  
+        i2 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
      else 
        ! if (c == d) pre = pre * sqrt( 2.d0 )
-        int2 = N*(c-1) + d
+      
+        x = bosonic_tp_index(c,d,N) 
+        j_min = H%xmap(x)%Z(1)  
+        i2 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
      end if
      ! kets/bras are pre-scaled by sqrt(2) if they 
      ! have two particles in the same sp-shell
      
-     i1 = 1
-     i2 = 1
-      
-     ! find the indeces
-    
-     do 
-        if (int1 == H%mat(q)%pnt(C1)%Z(i1) ) exit
-        i1 = i1 + 1
-     end do 
-        
-     do 
-        if (int2 == H%mat(q)%pnt(C2)%Z(i2) ) exit
-        i2 = i2 + 1
-     end do 
  
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
@@ -462,8 +480,7 @@ subroutine read_interaction(H,intfile,jbas,htype,hw)
      
   end do   
   close(39)
-     
-  !print*, 'anus', v_elem(1,29,3,17,0,H,jbas)
+      
 end subroutine
 !==================================================================  
 !==================================================================
@@ -538,8 +555,8 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
   ! grabs the matrix element you are looking for
   implicit none
   
-  integer :: a,b,c,d,J,T,P,q,qx,c1,c2
-  integer :: int1,int2,i1,i2
+  integer :: a,b,c,d,J,T,P,q,qx,c1,c2,N
+  integer :: int1,int2,i1,i2,j_min,x
   integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
   type(sq_op) :: op 
   type(spd) :: jbas
@@ -585,7 +602,6 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
 
   q = block_index(J,T,P) 
 
- 
   !! this is a ridiculous but efficient? way of 
   !! figuring out which Vpppp,Vhhhh,Vphph.... 
   !! array we are referencing. QX is a number between 
@@ -599,43 +615,34 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
   
   ! see subroutine "allocate_blocks" for mapping from qx to each 
   ! of the 6 storage arrays
-  
-  i1 = 1
-  i2 = 1
-  
+    
   pre = 1 
   
+  N = op%Nsp
   ! get the indeces in the correct order
   if ( a > b )  then 
-     int1 = op%Nsp*(b-1) + a 
+     x = bosonic_tp_index(b,a,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
      pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
   else
      if (a == b) pre = pre * sqrt( 2.d0 )
-     int1 = op%Nsp*(a-1) + b
+     x = bosonic_tp_index(a,b,N)
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
   end if 
   
   if (c > d)  then     
-     int2 = op%Nsp*(d-1) + c
+     x = bosonic_tp_index(d,c,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
      pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
   else 
      if (c == d) pre = pre * sqrt( 2.d0 )
-      
-     int2 = op%Nsp*(c-1) + d
+     x = bosonic_tp_index(c,d,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2)  
   end if 
-
-! int1 and int2 are unique integers which refer to the 
-! two-p pair in the bra and ket respectively 
-
-! find the indeces by searching for unique integers
-  do 
-     if (int1 == op%mat(q)%pnt(C1)%Z(i1) ) exit
-     i1 = i1 + 1
-  end do 
-        
-  do 
-     if (int2 == op%mat(q)%pnt(C2)%Z(i2) ) exit
-     i2 = i2 + 1
-  end do 
  
   ! grab the matrix element
    If (C1>C2) then 
@@ -1143,7 +1150,7 @@ subroutine duplicate_sq_op(H,op)
   implicit none 
   
   type(sq_op) :: H,op
-  integer :: q,i,j,holes,parts,nh,np,nb
+  integer :: q,i,j,holes,parts,nh,np,nb,N
   
   op%herm = 1 ! default, change it in the calling program
              ! if you want anti-herm (-1) 
@@ -1166,7 +1173,15 @@ subroutine duplicate_sq_op(H,op)
   op%fph = 0.d0 
   
   allocate(op%mat(op%nblocks)) 
-  
+
+  N = op%nsp
+  allocate(op%xmap(N*(N+1)/2))
+  do q = 1, N*(N+1)/2 
+     allocate(op%xmap(q)%Z(size(H%xmap(q)%Z)))
+     op%xmap(q)%Z = H%xmap(q)%Z
+  end do 
+     
+   
   do q = 1, op%nblocks
      
      op%mat(q)%lam = H%mat(q)%lam
@@ -1181,13 +1196,9 @@ subroutine duplicate_sq_op(H,op)
      allocate(op%mat(q)%qn(1)%Y(np,2)) !qnpp
      allocate(op%mat(q)%qn(2)%Y(nb,2)) !qnph
      allocate(op%mat(q)%qn(3)%Y(nh,2)) !qnhh
-     allocate(op%mat(q)%pnt(1)%Z(np)) !pnpp
-     allocate(op%mat(q)%pnt(2)%Z(nb)) !pnph
-     allocate(op%mat(q)%pnt(3)%Z(nh)) !pnhh
      
      do i = 1,3
         op%mat(q)%qn(i)%Y = H%mat(q)%qn(i)%Y
-        op%mat(q)%pnt(i)%Z = H%mat(q)%pnt(i)%Z
      end do 
      
      allocate(op%mat(q)%gam(1)%X(np,np)) !Vpppp
