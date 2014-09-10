@@ -2,6 +2,7 @@ program main_IMSRG
   use basic_IMSRG
   use HF_mod
   use IMSRG_ODE
+  use IMSRG_MAGNUS
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
@@ -13,7 +14,7 @@ program main_IMSRG
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb,k,l,m,n
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji
-  logical :: hartree_fock 
+  logical :: hartree_fock,magnus_exp 
   external :: dHds_white_gs
 
 !============================================================
@@ -21,7 +22,7 @@ program main_IMSRG
 !============================================================
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,hw,sp_input_file,interaction_file)
+       hartree_fock,magnus_exp,hw,sp_input_file,interaction_file)
  
   HS%herm = 1
 
@@ -42,11 +43,14 @@ program main_IMSRG
   end if 
    
 !============================================================
-! PLAYGROUND
+! IM-SRG CALCULATION 
 !============================================================ 
-     
-  call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
-  
+
+  if (magnus_exp) then 
+     call magnus_decouple(HS,jbasis)
+  else
+     call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
+  end if 
 
 end program main_IMSRG
 

@@ -87,7 +87,6 @@ subroutine dHds_white_gs(t,yp,HS,jbas)
 !!! so we allocate a bunch of those to work in 
 
 ! ALLOCATE A BUNCH OF WORKSPACE
-
   call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,DH) !derivative
   call duplicate_sq_op(HS,w1) !workspace
@@ -96,8 +95,7 @@ subroutine dHds_white_gs(t,yp,HS,jbas)
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
   call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
   call build_gs_white(HS,ETA,jbas) 
- 
-
+  
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)
   call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
  

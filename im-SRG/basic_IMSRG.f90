@@ -98,7 +98,7 @@ subroutine read_sp_basis(jbas,sp_input_file,hp,hn)
   integer :: q,r
   real(8) :: e
   
-  open(unit=39,file='../sp_inputs/'//trim(adjustl(sp_input_file)))
+  open(unit=39,file='../../sp_inputs/'//trim(adjustl(sp_input_file)))
   
   ix = 0 
   
@@ -410,7 +410,7 @@ subroutine read_interaction(H,intfile,jbas,htype,hw)
   real(8) :: V,g1,g2,g3,pre,hw
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
   
-  open(unit=39,file = '../TBME_input/'//trim(adjustl(intfile))) 
+  open(unit=39,file = '../../TBME_input/'//trim(adjustl(intfile))) 
   
   read(39,*);read(39,*);read(39,*);read(39,*)
   read(39,*);read(39,*);read(39,*);read(39,*) !skip all of the garbage 
@@ -1218,12 +1218,13 @@ end subroutine
 !=====================================================
 !=====================================================
 subroutine copy_sq_op(H,op) 
-  ! make a copy of the shape of H onto op
+  ! make a copy of H onto op
   implicit none 
   
   type(sq_op) :: H,op
   integer :: q,i,j,holes,parts,nh,np,nb
      
+  op%E0 = H%E0
   op%fhh = H%fhh
   op%fpp = H%fpp
   op%fph = H%fph
@@ -1239,21 +1240,23 @@ subroutine copy_sq_op(H,op)
 end subroutine 
 !=====================================================
 !=====================================================
-subroutine add_sq_op(A,B,C) 
-  ! make a copy of the shape of H onto op
+subroutine add_sq_op(A,ax,B,bx,C) 
+  ! A*ax + B*bx = C 
   implicit none 
   
   type(sq_op) :: A,B,C
+  real(8) :: ax,bx
   integer :: q,i,j,holes,parts,nh,np,nb
      
-  C%fhh = A%fhh + B%fhh
-  C%fpp = A%fpp + B%fpp
-  C%fph = A%fph + B%fph
+  C%E0 = A%E0 * ax + B%E0 * bx
+  C%fhh = A%fhh*ax + B%fhh*bx
+  C%fpp = A%fpp*ax + B%fpp*bx
+  C%fph = A%fph*bx + B%fph*bx
   
   do q = 1, A%nblocks
               
      do i = 1,6
-        C%mat(q)%gam(i)%X = A%mat(q)%gam(i)%X + B%mat(q)%gam(i)%X
+        C%mat(q)%gam(i)%X = A%mat(q)%gam(i)%X*ax + B%mat(q)%gam(i)%X*bx
      end do 
      
   end do 
@@ -1306,14 +1309,14 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,hw,spfile,intfile) 
+subroutine read_main_input_file(input,H,htype,HF,MAG,hw,spfile,intfile) 
   !read inputs from file
   implicit none 
   
   character(200) :: input, spfile,intfile
   type(sq_op) :: H 
-  integer :: htype,jx
-  logical :: HF
+  integer :: htype,jx,jy
+  logical :: HF,MAG
   real(8) :: hw 
     
   input = adjustl(input) 
@@ -1340,10 +1343,14 @@ subroutine read_main_input_file(input,H,htype,HF,hw,spfile,intfile)
   read(22,*) H%Aneut
   read(22,*);read(22,*)
   read(22,*) jx
+  read(22,*);read(22,*)
+  read(22,*) jy
   
   HF = .false. 
   if (jx == 1) HF = .true. 
-
+  MAG = .false.
+  if (jy == 1) MAG = .true. 
+  
 end subroutine
 !=======================================================  
 !=======================================================
@@ -1781,6 +1788,24 @@ subroutine repackage(rec,vout)
 end subroutine 
 !===============================================================
 !===============================================================  
+real(8) function mat_frob_norm(op) 
+  implicit none 
+  
+  type(sq_op) :: op
+  integer :: q,g
+  real(8) :: sm
+
+  sm = sum(op%fhh**2)+  sum(op%fph**2) + sum(op%fpp**2)
+  do q = 1, op%nblocks
+     do g = 1,6
+        sm = sm + sum(op%mat(q)%gam(g)%X**2)
+     end do 
+  end do 
+  
+  mat_frob_norm = sqrt(sm)
+end function 
+
+  
 end module
        
   
