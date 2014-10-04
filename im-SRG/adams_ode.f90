@@ -174,7 +174,7 @@ subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwo
   real ( kind = 8 ) y(neqn)
   type(sq_op) :: rx
   type(spd) :: jbas
-  
+    
   iwt = iyy + neqn
   ip = iwt + neqn
   iyp = ip + neqn
@@ -187,7 +187,7 @@ subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwo
     nornd = ( iwork(2) /= -1 )
   end if
 
-  call de ( f, neqn, y, rx,jbas, t, tout, relerr, abserr, iflag, work(iyy), &
+  call de(f, neqn, y, rx,jbas, t, tout, relerr, abserr, iflag, work(iyy), &
     work(iwt), work(ip), work(iyp), work(iypout), work(iphi), &
     work(ialpha), work(ibeta), work(isig), work(iv), work(iw), work(ig), &
     phase1, work(ipsi), work(ix), work(ih), work(ihold), start, &
@@ -215,7 +215,7 @@ subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwo
   return
 end subroutine 
 
-subroutine de ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, yy, wt, p, yp, &
+subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
   ypout, phi, alpha, beta, sig, v, w, g, phase1, psi, x, h, hold, start, &
   told, delsgn, ns, nornd, k, kold, isnold )
 
@@ -398,7 +398,7 @@ subroutine de ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, yy, wt, p,
   real ( kind = 8 ) yp(neqn)
   real ( kind = 8 ) ypout(neqn)
   real ( kind = 8 ) yy(neqn)
-  type(sq_op) :: rx 
+  type(sq_op) :: rx
   type(spd) :: jbas
  
 !
@@ -509,7 +509,7 @@ subroutine de ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, yy, wt, p,
 !
 !  Test for too many steps.
 !
-    if ( maxnum <= nostep ) then
+   if ( maxnum <= nostep ) then
       iflag = isn * 4
       if ( stiff ) then
         iflag = isn * 5
@@ -524,8 +524,9 @@ subroutine de ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, yy, wt, p,
 !  Limit the step size, set the weight vector and take a step.
 !
     h = sign ( min ( abs ( h ), abs ( tend - x ) ), h )
+        
     wt(1:neqn) = releps * abs ( yy(1:neqn) ) + abseps
-
+    
     call step ( x, yy, f, rx,jbas, neqn, h, eps, wt, start, &
       hold, k, kold, crash, phi, p, yp, psi, &
       alpha, beta, sig, v, w, g, phase1, ns, nornd )
@@ -821,7 +822,6 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
 !  Initialize.  Compute an appropriate step size for the first step.
 !
   if ( start ) then
-
     call repackage( rx, y ) 
     call f ( x, yp , rx,jbas)
     phi(1:neqn,1) = yp(1:neqn)
@@ -977,6 +977,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
     absh = abs ( h )
     call repackage( rx, p ) 
     call f ( x, yp, rx,jbas)
+
 !
 !  Estimate the errors at orders K, K-1 and K-2.
 !
@@ -997,7 +998,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
       erk = erk + ( ( yp(l) - phi(l,1) ) / wt(l) )**2
 
     end do
-
+   
     if ( 0 < km2 ) then
       erkm2 = absh * sig(km1) * gstr(km2) * sqrt ( erkm2 )
     end if
@@ -1005,7 +1006,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
     if ( 0 <= km2 ) then
       erkm1 = absh * sig(k) * gstr(km1) * sqrt ( erkm1 )
     end if
-
+  
     err = absh * sqrt ( erk ) * ( g(k) - g(kp1) )
     erk = absh * sqrt ( erk ) * sig(kp1) * gstr(k)
     knew = k
@@ -1028,6 +1029,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
 !
 !  Test if the step was successful.
 !
+ 
     if ( err <= eps ) then
       exit
     end if
@@ -1099,6 +1101,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
 
   call repackage( rx, y ) 
   call f ( x, yp , rx,jbas )
+
 !
 !  Update differences for the next step.
 !

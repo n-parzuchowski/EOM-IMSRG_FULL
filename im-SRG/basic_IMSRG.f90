@@ -39,7 +39,8 @@ module basic_IMSRG
   TYPE :: sq_op !second quantized operator 
      type(sq_block),allocatable,dimension(:) :: mat
      type(int_vec),allocatable,dimension(:) :: xmap 
-     real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
+     real(8),allocatable,dimension(:,:) :: fph,fpp,fhh,X1
+     integer,allocatable,dimension(:,:) :: X2
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      real(8) :: E0 
   END TYPE sq_op
@@ -81,24 +82,25 @@ end type cross_coupled_31_mat
   ! 100000 if square matrix, 1 if not. 
   integer,public,dimension(6) :: jst = (/100000,1,1,100000,100000,1/)
   
-  ! These are used in commutators 122, and 222_ph 
+
 
 contains 
 !====================================================
 !====================================================
-subroutine read_sp_basis(jbas,sp_input_file,hp,hn)
+subroutine read_sp_basis(jbas,hp,hn)
   ! fills jscheme_basis array with single particle data from file
   ! file format must be: 5 integers and one real 
   ! for each state we have:   | label |  n  | l | 2 * j | 2*tz | E_sp |  
   implicit none 
   
   type(spd) :: jbas
-  character(200) :: sp_input_file
+  character(200) :: spfile,intfile,prefix
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
   integer :: q,r
   real(8) :: e
+  common /files/ spfile,intfile,prefix
   
-  open(unit=39,file='../../sp_inputs/'//trim(adjustl(sp_input_file)))
+  open(unit=39,file='../../sp_inputs/'//trim(adjustl(spfile)))
   
   ix = 0 
   
@@ -399,16 +401,17 @@ subroutine allocate_blocks(jbas,op)
 end subroutine      
 !==================================================================  
 !==================================================================
-subroutine read_interaction(H,intfile,jbas,htype,hw) 
+subroutine read_interaction(H,jbas,htype,hw) 
   ! read interaction from ASCII file produced by Scott_to_Morten.f90 
   implicit none
   
   type(sq_op) :: H
   type(spd) :: jbas
-  character(200) :: intfile
+  character(200) :: spfile,intfile,prefix
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
   real(8) :: V,g1,g2,g3,pre,hw
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
+  common /files/ spfile,intfile,prefix
   
   open(unit=39,file = '../../TBME_input/'//trim(adjustl(intfile))) 
   
@@ -758,10 +761,10 @@ subroutine diagonalize_blocks(R)
   integer :: a,q,info
   
   do q=1,R%blocks
-     
+    
      a=R%map(q)
      if (a == 0)  cycle 
-     
+    
      call dsyev('V','U',a,R%blkM(q)%matrix,a, &
           R%blkM(q)%eigval,R%blkM(q)%extra,10*a,info)
    
@@ -1309,15 +1312,16 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,MAG,hw,spfile,intfile) 
+subroutine read_main_input_file(input,H,htype,HF,MAG,hw)
   !read inputs from file
   implicit none 
   
-  character(200) :: input, spfile,intfile
+  character(200) :: spfile,intfile,input,prefix
   type(sq_op) :: H 
   integer :: htype,jx,jy
   logical :: HF,MAG
   real(8) :: hw 
+  common /files/ spfile,intfile,prefix 
     
   input = adjustl(input) 
   if (trim(input) == '') then 
@@ -1330,6 +1334,8 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,hw,spfile,intfile)
   read(22,*);read(22,*);read(22,*)
   read(22,*);read(22,*);read(22,*)
 
+  read(22,*) prefix
+  read(22,*) 
   read(22,*) intfile
   read(22,*)
   read(22,*) spfile
@@ -1345,7 +1351,7 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,hw,spfile,intfile)
   read(22,*) jx
   read(22,*);read(22,*)
   read(22,*) jy
-  
+   
   HF = .false. 
   if (jx == 1) HF = .true. 
   MAG = .false.
@@ -1671,6 +1677,7 @@ subroutine vectorize(rec,vout)
   type(sq_op) :: rec
   real(8),dimension(rec%neq) :: vout
   
+ 
   Atot = rec%belowEF
   Ntot= rec%Nsp
   
@@ -1707,20 +1714,21 @@ subroutine vectorize(rec,vout)
   end do 
    
   do l=1,rec%nblocks
-     
+    
      do gx = 1, 6
-        !min(jst(gx),i)
+       
         do i=1,size(rec%mat(l)%gam(gx)%X(1,:) )
            do j=min(jst(gx),i),size(rec%mat(l)%gam(gx)%X(:,1))
-           
+              
               vout(k) = rec%mat(l)%gam(gx)%X(j,i) 
+            
               k=k+1
-        
+              
            end do
         end do
      end do 
   end do    
-     
+ 
 end subroutine 
 !=================================================
 !=================================================
@@ -1784,7 +1792,7 @@ subroutine repackage(rec,vout)
         end do
      end do 
   end do    
-     
+   
 end subroutine 
 !===============================================================
 !===============================================================  

@@ -10,16 +10,14 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
   ! runs IMSRG using magnus expansion method
   implicit none 
   
-  integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps
+  integer :: Atot,Ntot,nh,np,nb,q,steps
   type(spd) :: jbas
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
-  !external :: deriv_calculator 
-  integer,dimension(5) :: iwork
-  real(8),allocatable,dimension(:) :: cur_vec,work
-  real(8),parameter :: relerr = 1.d-6, abserr = 1.d-6
   real(8) :: ds,s,E_old,crit,nrm1,nrm2
-
+  character(200) :: spfile,intfile,prefix
+  common /files/ spfile,intfile,prefix
+  
   call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian
   call duplicate_sq_op(HS,w1) !workspace
@@ -48,6 +46,12 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
   s = 0.d0 
   ds = .7d0
   crit = 10.
+  steps = 0
+  
+  open(unit=36,file='../../output/'//&
+       trim(adjustl(prefix))//'_magnus0bflow.dat')
+  write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
+  
   do while (crit > 1e-4) 
      
      call copy_sq_op(G,G0) 
@@ -71,9 +75,12 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
      end if 
      
      crit = mat_frob_norm(ETA) 
-     print*, s,crit,HS%E0
-  end do    
-
+     steps = steps + 1
+     
+     write(36,'(I6,3(e14.6))') steps,s,HS%E0,crit
+  
+  end do
+  close(36)
 end subroutine  
 !=========================================================================
 !=========================================================================
@@ -131,6 +138,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas)
   
      call commutator_221(G,AD,INT2,w1,w2,jbas)
      call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
+     
      ! so now just add INT1 + c_n * INT2 to get current value of HS
      call add_sq_op(INT1 , 1.d0 , INT2 , cof(i-1) , HS )   !basic_IMSRG
      if ( abs(mat_frob_norm(INT2)*cof(i-1)/mat_frob_norm(INT1)) < conv ) exit
@@ -149,6 +157,7 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,ZCOM)
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
   real(8) ::  cof(4)
   logical ::  ZCOM 
+  ! if ZCOM is set to true, only uses d(OMEGA) = ETA 
  
   ! Intermediates are ANTI-HERMITIAN 
   INT2%herm = -1
@@ -156,6 +165,7 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,ZCOM)
   AD%herm = -1
   
   cof = (/-0.5d0,.0833333333d0,0.d0,-0.00138888888d0/) 
+  ! nested derivatives not so important
     
   !! same deal as BCH expansion, which is explained ad nauseam above. 
   call copy_sq_op( ETA, DG )  !ME_general

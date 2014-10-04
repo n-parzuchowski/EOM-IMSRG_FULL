@@ -785,8 +785,7 @@ end subroutine
            LCC%CCR(q)%X,nb,bet,WCC%CCR(q)%X,rinx) 
       
    end do 
-
-
+   
    do q = 1, RES%nblocks
      
      Jtot = RES%mat(q)%lam(1)
@@ -894,12 +893,10 @@ integer function specific_rval(i,l,Ntot,q,LCC)
   type(cross_coupled_31_mat) :: LCC
   integer :: i,l,Ntot,x,g,q
   
-  !print*, i,l,Ntot,q
-
   x = CCindex(i,l,Ntot)
   g = 1
   do while (LCC%qmap(x)%Z(g) .ne. q )
-   !  print*, LCC%qmap(x)%Z(g)
+  
      g = g + 1
   end do
   

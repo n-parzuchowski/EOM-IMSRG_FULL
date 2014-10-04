@@ -73,7 +73,7 @@ subroutine calc_HF( H ,jbas )
  ! this needs to come after the transformation
  ! e_HF is calculated in the hartree fock basis
  H%E0 = e_HF(T,jbas)
- print*, H%E0
+! print*, H%E0
  call transform_2b_to_HF(D,H,jbas) 
 
 end subroutine calc_HF

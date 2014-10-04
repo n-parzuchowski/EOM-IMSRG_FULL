@@ -9,26 +9,25 @@ program main_IMSRG
   type(spd) :: jbasis
   type(sq_op) :: HS,ETA,DH,w1,w2
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
-  character(200) :: sp_input_file,interaction_file
   character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb,k,l,m,n
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji
   logical :: hartree_fock,magnus_exp 
-  external :: dHds_white_gs
+  external :: dHds_white_gs,dHds_TDA_shell
 
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,magnus_exp,hw,sp_input_file,interaction_file)
+       hartree_fock,magnus_exp,hw)
  
   HS%herm = 1
 
-  call read_sp_basis(jbasis,sp_input_file,HS%Aprot,HS%Aneut) 
+  call read_sp_basis(jbasis,HS%Aprot,HS%Aneut) 
   call allocate_blocks(jbasis,HS)   
-  call read_interaction(HS,interaction_file,jbasis,ham_type,hw)
+  call read_interaction(HS,jbasis,ham_type,hw)
   
 !============================================================
 ! BUILD BASIS
@@ -52,6 +51,8 @@ program main_IMSRG
      call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
   end if 
 
+  call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
+  
 end program main_IMSRG
 
 
