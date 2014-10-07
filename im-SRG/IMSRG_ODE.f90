@@ -101,8 +101,8 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
 
   ! SRG convergence / failsafe / error tolerances
   integer,parameter :: max_steps = 1000
-  real(8),parameter :: conv_crit = 1.d-4
-  real(8),parameter :: relerr = 1.d-4, abserr = 1.d-4
+  real(8),parameter :: conv_crit = 1.d-6
+  real(8),parameter :: relerr = 1.d-6, abserr = 1.d-6
 
   type(spd) :: jbas
   type(sq_op) :: H ,HOD
@@ -145,7 +145,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
   iflag = 1
   
   ! flow equation variables
-  ds = .01d0
+  ds = .001d0
   s = 0.d0 
   
   steps = 0 
@@ -177,7 +177,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
 
   do while (steps < max_steps) 
     
-     E_old = H%E0 
+     E_old = mat_frob_norm(HOD)  
      ! send info to SG solver
      call vectorize(H,cur_vec)
      call ode(deriv_calculator,neq,cur_vec,H,jbas,&
@@ -196,7 +196,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      call diagonalize_blocks(TDA)
   
      call write_excited_states(steps,s,TDA,H%E0,37) 
-     print*, steps,s,crit,mat_frob_norm(HOD)
+     print*, steps,s,crit
      ! convergence criteria
      crit = abs(mat_frob_norm(HOD)-E_old)
          
@@ -298,7 +298,7 @@ subroutine dHds_TDA_shell(t,yp,HS,jbas)
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
   call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
 
-  call build_ex_imtime(HS,ETA,jbas) ! constructs generator
+  call build_valence_decouple(HS,ETA,jbas) ! constructs generator
 
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)
   call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
