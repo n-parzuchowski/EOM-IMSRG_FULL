@@ -175,6 +175,11 @@ subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwo
   type(sq_op) :: rx
   type(spd) :: jbas
     
+  if (isnan(sum(y))) then 
+     print*, 'fuck... NaNs in the solver...'
+     stop 
+  end if 
+  
   iwt = iyy + neqn
   ip = iwt + neqn
   iyp = ip + neqn
@@ -483,6 +488,7 @@ subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
 !  If already past the output point, then interpolate and return.
 !
   do
+     !print*, x-t
     if ( absdel <= abs ( x - t ) ) then
       call intrp ( x, yy, tout, y, ypout, neqn, kold, phi, psi )
       iflag = 2
@@ -509,7 +515,7 @@ subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
 !
 !  Test for too many steps.
 !
-   if ( maxnum <= nostep ) then
+    if ( maxnum <= nostep ) then
       iflag = isn * 4
       if ( stiff ) then
         iflag = isn * 5
@@ -996,7 +1002,9 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
       end if
 
       erk = erk + ( ( yp(l) - phi(l,1) ) / wt(l) )**2
-
+     ! if (isnan(yp(l))) print*, 'cow'
+     ! if (isnan(phi(l,1))) print*, 'sex'
+     ! if (wt(l) < 1e-9) print*, 'shit...' 
     end do
    
     if ( 0 < km2 ) then
@@ -1006,7 +1014,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
     if ( 0 <= km2 ) then
       erkm1 = absh * sig(k) * gstr(km1) * sqrt ( erkm1 )
     end if
-  
+ 
     err = absh * sqrt ( erk ) * ( g(k) - g(kp1) )
     erk = absh * sqrt ( erk ) * sig(kp1) * gstr(k)
     knew = k
@@ -1029,7 +1037,12 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
 !
 !  Test if the step was successful.
 !
- 
+    if (isnan(err)) then 
+       print*, 'FUCK! err is NaN but cur_vec is fine!!!!'
+       print*, '.................'
+       print*, 'SHIT!!!!!!!!!!!'
+       stop
+    end if
     if ( err <= eps ) then
       exit
     end if

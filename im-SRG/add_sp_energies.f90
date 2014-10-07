@@ -16,9 +16,9 @@ program add_sp_energies
   print*, 'spin_orbit potential: '
   read*, vls
   
-  open(unit=39,file = '../sp_inputs/'//trim(adjustl(filename))) 
+  open(unit=39,file = '../../sp_inputs/'//trim(adjustl(filename))) 
   
-  open(unit=40,file = '../sp_inputs/temporary.sps') 
+  open(unit=40,file = '../../sp_inputs/temporary.sps') 
   
   ! read in each state, calculate it's energy, write it to a temp file
   do 
@@ -37,10 +37,10 @@ program add_sp_energies
   close(40) 
   
   ! replace real file with temp file
-  call system('cp ../sp_inputs/temporary.sps '&
-       //'../sp_inputs/'//trim(adjustl(filename))) 
+  call system('cp ../../sp_inputs/temporary.sps '&
+       //'../../sp_inputs/'//trim(adjustl(filename))) 
   
-  call system('rm ../sp_inputs/temporary.sps') 
+  call system('rm ../../sp_inputs/temporary.sps') 
   
 end program
      

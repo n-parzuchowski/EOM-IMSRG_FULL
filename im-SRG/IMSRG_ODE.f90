@@ -45,8 +45,9 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
      np = H%mat(q)%npp
      nb = H%mat(q)%nph 
      
-     neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np * nh*nb 
+     neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
   end do 
+
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   H%neq = neq
 
@@ -85,7 +86,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
      ! weak convergence criteria, but it works
      crit = abs(H%E0 - E_old) 
      
-!     write(36,'(I6,3(e14.6))') steps,s,H%E0,crit     
+     write(36,'(I6,3(e14.6))') steps,s,H%E0,crit     
      print*, steps,s,H%E0,crit
      if (crit < conv_crit) exit
   end do 
@@ -130,11 +131,11 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      np = H%mat(q)%npp
      nb = H%mat(q)%nph 
      
-     neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np * nh*nb 
+     neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
   end do 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   H%neq = neq
-
+  
   allocate(cur_vec(neq)) ! carries the system into SG solver
   allocate(work(100+21*neq))  ! memory eater
      
@@ -178,7 +179,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
     
      E_old = H%E0 
      ! send info to SG solver
-     call vectorize(H,cur_vec) 
+     call vectorize(H,cur_vec)
      call ode(deriv_calculator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
      call repackage(H,cur_vec) 
@@ -195,7 +196,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      call diagonalize_blocks(TDA)
   
      call write_excited_states(steps,s,TDA,H%E0,37) 
-     print*, steps,s,crit
+     print*, steps,s,crit,mat_frob_norm(HOD)
      ! convergence criteria
      crit = abs(mat_frob_norm(HOD)-E_old)
          

@@ -112,7 +112,7 @@ subroutine read_sp_basis(jbas,hp,hn)
      if (ist>0) stop 'input error in .sps file. See &
           subroutine read_sp_basis in basic_IMSRG.f90' 
      if (ist<0) exit
-  
+     
      ix = ix + 1 
   
   end do
@@ -1712,11 +1712,11 @@ subroutine vectorize(rec,vout)
 
      end do 
   end do 
-   
+  
   do l=1,rec%nblocks
     
      do gx = 1, 6
-       
+        
         do i=1,size(rec%mat(l)%gam(gx)%X(1,:) )
            do j=min(jst(gx),i),size(rec%mat(l)%gam(gx)%X(:,1))
               
@@ -1728,7 +1728,7 @@ subroutine vectorize(rec,vout)
         end do
      end do 
   end do    
- 
+
 end subroutine 
 !=================================================
 !=================================================

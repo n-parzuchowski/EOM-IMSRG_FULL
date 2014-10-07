@@ -18,7 +18,7 @@ subroutine build_gs_white(H,ETA,jbas)
   real(8) :: Eden,sm,Javerage
   
   ETA%herm = -1 ! anti-hermitian operator
-  
+
   ! one body part
   do a = 1,H%Nsp - H%belowEF
      ak = jbas%parts(a) 
@@ -102,21 +102,21 @@ subroutine build_gs_white(H,ETA,jbas)
 end subroutine 
 !==========================================================
 !==========================================================
-subroutine build_ex_imtime(H,ETA,jbas) 
-  ! calculates the imaginary time generator for
-  ! excited state decoupling
+subroutine build_ex_white(H,ETA,jbas) 
+  ! calculates the traditional white generator for
+  ! ground state decoupling
   implicit none 
   
   type(spd) :: jbas
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
-  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
+  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak,p,hl,jp,jh
   real(8) :: Eden,sm,Javerage
+  real(8),parameter :: dcut = .2
   
   ETA%herm = -1 ! anti-hermitian operator
-  
+  ETA%fph = 0.d0
   ! one body part
- 
   do a = 1,H%Nsp - H%belowEF
      ak = jbas%parts(a) 
      ja = jbas%jj(ak)
@@ -143,25 +143,132 @@ subroutine build_ex_imtime(H,ETA,jbas)
         end do 
         
         ! sum is averaged over ji ** 2  
-        !Eden = Eden / (ji + 1.d0)/(ji + 1.d0) 
+        Eden = Eden / (ji + 1.d0)/(ji + 1.d0) 
         
-        Eden = sign(.1d0,Eden + H%fpp(a,a) - H%fhh(i,i)) 
+        Eden = Eden + H%fpp(a,a) - H%fhh(i,i) 
         
-        ETA%fph(a,i) = H%fph(a,i) * Eden 
+         
+        if (abs(Eden) > dcut) ETA%fph(a,i) = H%fph(a,i) / Eden
         
      end do 
   end do 
-  goto 12
+  
+  ! two body part 
+  
+  do  q = 1, H%nblocks
+         
+     ETA%mat(q)%gam(2)%X = 0.d0
+     ETA%mat(q)%gam(6)%X = 0.d0
+     
+     do IX = 1,H%mat(q)%npp 
+
+        ! figure out which sp states compose IX
+        a = H%mat(q)%qn(1)%Y(IX,1)  ! pp descriptor qn(1)%Y 
+        b = H%mat(q)%qn(1)%Y(IX,2)
+
+        ja = jbas%jj(a)
+        jb = jbas%jj(b)   
+        
+        do JX = 1,H%mat(q)%nph 
+
+           i = H%mat(q)%qn(2)%Y(JX,1) !hh descriptor qn(3)%Y
+           j = H%mat(q)%qn(2)%Y(JX,2)
+
+           ji = jbas%jj(i)
+           jj = jbas%jj(j)
+         
+           hl = i*jbas%con(i) + j * jbas%con(j) 
+           jh =  ji*jbas%con(i) + jj * jbas%con(j)
+                  
+           Eden = 0.d0 
+           
+           ! constructing the App'hh' term is rather codey... 
+          
+           !pp'pp' 
+
+           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
+           Eden = Eden - Javerage(a,hl,ja,jh,H,jbas) 
+           Eden = Eden - Javerage(b,hl,jb,jh,H,jbas) 
+                   
+           Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
+                f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
+           
+           if (abs(Eden) > dcut)  then 
+              ETA%mat(q)%gam(2)%X(IX,JX) = H%mat(q)%gam(2)%X(IX,JX)/Eden 
+           end if 
+           
+        end do 
+     end do
+     
+     do IX = 1,H%mat(q)%nhh 
+
+        ! figure out which sp states compose IX
+        a = H%mat(q)%qn(3)%Y(IX,1)  ! pp descriptor qn(1)%Y 
+        b = H%mat(q)%qn(3)%Y(IX,2)
+
+        ja = jbas%jj(a)
+        jb = jbas%jj(b)   
+        
+        do JX = 1,H%mat(q)%nph 
+
+           i = H%mat(q)%qn(2)%Y(JX,1) !hh descriptor qn(3)%Y
+           j = H%mat(q)%qn(2)%Y(JX,2)
+
+           ji = jbas%jj(i)
+           jj = jbas%jj(j)
+         
+           p = i*(1-jbas%con(i)) + j * (1-jbas%con(j)) 
+           jp =  ji*(1-jbas%con(i)) + jj *(1- jbas%con(j))
+                  
+           Eden = 0.d0 
+           
+           ! constructing the App'hh' term is rather codey... 
+          
+           !pp'pp' 
+
+           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
+           Eden = Eden - Javerage(a,p,ja,jp,H,jbas) 
+           Eden = Eden - Javerage(b,p,jb,jp,H,jbas) 
+                   
+           Eden = Eden - f_elem(a,a,H,jbas) - f_elem(b,b,H,jbas)  + &
+                f_elem(i,i,H,jbas) + f_elem(j,j,H,jbas) 
+           
+           if (abs(Eden) > dcut) then  
+              ETA%mat(q)%gam(6)%X(JX,IX) = H%mat(q)%gam(6)%X(JX,IX)/Eden 
+           end if 
+
+        end do 
+     end do 
+     
+  end do 
+
+end subroutine
+!==========================================================
+!==========================================================
+subroutine build_ex_imtime(H,ETA,jbas) 
+  ! calculates the traditional white generator for
+  ! ground state decoupling
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H,ETA 
+  integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
+  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak,p,hl,jp,jh
+  real(8) :: Eden,sm,Javerage
+  real(8),parameter :: dcut = .2
+  
+  ETA%herm = -1 ! anti-hermitian operator
+  ETA%fph = 0.d0
+  ! one body part
   do a = 1,H%Nsp - H%belowEF
      ak = jbas%parts(a) 
      ja = jbas%jj(ak)
      la = jbas%ll(ak)
      ta = jbas%itzp(ak)
      
-     if (ak > 6) cycle
-     do i = 1,H%Nsp - H%belowEF
+     do i = 1,H%belowEF
        
-        ik = jbas%parts(i)
+        ik = jbas%holes(i)
         ji = jbas%jj(ik)       
         li = jbas%ll(ik)        
         ti = jbas%itzp(ik)
@@ -170,120 +277,168 @@ subroutine build_ex_imtime(H,ETA,jbas)
         if ( ji .ne. ja) cycle
         if ( li .ne. la) cycle
         if ( ti .ne. ta) cycle 
-        if (ik < 7) cycle 
+     
         ! energy denominator has a sum over J  to factor out m dep. 
         Eden = 0.0 
         
-       ! do JT = 0, 2*ji , 2
-        !   Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
-        !end do 
+        do JT = 0, 2*ji , 2
+           Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
+        end do 
         
         ! sum is averaged over ji ** 2  
-        !Eden = Eden / (ji + 1.d0)/(ji + 1.d0) 
+        Eden = Eden / (ji + 1.d0)/(ji + 1.d0) 
         
-        Eden = sign(.1d0,Eden + H%fpp(a,a) - H%fpp(i,i)) 
+        Eden = Eden + H%fpp(a,a) - H%fhh(i,i) 
         
-        ETA%fpp(a,i) = H%fpp(a,i) * Eden 
-        ETA%fpp(i,a) = -H%fpp(a,i)
+         
+        ETA%fph(a,i) = H%fph(a,i)*sign(1.d0,Eden)*abs(Eden)**.0001 
+        
      end do 
   end do 
   
   ! two body part 
- 
-12  do  q = 1, H%nblocks
+  
+  do  q = 1, H%nblocks
+         
+     ETA%mat(q)%gam(2)%X = 0.d0
+     ETA%mat(q)%gam(6)%X = 0.d0
      
-! Vppph is only decoupled for the valence space.
      do IX = 1,H%mat(q)%npp 
-        
+
         ! figure out which sp states compose IX
         a = H%mat(q)%qn(1)%Y(IX,1)  ! pp descriptor qn(1)%Y 
         b = H%mat(q)%qn(1)%Y(IX,2)
 
-       ! if (a < 7) cycle
-      !  if (b < 7) cycle
-        
         ja = jbas%jj(a)
         jb = jbas%jj(b)   
         
         do JX = 1,H%mat(q)%nph 
 
-           i = H%mat(q)%qn(2)%Y(JX,1) !ph descriptor qn(2)%Y
+           i = H%mat(q)%qn(2)%Y(JX,1) !hh descriptor qn(3)%Y
            j = H%mat(q)%qn(2)%Y(JX,2)
 
+           if (i > 12) cycle
+           if (j > 12) cycle
+           if (i < 3) cycle 
+           if (j < 3) cycle 
            ji = jbas%jj(i)
            jj = jbas%jj(j)
+         
+           hl = i*jbas%con(i) + j * jbas%con(j) 
+           !if (hl < 3) cycle
+           jh =  ji*jbas%con(i) + jj * jbas%con(j)
+                  
+           Eden = 0.d0 
            
-           if (i > 6) cycle
-           if (j > 6) cycle
+           ! constructing the App'hh' term is rather codey... 
+          
+           !pp'pp' 
 
-           Eden = sign(.1d0, f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
-                f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas)) 
+           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
+           Eden = Eden - Javerage(a,hl,ja,jh,H,jbas) 
+           Eden = Eden - Javerage(b,hl,jb,jh,H,jbas) 
+                   
+           Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
+                f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
            
-           ETA%mat(q)%gam(2)%X(IX,JX) = H%mat(q)%gam(2)%X(IX,JX)*Eden 
+         
+           ETA%mat(q)%gam(2)%X(IX,JX) = &
+                H%mat(q)%gam(2)%X(IX,JX)*sign(1.d0,Eden)*abs(Eden)**.0001  
+         
            
         end do 
-     end do 
+     end do
      
-     goto 13
-     ! Vppph is only decoupled for the valence space.
-     do IX = 1,H%mat(q)%nph 
-        
-        ! figure out which sp states compose IX
-        a = H%mat(q)%qn(2)%Y(IX,1)  ! pp descriptor qn(1)%Y 
-        b = H%mat(q)%qn(2)%Y(IX,2)
+     do IX = 1,H%mat(q)%nhh 
 
-        if ((a < 7) .and. (b < 7)) cycle
-        
+        ! figure out which sp states compose IX
+        a = H%mat(q)%qn(3)%Y(IX,1)  ! pp descriptor qn(1)%Y 
+        b = H%mat(q)%qn(3)%Y(IX,2)
+
         ja = jbas%jj(a)
         jb = jbas%jj(b)   
         
         do JX = 1,H%mat(q)%nph 
 
-           i = H%mat(q)%qn(2)%Y(JX,1) !ph descriptor qn(2)%Y
+           i = H%mat(q)%qn(2)%Y(JX,1) !hh descriptor qn(3)%Y
            j = H%mat(q)%qn(2)%Y(JX,2)
 
            ji = jbas%jj(i)
            jj = jbas%jj(j)
+         
+           p = i*(1-jbas%con(i)) + j * (1-jbas%con(j)) 
+           jp =  ji*(1-jbas%con(i)) + jj *(1- jbas%con(j))
+                  
+           Eden = 0.d0 
            
-           if (i > 6) cycle
-           if (j > 6) cycle
+           ! constructing the App'hh' term is rather codey... 
+          
+           !pp'pp' 
 
-           Eden = sign(.1d0, f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
-                f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas)) 
+           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
+           Eden = Eden - Javerage(a,p,ja,jp,H,jbas) 
+           Eden = Eden - Javerage(b,p,jb,jp,H,jbas) 
+                   
+           Eden = Eden - f_elem(a,a,H,jbas) - f_elem(b,b,H,jbas)  + &
+                f_elem(i,i,H,jbas) + f_elem(j,j,H,jbas) 
            
-           ETA%mat(q)%gam(4)%X(IX,JX) = H%mat(q)%gam(4)%X(IX,JX)*Eden 
-           ETA%mat(q)%gam(4)%X(IX,JX) = -ETA%mat(q)%gam(4)%X(IX,JX) 
+         
+           ETA%mat(q)%gam(6)%X(JX,IX) = &
+                H%mat(q)%gam(6)%X(JX,IX) * sign(1.d0,Eden)*abs(Eden)**.0001  
+         
+
         end do 
      end do 
-
-
-! Vphhh is decoupled in full
- 13    do IX = 1,H%mat(q)%nph 
      
-        ! figure out which sp states compose IX
-        a = H%mat(q)%qn(2)%Y(IX,1)  ! ph descriptor qn(2)%Y 
-        b = H%mat(q)%qn(2)%Y(IX,2)
+  end do 
 
-        ja = jbas%jj(a)
-        jb = jbas%jj(b)   
-        
-        do JX = 1,H%mat(q)%nhh 
+end subroutine 
+!==========================================================
+!==========================================================
+subroutine build_wegner(H,ETA,jbas) 
+  ! calculates the traditional white generator for
+  ! ground state decoupling
+  use commutators
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H,ETA,HD,w1,w2
+  type(cross_coupled_31_mat) :: WCC,HDCC,HCC
+  integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
+  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
+  real(8) :: Eden,sm,Javerage
+  
+  ETA%herm = -1 ! anti-hermitian operator
+  
+  call duplicate_sq_op(H,HD) 
+  call duplicate_sq_op(H,w1) !workspace
+  call duplicate_sq_op(H,w2) !workspace
+  call allocate_CCMAT(H,HCC,jbas) ! cross coupled ME
+  call duplicate_CCMAT(HCC,HDCC) !cross coupled ME
+  call allocate_CC_wkspc(HCC,WCC) ! workspace for CCME
+  
+  HD%fhh = H%fhh
+  HD%fpp = H%fpp
+  
+  do q = 1, H%nblocks
+     HD%mat(q)%gam(1)%X = H%mat(q)%gam(1)%X
+     !HD%mat(q)%gam(2)%X = H%mat(q)%gam(2)%X
+     HD%mat(q)%gam(4)%X = H%mat(q)%gam(4)%X
+     HD%mat(q)%gam(5)%X = H%mat(q)%gam(5)%X
+     !HD%mat(q)%gam(6)%X = H%mat(q)%gam(6)%X
+  end do 
 
-           i = H%mat(q)%qn(3)%Y(JX,1) !hh descriptor qn(3)%Y
-           j = H%mat(q)%qn(3)%Y(JX,2)
-
-           ji = jbas%jj(i)
-           jj = jbas%jj(j)
-                    
-           Eden = sign(0.1d0, f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
-                f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas)) 
-           
-           ETA%mat(q)%gam(6)%X(IX,JX) = H%mat(q)%gam(6)%X(IX,JX)*Eden 
-           
-        end do 
-     end do 
-
-  end do
+  call calculate_cross_coupled(H,HCC,jbas,.true.)
+  call calculate_cross_coupled(HD,HDCC,jbas,.false.) 
+  
+  call commutator_111(HD,H,ETA,jbas) 
+  call commutator_121(HD,H,ETA,jbas)
+  call commutator_122(HD,H,ETA,jbas)
+  
+  call commutator_222_pp_hh(HD,H,ETA,w1,w2,jbas)
+  
+  call commutator_221(HD,H,ETA,w1,w2,jbas)
+  call commutator_222_ph(HDCC,HCC,ETA,WCC,jbas)
 
 end subroutine 
 !==========================================================
