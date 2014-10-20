@@ -761,13 +761,14 @@ end subroutine
    type(spd) :: jbas
    type(sq_op) :: RES
    type(cross_coupled_31_mat) :: LCC,RCC,WCC
-   integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx
+   integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
    integer :: JP, Jtot,Ntot , qx,jmin,jmax,rik,rjl,ril,rjk,g_ix
    real(8) :: sm ,pre,pre2
    logical :: square
    
   Ntot = RES%Nsp
+  JTM = jbas%Jtotal_max
    ! construct intermediate matrices
  
    do q = 1,LCC%nblocks
@@ -838,12 +839,21 @@ end subroutine
             
             sm = 0.d0 
                        
-               jmin = max( abs(jj - jl) , abs(ji - jk )) 
-               jmax = min( jj + jl , ji + jk ) 
-               
-               do JP = jmin,jmax,2
-                  
-                  qx = JP/2 + 1
+            jmin = max( abs(jj - jl) , abs(ji - jk )) 
+            jmax = min( jj + jl , ji + jk ) 
+            
+            
+            Tz = abs(ti -tk)/2 
+            if (abs(tl - tj) .ne. Tz*2) cycle 
+            PAR = mod(li+lk,2) 
+            if (mod(ll+lj,2) .ne. PAR) cycle 
+            
+            
+            do JP = jmin,jmax,2
+                 
+                  !qx = JP/2 + 1
+                  qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
+  !                print*, i,j,k,l,JP,Tz,PAR,qx
                   rjl = specific_rval(j,l,Ntot,qx,LCC)
                   rik = specific_rval(i,k,Ntot,qx,LCC)
                   
@@ -854,15 +864,21 @@ end subroutine
                        sixj(jk,jl,Jtot,jj,ji,JP) * &
                        (-1)**((ji + jl + Jtot)/2) 
             
-               end do 
+            end do 
             
-                
+            Tz = abs(ti -tl)/2 
+            if (abs(tk - tj) .ne. Tz*2) cycle 
+            PAR = mod(li+ll,2) 
+            if (mod(lk+lj,2) .ne. PAR) cycle 
+            
                jmin = max( abs(ji - jl) , abs(jj - jk )) 
                jmax = min( ji + jl , jj + jk ) 
                
                do JP = jmin,jmax,2
                   
-                  qx = JP/2 + 1
+                  !qx = JP/2 + 1
+                  qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
+                
                   ril = specific_rval(i,l,Ntot,qx,LCC)
                   rjk = specific_rval(j,k,Ntot,qx,LCC)
                   

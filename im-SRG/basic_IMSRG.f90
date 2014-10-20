@@ -1362,9 +1362,9 @@ end subroutine
 !=======================================================
 subroutine allocate_CCMAT(HS,CCME,jbas) 
   ! allocates a cross-coupled ME storage structure
-  ! currently the only CCME of interest are phab terms    |-------| 
+  ! currently the only CCME of interest are phab terms    |---<---| 
   ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
-  !                                                      |-------|
+  !                                                      |---<---|
   implicit none 
   
   
@@ -1372,13 +1372,15 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
   type(sq_op) :: HS
   type(cross_coupled_31_mat) :: CCME
   integer :: JT,ji,jp,jj,jh,JC,q1,q2,g,li,lj,ti,tj
-  integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR,x
+  integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR,x,JTM
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
   real(8) :: sm,sm2
   
   NX = HS%Nsp
   CCME%Nsp = NX
-  CCME%nblocks = jbas%Jtotal_max + 1 
+  JTM = jbas%Jtotal_max
+  CCME%nblocks = (JTM + 1) * 2 * 2
+  ! 2 dof for parity, 2 for Tz (i'm only worried about abs(Tz) ) 
   allocate(CCME%CCX(CCME%nblocks)) ! < h a |v | p b> 
   allocate(CCME%CCR(CCME%nblocks)) ! < p a |v | h b> 
   allocate(CCME%nph(CCME%nblocks)) ! number of ph pairs in block 
@@ -1408,8 +1410,12 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
   
   do q1 = 1, CCME%nblocks
      
-     JC = (q1 - 1) * 2 
- 
+     JC = mod(q1-1,JTM+1) * 2 
+     PAR = (q1 - 1) / (2*JTM + 2) 
+     TZ = mod(q1-1,(2*JTM+2))/(JTM+1)  
+     ! fastest changing quantity : JC
+     ! slowest: PAR 
+     
      nb = 0 
      r = 0 
      do i = 1, NX
@@ -1417,7 +1423,10 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
            
            ji = jbas%jj(i) 
            jj = jbas%jj(j) 
+           
            if (.not. (triangle(ji,jj,JC))) cycle 
+           if ( mod(jbas%ll(i) + jbas%ll(j),2) .ne. PAR ) cycle
+           if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
            
            if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
               nb = nb + 1 
@@ -1438,7 +1447,9 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
            ji = jbas%jj(i) 
            jj = jbas%jj(j) 
            if (.not. (triangle(ji,jj,JC))) cycle 
-
+           if ( mod(jbas%ll(i) + jbas%ll(j),2) .ne. PAR ) cycle
+           if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
+          
            x = CCindex(i,j,NX) 
            
            g = 1
@@ -1521,9 +1532,9 @@ end subroutine
 !=======================================================  
 !=======================================================          
 subroutine calculate_cross_coupled(HS,CCME,jbas,phase) 
-  ! currently the only CCME of interest are phab terms    |-------| 
+  ! currently the only CCME of interest are phab terms    |---<---| 
   ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
-  !                                                      |-------|
+  !                                                      |---<---|
   implicit none 
   
   type(spd) :: jbas
@@ -1531,18 +1542,21 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
   type(cross_coupled_31_mat) :: CCME
   integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,g,ta,tb,Atot,hg,pg
-  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x,JTM
   real(8) :: sm,sm2,pre
   logical :: phase
 
   Atot = HS%belowEF
   Ntot = HS%Nsp
-
+  JTM = jbas%Jtotal_max 
   pre = 1.d0 
+
   do q1 = 1, CCME%nblocks
+      
+     JC = mod(q1-1,JTM+1) * 2 
+     PAR = (q1 - 1) / (2*JTM + 2) 
+     TZ = mod(q1-1,(2*JTM+2))/(JTM+1)  
      
-     JC = (q1-1)*2
-  
      CCME%CCR(q1)%X = 0.d0
      CCME%CCX(q1)%X = 0.d0
          
@@ -1561,7 +1575,9 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
            th = jbas%itzp(h)
         
            if (.not. triangle(jp,jh,JC) )  cycle
-        
+           if ( mod(lp + lh,2) .ne. PAR ) cycle
+           if (abs(tp - th)/2 .ne. Tz ) cycle 
+           
            x = CCindex(p,h,HS%Nsp)
            gnb = 1
            do while (CCME%qmap(x)%Z(gnb) .ne. q1 )
@@ -1584,6 +1600,8 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                  tb = jbas%itzp(b)
                  
                  if (.not. triangle(ja,jb,JC) )  cycle
+                 if ( mod(la + lb,2) .ne. PAR ) cycle
+                 if (abs(ta - tb)/2 .ne. Tz ) cycle 
                  
                  x = CCindex(a,b,HS%Nsp) 
                  g = 1

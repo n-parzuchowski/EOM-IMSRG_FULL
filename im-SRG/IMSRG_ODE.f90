@@ -14,8 +14,8 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
 
   ! SRG convergence / failsafe / error tolerances
   integer,parameter :: max_steps = 10000
-  real(8),parameter :: conv_crit = 1.d-8
-  real(8),parameter :: relerr = 1.d-8, abserr = 1.d-8
+  real(8),parameter :: conv_crit = 1.d-6
+  real(8),parameter :: relerr = 1.d-6, abserr = 1.d-6
 
   type(spd) :: jbas
   type(sq_op) :: H ,HOD
@@ -88,7 +88,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
      crit = abs(H%E0 - E_old) 
      
      write(36,'(I6,3(e14.6))') steps,s,H%E0,crit     
-    ! print*, steps,s,H%E0,crit
+!     print*, steps,s,H%E0,crit
      if (crit < conv_crit) exit
     ! ds = ds * 1.2
   end do 
