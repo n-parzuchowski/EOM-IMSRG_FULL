@@ -488,7 +488,7 @@ subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
 !  If already past the output point, then interpolate and return.
 !
   do
-     !print*, x-t
+    
     if ( absdel <= abs ( x - t ) ) then
       call intrp ( x, yy, tout, y, ypout, neqn, kold, phi, psi )
       iflag = 2

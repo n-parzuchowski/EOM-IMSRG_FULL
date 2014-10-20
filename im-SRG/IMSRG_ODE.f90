@@ -14,8 +14,8 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
 
   ! SRG convergence / failsafe / error tolerances
   integer,parameter :: max_steps = 10000
-  real(8),parameter :: conv_crit = 1.d-6
-  real(8),parameter :: relerr = 1.d-6, abserr = 1.d-6
+  real(8),parameter :: conv_crit = 1.d-8
+  real(8),parameter :: relerr = 1.d-8, abserr = 1.d-8
 
   type(spd) :: jbas
   type(sq_op) :: H ,HOD
@@ -50,7 +50,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   H%neq = neq
-
+  
   allocate(cur_vec(neq)) ! carries the system into SG solver
   allocate(work(100+21*neq))  ! memory eater
      
@@ -69,13 +69,14 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
        trim(adjustl(prefix))//'_trad0bflow.dat')
   
   write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
-
+!  print*, H%E0
 ! main loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
   do while (steps < max_steps) 
     
      E_old = H%E0 
      ! send info to SG solver
-     call vectorize(H,cur_vec) 
+     call vectorize(H,cur_vec)
+    
      call ode(deriv_calculator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
      
@@ -87,8 +88,9 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
      crit = abs(H%E0 - E_old) 
      
      write(36,'(I6,3(e14.6))') steps,s,H%E0,crit     
-     print*, steps,s,H%E0,crit
+    ! print*, steps,s,H%E0,crit
      if (crit < conv_crit) exit
+    ! ds = ds * 1.2
   end do 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   close(36)
@@ -100,7 +102,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
   implicit none 
 
   ! SRG convergence / failsafe / error tolerances
-  integer,parameter :: max_steps = 1000
+  integer,parameter :: max_steps = 2000
   real(8),parameter :: conv_crit = 1.d-6
   real(8),parameter :: relerr = 1.d-6, abserr = 1.d-6
 
@@ -145,7 +147,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
   iflag = 1
   
   ! flow equation variables
-  ds = .001d0
+  ds = .01d0
   s = 0.d0 
   
   steps = 0 
@@ -161,11 +163,11 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
   do q = 1, H%nblocks
      HOD%mat(q)%gam(2)%X = H%mat(q)%gam(2)%X  
      HOD%mat(q)%gam(6)%X = H%mat(q)%gam(6)%X
+     HOD%mat(q)%gam(4)%X = H%mat(q)%gam(4)%X
   end do
      ! weak convergence criteria, but it works
   E_old = mat_frob_norm(HOD)!abs(H%E0 - E_old)
-     
-  
+    
   open(unit=37,file='../../output/'//&
        trim(adjustl(prefix))//'_trad0b_excited.dat')
   
@@ -189,6 +191,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
       do q = 1, H%nblocks
         HOD%mat(q)%gam(2)%X = H%mat(q)%gam(2)%X   
         HOD%mat(q)%gam(6)%X = H%mat(q)%gam(6)%X
+        HOD%mat(q)%gam(4)%X = H%mat(q)%gam(4)%X
      end do
      
      call calculate_cross_coupled(H,HCC,jbas,.true.) 
@@ -196,7 +199,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      call diagonalize_blocks(TDA)
   
      call write_excited_states(steps,s,TDA,H%E0,37) 
-     print*, steps,s,crit
+     !print*, steps,s,crit
      ! convergence criteria
      crit = abs(mat_frob_norm(HOD)-E_old)
          
@@ -298,8 +301,9 @@ subroutine dHds_TDA_shell(t,yp,HS,jbas)
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
   call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
 
-  call build_valence_decouple(HS,ETA,jbas) ! constructs generator
-
+  !call build_valence_decouple(HS,ETA,jbas) ! constructs generator
+  call build_ex_imtime(HS,ETA,jbas)
+  
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)
   call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
    

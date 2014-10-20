@@ -1663,7 +1663,10 @@ subroutine allocate_CC_wkspc(CCHS,WCC)
      
      allocate(WCC%CCX(q)%X(r,r)) 
      allocate(WCC%CCR(q)%X(r,r)) 
-  end do 
+     WCC%CCX(q)%X = 0.d0
+     WCC%CCR(q)%X = 0.d0
+     
+  end do
 end subroutine 
 !===========================================================
 !===========================================================
@@ -1780,7 +1783,7 @@ subroutine repackage(rec,vout)
   do l=1,rec%nblocks
      
      do gx = 1, 6
-        !min(jst(gx),i)
+       
         do i=1,size(rec%mat(l)%gam(gx)%X(1,:) )
            do j=min(jst(gx),i),size(rec%mat(l)%gam(gx)%X(:,1))
            

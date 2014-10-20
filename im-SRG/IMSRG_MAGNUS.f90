@@ -44,14 +44,14 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
   
   nrm1 = mat_frob_norm(ETA) 
   s = 0.d0 
-  ds = .7d0
+  ds = .1d0
   crit = 10.
   steps = 0
   
   open(unit=36,file='../../output/'//&
        trim(adjustl(prefix))//'_magnus0bflow.dat')
   write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
-  
+  print*, H%E0
   do while (crit > 1e-4) 
      
      call copy_sq_op(G,G0) 
@@ -61,7 +61,8 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
      call copy_sq_op(HS,H0) 
      call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
      
-     call copy_sq_op(ETA,ETA0) 
+     call copy_sq_op(ETA,ETA0)
+    
      call build_gs_white(HS,ETA,jbas) 
      nrm2 = mat_frob_norm(ETA)
      
@@ -74,11 +75,12 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
         cycle 
      end if 
      
-     crit = mat_frob_norm(ETA) 
+     crit = abs(nrm1-nrm2) 
+     nrm1 = nrm2 
      steps = steps + 1
      
      write(36,'(I6,3(e14.6))') steps,s,HS%E0,crit
-  
+     print*, s,HS%E0,crit
   end do
   close(36)
 end subroutine  

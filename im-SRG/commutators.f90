@@ -783,8 +783,9 @@ end subroutine
      
       call dgemm('N','N',rinx,rinx,nb,al,RCC%CCX(q)%X,rinx,&
            LCC%CCR(q)%X,nb,bet,WCC%CCR(q)%X,rinx) 
-      
+   
    end do 
+ 
    
    do q = 1, RES%nblocks
      

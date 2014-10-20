@@ -12,7 +12,7 @@ program main_IMSRG
   character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb,k,l,m,n
-  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji
+  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
   logical :: hartree_fock,magnus_exp 
   external :: dHds_white_gs,dHds_TDA_shell
 
@@ -36,11 +36,11 @@ program main_IMSRG
   
   if (hartree_fock) then 
      call calc_HF(HS,jbasis) 
-     ! calc_HF normal orders the hamiltonian
+    ! calc_HF normal orders the hamiltonian
   else 
      call normal_order(HS,jbasis) 
-  end if 
-   
+  end if
+    
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
@@ -51,7 +51,7 @@ program main_IMSRG
      call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
   end if 
 
-  call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
+  !call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
   
 end program main_IMSRG
 
