@@ -88,7 +88,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
      crit = abs(H%E0 - E_old) 
      
      write(36,'(I6,3(e14.6))') steps,s,H%E0,crit     
-!     print*, steps,s,H%E0,crit
+     print*, steps,s,H%E0,crit
      if (crit < conv_crit) exit
     ! ds = ds * 1.2
   end do 
@@ -103,8 +103,8 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
 
   ! SRG convergence / failsafe / error tolerances
   integer,parameter :: max_steps = 2000
-  real(8),parameter :: conv_crit = 1.d-6
-  real(8),parameter :: relerr = 1.d-6, abserr = 1.d-6
+  real(8),parameter :: conv_crit = 1.d-5
+  real(8),parameter :: relerr = 1.d-5, abserr = 1.d-5
 
   type(spd) :: jbas
   type(sq_op) :: H ,HOD
@@ -113,7 +113,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
   integer,dimension(5) :: iwork
   real(8),allocatable,dimension(:) :: cur_vec,work
   integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps ,i 
-  real(8) :: ds,s,E_old,crit
+  real(8) :: ds,s,E_old,crit,min_crit
   character(200) :: spfile,intfile,prefix
   external :: deriv_calculator 
   common /files/ spfile,intfile,prefix
@@ -176,7 +176,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
 !===========================================================
 !===========================================================
 ! main loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
-
+  min_crit = 10000.d0
   do while (steps < max_steps) 
     
      E_old = mat_frob_norm(HOD)  
@@ -199,10 +199,15 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      call diagonalize_blocks(TDA)
   
      call write_excited_states(steps,s,TDA,H%E0,37) 
-     !print*, steps,s,crit
+     
      ! convergence criteria
      crit = abs(mat_frob_norm(HOD)-E_old)
-         
+     print*, steps,s,crit
+     if (crit > 100*min_crit) then
+        print*, 'convergence failed' 
+        exit
+     end if 
+     min_crit = min(min_crit,crit) 
      if (crit < conv_crit) exit
   end do 
   

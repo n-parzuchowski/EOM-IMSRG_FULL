@@ -80,11 +80,15 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
   type(full_sp_block_mat) :: TDA
   type(sq_op) :: HS 
   type(cross_coupled_31_mat) :: HSCC
-  integer :: q,JT,r1,r2,a,b,i,j,x,g,NBindx,Rindx,q1
+  integer :: q,JT,r1,r2,a,b,i,j,x,g,NBindx,Rindx,q1,Tz,PAR,JTM
   
+  JTM = jbas%Jtotal_max
   do q = 1, TDA%blocks
      JT = TDA%blkM(q)%lmda(1) 
-     q1 = JT/2 + 1 ! CC block index
+     Tz = 0
+     PAR = TDA%blkM(q)%lmda(2)
+     !q1 = JT/2 + 1 ! CC block index
+     q1 = JT/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
      
      do r1 = 1, TDA%map(q) 
         i = TDA%blkM(q)%labels(r1,1)
