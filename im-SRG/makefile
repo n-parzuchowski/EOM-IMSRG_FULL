@@ -3,8 +3,8 @@ FC = gfortran $(FFLAGS)
 p1 = run_IMSRG
 p2 = run_HO_energies
 
-FFLAGS =  -O3 -fbounds-check -fopenmp
-TFLAGS =   -g -O0
+FFLAGS =  -O3 -fopenmp
+TFLAGS =   -g -O0 -fbounds-check
 
 LIBS =  -L/user/local/lib/ -llapack -lblas
 

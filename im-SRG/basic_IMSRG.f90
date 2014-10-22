@@ -561,13 +561,16 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
   integer :: a,b,c,d,J,T,P,q,qx,c1,c2,N
   integer :: int1,int2,i1,i2,j_min,x
   integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  
+  logical :: fail_c
   type(sq_op) :: op 
   type(spd) :: jbas
-  real(8) :: pre
- 
+  real(8) :: pre,pre_c
+  common /TBMEinfo/ c1_c,c2_c,q_c,qx_c,i1_c,i2_c,pre_c,fail_c  
+  
   !make sure the matrix element exists first
   
-
+ fail_c = .true. 
  ja = jbas%jj(a)
  jb = jbas%jj(b)
  jc = jbas%jj(c)
@@ -654,7 +657,34 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
       v_elem = op%mat(q)%gam(qx)%X(i1,i2) * pre
    end if 
   
+   ! stored info if we are looking for this same ME next time. 
+   c1_c=C1;c2_c=C2;q_c=q;qx_c=qx
+   i1_c=i1;i2_c=i2;pre_c=pre;fail_c=.false.   
 end function 
+!=====================================================
+!=====================================================
+real(8) function v_same(op) 
+  !produces the matrix element of op which is in the exact position 
+  !as the one obtained from the previous call of v_elem 
+  
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c
+  logical :: fail_c
+  type(sq_op) :: op 
+  real(8) :: pre_c
+  common /TBMEinfo/ c1_c,c2_c,q_c,qx_c,i1_c,i2_c,pre_c,fail_c
+  
+  if (fail_c) then 
+     v_same = 0.d0 
+     return 
+  end if 
+  
+   ! grab the matrix element
+  If (C1_c>C2_c) then 
+      v_same = op%mat(q_c)%gam(qx_c)%X(i2_c,i1_c) * op%herm * pre_c 
+  else
+      v_same = op%mat(q_c)%gam(qx_c)%X(i1_c,i2_c) * pre_c
+  end if 
+end function
 !=====================================================
 !=====================================================
 subroutine calculate_h0_harm_osc(hw,jbas,H,Htype) 

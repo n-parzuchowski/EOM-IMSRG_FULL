@@ -140,9 +140,9 @@ subroutine commutator_121(L,R,RES,jbas)
               ! sum over J_total
               do JT = abs(ji - jq),ji+jq,2
                  smx = smx + v_elem(ak,pk,ik,qk,JT,R,jbas)*(JT + 1)
+                 smx2 = smx2 + v_same(L)*(JT + 1)
                  smy = smy + v_elem(ik,pk,ak,qk,JT,R,jbas)*(JT + 1) 
-                 smx2 = smx2 + v_elem(ak,pk,ik,qk,JT,L,jbas)*(JT + 1)
-                 smy2 = smy2 + v_elem(ik,pk,ak,qk,JT,L,jbas)*(JT + 1) 
+                 smy2 = smy2 + v_same(L)*(JT + 1) 
               end do 
               
               sm = sm + L%fph(a,i) * (L%herm*smx - smy) - &
@@ -201,9 +201,9 @@ subroutine commutator_121(L,R,RES,jbas)
               ! sum over J_total
               do JT = abs(ji - jq),ji+jq,2
                  smx = smx + v_elem(ak,pk,ik,qk,JT,R,jbas)*(JT + 1)
+                 smx2 = smx2 + v_same(L)*(JT + 1)
                  smy = smy + v_elem(ik,pk,ak,qk,JT,R,jbas)*(JT + 1) 
-                 smx2 = smx2 + v_elem(ak,pk,ik,qk,JT,L,jbas)*(JT + 1)
-                 smy2 = smy2 + v_elem(ik,pk,ak,qk,JT,L,jbas)*(JT + 1) 
+                 smy2 = smy2 + v_same(L)*(JT + 1) 
               end do 
               
               sm = sm + L%fph(a,i) * (L%herm*smx - smy)  - &
@@ -262,9 +262,9 @@ subroutine commutator_121(L,R,RES,jbas)
               ! sum over J_total
               do JT = abs(ji - jq),ji+jq,2
                  smx = smx + v_elem(ak,pk,ik,qk,JT,R,jbas)*(JT + 1)
+                 smx2 = smx2 + v_same(L)*(JT + 1)
                  smy = smy + v_elem(ik,pk,ak,qk,JT,R,jbas)*(JT + 1) 
-                 smx2 = smx2 + v_elem(ak,pk,ik,qk,JT,L,jbas)*(JT + 1)
-                 smy2 = smy2 + v_elem(ik,pk,ak,qk,JT,L,jbas)*(JT + 1) 
+                 smy2 = smy2 + v_same(L)*(JT + 1) 
               end do 
               
               sm = sm + L%fph(a,i) * (L%herm*smx - smy) - &
@@ -349,7 +349,7 @@ subroutine commutator_122(L,R,RES,jbas)
                i_sp = jbas%states(q_sp)%Z(i) 
                
                sm = sm + f_elem(a,i_sp,L,jbas)*v_elem(i_sp,b,c,d,JT,R,jbas)&
-                    - f_elem(a,i_sp,R,jbas)*v_elem(i_sp,b,c,d,JT,L,jbas) 
+                    - f_elem(a,i_sp,R,jbas)*v_same(L) 
             end do 
               
             ! b is replaced
@@ -359,7 +359,7 @@ subroutine commutator_122(L,R,RES,jbas)
                i_sp = jbas%states(q_sp)%Z(i) 
                
                sm = sm + f_elem(b,i_sp,L,jbas)*v_elem(a,i_sp,c,d,JT,R,jbas)&
-                    - f_elem(b,i_sp,R,jbas)*v_elem(a,i_sp,c,d,JT,L,jbas) 
+                    - f_elem(b,i_sp,R,jbas)*v_same(L) 
             end do 
             
             ! c is replaced
@@ -369,7 +369,7 @@ subroutine commutator_122(L,R,RES,jbas)
                i_sp = jbas%states(q_sp)%Z(i) 
                
                sm = sm - f_elem(i_sp,c,L,jbas)*v_elem(a,b,i_sp,d,JT,R,jbas)&
-                    + f_elem(i_sp,c,R,jbas)*v_elem(a,b,i_sp,d,JT,L,jbas) 
+                    + f_elem(i_sp,c,R,jbas)*v_same(L) 
             end do 
             
             ! d is replaced
@@ -379,7 +379,7 @@ subroutine commutator_122(L,R,RES,jbas)
                i_sp = jbas%states(q_sp)%Z(i) 
                
                sm = sm - f_elem(i_sp,d,L,jbas)*v_elem(a,b,c,i_sp,JT,R,jbas)&
-                    + f_elem(i_sp,d,R,jbas)*v_elem(a,b,c,i_sp,JT,L,jbas) 
+                    + f_elem(i_sp,d,R,jbas)*v_same(L) 
             end do 
           
               sm = sm / sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(c,d)) 
