@@ -49,7 +49,7 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
   steps = 0
   
   open(unit=36,file='../../output/'//&
-       trim(adjustl(prefix))//'_magnus0bflow.dat')
+       trim(adjustl(prefix))//'_0bflow.dat')
   write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
   print*, H%E0
   do while (crit > 1e-4) 

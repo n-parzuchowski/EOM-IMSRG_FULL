@@ -1326,9 +1326,9 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,hw)
   input = adjustl(input) 
   if (trim(input) == '') then 
      print*, 'RUNNING TEST CASE: testcase.ini' 
-     open(unit=22,file='testcase.ini')
+     open(unit=22,file='../../inifiles/testcase.ini')
   else   
-  open(unit=22,file=trim(input)) 
+  open(unit=22,file='../../inifiles/'//trim(input)) 
   end if 
   
   read(22,*);read(22,*);read(22,*)

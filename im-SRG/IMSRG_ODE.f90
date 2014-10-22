@@ -66,7 +66,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
   steps = 0 
   
   open(unit=36,file='../../output/'//&
-       trim(adjustl(prefix))//'_trad0bflow.dat')
+       trim(adjustl(prefix))//'_0bflow.dat')
   
   write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
 !  print*, H%E0
@@ -169,7 +169,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
   E_old = mat_frob_norm(HOD)!abs(H%E0 - E_old)
     
   open(unit=37,file='../../output/'//&
-       trim(adjustl(prefix))//'_trad0b_excited.dat')
+       trim(adjustl(prefix))//'_excited.dat')
   
   call write_excited_states(steps,s,TDA,H%E0,37) 
   
