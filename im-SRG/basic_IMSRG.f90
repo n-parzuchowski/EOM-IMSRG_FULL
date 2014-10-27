@@ -41,6 +41,7 @@ module basic_IMSRG
      type(int_vec),allocatable,dimension(:) :: xmap 
      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh,X1
      integer,allocatable,dimension(:,:) :: X2
+     integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      real(8) :: E0 
   END TYPE sq_op
@@ -398,7 +399,53 @@ subroutine allocate_blocks(jbas,op)
         end do
      end do
   end do
+  
+  call divide_work(op) 
 end subroutine      
+!==================================================================  
+!==================================================================
+subroutine divide_work(r1) 
+  implicit none 
+  
+  type(sq_op) :: r1
+  integer :: A,N,threads,omp_get_num_threads
+  integer :: i ,g,q,k,b,j
+  
+!$omp parallel
+  threads=omp_get_num_threads() 
+!$omp end parallel
+
+  b = 0.d0
+  do q = 1, r1%nblocks
+     b = b + r1%mat(q)%nhh +r1%mat(q)%npp + r1%mat(q)%nph 
+  end do
+  
+  allocate( r1%direct_omp(threads+1) )
+  
+  g = 0
+  k = 0
+  q = 1
+  do i = 1,threads
+     
+     g = g+k 
+     j = (b-g)/(threads-i+1) 
+     
+     k = 0
+     
+     do while ( q .le. r1%nblocks) 
+        k = k + r1%mat(q)%nhh +r1%mat(q)%npp + r1%mat(q)%nph 
+        q = q + 1
+        
+        if (k .ge. j) then 
+           r1%direct_omp(i+1) = q-1
+           exit
+        end if
+     end do 
+  end do 
+  r1%direct_omp(threads+1) = r1%nblocks
+  r1%direct_omp(1) = 0 
+
+end subroutine     
 !==================================================================  
 !==================================================================
 subroutine read_interaction(H,jbas,htype,hw) 
@@ -1206,6 +1253,8 @@ subroutine duplicate_sq_op(H,op)
   op%fph = 0.d0 
   
   allocate(op%mat(op%nblocks)) 
+  allocate(op%direct_omp(size(H%direct_omp)))
+  op%direct_omp = H%direct_omp
 
   N = op%nsp
   allocate(op%xmap(N*(N+1)/2))
@@ -1581,6 +1630,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
   JTM = jbas%Jtotal_max 
   pre = 1.d0 
 
+!$omp parallel do default(firstprivate),shared(CCME,HS,jbas) 
   do q1 = 1, CCME%nblocks
       
      JC = mod(q1-1,JTM+1) * 2 
@@ -1684,6 +1734,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
      end do
 
   end do 
+!$omp end parallel do
 end subroutine 
 !===========================================================
 !===========================================================     

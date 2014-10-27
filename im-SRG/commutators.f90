@@ -763,12 +763,13 @@ end subroutine
    type(cross_coupled_31_mat) :: LCC,RCC,WCC
    integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
-   integer :: JP, Jtot,Ntot , qx,jmin,jmax,rik,rjl,ril,rjk,g_ix
+   integer :: JP, Jtot,Ntot,qx,jmin,jmax,rik,rjl,ril,rjk,g_ix,thread,total_threads
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2
    logical :: square
    
   Ntot = RES%Nsp
   JTM = jbas%Jtotal_max
+  total_threads = size(RES%direct_omp) - 1
    ! construct intermediate matrices
  
    do q = 1,LCC%nblocks
@@ -788,7 +789,8 @@ end subroutine
    end do 
 
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES)  
-   do q = 1, RES%nblocks
+   do thread = 1, total_threads
+   do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
      
      Jtot = RES%mat(q)%lam(1)
      
@@ -897,6 +899,7 @@ end subroutine
          end do 
       end do
       end do 
+   end do
    end do 
 !$OMP END PARALLEL DO 
    
