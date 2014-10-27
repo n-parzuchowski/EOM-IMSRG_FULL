@@ -1,10 +1,13 @@
 FC = gfortran $(FFLAGS)  
+CC = g++ $(CFLAGS) 
 
 p1 = run_IMSRG
-p2 = run_HO_energies
+p2 = get_HO_energies
+p3 = truncate
 
-FFLAGS =  -O3 -fbounds-check -fopenmp
-TFLAGS =   -g -O0
+FFLAGS = -O3 -fopenmp
+TFLAGS = -g -O0 -fbounds-check
+CFLAGS = -std=c++11 -O3
 
 LIBS =  -L/user/local/lib/ -llapack -lblas
 
@@ -44,10 +47,12 @@ operators.o: operators.f90
 HO: add_sp_energies.f90
 	${FC} add_sp_energies.f90 -o ${p2} 
 
-
+truncate: truncate_interaction.cpp
+	${CC} truncate_interaction.cpp -o ${p3}
 clean:
 	rm -f ${p1} $
 	rm -f ${p2} $
+	rm -f ${p3} $
 	rm -f *.o
 	rm -f *.mod
 	rm -f *~
