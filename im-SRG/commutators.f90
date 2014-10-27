@@ -764,7 +764,7 @@ end subroutine
    integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
    integer :: JP, Jtot,Ntot , qx,jmin,jmax,rik,rjl,ril,rjk,g_ix
-   real(8) :: sm ,pre,pre2
+   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2
    logical :: square
    
   Ntot = RES%Nsp
@@ -786,8 +786,8 @@ end subroutine
            LCC%CCR(q)%X,nb,bet,WCC%CCR(q)%X,rinx) 
    
    end do 
- 
-   
+
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES)  
    do q = 1, RES%nblocks
      
      Jtot = RES%mat(q)%lam(1)
@@ -851,9 +851,7 @@ end subroutine
             
             do JP = jmin,jmax,2
                  
-                  !qx = JP/2 + 1
                   qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
-  !                print*, i,j,k,l,JP,Tz,PAR,qx
                   rjl = specific_rval(j,l,Ntot,qx,LCC)
                   rik = specific_rval(i,k,Ntot,qx,LCC)
                   
@@ -900,7 +898,8 @@ end subroutine
       end do
       end do 
    end do 
-
+!$OMP END PARALLEL DO 
+   
 end subroutine 
 !=====================================================
 !=====================================================      
