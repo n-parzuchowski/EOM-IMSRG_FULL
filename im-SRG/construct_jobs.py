@@ -26,6 +26,20 @@ lam = raw_input( 'Momentum cutoff in inverse fermi: ')
 hamtype = raw_input('For CM hamiltonian type: "1" for harmonic trap: "2", full: "3": ') 
 hf = raw_input( 'For HF type: "HF". Otherwise type: "HO": ') 
 mag = raw_input( 'For magnus type: "mag". Otherwise type: "trad": ' ) 
+tda = raw_input( 'For flowing TDA type: "tda". Otherwise type: "gs": ' )
+
+if tda == 'tda':
+    tdaint = '1'
+    Jtarg = raw_input( 'Input target total 2J: ')
+    Ptarg = raw_input( 'For even parity enter "0", for odd enter "1": ')
+    valshell = raw_input( 'Enter highest major shell in valence space: ') 
+else:
+    tdaint = '0'
+    Ptarg = '0'
+    Jtarg ='0'
+    valshell = '1s0d' 
+
+
 fq = open('run_all.bat','w')
 
 fq.write( '#!/bin/bash \n\n') 
@@ -39,6 +53,11 @@ if mag == 'mag':
     magint = '1'
 else:
     magint = '2'
+    
+if tda == 'tda':
+    tdaint = '1'
+else:
+    tdaint = '0'
     
 mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','7gb','8gb'] 
 wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','05:00:00',  
@@ -63,14 +82,14 @@ for R in Rlist:
         
         fx.write('#!/bin/sh \n\n')
         fx.write('#PBS -l walltime='+timreq+'\n')
-        fx.write('#PBS -l nodes=1:ppn=1\n')
+        fx.write('#PBS -l nodes=1:ppn=8\n')
         fx.write('#PBS -l mem='+memreq+'\n') 
         fx.write('#PBS -j oe\n')
         fx.write('#PBS -N '+jobname+'\n') 
         fx.write('#PBS -M parzuchowski@frib.msu.edu\n')
         fx.write('#PBS -m a\n\n')
         fx.write('cd $HOME/nuclear_IMSRG/src/im-SRG\n\n')
-        fx.write('export OMP_NUM_THREADS=1\n\n')
+        fx.write('export OMP_NUM_THREADS=8\n\n')
         fx.write('time ./rum_IMSRG '+initfile+'\n')
         
         fx.close()
@@ -107,6 +126,15 @@ for R in Rlist:
         fx.write('# ENTER 1 for magnus method\n')
         fx.write('# or 2 for traditional ode\n') 
         fx.write(magint+'\n') 
+        fx.write('# ENTER 1 FOR EXCITED STATES USING TDA\n')
+        fx.write('# ENTER 0 for ground state only\n') 
+        fx.write(tdaint+'\n')
+        fx.write('# ENTER total 2J of target states\n') 
+        fx.write(Jtarg + '\n')
+        fx.write('# ENTER total PARITY (0-even,1-odd) of target states\n') 
+        fx.write(Ptarg+'\n')
+        fx.write('# ENTER HIGHEST MAJOR VALENCE SHELL\n')
+        fx.write(valshell+'\n') 
         fx.write('########################################################\n')
         fx.write('# NOTES \n')
         fx.write('#\n')
@@ -129,4 +157,8 @@ for R in Rlist:
             print 'WARNING!!'
             print 'file TBME_input/'+TBMEfile+' not present!\n'
 
-    
+        
+        
+fq.close()
+
+os.system("chmod 0755 run_all.bat")
