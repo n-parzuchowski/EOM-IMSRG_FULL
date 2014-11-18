@@ -6,7 +6,7 @@ module operators
 contains
 !===================================================================
 !===================================================================
-subroutine initialize_TDA(TDA,jbas) 
+subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget) 
   ! figure out how big the TDA matrix has to be
   ! allocate it
   ! uses full_sp_block_mat, just because it's got the right shape
@@ -15,18 +15,25 @@ subroutine initialize_TDA(TDA,jbas)
   type(spd) :: jbas
   type(full_sp_block_mat) :: TDA
   integer :: JT,PI,Jmax,q,i,a,r,nh,np,ix,ax
+  integer :: Jtarget, PARtarget
  
   Jmax = jbas%Jtotal_max
   nh = sum(jbas%con) 
   np = jbas%total_orbits - nh 
-  TDA%blocks = (Jmax+1)*2
-  allocate(TDA%blkM((Jmax+1)*2)) 
-  allocate(TDA%map((Jmax+1)*2))
+  TDA%blocks = 1    ! (Jmax+1)*2
+  !allocate(TDA%blkM((Jmax+1)*2)) 
+  !allocate(TDA%map((Jmax+1)*2))
+  allocate(TDA%blkM(1))
+  allocate(TDA%map(1)) 
+  
   q = 1
   
-  do PI = 0,1
-     do JT = 0,2*Jmax,2
-        
+  !do PI = 0,1
+   !  do JT = 0,2*Jmax,2
+    
+  PI = PARtarget 
+  JT = Jtarget 
+      
         r = 0
         do ix = 1,nh
            do ax = 1,np 
@@ -66,9 +73,9 @@ subroutine initialize_TDA(TDA,jbas)
         TDA%blkM(q)%lmda(1) = JT
         TDA%blkM(q)%lmda(2) = PI 
         TDA%blkM(q)%lmda(3) = 0 
-        q = q + 1
-     end do 
-  end do 
+ !       q = q + 1
+ !    end do 
+ ! end do 
 
 end subroutine 
 !==========================================
@@ -87,7 +94,7 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
      JT = TDA%blkM(q)%lmda(1) 
      Tz = 0
      PAR = TDA%blkM(q)%lmda(2)
-     !q1 = JT/2 + 1 ! CC block index
+  
      q1 = JT/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
      
      do r1 = 1, TDA%map(q) 

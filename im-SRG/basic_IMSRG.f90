@@ -40,7 +40,7 @@ module basic_IMSRG
      type(sq_block),allocatable,dimension(:) :: mat
      type(int_vec),allocatable,dimension(:) :: xmap 
      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh,X1
-     integer,allocatable,dimension(:,:) :: X2
+     integer,allocatable,dimension(:,:) :: X2,exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      real(8) :: E0 
@@ -308,7 +308,7 @@ subroutine allocate_blocks(jbas,op)
      
      do i = 1,N   !looping over sp states
         do j = i,N
- 
+          
            ! check if the two sp states can exist in this block 
            tz1 = jbas%itzp(i)
            tz2 = jbas%itzp(j) 
@@ -357,7 +357,7 @@ subroutine allocate_blocks(jbas,op)
      nph = 0 ; npp = 0 ; nhh = 0
      do i = 1,N   !looping over sp states
         do j = i,N
-           
+          
            ! check if the two sp states can exist in this block 
            tz1 = jbas%itzp(i)
            tz2 = jbas%itzp(j) 
@@ -372,7 +372,7 @@ subroutine allocate_blocks(jbas,op)
            if (.not. triangle(j1,j2,Jtot) ) cycle
            
            cX = jbas%con(i) + jbas%con(j)
-       
+           
            x = bosonic_tp_index(i,j,N) 
            j_min = op%xmap(x)%Z(1) 
            select case (CX)

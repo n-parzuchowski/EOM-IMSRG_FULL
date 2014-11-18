@@ -44,14 +44,13 @@ program main_IMSRG
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
-
   if (magnus_exp) then 
      call magnus_decouple(HS,jbasis)
   else
      call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
   end if 
 
-!  call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
+  call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
   
 end program main_IMSRG
 
