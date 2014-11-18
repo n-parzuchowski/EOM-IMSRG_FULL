@@ -13,7 +13,7 @@ program main_IMSRG
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb,k,l,m,n
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
-  logical :: hartree_fock,magnus_exp 
+  logical :: hartree_fock,magnus_exp,tda_calculation
   external :: dHds_white_gs,dHds_TDA_shell
 
 !============================================================
@@ -21,7 +21,7 @@ program main_IMSRG
 !============================================================
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,magnus_exp,hw)
+       hartree_fock,magnus_exp,tda_calculation,hw)
  
   HS%herm = 1
 
@@ -49,8 +49,10 @@ program main_IMSRG
   else
      call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
   end if 
-
-  call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
+  
+  if (tda_calculation) then 
+     call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
+  end if 
   
 end program main_IMSRG
 

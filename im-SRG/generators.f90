@@ -299,7 +299,7 @@ subroutine build_ex_imtime(H,ETA,jbas)
   ETA%fpp = 0.d0 
    do a = 1,H%Nsp - H%belowEF
      ak = jbas%parts(a)
-     if (ak < 13) cycle
+     if (ak < H%valcut+1) cycle
      ja = jbas%jj(ak)
      la = jbas%ll(ak)
      ta = jbas%itzp(ak)
@@ -307,7 +307,7 @@ subroutine build_ex_imtime(H,ETA,jbas)
      do i = a+1, H%Nsp - H%belowEF
        
         ik = jbas%parts(i)
-        if (ik > 12) cycle
+        if (ik > H%valcut) cycle
         ji = jbas%jj(ik)       
         li = jbas%ll(ik)        
         ti = jbas%itzp(ik)
@@ -358,8 +358,8 @@ subroutine build_ex_imtime(H,ETA,jbas)
            i = H%mat(q)%qn(2)%Y(JX,1) !hh descriptor qn(3)%Y
            j = H%mat(q)%qn(2)%Y(JX,2)
 
-           if (i > 12) cycle
-           if (j > 12) cycle
+           if (i > H%valcut) cycle
+           if (j > H%valcut) cycle
       
            ji = jbas%jj(i)
            jj = jbas%jj(j)
@@ -395,8 +395,8 @@ subroutine build_ex_imtime(H,ETA,jbas)
         a = H%mat(q)%qn(2)%Y(IX,1)  ! pp descriptor qn(1)%Y 
         b = H%mat(q)%qn(2)%Y(IX,2)
 
-        if ( a > 12 )  cycle 
-        if ( b > 12 )  cycle
+        if ( a > H%valcut )  cycle 
+        if ( b > H%valcut )  cycle
              
         ja = jbas%jj(a)
         jb = jbas%jj(b)   
@@ -416,7 +416,7 @@ subroutine build_ex_imtime(H,ETA,jbas)
            p = i*(1-jbas%con(i)) + j * (1-jbas%con(j)) 
            jp =  ji*(1-jbas%con(i)) + jj * (1-jbas%con(j))
            
-           if (p < 13) cycle
+           if (p < H%valcut+1) cycle
            Eden = 0.d0 
            
            ! constructing the App'hh' term is rather codey... 
@@ -501,9 +501,6 @@ subroutine build_specific_space(H,ETA,jbas)
   ETA%herm = -1 ! anti-hermitian operator
   ETA%fph = 0.d0
   sz = size(H%exlabels(:,1))
-!  print*, H%exlabels(:,1)
-!  print*
-!  print*, H%exlabels(:,2)
   ! one body part
   do a = 1,H%Nsp - H%belowEF
      ak = jbas%parts(a) 
@@ -544,7 +541,7 @@ subroutine build_specific_space(H,ETA,jbas)
   ETA%fpp = 0.d0 
    do a = 1,H%Nsp - H%belowEF
      ak = jbas%parts(a)
-     if (ak < 13) cycle
+     if (ak < H%valcut+1) cycle
      ja = jbas%jj(ak)
      la = jbas%ll(ak)
      ta = jbas%itzp(ak)
@@ -642,8 +639,8 @@ subroutine build_specific_space(H,ETA,jbas)
         a = H%mat(q)%qn(2)%Y(IX,1)  ! pp descriptor qn(1)%Y 
         b = H%mat(q)%qn(2)%Y(IX,2)
 
-        !if ( a > 12 )  cycle 
-        !if ( b > 12 )  cycle
+        !if ( a > H%valcut )  cycle 
+        !if ( b > H%valcut )  cycle
              
         ja = jbas%jj(a)
         jb = jbas%jj(b)   
@@ -667,7 +664,7 @@ subroutine build_specific_space(H,ETA,jbas)
            p = i*(1-jbas%con(i)) + j * (1-jbas%con(j)) 
            jp =  ji*(1-jbas%con(i)) + jj * (1-jbas%con(j))
            
-           if (p < 13) cycle
+           if (p < H%valcut+1) cycle
            Eden = 0.d0 
            
            ! constructing the App'hh' term is rather codey... 
@@ -688,8 +685,8 @@ subroutine build_specific_space(H,ETA,jbas)
            
         end do 
      end do
-     !goto 23
-     !Vphhh is decoupled in full...  
+  
+     !Vphhh  
      do IX = 1,H%mat(q)%nhh 
 
         ! figure out which sp states compose IX
@@ -715,6 +712,7 @@ subroutine build_specific_space(H,ETA,jbas)
                   
            
            if (.not. in(hl,H%exlabels(:,1),pos,sz)) cycle
+           
            Eden = 0.d0 
            
            ! constructing the App'hh' term is rather codey... 
@@ -797,7 +795,7 @@ ETA%fpp = 0.d0
 
   do a = 1,H%Nsp - H%belowEF
      ak = jbas%parts(a)
-     if (ak < 13 ) cycle
+     if (ak < H%valcut+1 ) cycle
      ja = jbas%jj(ak)
      la = jbas%ll(ak)
      ta = jbas%itzp(ak)
@@ -805,7 +803,7 @@ ETA%fpp = 0.d0
      do i = a,H%Nsp - H%belowEF
        
         ik = jbas%parts(i)
-        if (ik > 12 )  cycle 
+        if (ik > H%valcut )  cycle 
         ji = jbas%jj(ik)       
         li = jbas%ll(ik)        
         ti = jbas%itzp(ik)
@@ -856,8 +854,8 @@ ETA%fpp = 0.d0
            i = H%mat(q)%qn(2)%Y(JX,1) !hh descriptor qn(3)%Y
            j = H%mat(q)%qn(2)%Y(JX,2)
 
-           if (i > 12) cycle
-           if (j > 12) cycle
+           if (i > H%valcut) cycle
+           if (j > H%valcut) cycle
             
            ji = jbas%jj(i)
            jj = jbas%jj(j)
@@ -892,7 +890,7 @@ ETA%fpp = 0.d0
         a = H%mat(q)%qn(1)%Y(IX,1)  ! pp descriptor qn(1)%Y 
         b = H%mat(q)%qn(1)%Y(IX,2)
 
-        if ( (a < 13) .and. (b < 13) )  cycle 
+        if ( (a < H%valcut+1) .and. (b < H%valcut+1) )  cycle 
         
         ja = jbas%jj(a)
         jb = jbas%jj(b)   
@@ -903,8 +901,8 @@ ETA%fpp = 0.d0
            i = H%mat(q)%qn(1)%Y(JX,1) !hh descriptor qn(3)%Y
            j = H%mat(q)%qn(1)%Y(JX,2)
            
-           if (i > 12) cycle
-           if (j > 12) cycle 
+           if (i > H%valcut) cycle
+           if (j > H%valcut) cycle 
            
            ji = jbas%jj(i)
            jj = jbas%jj(j)

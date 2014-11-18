@@ -153,27 +153,16 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
   steps = 0 
 
   call allocate_CCMAT(H,HCC,jbas) 
-  call initialize_TDA(TDA,jbas,6,1)
+  call initialize_TDA(TDA,jbas,H%Jtarg,H%Ptarg,H%valcut)
   allocate(H%exlabels(TDA%map(1),2))
-  !print*, TDA%map(1)
-  !print*, TDA%blkM(1)%labels(:,2)
   H%exlabels=TDA%blkM(1)%labels
   allocate(E_old(TDA%map(1)))
   call calculate_cross_coupled(H,HCC,jbas,.true.) 
   call calc_TDA(TDA,H,HCC,jbas) 
   call diagonalize_blocks(TDA)
   
-  call duplicate_sq_op(H,HOD)
      
   E_old = TDA%blkM(1)%eigval
-  ! do q = 1, H%nblocks
-  !    HOD%mat(q)%gam(2)%X = H%mat(q)%gam(2)%X  
-  !    HOD%mat(q)%gam(6)%X = H%mat(q)%gam(6)%X
-  !    HOD%mat(q)%gam(4)%X = H%mat(q)%gam(4)%X
-  ! end do
- 
-  ! weak convergence criteria, but it works
- ! E_old = mat_frob_norm(HOD)!abs(H%E0 - E_old)
     
   open(unit=37,file='../../output/'//&
        trim(adjustl(prefix))//'_excited.dat')
@@ -186,7 +175,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
   min_crit = 10000.d0
   do while (steps < max_steps) 
     
-     !E_old = mat_frob_norm(HOD)  
+
      ! send info to SG solver
      call vectorize(H,cur_vec)
      call ode(deriv_calculator,neq,cur_vec,H,jbas,&
@@ -194,12 +183,6 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      call repackage(H,cur_vec) 
         
      steps = steps + 1
-  
-      do q = 1, H%nblocks
-        HOD%mat(q)%gam(2)%X = H%mat(q)%gam(2)%X   
-        HOD%mat(q)%gam(6)%X = H%mat(q)%gam(6)%X
-        HOD%mat(q)%gam(4)%X = H%mat(q)%gam(4)%X
-     end do
      
      call calculate_cross_coupled(H,HCC,jbas,.true.) 
      call calc_TDA(TDA,H,HCC,jbas) 
@@ -211,7 +194,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
      write(*,'(7(e14.5))') crit,E_old(4:6),TDA%blkM(1)%eigval(4:6)
      E_old = TDA%blkM(1)%eigval
- !    crit = abs(mat_frob_norm(HOD)-E_old)
+ 
 
      if (crit > 100*min_crit) then
         print*, 'convergence failed' 
@@ -319,7 +302,7 @@ subroutine dHds_TDA_shell(t,yp,HS,jbas)
   !call build_valence_decouple(HS,ETA,jbas) ! constructs generator
   ! call build_ex_imtime(HS,ETA,jbas)
   call build_specific_space(HS,ETA,jbas)
-  !print*, mat_frob_norm(ETA)
+  
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)
   call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
    

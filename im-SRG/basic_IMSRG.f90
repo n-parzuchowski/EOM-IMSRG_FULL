@@ -43,6 +43,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:,:) :: X2,exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
+     integer :: Jtarg,Ptarg,valcut
      real(8) :: E0 
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
@@ -97,7 +98,7 @@ subroutine read_sp_basis(jbas,hp,hn)
   type(spd) :: jbas
   character(200) :: spfile,intfile,prefix
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
-  integer :: q,r
+  integer :: q,r,Jtarget,PARtarget
   real(8) :: e
   common /files/ spfile,intfile,prefix
   
@@ -1391,14 +1392,15 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,MAG,hw)
+subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,hw)
   !read inputs from file
   implicit none 
   
   character(200) :: spfile,intfile,input,prefix
+  character(50) :: valence
   type(sq_op) :: H 
-  integer :: htype,jx,jy
-  logical :: HF,MAG
+  integer :: htype,jx,jy,Jtarg,Ptarg,excalc
+  logical :: HF,MAG,EXTDA
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -1430,12 +1432,40 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,hw)
   read(22,*) jx
   read(22,*);read(22,*)
   read(22,*) jy
-   
+  read(22,*);read(22,*)
+  read(22,*) excalc
+  read(22,*)
+  read(22,*) Jtarg
+  read(22,*)
+  read(22,*) Ptarg
+  read(22,*)
+  read(22,*) valence
+ 
+  valence = adjustl(valence)
+  H%Jtarg = Jtarg
+  H%Ptarg = Ptarg
+ 
   HF = .false. 
   if (jx == 1) HF = .true. 
   MAG = .false.
   if (jy == 1) MAG = .true. 
+  EXTDA = .false.
+  if (excalc == 1) EXTDA = .true.
   
+  print*, trim(valence)
+  select case (trim(valence)) 
+     case ('0p') 
+        H%valcut = 6 
+     case ('1s0d')
+        H%valcut = 12
+     case ('1p0f')
+        H%valcut = 20 
+     case ( '2s1d0g') ! probably not needed 
+        H%valcut = 30
+     case default
+        stop 'valence space not listed in database, SEE basic_IMSRG.f90' 
+  end select 
+        
 end subroutine
 !=======================================================  
 !=======================================================

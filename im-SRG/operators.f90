@@ -6,7 +6,7 @@ module operators
 contains
 !===================================================================
 !===================================================================
-subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget) 
+subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut) 
   ! figure out how big the TDA matrix has to be
   ! allocate it
   ! uses full_sp_block_mat, just because it's got the right shape
@@ -15,7 +15,7 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget)
   type(spd) :: jbas
   type(full_sp_block_mat) :: TDA
   integer :: JT,PI,Jmax,q,i,a,r,nh,np,ix,ax
-  integer :: Jtarget, PARtarget
+  integer :: Jtarget, PARtarget,cut
  
   Jmax = jbas%Jtotal_max
   nh = sum(jbas%con) 
@@ -40,7 +40,7 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget)
               i =jbas%holes(ix) 
               a =jbas%parts(ax)
               
-              if (a > 12) cycle 
+              if (a > cut) cycle 
               if (jbas%itzp(i) .ne. jbas%itzp(a) ) cycle ! cannot change from p to n
               if (.not. (triangle(jbas%jj(i),jbas%jj(a),JT))) cycle 
               if (mod(jbas%ll(i)+jbas%ll(a),2) .ne. PI )  cycle ! technically l_a - l_i  
@@ -61,7 +61,7 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget)
               i =jbas%holes(ix) 
               a =jbas%parts(ax)
               
-              if (a > 12) cycle 
+              if (a > cut) cycle 
               if (jbas%itzp(i) .ne. jbas%itzp(a) ) cycle ! cannot change from p to n
               if (.not. (triangle(jbas%jj(i),jbas%jj(a),JT))) cycle 
               if (mod(jbas%ll(i)+jbas%ll(a),2) .ne. PI )  cycle ! technically l_a - l_i 
