@@ -59,10 +59,10 @@ if tda == 'tda':
 else:
     tdaint = '0'
     
-mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','7gb','8gb'] 
-wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','05:00:00',  
-'10:00:00','20:00:00','30:00:00','35:00:00']
-
+mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','18gb','20gb','25gb'] 
+wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','04:00:00',  
+'6:00:00','10:00:00','15:00:00','25:00:00','45:00:00','75:00:00']
+ompnum = ['8','8','8','8','8','8','8','4','2','1','1']
 for R in Rlist:
     for hw in hwlist:
         
@@ -82,16 +82,16 @@ for R in Rlist:
         
         fx.write('#!/bin/sh \n\n')
         fx.write('#PBS -l walltime='+timreq+'\n')
-        fx.write('#PBS -l nodes=1:ppn=8\n')
+        fx.write('#PBS -l nodes=1:ppn='+ompnum[Rx-3]+'\n')
         fx.write('#PBS -l mem='+memreq+'\n') 
         fx.write('#PBS -j oe\n')
         fx.write('#PBS -N '+jobname+'\n') 
         fx.write('#PBS -M parzuchowski@frib.msu.edu\n')
         fx.write('#PBS -m a\n\n')
         fx.write('cd $HOME/nuclear_IMSRG/src/im-SRG\n\n')
-        fx.write('export OMP_NUM_THREADS=8\n\n')
-        fx.write('time ./rum_IMSRG '+initfile+'\n')
-        
+        fx.write('export OMP_NUM_THREADS='+ompnum[Rx-3]+'\n\n')
+        fx.write('./run_IMSRG '+initfile+'\n')
+        fx.write('qstat -f ${PBS_JOBID}\n')
         fx.close()
         
         fq.write('qsub pbs_'+jobname+'\n') 

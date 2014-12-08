@@ -788,7 +788,7 @@ end subroutine
    
    end do 
 
-!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES)  
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
    do thread = 1, total_threads
    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
      

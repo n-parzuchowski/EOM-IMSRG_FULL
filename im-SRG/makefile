@@ -1,54 +1,55 @@
-FC = gfortran $(FFLAGS)  
-CC = g++ $(CFLAGS) 
+FC = ifort $(FFLAGS)  
+CC = g++ $(CFLAGS)
 
 p1 = run_IMSRG
 p2 = get_HO_energies
 p3 = truncate
 
-FFLAGS = -O3 -fopenmp
-TFLAGS = -g -O0 -fbounds-check
+FFLAGS = -O3  -openmp -mkl
+TFLAGS = -g -fbounds-check
 CFLAGS = -std=c++11 -O3
 
 LIBS =  -L/user/local/lib/ -llapack -lblas
 
-all: anglib.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o main_IMSRG.o
-	${FC} anglib.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o main_IMSRG.o -o ${p1} ${LIBS}
+all: anglib.o basic_IMSRG.o HF_mod.o operators.o commutators.o generators.o adams_ode.o IMSRG_ODE.o IMSRG_MAGNUS.o main_IMSRG.o
+	${FC} anglib.o basic_IMSRG.o HF_mod.o operators.o commutators.o generators.o adams_ode.o IMSRG_ODE.o IMSRG_MAGNUS.o main_IMSRG.o -o ${p1} 
 
 basic_IMSRG.o: basic_IMSRG.f90
-	${FC} -c basic_IMSRG.f90 ${LIBS}
+	${FC} -c basic_IMSRG.f90 
 
 main_IMSRG.o:  main_IMSRG.f90
-	${FC} -c  main_IMSRG.f90 ${LIBS}
+	${FC} -c  main_IMSRG.f90 
 
 anglib.o: anglib.f
-	${FC} -c anglib.f ${LIBS}
+	${FC} -c anglib.f 
 
 HF_mod.o: HF_mod.f90
-	${FC} -c HF_mod.f90 ${LIBS}
+	${FC} -c HF_mod.f90 
 
 generators.o: generators.f90
-	${FC} -c generators.f90 ${LIBS}
+	${FC} -c generators.f90 
 
 commutators.o: commutators.f90
-	${FC} -c commutators.f90 ${LIBS}
+	${FC} -c commutators.f90 
 
 adams_ode.o: adams_ode.f90
-	${FC} -c adams_ode.f90 ${LIBS} 
+	${FC} -c adams_ode.f90  
 
 IMSRG_ODE.o: IMSRG_ODE.f90
-	${FC} -c IMSRG_ODE.f90 ${LIBS} 
+	${FC} -c IMSRG_ODE.f90  
 
 IMSRG_MAGNUS.o: IMSRG_MAGNUS.f90
-	${FC} -c IMSRG_MAGNUS.f90 ${LIBS} 
+	${FC} -c IMSRG_MAGNUS.f90  
 
 operators.o: operators.f90
-	${FC} -c operators.f90 ${LIBS}
+	${FC} -c operators.f90
 
 HO: add_sp_energies.f90
 	${FC} add_sp_energies.f90 -o ${p2} 
 
 truncate: truncate_interaction.cpp
 	${CC} truncate_interaction.cpp -o ${p3}
+
 clean:
 	rm -f ${p1} $
 	rm -f ${p2} $

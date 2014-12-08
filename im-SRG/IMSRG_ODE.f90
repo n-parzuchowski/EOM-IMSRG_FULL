@@ -88,7 +88,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
      crit = abs(H%E0 - E_old) 
      
      write(36,'(I6,3(e14.6))') steps,s,H%E0,crit     
-     print*, steps,s,H%E0,crit
+     write(*,'(I6,3(e14.6))') steps,s,H%E0,crit
      if (crit < conv_crit) exit
 
   end do 
@@ -192,7 +192,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      
      ! convergence criteria
      crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
-     write(*,'(7(e14.5))') crit,E_old(4:6),TDA%blkM(1)%eigval(4:6)
+     write(*,'(7(e14.5))') crit,E_old(1:6)
      E_old = TDA%blkM(1)%eigval
  
 
@@ -344,7 +344,7 @@ subroutine write_excited_states(steps,s,TDA,e0,un)
   r = 1
   do q = 1,TDA%blocks 
      if ( TDA%map(q) > 0 ) then 
-        vec(r:r+TDA%map(q)-1) = TDA%blkM(q)%eigval +e0
+        vec(r:r+TDA%map(q)-1) = TDA%blkM(q)%eigval !+e0
         r = r + TDA%map(q)
      end if
   end do 

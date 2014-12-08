@@ -467,7 +467,7 @@ subroutine read_interaction(H,jbas,htype,hw)
   read(39,*);read(39,*);read(39,*);read(39,*) !skip all of the garbage 
   
   COM = 0
-  if (htype == 1) COM = 1 ! center of mass hamiltonian? 
+  if (htype == 1) COM = 1 ! remove center of mass hamiltonian? 
   
   N = jbas%total_orbits 
   do 
