@@ -6,16 +6,18 @@ module IMSRG_MAGNUS
   
 contains
 
-subroutine magnus_decouple( HS , jbas)!, deriv_calculator) 
+subroutine magnus_decouple( HS , jbas,Hcm)!, deriv_calculator) 
   ! runs IMSRG using magnus expansion method
   implicit none 
   
   integer :: Atot,Ntot,nh,np,nb,q,steps
   type(spd) :: jbas
-  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0
+  type(sq_op),optional :: Hcm 
+  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Hcms
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,crit,nrm1,nrm2
   character(200) :: spfile,intfile,prefix
+  logical :: com_calc
   common /files/ spfile,intfile,prefix
   
   call duplicate_sq_op(HS,ETA) !generator
@@ -35,6 +37,12 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
   G0%herm = -1 
   ETA0%herm = -1
   
+  com_calc = .false. 
+  if (present(Hcm)) then
+     com_calc = .true.
+     call duplicate_sq_op(Hcm,Hcms) 
+  end if 
+  
   call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
   call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
   call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
@@ -51,7 +59,7 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
   open(unit=36,file='../../output/'//&
        trim(adjustl(prefix))//'_0bflow.dat')
   write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
-  print*, H%E0
+  !print*, H%E0
   do while (crit > 1e-4) 
      
      call copy_sq_op(G,G0) 
@@ -82,6 +90,11 @@ subroutine magnus_decouple( HS , jbas)!, deriv_calculator)
      write(36,'(I6,3(e14.6))') steps,s,HS%E0,crit
      print*, s,HS%E0,crit
   end do
+  if (com_calc) then 
+     call BCH_EXPAND(Hcms,G,Hcm,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+     print*, 'center of mass energy: ', Hcm%E0,Hcms%E0
+  end if
+  
   close(36)
 end subroutine  
 !=========================================================================

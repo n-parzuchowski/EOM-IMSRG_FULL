@@ -449,16 +449,19 @@ subroutine divide_work(r1)
 end subroutine     
 !==================================================================  
 !==================================================================
-subroutine read_interaction(H,jbas,htype,hw) 
+subroutine read_interaction(H,jbas,htype,hw,Hcm,omegaT) 
   ! read interaction from ASCII file produced by Scott_to_Morten.f90 
   implicit none
   
   type(sq_op) :: H
+  type(sq_op),optional :: Hcm 
   type(spd) :: jbas
   character(200) :: spfile,intfile,prefix
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
-  real(8) :: V,g1,g2,g3,pre,hw
+  real(8) :: V,Vcm,g1,g2,g3,pre,hw
+  real(8),optional :: omegaT
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
+  logical :: com_calc
   common /files/ spfile,intfile,prefix
   
   open(unit=39,file = '../../TBME_input/'//trim(adjustl(intfile))) 
@@ -469,10 +472,23 @@ subroutine read_interaction(H,jbas,htype,hw)
   COM = 0
   if (htype == 1) COM = 1 ! remove center of mass hamiltonian? 
   
-  N = jbas%total_orbits 
+  N = jbas%total_orbits
+  
+  ! check if we are concerned with Hcm 
+
+  com_calc = .false.
+  if ( (present(Hcm)) .and. (present(omegaT)) ) then 
+     com_calc = .true.    
+  end if 
+
   do 
      read(39,*,iostat=ist) Tz,Par,J,a,b,c,d,V,g1,g2,g3
      !read(39,*) Tz,Par,J,a,b,c,d,V,g1,g2,g3
+     
+     ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
+     ! g2 is r1*r2 ME 
+     ! g3 is p1*p2 ME 
+     
      if (ist > 0) STOP 'interaction file error' 
      if (ist < 0) exit
      
@@ -517,15 +533,34 @@ subroutine read_interaction(H,jbas,htype,hw)
      end if
      ! kets/bras are pre-scaled by sqrt(2) if they 
      ! have two particles in the same sp-shell
+      
+     ! calculate CM hamiltonian element
+     if (com_calc) then
+        Vcm = hw*(g3+g2*omegaT*omegaT*2.56819e-5)/(H%Aneut + H%Aprot)*pre      
+     end if
      
- 
+     
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
+        
+        if (com_calc) then 
+           Hcm%mat(q)%gam(qx)%X(i2,i1)  = Vcm
+           Hcm%mat(q)%gam(qx)%X(i1,i2)  = Vcm
+        end if 
+     
      else if (C1>C2) then
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
+        
+        if (com_calc) then 
+           Hcm%mat(q)%gam(qx)%X(i2,i1)  = Vcm 
+        end if
      else
         H%mat(q)%gam(qx)%X(i1,i2) = V * pre
+        
+        if (com_calc) then 
+           Hcm%mat(q)%gam(qx)%X(i1,i2)  = Vcm 
+        end if
      end if 
      ! I shouldn't have to worry about hermiticity here, it is assumed to be hermitian
      
@@ -739,7 +774,8 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
   ! fills out the one body piece of the hamiltonian
   implicit none 
   
-  integer :: i,j,mass,Htype,c1,c2,cx
+  integer,intent(in) :: Htype
+  integer :: i,j,mass,c1,c2,cx
   integer :: ni,li,ji,nj,lj,jj,tzi,tzj,AX
   real(8) :: hw,kij,T
   type(sq_op) :: H 
@@ -790,7 +826,8 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
            case(1) 
               T =  kij*(1.d0-1.d0/mass) 
            case(2) 
-              T = 2*kij*kron_del(ni,nj)
+              T = 2*kij*kron_del(ni,nj)/mass
+              ! dividing by mass for Hcm
            case(3)
               T = kij 
         end select 
@@ -1392,15 +1429,15 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,hw)
+subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,hw)
   !read inputs from file
   implicit none 
   
   character(200) :: spfile,intfile,input,prefix
   character(50) :: valence
   type(sq_op) :: H 
-  integer :: htype,jx,jy,Jtarg,Ptarg,excalc
-  logical :: HF,MAG,EXTDA
+  integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int
+  logical :: HF,MAG,EXTDA,COM
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -1440,6 +1477,8 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,hw)
   read(22,*) Ptarg
   read(22,*)
   read(22,*) valence
+  read(22,*) 
+  read(22,*) com_int
  
   valence = adjustl(valence)
   H%Jtarg = Jtarg
@@ -1451,6 +1490,8 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,hw)
   if (jy == 1) MAG = .true. 
   EXTDA = .false.
   if (excalc == 1) EXTDA = .true.
+  COM = .false.
+  if (com_int == 1) COM = .true.
   
   print*, trim(valence)
   select case (trim(valence)) 

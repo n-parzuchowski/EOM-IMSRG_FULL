@@ -13,8 +13,10 @@
 *.ini
 *.int
 *.sps
+*.bat
 pbs*
 *~
+*.dat
 run_IMSRG
 get_HO*
 truncate

@@ -26,10 +26,9 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
   integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps  
   real(8) :: ds,s,E_old,crit
   character(200) :: spfile,intfile,prefix
+  logical :: com_calc 
   external :: deriv_calculator 
   common /files/ spfile,intfile,prefix
-
- ! E_old = H%E0 ! for convergence check
   
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   ! first figure out how many equations there are:
@@ -38,7 +37,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
   
 
   neq = 1 + Atot*Atot + Atot*(Ntot-Atot) + (Ntot - Atot)**2 
-
+  
   do q = 1, H%nblocks
      
      nh = H%mat(q)%nhh
@@ -79,7 +78,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
     
      call ode(deriv_calculator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
-     
+          
      call repackage(H,cur_vec) 
         
      steps = steps + 1

@@ -5,12 +5,13 @@ module HF_mod
   
 contains
 !====================================================
-subroutine calc_HF( H ,jbas )
+subroutine calc_HF( H ,jbas, O1,O2,O3)
   ! returns H in the normal orderd Hartree Fock basis
   implicit none 
   
   type(spd) :: jbas
   type(sq_op) :: H 
+  type(sq_op),optional :: O1,O2,O3 ! other observables
   type(full_sp_block_mat) :: T,F,Vgam,rho,D,Dx 
   integer :: q,r,i,j,k,l
   real(8) :: crit,sm
@@ -76,6 +77,35 @@ subroutine calc_HF( H ,jbas )
 ! print*, H%E0
  call transform_2b_to_HF(D,H,jbas) 
 
+! now we transform any other observables 
+! here I am assuming that these are NOT normal orderded yet 
+ if (present(O1)) then 
+    call write_kin_matrix(T,O1,jbas) 
+    do q = 1,T%blocks
+       F%blkM(q)%matrix = 0.d0
+    end do 
+    call transform_1b_to_HF(D,Dx,T,F,O1,jbas)
+    call transform_2b_to_HF(D,O1,jbas) 
+ end if
+ 
+ if (present(O2)) then 
+    call write_kin_matrix(T,O2,jbas) 
+    do q = 1,T%blocks
+       F%blkM(q)%matrix = 0.d0
+    end do 
+    call transform_1b_to_HF(D,Dx,T,F,O2,jbas)
+    call transform_2b_to_HF(D,O2,jbas) 
+ end if
+ 
+ if (present(O3)) then 
+    call write_kin_matrix(T,O3,jbas) 
+    do q = 1,T%blocks
+       F%blkM(q)%matrix = 0.d0
+    end do 
+    call transform_1b_to_HF(D,Dx,T,F,O3,jbas)
+    call transform_2b_to_HF(D,O3,jbas) 
+ end if
+    
 end subroutine calc_HF
 !====================================================
 subroutine write_kin_matrix(T,H,jbas)

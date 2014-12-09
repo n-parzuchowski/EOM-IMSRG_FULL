@@ -39,6 +39,17 @@ else:
     Jtarg ='0'
     valshell = '1s0d' 
 
+contin = raw_input('For more options type "more", else press enter: ') 
+
+CMint = '0'
+if contin.lower() ==  'more':
+    print 'To calculate CM expectation value, and factorization frequency'
+    CMint = raw_input('enter 1, otherwise enter 0: ') 
+    
+    
+        
+    
+
 
 fq = open('run_all.bat','w')
 
@@ -135,6 +146,8 @@ for R in Rlist:
         fx.write(Ptarg+'\n')
         fx.write('# ENTER HIGHEST MAJOR VALENCE SHELL\n')
         fx.write(valshell+'\n') 
+        fx.write('# ENTER 1 TO CALCULATE Hcm, 0 otherwise\n')
+        fx.write(CMint+'\n')
         fx.write('########################################################\n')
         fx.write('# NOTES \n')
         fx.write('#\n')
