@@ -2,21 +2,25 @@ module IMSRG_MAGNUS
   use commutators
   use generators
   use basic_IMSRG
+  use HF_mod 
   implicit none 
   
 contains
 
-subroutine magnus_decouple( HS , jbas,Hcm)!, deriv_calculator) 
+subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)!, deriv_calculator) 
   ! runs IMSRG using magnus expansion method
   implicit none 
   
-  integer :: Atot,Ntot,nh,np,nb,q,steps
+  integer :: Atot,Ntot,nh,np,nb,q,steps,i
   type(spd) :: jbas
-  type(sq_op),optional :: Hcm 
+  type(sq_op),optional :: O1,O2,O3
+  type(full_sp_block_mat),optional :: cof
+  type(full_sp_block_mat) :: cofspace,spop 
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Hcms
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
-  real(8) :: ds,s,E_old,crit,nrm1,nrm2
+  real(8) :: ds,s,E_old,crit,nrm1,nrm2,wTs(2),Ecm(3)
   character(200) :: spfile,intfile,prefix
+  character(3),intent(in),optional :: COM
   logical :: com_calc
   common /files/ spfile,intfile,prefix
   
@@ -37,11 +41,13 @@ subroutine magnus_decouple( HS , jbas,Hcm)!, deriv_calculator)
   G0%herm = -1 
   ETA0%herm = -1
   
+  
   com_calc = .false. 
-  if (present(Hcm)) then
+  if (present(COM)) then 
      com_calc = .true.
-     call duplicate_sq_op(Hcm,Hcms) 
-  end if 
+     call duplicate_sq_op(O1,Hcms) 
+     ! full center of mass calculation requires all of the variables
+  end if
   
   call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
   call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
@@ -90,14 +96,46 @@ subroutine magnus_decouple( HS , jbas,Hcm)!, deriv_calculator)
      write(36,'(I6,3(e14.6))') steps,s,HS%E0,crit
      print*, s,HS%E0,crit
   end do
+
+! calculate any observables which have been requested =====================
+
+! center of mass Energy 
   if (com_calc) then 
-     call BCH_EXPAND(Hcms,G,Hcm,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
-     !print*, 'center of mass energy: ', Hcm%E0,Hcms%E0
-     open(unit=42,file='com_energy.dat',position='append') 
-     write(42,'(3(e14.6))') Hcms%hospace, Hcm%E0, Hcms%E0
+     
+     ! get some workspace
+     call duplicate_sp_mat(cof,cofspace)
+     call duplicate_sp_mat(cof,spop)
+     
+     ! transform operator 
+     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+
+     Ecm(1) = Hcms%E0 ! store Ecm for this Hcm frequency 
+     
+     ! new frequencies
+     wTs = optimum_omega_for_CM_hamiltonian(Hcms%hospace,Hcms%E0) 
+     
+     do i = 1, 2
+     ! reconstruct 01 (Hcm) using the oakridge-boyz frequencies
+        call clear_sq_op(O1)
+        call add_sq_op(O2,1.d0,O3,wTs(i)**2*hbarc_invsq,O1)
+        call calculate_h0_harm_osc(O1%hospace,jbas,O1,2,wTs(i))
+        call write_kin_matrix(spop,O1,jbas)
+        call transform_1b_to_HF(cof,cofspace,spop,O1,jbas) 
+        call transform_2b_to_HF(cof,O1,jbas) 
+        call normal_order(O1,jbas) 
+        O1%E0 =O1%E0 - 1.5d0*wTs(i) 
+     
+        ! Transform to decoupled basis
+        call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+        Ecm(i+1) = Hcms%E0 ! store Ecm for this Hcm frequency 
+     end do
+     
+    
+     open(unit=42,file='../../output/Ecm.dat',position='append') 
+     write(42,'(6(e14.6))') Hcms%hospace, wTs, Ecm 
      close(42)
   end if
-  
+!===========================================================================  
   close(36)
 end subroutine  
 !=========================================================================

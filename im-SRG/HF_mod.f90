@@ -5,14 +5,14 @@ module HF_mod
   
 contains
 !====================================================
-subroutine calc_HF( H ,jbas, O1,O2,O3)
+subroutine calc_HF(H,jbas,D,O1,O2,O3)
   ! returns H in the normal orderd Hartree Fock basis
   implicit none 
   
   type(spd) :: jbas
   type(sq_op) :: H 
   type(sq_op),optional :: O1,O2,O3 ! other observables
-  type(full_sp_block_mat) :: T,F,Vgam,rho,D,Dx 
+  type(full_sp_block_mat) :: T,F,Vgam,rho,D,Dx
   integer :: q,r,i,j,k,l
   real(8) :: crit,sm
 
@@ -69,40 +69,33 @@ subroutine calc_HF( H ,jbas, O1,O2,O3)
     T%blkM(q)%eigval = F%blkM(q)%eigval    
  end do
  
- call transform_1b_to_HF(D,Dx,F,T,H,jbas) 
+ call transform_1b_to_HF(D,Dx,F,H,jbas,T) 
   
  ! this needs to come after the transformation
  ! e_HF is calculated in the hartree fock basis
  H%E0 = e_HF(T,jbas)
-! print*, H%E0
+
  call transform_2b_to_HF(D,H,jbas) 
 
 ! now we transform any other observables 
 ! here I am assuming that these are NOT normal orderded yet 
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+! work with additional operators 
  if (present(O1)) then 
     call write_kin_matrix(T,O1,jbas) 
-    do q = 1,T%blocks
-       F%blkM(q)%matrix = 0.d0
-    end do 
-    call transform_1b_to_HF(D,Dx,T,F,O1,jbas)
+    call transform_1b_to_HF(D,Dx,T,O1,jbas)
     call transform_2b_to_HF(D,O1,jbas) 
  end if
  
  if (present(O2)) then 
     call write_kin_matrix(T,O2,jbas) 
-    do q = 1,T%blocks
-       F%blkM(q)%matrix = 0.d0
-    end do 
-    call transform_1b_to_HF(D,Dx,T,F,O2,jbas)
+    call transform_1b_to_HF(D,Dx,T,O2,jbas)
     call transform_2b_to_HF(D,O2,jbas) 
  end if
  
  if (present(O3)) then 
     call write_kin_matrix(T,O3,jbas) 
-    do q = 1,T%blocks
-       F%blkM(q)%matrix = 0.d0
-    end do 
-    call transform_1b_to_HF(D,Dx,T,F,O3,jbas)
+    call transform_1b_to_HF(D,Dx,T,O3,jbas)
     call transform_2b_to_HF(D,O3,jbas) 
  end if
     
@@ -263,13 +256,14 @@ real(8) function e_HF(T,jbas)
 end function 
 !===========================================================
 !===========================================================
-subroutine transform_1b_to_HF(D,Dx,F,T,H,jbas) 
+subroutine transform_1b_to_HF(D,Dx,F,H,jbas,T) 
   ! typical transformation, remap to fancy array
   implicit none 
   
   type(sq_op) :: H
   type(spd) :: jbas
-  type(full_sp_block_mat) :: D,F,Dx,T
+  type(full_sp_block_mat) :: D,F,Dx
+  type(full_sp_block_mat),optional :: T ! for HF calculation
   integer :: q,dm,i,j,a,b,c1,c2,cx
   
   do q = 1, F%blocks
@@ -284,12 +278,14 @@ subroutine transform_1b_to_HF(D,Dx,F,T,H,jbas)
      call dgemm('T','N',dm,dm,dm,al,D%blkM(q)%matrix&
           ,dm,Dx%blkM(q)%matrix,dm,bet,F%blkM(q)%matrix,dm) 
      
+     if (present(T)) then 
      ! transform the KE matrix
      call dgemm('N','N',dm,dm,dm,al,T%blkM(q)%matrix&
           ,dm,D%blkM(q)%matrix,dm,bet,Dx%blkM(q)%matrix,dm) 
      call dgemm('T','N',dm,dm,dm,al,D%blkM(q)%matrix&
           ,dm,Dx%blkM(q)%matrix,dm,bet,T%blkM(q)%matrix,dm) 
-     
+     end if 
+
      do a=1,dm
         do b=a,dm
            

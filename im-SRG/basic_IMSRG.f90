@@ -70,6 +70,7 @@ end type cross_coupled_31_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
    real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
+   real(8),public,parameter :: hbarc_invsq =  2.56819e-5
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
    type(six_index_store),public :: store6j   ! holds 6j-symbols
  
@@ -1293,7 +1294,10 @@ subroutine duplicate_sq_op(H,op)
   op%nblocks = H%nblocks
   op%neq = H%neq
   op%hospace = H%hospace
-  
+  op%Jtarg = H%Jtarg
+  op%Ptarg = H%Ptarg
+  op%valcut = H%valcut 
+
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 
   
@@ -1392,6 +1396,29 @@ subroutine add_sq_op(A,ax,B,bx,C)
               
      do i = 1,6
         C%mat(q)%gam(i)%X = A%mat(q)%gam(i)%X*ax + B%mat(q)%gam(i)%X*bx
+     end do 
+     
+  end do 
+  
+end subroutine 
+!=====================================================
+!=====================================================
+subroutine clear_sq_op(C) 
+  ! A*ax + B*bx = C 
+  implicit none 
+  
+  type(sq_op) :: C
+  integer :: q,i,j,holes,parts,nh,np,nb
+     
+  C%E0 = 0.d0
+  C%fhh = 0.d0
+  C%fpp = 0.d0
+  C%fph = 0.d0
+  
+  do q = 1, C%nblocks
+              
+     do i = 1,6
+        C%mat(q)%gam(i)%X = 0.d0
      end do 
      
   end do 
@@ -1855,6 +1882,14 @@ subroutine allocate_CC_wkspc(CCHS,WCC)
 end subroutine 
 !===========================================================
 !===========================================================
+function optimum_omega_for_CM_hamiltonian(hw,Ew) result(epm) 
+! G. Hagen, T. Papenbrock, D.J. Dean (2009)  COM diagonistic 
+  real(8),intent(in) :: hw,Ew 
+  real(8),dimension(2) :: epm 
+  
+  epm(1) = hw + 2.d0/3.d0*Ew + sqrt( 4.d0/9.d0*Ew*Ew + 4.d0/3.d0*hw*Ew )   
+  epm(2) = hw + 2.d0/3.d0*Ew - sqrt( 4.d0/9.d0*Ew*Ew + 4.d0/3.d0*hw*Ew )
+end function  
 !=================================================
 !=================================================
 subroutine vectorize(rec,vout)
