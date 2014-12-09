@@ -92,7 +92,10 @@ subroutine magnus_decouple( HS , jbas,Hcm)!, deriv_calculator)
   end do
   if (com_calc) then 
      call BCH_EXPAND(Hcms,G,Hcm,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
-     print*, 'center of mass energy: ', Hcm%E0,Hcms%E0
+     !print*, 'center of mass energy: ', Hcm%E0,Hcms%E0
+     open(unit=42,file='com_energy.dat',position='append') 
+     write(42,'(3(e14.6))') Hcms%hospace, Hcm%E0, Hcms%E0
+     close(42)
   end if
   
   close(36)

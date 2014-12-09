@@ -44,7 +44,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      integer :: Jtarg,Ptarg,valcut
-     real(8) :: E0 
+     real(8) :: E0,hospace 
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 type sp_block_mat
@@ -1278,6 +1278,7 @@ subroutine duplicate_sq_op(H,op)
   op%belowEF = H%belowEF
   op%nblocks = H%nblocks
   op%neq = H%neq
+  op%hospace = H%hospace
   
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 

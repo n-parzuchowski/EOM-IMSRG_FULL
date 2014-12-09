@@ -22,8 +22,9 @@ program main_IMSRG
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,magnus_exp,tda_calculation,COM_calc,hw)
- 
+  
   HS%herm = 1
+  HS%hospace = hw
 
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut) 
   call allocate_blocks(jbasis,HS)   
