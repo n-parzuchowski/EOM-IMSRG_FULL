@@ -7,13 +7,14 @@ program main_IMSRG
   implicit none
   
   type(spd) :: jbasis
-  type(sq_op) :: HS,ETA,DH,w1,w2,Hcm
+  type(sq_op) :: HS,ETA,DH,w1,w2,Hcm,rirj,pipj
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
   character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb,k,l,m,n
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
   logical :: hartree_fock,magnus_exp,tda_calculation,COM_calc
+  real(8),parameter :: hcinvsq = 2.56819e-5
   external :: dHds_white_gs,dHds_TDA_shell
 
 !============================================================
@@ -31,8 +32,12 @@ program main_IMSRG
   
   ! for calculating COM expectation value
   if (COM_calc) then  
-     call duplicate_sq_op(HS,Hcm)   
-     call read_interaction(HS,jbasis,ham_type,hw,Hcm,hw)
+     call duplicate_sq_op(HS,rirj)
+     call duplicate_sq_op(HS,pipj)
+     call duplicate_sq_op(HS,Hcm)     
+     call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
+     ! consider first the Hcm with same frequency as basis
+     call add_sq_op(pipj,1.d0,rirj,hw*hw*hcinvsq,Hcm)   
      call calculate_h0_harm_osc(hw,jbasis,Hcm,2) 
   else 
      call read_interaction(HS,jbasis,ham_type,hw)

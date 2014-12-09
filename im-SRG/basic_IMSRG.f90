@@ -449,19 +449,18 @@ subroutine divide_work(r1)
 end subroutine     
 !==================================================================  
 !==================================================================
-subroutine read_interaction(H,jbas,htype,hw,Hcm,omegaT) 
+subroutine read_interaction(H,jbas,htype,hw,rr,pp) 
   ! read interaction from ASCII file produced by Scott_to_Morten.f90 
   implicit none
   
   type(sq_op) :: H
-  type(sq_op),optional :: Hcm 
+  type(sq_op),optional :: rr,pp
   type(spd) :: jbas
   character(200) :: spfile,intfile,prefix
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
   real(8) :: V,Vcm,g1,g2,g3,pre,hw
-  real(8),optional :: omegaT
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
-  logical :: com_calc
+  logical :: rr_calc,pp_calc
   common /files/ spfile,intfile,prefix
   
   open(unit=39,file = '../../TBME_input/'//trim(adjustl(intfile))) 
@@ -474,12 +473,11 @@ subroutine read_interaction(H,jbas,htype,hw,Hcm,omegaT)
   
   N = jbas%total_orbits
   
-  ! check if we are concerned with Hcm 
-
-  com_calc = .false.
-  if ( (present(Hcm)) .and. (present(omegaT)) ) then 
-     com_calc = .true.    
-  end if 
+  ! check if we are concerned with other operators
+  rr_calc = .false.
+  pp_calc = .false. 
+  if (present(rr)) rr_calc= .true. 
+  if (present(pp)) pp_calc= .true. 
 
   do 
      read(39,*,iostat=ist) Tz,Par,J,a,b,c,d,V,g1,g2,g3
@@ -533,36 +531,46 @@ subroutine read_interaction(H,jbas,htype,hw,Hcm,omegaT)
      end if
      ! kets/bras are pre-scaled by sqrt(2) if they 
      ! have two particles in the same sp-shell
-      
-     ! calculate CM hamiltonian element
-     if (com_calc) then
-        Vcm = hw*(g3+g2*omegaT*omegaT*2.56819e-5)/(H%Aneut + H%Aprot)*pre      
-     end if
-     
-     
+        
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
         
-        if (com_calc) then 
-           Hcm%mat(q)%gam(qx)%X(i2,i1)  = Vcm
-           Hcm%mat(q)%gam(qx)%X(i1,i2)  = Vcm
+        if (rr_calc) then 
+           rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot)
+           rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot)
         end if 
-     
+
+        if (pp_calc) then 
+           pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot)
+           pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot)
+        end if 
+
+        
      else if (C1>C2) then
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         
-        if (com_calc) then 
-           Hcm%mat(q)%gam(qx)%X(i2,i1)  = Vcm 
+        if (rr_calc) then 
+           rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot) 
         end if
+        
+        if (pp_calc) then 
+           pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot) 
+        end if
+
      else
         H%mat(q)%gam(qx)%X(i1,i2) = V * pre
         
-        if (com_calc) then 
-           Hcm%mat(q)%gam(qx)%X(i1,i2)  = Vcm 
+        if (rr_calc) then 
+           rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot) 
         end if
+
+        if (pp_calc) then 
+           pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot) 
+        end if
+
      end if 
-     ! I shouldn't have to worry about hermiticity here, it is assumed to be hermitian
+     ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
      
   end do   
   close(39)
@@ -770,19 +778,24 @@ real(8) function v_same(op)
 end function
 !=====================================================
 !=====================================================
-subroutine calculate_h0_harm_osc(hw,jbas,H,Htype) 
+subroutine calculate_h0_harm_osc(hw,jbas,H,Htype,wT) 
   ! fills out the one body piece of the hamiltonian
   implicit none 
   
   integer,intent(in) :: Htype
   integer :: i,j,mass,c1,c2,cx
   integer :: ni,li,ji,nj,lj,jj,tzi,tzj,AX
-  real(8) :: hw,kij,T
+  real(8) :: hw,kij,T,omegaT
+  real(8),optional :: wT
   type(sq_op) :: H 
   type(spd) :: jbas
-
-  
+ 
   !Htype =  |[1]: T - Tcm + V |[2]: T + Uho + V |[3]: T+V | 
+
+  ! wT is the trap frequency in case 2. 
+  omegaT = hw 
+  If (present(wT)) omegaT = wt
+  
 
   AX = H%belowEF
   mass = H%Aprot + H%Aneut
@@ -826,7 +839,8 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
            case(1) 
               T =  kij*(1.d0-1.d0/mass) 
            case(2) 
-              T = 2*kij*kron_del(ni,nj)/mass
+              T = (kij+kij*(omegaT/hw)**2*(kron_del(ni,nj)&
+                   -kron_del(ni,nj+1)-kron_del(ni,nj-1)))/mass
               ! dividing by mass for Hcm
            case(3)
               T = kij 
