@@ -2035,6 +2035,40 @@ real(8) function mat_frob_norm(op)
   
   mat_frob_norm = sqrt(sm)
 end function 
+!===============================================================
+!===============================================================
+subroutine write_excited_states(steps,s,TDA,e0,un) 
+  implicit none
+  
+  integer :: steps,sm,q,r,un
+  real(8) :: s,e0
+  type(full_sp_block_mat) :: TDA
+  real(8),allocatable,dimension(:) :: vec
+  character(5) :: num 
+  
+  
+  sm = 0
+  do q = 1,TDA%blocks
+     sm = sm + TDA%map(q)
+  end do 
+  
+  allocate(vec(sm)) 
+  
+  r = 1
+  do q = 1,TDA%blocks 
+     if ( TDA%map(q) > 0 ) then 
+        vec(r:r+TDA%map(q)-1) = TDA%blkM(q)%eigval !+e0
+        r = r + TDA%map(q)
+     end if
+  end do 
+  
+  sm = sm + 1
+  write(num,'(I5)') sm 
+  num = adjustl(num) 
+  
+  write(un,'(I6,'//trim(num)//'(e14.6))') steps,s,vec
+
+end subroutine 
 
   
 end module

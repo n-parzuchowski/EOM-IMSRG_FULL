@@ -66,6 +66,11 @@ program main_IMSRG
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
+ 
+! just a large series of IF statements deciding exactly which type of
+! calculation to run. (The call statements run the full calculation) 
+
+
   if (magnus_exp) then 
     
      if (COM_calc) then 
@@ -85,7 +90,26 @@ program main_IMSRG
   end if
   
   if (tda_calculation) then 
-     call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
+
+     if (magnus_exp) then 
+    
+        if (COM_calc) then 
+           call magnus_TDA(HS,jbasis,Hcm,pipj,rirj,coefs,COM='yes') 
+        else 
+           call magnus_TDA(HS,jbasis) 
+        end if
+     
+     else
+     
+        if (COM_calc) then 
+           call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
+        else
+           call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
+        end if
+     
+     end if
+     
+     
   end if 
   
 end program main_IMSRG
