@@ -63,7 +63,7 @@ subroutine calc_HF(H,jbas,D,O1,O2,O3)
      end do
       
  end do 
- 
+
  do q = 1,T%blocks
     F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix
     T%blkM(q)%eigval = F%blkM(q)%eigval    
@@ -115,7 +115,7 @@ subroutine write_kin_matrix(T,H,jbas)
   AX = H%belowEF
   
   do q = 1, T%blocks
-     
+    
      do i = 1, T%map(q)
         do j = i,T%map(q) 
            

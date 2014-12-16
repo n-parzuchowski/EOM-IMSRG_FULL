@@ -844,7 +844,14 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype,wT)
                    -kron_del(ni,nj+1)-kron_del(ni,nj-1)))/mass
               ! dividing by mass for Hcm
            case(3)
-              T = kij 
+              T = kij
+           case(4)
+              T = kij/mass
+              ! dividing by mass for Hcm
+           case(5)
+              ! Hcm, lacking (omegaT/hw)**2 factor
+              T = kij*(kron_del(ni,nj) - kron_del(ni,nj+1) - &
+                   kron_del(ni,nj-1) )/mass/hbarc_invsq/hw/hw
         end select 
         
         cx = c1+c2 
@@ -1387,10 +1394,10 @@ subroutine add_sq_op(A,ax,B,bx,C)
   real(8) :: ax,bx
   integer :: q,i,j,holes,parts,nh,np,nb
      
-  C%E0 = A%E0 * ax + B%E0 * bx
+  C%E0 = A%E0*ax + B%E0*bx
   C%fhh = A%fhh*ax + B%fhh*bx
   C%fpp = A%fpp*ax + B%fpp*bx
-  C%fph = A%fph*bx + B%fph*bx
+  C%fph = A%fph*ax + B%fph*bx
   
   do q = 1, A%nblocks
               

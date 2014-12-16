@@ -37,11 +37,14 @@ program main_IMSRG
      call duplicate_sq_op(HS,Hcm)     
      call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
      ! consider first the Hcm with same frequency as basis
-     call add_sq_op(pipj,1.d0,rirj,hw*hw*hbarc_invsq,Hcm)   
-     call calculate_h0_harm_osc(hw,jbasis,Hcm,2) 
+     !call add_sq_op(pipj,1.d0,rirj,hw*hw*hbarc_invsq,Hcm)   
+     !call calculate_h0_harm_osc(hw,jbasis,Hcm,2)
+     call calculate_h0_harm_osc(hw,jbasis,pipj,4)
+     call calculate_h0_harm_osc(hw,jbasis,rirj,5)
   else 
      call read_interaction(HS,jbasis,ham_type,hw)
   end if 
+  
   
 !============================================================
 ! BUILD BASIS
@@ -51,7 +54,22 @@ program main_IMSRG
   if (hartree_fock) then 
      
      if (COM_calc) then 
-        call calc_HF(HS,jbasis,coefs,Hcm)
+       
+ 
+        call calc_HF(HS,jbasis,coefs,pipj,rirj)
+        call add_sq_op(pipj,1.d0,rirj,hw*hw*hbarc_invsq,Hcm)
+        !   print*, hw*hw*hbarc_invsq
+        !call calc_HF(HS,jbasis,coefs,Hcm)
+              
+!        do i = 1, 28
+ !          print*, pipj%fph(i,:) , rirj%fph(i,:)
+           
+  !      end do
+
+   !     do i = 1, 28          
+    !       print*, Hcm%fph(i,:)
+     !   end do
+      !  stop
         call normal_order(Hcm,jbasis)
         Hcm%E0 = Hcm%E0 - 1.5d0*hw
      else
