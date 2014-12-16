@@ -54,6 +54,8 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
         allocate(TDA%blkM(q)%extra(10*r))
         allocate(TDA%blkM(q)%eigval(r)) 
         allocate(TDA%blkM(q)%labels(r,2)) 
+        allocate(TDA%blkM(q)%states(r))
+        TDA%blkM(q)%states = 0.d0
         
         r = 0
         do ix = 1,nh
@@ -141,7 +143,37 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
   end do 
         
 end subroutine 
+!===================================================
+!===================================================
+subroutine TDA_expectation_value(TDA_HAM,TDA_OP) 
+  ! takes expectation values of TDA_OP for the eigenvectors defined in TDA_HAM
+  implicit none 
+  
+  type(full_sp_block_mat) :: TDA_HAM, TDA_OP,AUX  
+  integer :: q,dm,i 
+  
+  call duplicate_sp_mat(TDA_HAM,AUX) 
+ 
+  do q = 1, TDA_OP%blocks
+        
+     dm = TDA_OP%map(q)
+     if (dm == 0)  cycle
+     
+     ! transform operator into basis defined by TDA vectors
+     call dgemm('N','N',dm,dm,dm,al,TDA_OP%blkM(q)%matrix&
+          ,dm,TDA_HAM%blkM(q)%matrix,dm,bet,AUX%blkM(q)%matrix,dm) 
+     call dgemm('T','N',dm,dm,dm,al,TDA_HAM%blkM(q)%matrix&
+          ,dm,AUX%blkM(q)%matrix,dm,bet,TDA_OP%blkM(q)%matrix,dm)
+     
+     ! diagonal elements are the expectation values
+     do i = 1, dm 
+        TDA_OP%blkM(q)%eigval(i) = TDA_OP%blkM(q)%matrix(i,i) 
+     end do    
+     
+  end do
 
+end subroutine 
+!=========================================================
 end module
 
 

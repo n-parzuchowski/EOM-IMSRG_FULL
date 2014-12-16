@@ -95,7 +95,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      steps = steps + 1
      
      write(36,'(I6,3(e14.6))') steps,s,HS%E0,crit
-!     print*, s,HS%E0,crit
+     print*, s,HS%E0,crit
   end do
 
 ! calculate any observables which have been requested =====================
@@ -128,6 +128,10 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      close(42)
      
      !update all the operators
+     call clear_sq_op(O1)
+     call add_sq_op(O2,1.d0,O3,Hcms%hospace**2*hbarc_invsq,O1)
+     ! here I have reset O1 to the Hcm with hw  instead of oakridge freqs
+
      call copy_sq_op(Hcms,O1) 
      call BCH_EXPAND(Hcms,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas)
      call copy_sq_op(Hcms,O2)
@@ -148,12 +152,13 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
   type(spd) :: jbas
   type(sq_op),optional :: O1,O2,O3
   type(full_sp_block_mat),optional :: cof
-  type(full_sp_block_mat) :: cofspace,spop,TDA
+  type(full_sp_block_mat) :: cofspace,spop,TDA,O1TDA,O2TDA,O3TDA
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Hcms
-  type(cross_coupled_31_mat) :: GCC,ADCC,WCC,HCC 
+  type(cross_coupled_31_mat) :: GCC,ADCC,WCC,HCC,O1CC,O2CC,O3CC 
   real(8) :: ds,s,crit,nrm1,nrm2,wTs(2),Ecm(3)
-  real(8),allocatable,dimension(:) :: E_old
+  real(8),allocatable,dimension(:) :: E_old,wTvec
   character(200) :: spfile,intfile,prefix
+  character(3) :: args
   character(3),intent(in),optional :: COM
   logical :: com_calc
   common /files/ spfile,intfile,prefix
@@ -257,38 +262,69 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
 
 ! center of mass Energy 
   if (com_calc) then 
-     
-     ! get some workspace
-     call duplicate_sp_mat(cof,cofspace)
-     call duplicate_sp_mat(cof,spop)
+       
+     print*, TDA%map(1)
+     deallocate(E_old) 
+     allocate(E_old(3*TDA%map(1))) 
+     allocate(wTvec(2*TDA%map(1)))
      
      ! transform operator 
      call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
 
-     Ecm(1) = Hcms%E0 ! store Ecm for this Hcm frequency 
+     ! calculate TDA approx to O1 
+     call duplicate_sp_mat(TDA,O1TDA)
      
-     ! new frequencies
-     wTs = optimum_omega_for_CM_hamiltonian(Hcms%hospace,Hcms%E0) 
+     allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
+     O1TDA%blkM(1)%labels = TDA%blkM(1)%labels 
      
-     do i = 1, 2
-     ! reconstruct 01 (Hcm) using the oakridge-boyz frequencies
-        call clear_sq_op(O1)
-        call add_sq_op(O2,1.d0,O3,wTs(i)**2*hbarc_invsq,O1)
-        call calculate_h0_harm_osc(O1%hospace,jbas,O1,2,wTs(i))
-        call write_kin_matrix(spop,O1,jbas)
-        call transform_1b_to_HF(cof,cofspace,spop,O1,jbas) 
-        call transform_2b_to_HF(cof,O1,jbas) 
-        call normal_order(O1,jbas) 
-        O1%E0 =O1%E0 - 1.5d0*wTs(i) 
+     call duplicate_CCMAT(HCC,O1CC)
+     call calculate_cross_coupled(O1,O1CC,jbas,.true.) 
+     call calc_TDA(O1TDA,O1,O1CC,jbas) 
+
+     ! this gets the expectation values of all of the TDA vectors
+     call TDA_expectation_value(TDA,O1TDA) 
      
-        ! Transform to decoupled basis
-        call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
-        Ecm(i+1) = Hcms%E0 ! store Ecm for this Hcm frequency 
-     end do
+     ! store exp. values
+     E_old(1:TDA%map(1)) = O1TDA%blkM(1)%eigval
      
-    
-     open(unit=42,file='../../output/Ecm.dat',position='append') 
-     write(42,'(6(e14.6))') Hcms%hospace, wTs, Ecm 
+     do q = 1,TDA%map(1) 
+     
+        ! new frequencies
+        wTs = optimum_omega_for_CM_hamiltonian(Hcms%hospace,O1TDA%blkM(1)%eigval(q)) 
+        
+        wTvec(q) = wTs(1) 
+        wTvec(q+TDA%map(1)) = wTs(2)  
+        
+        do i = 1, 2
+           
+           ! reconstruct 01 (Hcm) using the oakridge-boyz frequencies
+           call clear_sq_op(O1)
+           call add_sq_op(O2,1.d0,O3,wTs(i)**2*hbarc_invsq,O1)
+           call normal_order(O1,jbas) 
+           O1%E0 =O1%E0 - 1.5d0*wTs(i) 
+           
+           ! Transform to decoupled basis
+           call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+           
+           call calculate_cross_coupled(O1,O1CC,jbas,.true.) 
+           call calc_TDA(O1TDA,O1,O1CC,jbas) 
+           ! new expectation values for this freq. 
+           call TDA_expectation_value(TDA,O1TDA) 
+
+           ! store exp. value for new frequencies. 
+           E_old(i*TDA%map(1)+q) = O1TDA%blkM(1)%eigval(q) 
+           ! can't trust other eigenvalues, will be calculated for their own freq.
+           
+        end do
+     
+     end do 
+
+     i = 1+5*TDA%map(1) 
+     write(args,'(I3)') i 
+     args = adjustl(args) 
+     
+     open(unit=42,file='../../output/Ecm_excited.dat',position='append') 
+     write(42,'('//trim(args)//'(e14.6))') Hcms%hospace, wTvec, E_old 
      close(42)
   end if
 !===========================================================================  
