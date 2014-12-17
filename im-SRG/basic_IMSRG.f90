@@ -1894,6 +1894,11 @@ function optimum_omega_for_CM_hamiltonian(hw,Ew) result(epm)
   real(8),intent(in) :: hw,Ew 
   real(8),dimension(2) :: epm 
   
+  if (Ew < 0.d0) then 
+     epm = hw 
+     return
+  end if 
+  
   epm(1) = hw + 2.d0/3.d0*Ew + sqrt( 4.d0/9.d0*Ew*Ew + 4.d0/3.d0*hw*Ew )   
   epm(2) = hw + 2.d0/3.d0*Ew - sqrt( 4.d0/9.d0*Ew*Ew + 4.d0/3.d0*hw*Ew )
 end function  

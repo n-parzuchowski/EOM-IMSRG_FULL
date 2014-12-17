@@ -57,9 +57,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   call build_gs_white(HS,ETA,jbas) 
   call copy_sq_op(HS,H) 
   
-  nrm1 = mat_frob_norm(ETA) 
+  nrm1 = HS%E0 !mat_frob_norm(ETA) 
   s = 0.d0 
-  ds = 0.1d0
+  ds = 0.2d0
   crit = 10.
   steps = 0
   
@@ -67,33 +67,33 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
        trim(adjustl(prefix))//'_0b_magnus_flow.dat')
   write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
   
-  do while (crit > 1e-4) 
+  do while (crit > 1e-6) 
      
      call copy_sq_op(G,G0) 
-     call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,.false.)
+     call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call euler_step(G,DG,s,ds) 
      
      call copy_sq_op(HS,H0) 
-     call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+     call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      
      call copy_sq_op(ETA,ETA0)
     
      call build_gs_white(HS,ETA,jbas) 
-     nrm2 = mat_frob_norm(ETA)
+     nrm2 = HS%E0 !mat_frob_norm(ETA)
      
-     if ( nrm1 < nrm2 )  then
-        s = s-ds
-        call copy_sq_op(G0,G)
-        call copy_sq_op(ETA0,ETA)
-        call copy_sq_op(H0,HS)
-        ds = ds/2.d0 
-        cycle 
-     end if 
+!     if ( nrm1 < nrm2 )  then
+ !       s = s-ds
+  !      call copy_sq_op(G0,G)
+   !     call copy_sq_op(ETA0,ETA)
+    !    call copy_sq_op(H0,HS)
+     !   ds = ds/2.d0 
+      !  cycle 
+     !end if 
      
-     crit = abs(nrm1-nrm2) 
+     crit = abs(nrm2-nrm1)/ds 
      nrm1 = nrm2 
      steps = steps + 1
-     
+     !if (steps == 15) ds = 0.5d0 
      write(36,'(I6,3(e14.6))') steps,s,HS%E0,crit
      print*, s,HS%E0,crit
   end do
@@ -104,7 +104,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   if (com_calc) then 
      
      ! transform operator 
-     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
    
      Ecm(1) = Hcms%E0 ! store Ecm for this Hcm frequency 
     
@@ -119,7 +119,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
         O1%E0 =O1%E0 - 1.5d0*wTs(i) 
      
         ! Transform to decoupled basis
-        call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+        call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
         Ecm(i+1) = Hcms%E0 ! store Ecm for this Hcm frequency 
      end do
         
@@ -133,9 +133,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      ! here I have reset O1 to the Hcm with hw  instead of oakridge freqs
 
      call copy_sq_op(Hcms,O1) 
-     call BCH_EXPAND(Hcms,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas)
+     call BCH_EXPAND(Hcms,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call copy_sq_op(Hcms,O2)
-     call BCH_EXPAND(Hcms,G,O3,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas)
+     call BCH_EXPAND(Hcms,G,O3,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call copy_sq_op(Hcms,O3)
      
   end if
@@ -218,14 +218,14 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
   
   nrm1 = mat_frob_norm(ETA) 
  
-  do while (crit > 1e-5) 
+  do while (crit > 1e-6) 
      
      call copy_sq_op(G,G0) 
-     call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,.false.)
+     call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call euler_step(G,DG,s,ds) 
      
      call copy_sq_op(HS,H0) 
-     call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+     call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      
      call copy_sq_op(ETA,ETA0)
     
@@ -269,7 +269,7 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
      allocate(wTvec(2*TDA%map(1)))
      
      ! transform operator 
-     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
 
      ! calculate TDA approx to O1 
      call duplicate_sp_mat(TDA,O1TDA)
@@ -304,7 +304,7 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
            O1%E0 =O1%E0 - 1.5d0*wTs(i) 
            
            ! Transform to decoupled basis
-           call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+           call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
            
            call calculate_cross_coupled(O1,O1CC,jbas,.true.) 
            call calc_TDA(O1TDA,O1,O1CC,jbas) 
@@ -332,17 +332,20 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
 end subroutine
 !=========================================================================
 !=========================================================================
-subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas) 
+subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-4 
+  real(8), parameter :: conv = 1e-6 
   integer :: trunc,i,m,n
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
-  real(8) ::  cof(11)
- 
-  cof = (/1.d0,0.5d0,0.166666666666666666d0, &
+  real(8) ::  cof(12),adnorm,fullnorm,s,advals(12)
+  character(3) :: args
+  
+  advals = 0.d0 
+  
+  cof = (/1.d0,1.d0,0.5d0,0.166666666666666666d0, &
        0.04166666666666666d0,0.0083333333333333333d0,&
        .001388888888888d0,1.984126984d-4,2.48015873d-5,&
        2.755731922d-6,2.755731922d-7,2.505210839d-8/) 
@@ -356,8 +359,11 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas)
   !! copy it onto HS.  We copy this onto 
   !! INT2, just to make things easier for everyone.
 
+ ! fullnorm = HS%E0   
   call copy_sq_op( H , HS )  !basic_IMSRG
   call copy_sq_op( HS , INT2 )
+ 
+  advals(1) = abs(H%E0)   
  
   do i = 2 , 12
 
@@ -367,11 +373,15 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas)
      call copy_sq_op( HS , INT1) 
      call copy_sq_op( INT2 , AD ) 
      ! so to start, AD is equal to H
-  
+          
      !now: INT2 = [ G , AD ]  
 
+    ! adnorm = abs(sum(advals(1:i-1)))
+        
+     !if (abs( adnorm - fullnorm ) < 1e-9 ) goto 12
+  !   if ( abs(adnorm/fullnorm) < conv ) exit
+
 ! zero body commutator
-!     call set_to_zero(INT2)
  
      call calculate_cross_coupled(AD,ADCC,jbas,.true.)
      call calculate_cross_coupled(G,GCC,jbas,.false.) 
@@ -388,44 +398,69 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas)
      call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
      
      ! so now just add INT1 + c_n * INT2 to get current value of HS
-     call add_sq_op(INT1 , 1.d0 , INT2 , cof(i-1) , HS )   !basic_IMSRG
-     if ( abs(mat_frob_norm(INT2)*cof(i-1)/mat_frob_norm(INT1)) < conv ) exit
-   
+     
+     call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , HS )   !basic_IMSRG
+     !  if ( abs(mat_frob_norm(INT2)*cof(i-1)/mat_frob_norm(INT1)) < conv ) exit
+     advals(i) = abs(INT2%E0*cof(i))
+     if (advals(i) < conv) exit
+     
   end do 
+ 
+  i = i + 1
+  write(args,'(I3)') i 
+ 
+  args = adjustl(args) 
+ 
+  fullnorm = abs(HS%E0) 
+  write(44,'('//trim(args)//'(e14.6))') s,advals(1:i-1)
 end subroutine 
 !===============================================================
 !===============================================================
-subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,ZCOM)
+subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   implicit none 
   
   real(8), parameter :: conv = 1e-4
-  integer :: trunc,i
+  integer :: trunc,i,q
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
-  real(8) ::  cof(4)
-  logical ::  ZCOM 
-  ! if ZCOM is set to true, only uses d(OMEGA) = ETA 
- 
+  real(8) ::  cof(7),adnorm,fullnorm,s,advals(7) 
+  character(3) :: args
+  
+  advals = 0.d0 
   ! Intermediates are ANTI-HERMITIAN 
   INT2%herm = -1
   INT1%herm = -1 
   AD%herm = -1
   
-  cof = (/-0.5d0,.0833333333d0,0.d0,-0.00138888888d0/) 
+  cof = (/1.d0,-0.5d0,.0833333333d0,0.d0,-0.00138888888d0,0.d0,3.306878d-5/) 
   ! nested derivatives not so important
     
   !! same deal as BCH expansion, which is explained ad nauseam above. 
   call copy_sq_op( ETA, DG )  !ME_general
   call copy_sq_op( DG , INT2 )
+  advals(1) = mat_frob_norm(INT2)  
   
-  if (ZCOM) return 
-  do i = 2 , 5
-
+  fullnorm = mat_frob_norm(G)   
+  if (fullnorm < 1e-9) return
+  
+  q = 1
+  do i = 2 , 7  
+      
      call copy_sq_op( DG , INT1) 
      call copy_sq_op( INT2 , AD ) 
-   
-
+     
+     adnorm = advals(i-q) 
+  
+     if  (abs(cof(i)) > 1e-6) then  
+        if ( abs(adnorm/fullnorm) < conv ) exit
+        q = 1 
+     else 
+        if ( abs(adnorm/fullnorm) < conv ) exit
+        q = 2
+     end if 
+     
+     
      call calculate_cross_coupled(AD,ADCC,jbas,.true.)
      call calculate_cross_coupled(G,GCC,jbas,.false.) 
  
@@ -438,13 +473,20 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,ZCOM)
      call commutator_221(G,AD,INT2,w1,w2,jbas)
      call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
 
-     call add_sq_op(INT1 , 1.d0 , INT2 , cof(i-1) , DG ) !ME_general
-
-     if ( abs(mat_frob_norm(INT2)*cof(i-1) / mat_frob_norm(INT1)) &
-          < conv ) exit
+     call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , DG ) !ME_general
+     
+     advals(i) = mat_frob_norm(INT2)*abs(cof(i))
+     
+    
+!     if ( abs(mat_frob_norm(INT2)*cof(i-1) / mat_frob_norm(INT1)) &
+ !         < conv ) exit
     
   end do 
+   
+  write(args,'(I3)') i 
+  args = adjustl(args) 
   
+  write(43,'('//trim(args)//'(e14.6))') s,advals(1:i-1)/fullnorm
   
 end subroutine 
 !=====================================================

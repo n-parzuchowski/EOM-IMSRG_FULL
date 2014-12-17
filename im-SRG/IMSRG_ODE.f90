@@ -84,7 +84,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
      steps = steps + 1
   
      ! weak convergence criteria, but it works
-     crit = abs(H%E0 - E_old) 
+     crit = abs(H%E0 - E_old)/ds 
      
      write(36,'(I6,3(e14.6))') steps,s,H%E0,crit     
      write(*,'(I6,3(e14.6))') steps,s,H%E0,crit
