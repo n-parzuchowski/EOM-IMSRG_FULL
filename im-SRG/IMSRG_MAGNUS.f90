@@ -19,7 +19,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   type(full_sp_block_mat) :: cofspace,spop 
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Hcms
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
-  real(8) :: ds,s,E_old,crit,nrm1,nrm2,wTs(2),Ecm(3)
+  real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3)
   character(200) :: spfile,intfile,prefix
   character(3),intent(in),optional :: COM
   logical :: com_calc
@@ -62,12 +62,23 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   ds = 1.0d0
   crit = 10.
   steps = 0
-  print*, HS%E0 
+
   open(unit=36,file='../../output/'//&
        trim(adjustl(prefix))//'_0b_magnus_flow.dat')
-  write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
-  
-  do while (crit > 1e-5) 
+
+  open(unit=43,file='../../output/'//&
+       trim(adjustl(prefix))//'_magnus_terms.dat')
+
+  open(unit=44,file='../../output/'//&
+       trim(adjustl(prefix))//'_BCH_terms.dat')
+
+
+  E_mbpt2 = mbpt2(HS,jbas) 
+  crit=abs(E_mbpt2)
+
+  write(36,'(I4,3(e14.6))') steps,s,H%E0,HS%E0+E_mbpt2,crit
+  write(*,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+  do while (crit > 1e-6) 
      
      call copy_sq_op(G,G0) 
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
@@ -89,13 +100,13 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      !   ds = ds/2.d0 
       !  cycle 
      !end if 
-     
-     crit = abs(nrm2-nrm1)/ds 
+     E_mbpt2 = mbpt2(HS,jbas) 
+     crit = abs(E_mbpt2) 
      nrm1 = nrm2 
      steps = steps + 1
      !if (steps == 15) ds = 0.5d0 
-     write(36,'(I6,3(e14.6))') steps,s,HS%E0,crit
-     print*, s,HS%E0,crit
+     write(36,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     write(*,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
   end do
 
 ! calculate any observables which have been requested =====================
@@ -141,6 +152,8 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   end if
 !===========================================================================  
   close(36)
+  close(43)
+  close(44)
 end subroutine  
 !===========================================================================
 !===========================================================================
@@ -335,7 +348,7 @@ end subroutine
 subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-5 
+  real(8), parameter :: conv = 1e-6 
   integer :: trunc,i,m,n,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2
@@ -359,7 +372,6 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   !! copy it onto HS.  We copy this onto 
   !! INT2, just to make things easier for everyone.
 
- ! fullnorm = HS%E0   
   call copy_sq_op( H , HS )  !basic_IMSRG
   call copy_sq_op( HS , INT2 )
  
@@ -375,8 +387,6 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      ! so to start, AD is equal to H
       call clear_sq_op(INT2)    
      !now: INT2 = [ G , AD ]  
-
-    ! adnorm = abs(sum(advals(1:i-1)))
         
 ! zero body commutator
  
@@ -397,7 +407,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      ! so now just add INT1 + c_n * INT2 to get current value of HS
      
      call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , HS )   !basic_IMSRG
-     !  if ( abs(mat_frob_norm(INT2)*cof(i-1)/mat_frob_norm(INT1)) < conv ) exit
+    
      advals(i) = abs(INT2%E0*cof(i))
      if (advals(i) < conv) exit
      
@@ -416,7 +426,7 @@ end subroutine
 subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   implicit none 
   
-  real(8), parameter :: conv = 1e-5
+  real(8), parameter :: conv = 1e-6
   integer :: trunc,i,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
@@ -447,17 +457,17 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
       
      call copy_sq_op( DG , INT1) 
      call copy_sq_op( INT2 , AD ) 
-   !  call clear_sq_op(INT2)
+  
      adnorm = advals(i-q) 
   
      if  (abs(cof(i)) > 1e-6) then  
-        if ( abs(adnorm/fullnorm) < conv ) exit
         q = 1 
      else 
-        if ( abs(adnorm/fullnorm) < conv ) exit
         q = 2
      end if 
-       
+     
+     if ( abs(adnorm/fullnorm) < conv ) exit
+          
      call calculate_cross_coupled(AD,ADCC,jbas,.true.)
      call calculate_cross_coupled(G,GCC,jbas,.false.) 
  
@@ -472,11 +482,7 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , DG ) !ME_general
      
      advals(i) = mat_frob_norm(INT2)*abs(cof(i))
-     
-    
-!     if ( abs(mat_frob_norm(INT2)*cof(i-1) / mat_frob_norm(INT1)) &
- !         < conv ) exit
-    
+        
   end do 
    
   write(args,'(I3)') i 
@@ -498,59 +504,6 @@ subroutine euler_step(G,DG,s,stp)
   s = s + stp 
 
 end subroutine 
-!================================================
-!================================================
-real(8) function brute_force(AK47,BK47,jbas) 
-  implicit none 
-  
-  type(sq_op) :: AK47,BK47 
-  type(spd) :: jbas
-  
-  integer :: a,b,J1,J2,ji,jj,jk,jl,ja,jb,x,i,j,k,l
-  real(8) :: sm,d6ji
-  
-  i = 1; j = 6; k =2; l = 19
-  ji = jbas%jj(i)
-  jj = jbas%jj(j)
-  jk = jbas%jj(k)
-  jl = jbas%jj(l)
-  sm = 0.d0 
-  print*, 'DICK!'
-  do a = 1, 56 
-     do b = 1, 56
-        
-        ja = jbas%jj(a) 
-        jb = jbas%jj(b) 
-        
-        do J1 = 0,30,2
-           do J2 = 0,30,2
-              
-              do x = 0,30,2
-                 
-                  sm = sm - (jbas%con(a) - jbas%con(b) ) * (J1+1.) * (J2+1.)&
-           * (-1)**((ji+jk+J1-J2)/2) * V_elem(b,j,a,l,J1,AK47,jbas) * &
-           V_elem(a,i,b,k,J2,BK47,jbas) * (-1) * (x+1.) * d6ji(ja,ji,J2,jk,jb,x)* &
-           d6ji(jl,0,jk,ji,x,jj) * d6ji(J1,jj,jb,x,ja,jl) & 
-                  +  (-1)**((ji+jj+1)/2) * & ! changed this to a fucking +
-                       (jbas%con(a) - jbas%con(b) ) * (J1+1.) * (J2+1.)&
-           * (-1)**((jj+jk+J1-J2)/2) * V_elem(b,i,a,l,J1,AK47,jbas) * &
-           V_elem(a,j,b,k,J2,BK47,jbas) * (-1) * (x+1.) * d6ji(ja,jj,J2,jk,jb,x)* &
-           d6ji(jl,0,jk,jj,x,ji) * d6ji(J1,ji,jb,x,ja,jl) &
-                  -  (-1)**((jk + jl +1 )/2) *  &
-                  (jbas%con(a) - jbas%con(b) ) * (J1+1.) * (J2+1.)&
-           * (-1)**((ji+jl+J1-J2)/2) * V_elem(b,j,a,k,J1,AK47,jbas) * &
-           V_elem(a,i,b,l,J2,BK47,jbas) * (-1) * (x+1.) * d6ji(ja,ji,J2,jl,jb,x)* &
-           d6ji(jk,0,jl,ji,x,jj) * d6ji(J1,jj,jb,x,ja,jk) &
-                  + (-1)**((ji+jj+jk+jl)/2) * &
-                       (jbas%con(a) - jbas%con(b) ) * (J1+1.) * (J2+1.)&
-           * (-1)**((jj+jl+J1-J2)/2) * V_elem(b,i,a,k,J1,AK47,jbas) * &
-           V_elem(a,j,b,l,J2,BK47,jbas) * (-1) * (x+1.) * d6ji(ja,jj,J2,jl,jb,x)* &
-           d6ji(jk,0,jl,jj,x,ji) * d6ji(J1,ji,jb,x,ja,jk)
-end do;enddo;enddo;enddo;enddo
-
-brute_force = sm 
-
-end function
 end module
 !================================================
 !================================================

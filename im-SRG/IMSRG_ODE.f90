@@ -24,7 +24,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
   integer,dimension(5) :: iwork
   real(8),allocatable,dimension(:) :: cur_vec,work
   integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps  
-  real(8) :: ds,s,E_old,crit
+  real(8) :: ds,s,E_old,crit,E_mbpt2
   character(200) :: spfile,intfile,prefix
   logical :: com_calc 
   external :: deriv_calculator 
@@ -67,7 +67,11 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
   open(unit=36,file='../../output/'//&
        trim(adjustl(prefix))//'_0bflow.dat')
   
-  write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
+  E_mbpt2 = mbpt2(H,jbas) 
+  crit = abs(E_mbpt2)
+  
+  write(36,'(I6,4(e14.6))') steps,s,H%E0,H%E0+E_mbpt2,crit
+  write(*,'(I6,4(e14.6))') steps,s,H%E0,H%E0+E_mbpt2,crit
 
 ! main loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
   do while (steps < max_steps) 
@@ -84,10 +88,13 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
      steps = steps + 1
   
      ! weak convergence criteria, but it works
-     crit = abs(H%E0 - E_old)/ds 
-     
-     write(36,'(I6,3(e14.6))') steps,s,H%E0,crit     
-     write(*,'(I6,3(e14.6))') steps,s,H%E0,crit
+
+     E_mbpt2 = mbpt2(H,jbas) 
+     crit = abs(E_mbpt2)
+  
+     write(36,'(I6,4(e14.6))') steps,s,H%E0,H%E0+E_mbpt2,crit
+     write(*,'(I6,4(e14.6))') steps,s,H%E0,H%E0+E_mbpt2,crit
+    
      if (crit < conv_crit) exit
 
   end do 

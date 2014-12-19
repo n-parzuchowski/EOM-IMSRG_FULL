@@ -2081,8 +2081,44 @@ subroutine write_excited_states(steps,s,TDA,e0,un)
   write(un,'(I6,'//trim(num)//'(e14.6))') steps,s,vec
 
 end subroutine 
-
+!=====================================
+real(8) function mbpt2(H,jbas) 
+  implicit none 
   
+  integer :: i,j,k,l,II,JJ,q
+  type(sq_op) :: H 
+  type(spd) :: jbas
+  real(8) :: sm , sm_singlej, eden,fi,fj,fk,fl
+  
+  sm = 0.d0 
+  do q = 1, H%nblocks
+     
+     sm_singlej = 0.d0
+     do II = 1,H%mat(q)%npp
+        i = H%mat(q)%qn(1)%Y(II,1)
+        j = H%mat(q)%qn(1)%Y(II,2)
+        fi = f_elem(i,i,H,jbas)
+        fj = f_elem(j,j,H,jbas)
+        
+        do JJ = 1,H%mat(q)%nhh            
+           k = H%mat(q)%qn(3)%Y(JJ,1)
+           l = H%mat(q)%qn(3)%Y(JJ,2)
+           fk = f_elem(k,k,H,jbas)
+           fl = f_elem(l,l,H,jbas)
+           
+           eden = fk + fl - fi - fj 
+          
+           sm_singlej = sm_singlej + H%mat(q)%gam(3)%X(II,JJ)**2/eden
+        end do 
+     end do 
+     
+     sm = sm + (H%mat(q)%lam(1)+1.d0)*sm_singlej
+  end do 
+
+  mbpt2 = sm
+end function           
+!===================================================================
+!===================================================================  
 end module
        
   
