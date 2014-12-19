@@ -414,9 +414,9 @@ subroutine divide_work(r1)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+!  threads=omp_get_num_threads() 
 !$omp end parallel
-
+threads = 1
   b = 0.d0
   do q = 1, r1%nblocks
      b = b + r1%mat(q)%nhh +r1%mat(q)%npp + r1%mat(q)%nph 

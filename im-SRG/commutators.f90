@@ -767,6 +767,7 @@ end subroutine
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2
    logical :: square
    
+
   Ntot = RES%Nsp
   JTM = jbas%Jtotal_max
   total_threads = size(RES%direct_omp) - 1
@@ -788,7 +789,7 @@ end subroutine
    
    end do 
 
-!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
+!qwerqwer$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
    do thread = 1, total_threads
    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
      
@@ -846,7 +847,7 @@ end subroutine
             
             
             Tz = abs(ti -tk)/2 
-            if (abs(tl - tj) .ne. Tz*2) cycle 
+            if (abs(tl - tj) .ne. Tz*2)  cycle 
             PAR = mod(li+lk,2) 
             if (mod(ll+lj,2) .ne. PAR) cycle 
             
@@ -857,15 +858,15 @@ end subroutine
                   rjl = specific_rval(j,l,Ntot,qx,LCC)
                   rik = specific_rval(i,k,Ntot,qx,LCC)
                   
-                  sm = sm - ( WCC%CCX(qx)%X(rjl,rik) - &
+                  sm = sm - (RES%herm*WCC%CCX(qx)%X(rjl,rik) - &
                        WCC%CCR(qx)%X(rjl,rik) - &
-                       WCC%CCR(qx)%X(rik,rjl) + &
+                       RES%herm*WCC%CCR(qx)%X(rik,rjl) + &
                        WCC%CCX(qx)%X(rik,rjl) ) * &
                        sixj(jk,jl,Jtot,jj,ji,JP) * &
                        (-1)**((ji + jl + Jtot)/2) 
             
             end do 
-            
+
             Tz = abs(ti -tl)/2 
             if (abs(tk - tj) .ne. Tz*2) cycle 
             PAR = mod(li+ll,2) 
@@ -883,14 +884,14 @@ end subroutine
                   rjk = specific_rval(j,k,Ntot,qx,LCC)
                   
                   sm = sm + ( WCC%CCR(qx)%X(ril,rjk) - &
-                       WCC%CCX(qx)%X(ril,rjk) - &
+                       RES%herm*WCC%CCX(qx)%X(ril,rjk) - &
                        WCC%CCX(qx)%X(rjk,ril) + &
-                       WCC%CCR(qx)%X(rjk,ril) ) * &
+                       RES%herm*WCC%CCR(qx)%X(rjk,ril) ) * &
                        sixj(jk,jl,Jtot,ji,jj,JP) * &
                        (-1)**((ji + jl)/2)
             
                end do 
-            
+
            RES%mat(q)%gam(g_ix)%X(IX,JX) = &
                 RES%mat(q)%gam(g_ix)%X(IX,JX) + sm * pre * pre2 
            if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) =  &
@@ -901,7 +902,8 @@ end subroutine
       end do 
    end do
    end do 
-!$OMP END PARALLEL DO 
+ 
+!qwerqwe$OMP END PARALLEL DO 
    
 end subroutine 
 !=====================================================

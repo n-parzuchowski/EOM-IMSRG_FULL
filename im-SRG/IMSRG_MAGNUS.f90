@@ -59,15 +59,15 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   
   nrm1 = HS%E0 !mat_frob_norm(ETA) 
   s = 0.d0 
-  ds = 0.2d0
+  ds = 1.0d0
   crit = 10.
   steps = 0
-  
+  print*, HS%E0 
   open(unit=36,file='../../output/'//&
        trim(adjustl(prefix))//'_0b_magnus_flow.dat')
   write(36,'(I6,3(e14.6))') steps,s,H%E0,crit
   
-  do while (crit > 1e-6) 
+  do while (crit > 1e-5) 
      
      call copy_sq_op(G,G0) 
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
@@ -335,8 +335,8 @@ end subroutine
 subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-6 
-  integer :: trunc,i,m,n
+  real(8), parameter :: conv = 1e-5 
+  integer :: trunc,i,m,n,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
@@ -373,14 +373,11 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call copy_sq_op( HS , INT1) 
      call copy_sq_op( INT2 , AD ) 
      ! so to start, AD is equal to H
-          
+      call clear_sq_op(INT2)    
      !now: INT2 = [ G , AD ]  
 
     ! adnorm = abs(sum(advals(1:i-1)))
         
-     !if (abs( adnorm - fullnorm ) < 1e-9 ) goto 12
-  !   if ( abs(adnorm/fullnorm) < conv ) exit
-
 ! zero body commutator
  
      call calculate_cross_coupled(AD,ADCC,jbas,.true.)
@@ -419,8 +416,8 @@ end subroutine
 subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   implicit none 
   
-  real(8), parameter :: conv = 1e-4
-  integer :: trunc,i,q
+  real(8), parameter :: conv = 1e-5
+  integer :: trunc,i,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
@@ -445,11 +442,12 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   if (fullnorm < 1e-9) return
   
   q = 1
+  
   do i = 2 , 7  
       
      call copy_sq_op( DG , INT1) 
      call copy_sq_op( INT2 , AD ) 
-     
+   !  call clear_sq_op(INT2)
      adnorm = advals(i-q) 
   
      if  (abs(cof(i)) > 1e-6) then  
@@ -459,20 +457,18 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
         if ( abs(adnorm/fullnorm) < conv ) exit
         q = 2
      end if 
-     
-     
+       
      call calculate_cross_coupled(AD,ADCC,jbas,.true.)
      call calculate_cross_coupled(G,GCC,jbas,.false.) 
  
      call commutator_111(G,AD,INT2,jbas) 
      call commutator_121(G,AD,INT2,jbas)
      call commutator_122(G,AD,INT2,jbas)    
-
-     call commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)
   
-     call commutator_221(G,AD,INT2,w1,w2,jbas)
+     call commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)   
+     call commutator_221(G,AD,INT2,w1,w2,jbas)     
      call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
-
+     
      call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , DG ) !ME_general
      
      advals(i) = mat_frob_norm(INT2)*abs(cof(i))
@@ -504,6 +500,60 @@ subroutine euler_step(G,DG,s,stp)
 end subroutine 
 !================================================
 !================================================
+real(8) function brute_force(AK47,BK47,jbas) 
+  implicit none 
+  
+  type(sq_op) :: AK47,BK47 
+  type(spd) :: jbas
+  
+  integer :: a,b,J1,J2,ji,jj,jk,jl,ja,jb,x,i,j,k,l
+  real(8) :: sm,d6ji
+  
+  i = 1; j = 6; k =2; l = 19
+  ji = jbas%jj(i)
+  jj = jbas%jj(j)
+  jk = jbas%jj(k)
+  jl = jbas%jj(l)
+  sm = 0.d0 
+  print*, 'DICK!'
+  do a = 1, 56 
+     do b = 1, 56
+        
+        ja = jbas%jj(a) 
+        jb = jbas%jj(b) 
+        
+        do J1 = 0,30,2
+           do J2 = 0,30,2
+              
+              do x = 0,30,2
+                 
+                  sm = sm - (jbas%con(a) - jbas%con(b) ) * (J1+1.) * (J2+1.)&
+           * (-1)**((ji+jk+J1-J2)/2) * V_elem(b,j,a,l,J1,AK47,jbas) * &
+           V_elem(a,i,b,k,J2,BK47,jbas) * (-1) * (x+1.) * d6ji(ja,ji,J2,jk,jb,x)* &
+           d6ji(jl,0,jk,ji,x,jj) * d6ji(J1,jj,jb,x,ja,jl) & 
+                  +  (-1)**((ji+jj+1)/2) * & ! changed this to a fucking +
+                       (jbas%con(a) - jbas%con(b) ) * (J1+1.) * (J2+1.)&
+           * (-1)**((jj+jk+J1-J2)/2) * V_elem(b,i,a,l,J1,AK47,jbas) * &
+           V_elem(a,j,b,k,J2,BK47,jbas) * (-1) * (x+1.) * d6ji(ja,jj,J2,jk,jb,x)* &
+           d6ji(jl,0,jk,jj,x,ji) * d6ji(J1,ji,jb,x,ja,jl) &
+                  -  (-1)**((jk + jl +1 )/2) *  &
+                  (jbas%con(a) - jbas%con(b) ) * (J1+1.) * (J2+1.)&
+           * (-1)**((ji+jl+J1-J2)/2) * V_elem(b,j,a,k,J1,AK47,jbas) * &
+           V_elem(a,i,b,l,J2,BK47,jbas) * (-1) * (x+1.) * d6ji(ja,ji,J2,jl,jb,x)* &
+           d6ji(jk,0,jl,ji,x,jj) * d6ji(J1,jj,jb,x,ja,jk) &
+                  + (-1)**((ji+jj+jk+jl)/2) * &
+                       (jbas%con(a) - jbas%con(b) ) * (J1+1.) * (J2+1.)&
+           * (-1)**((jj+jl+J1-J2)/2) * V_elem(b,i,a,k,J1,AK47,jbas) * &
+           V_elem(a,j,b,l,J2,BK47,jbas) * (-1) * (x+1.) * d6ji(ja,jj,J2,jl,jb,x)* &
+           d6ji(jk,0,jl,jj,x,ji) * d6ji(J1,ji,jb,x,ja,jk)
+end do;enddo;enddo;enddo;enddo
+
+brute_force = sm 
+
+end function
 end module
 !================================================
 !================================================
+  
+  
+  

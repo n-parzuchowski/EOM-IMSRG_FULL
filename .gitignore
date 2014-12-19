@@ -20,3 +20,5 @@ pbs*
 run_IMSRG
 get_HO*
 truncate
+fort*
+*.out
