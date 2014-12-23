@@ -72,7 +72,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
   
   write(36,'(I6,4(e14.6))') steps,s,H%E0,H%E0+E_mbpt2,crit
   write(*,'(I6,4(e14.6))') steps,s,H%E0,H%E0+E_mbpt2,crit
-
+  
 ! main loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
   do while (steps < max_steps) 
     
@@ -99,6 +99,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator )
 
   end do 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 
   close(36)
 end subroutine   
 !================================================
@@ -223,6 +224,7 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   close(37)
   close(38)
+  
 end subroutine   
 !================================================
 !================================================
@@ -272,7 +274,7 @@ subroutine dHds_white_gs(t,yp,HS,jbas)
   
   call commutator_221(ETA,HS,DH,w1,w2,jbas)
   call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
-
+  
   ! rewrite in a form that shampine and gordon are comfortable with.
   call vectorize(DH,yp)
   

@@ -789,7 +789,7 @@ end subroutine
    
    end do 
 
-!qwerqwer$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
    do thread = 1, total_threads
    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
      
@@ -903,7 +903,7 @@ end subroutine
    end do
    end do 
  
-!qwerqwe$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO 
    
 end subroutine 
 !=====================================================

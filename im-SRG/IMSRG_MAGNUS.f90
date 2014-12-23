@@ -78,7 +78,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
 
   write(36,'(I4,3(e14.6))') steps,s,H%E0,HS%E0+E_mbpt2,crit
   write(*,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-  do while (crit > 1e-6) 
+  do while (crit > 1e-5) 
      
      call copy_sq_op(G,G0) 
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
@@ -92,13 +92,13 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      call build_gs_white(HS,ETA,jbas) 
      nrm2 = HS%E0 !mat_frob_norm(ETA)
      
-!     if ( nrm1 < nrm2 )  then
- !       s = s-ds
-  !      call copy_sq_op(G0,G)
-   !     call copy_sq_op(ETA0,ETA)
-    !    call copy_sq_op(H0,HS)
-     !   ds = ds/2.d0 
-      !  cycle 
+     !if ( nrm1 < nrm2 )  then
+      !  s = s-ds
+       ! call copy_sq_op(G0,G)
+       ! call copy_sq_op(ETA0,ETA)
+       ! call copy_sq_op(H0,HS)
+       ! ds = ds/2.d0 
+       ! cycle 
      !end if 
      E_mbpt2 = mbpt2(HS,jbas) 
      crit = abs(E_mbpt2) 
@@ -231,7 +231,7 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
   
   nrm1 = mat_frob_norm(ETA) 
  
-  do while (crit > 1e-6) 
+  do while (crit > 1e-5) 
      
      call copy_sq_op(G,G0) 
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
@@ -348,7 +348,7 @@ end subroutine
 subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-6 
+  real(8), parameter :: conv = 1e-5 
   integer :: trunc,i,m,n,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2
@@ -426,7 +426,7 @@ end subroutine
 subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   implicit none 
   
-  real(8), parameter :: conv = 1e-6
+  real(8), parameter :: conv = 1e-5
   integer :: trunc,i,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
@@ -454,7 +454,7 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   q = 1
   
   do i = 2 , 7  
-      
+
      call copy_sq_op( DG , INT1) 
      call copy_sq_op( INT2 , AD ) 
   
@@ -482,7 +482,7 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , DG ) !ME_general
      
      advals(i) = mat_frob_norm(INT2)*abs(cof(i))
-        
+
   end do 
    
   write(args,'(I3)') i 
