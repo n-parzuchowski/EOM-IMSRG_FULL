@@ -57,9 +57,11 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   call build_gs_white(HS,ETA,jbas) 
   call copy_sq_op(HS,H) 
   
-  nrm1 = HS%E0 !mat_frob_norm(ETA) 
+  !E_old = HS%E0
+ ! nrm1 = HS%E0 !mat_frob_norm(ETA) 
+ ! nrm1 = mat_frob_norm(ETA) 
   s = 0.d0 
-  ds = 1.0d0
+  ds = 1.d0
   crit = 10.
   steps = 0
 
@@ -76,9 +78,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   E_mbpt2 = mbpt2(HS,jbas) 
   crit=abs(E_mbpt2)
 
-  write(36,'(I4,3(e14.6))') steps,s,H%E0,HS%E0+E_mbpt2,crit
+  write(36,'(I6,4(e14.6))') steps,s,H%E0,HS%E0+E_mbpt2,crit
   write(*,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-  do while (crit > 1e-5) 
+  do while (crit > 1e-6) 
      
      call copy_sq_op(G,G0) 
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
@@ -90,8 +92,8 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      call copy_sq_op(ETA,ETA0)
     
      call build_gs_white(HS,ETA,jbas) 
-     nrm2 = HS%E0 !mat_frob_norm(ETA)
-     
+!     nrm2 = HS%E0 !mat_frob_norm(ETA)
+  !    nrm2 = mat_frob_norm(ETA)
      !if ( nrm1 < nrm2 )  then
       !  s = s-ds
        ! call copy_sq_op(G0,G)
@@ -101,6 +103,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
        ! cycle 
      !end if 
      E_mbpt2 = mbpt2(HS,jbas) 
+   !  crit = abs(nrm2-nrm1)
      crit = abs(E_mbpt2) 
      nrm1 = nrm2 
      steps = steps + 1
@@ -125,7 +128,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      do i = 1, 2
      ! reconstruct 01 (Hcm) using the oakridge-boyz frequencies
         call clear_sq_op(O1)
-        call add_sq_op(O2,1.d0,O3,wTs(i)**2*hbarc_invsq,O1)
+        call add_sq_op(O2,1.d0,O3,wTs(i)**2/Hcms%hospace**2,O1)
         call normal_order(O1,jbas) 
         O1%E0 =O1%E0 - 1.5d0*wTs(i) 
      
@@ -140,7 +143,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      
      !update all the operators
      call clear_sq_op(O1)
-     call add_sq_op(O2,1.d0,O3,Hcms%hospace**2*hbarc_invsq,O1)
+     call add_sq_op(O2,1.d0,O3,1.d0,O1)
      ! here I have reset O1 to the Hcm with hw  instead of oakridge freqs
 
      call copy_sq_op(Hcms,O1) 
@@ -312,7 +315,7 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
            
            ! reconstruct 01 (Hcm) using the oakridge-boyz frequencies
            call clear_sq_op(O1)
-           call add_sq_op(O2,1.d0,O3,wTs(i)**2*hbarc_invsq,O1)
+           call add_sq_op(O2,1.d0,O3,wTs(i)**2/Hcms%hospace**2,O1)
            call normal_order(O1,jbas) 
            O1%E0 =O1%E0 - 1.5d0*wTs(i) 
            
@@ -348,7 +351,7 @@ end subroutine
 subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-5 
+  real(8), parameter :: conv = 1e-4 
   integer :: trunc,i,m,n,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2
@@ -426,7 +429,7 @@ end subroutine
 subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   implicit none 
   
-  real(8), parameter :: conv = 1e-5
+  real(8), parameter :: conv = 1e-4
   integer :: trunc,i,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
@@ -452,7 +455,7 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   if (fullnorm < 1e-9) return
   
   q = 1
-  
+!  return
   do i = 2 , 7  
 
      call copy_sq_op( DG , INT1) 

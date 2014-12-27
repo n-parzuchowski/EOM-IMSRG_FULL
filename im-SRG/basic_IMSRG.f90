@@ -70,7 +70,8 @@ end type cross_coupled_31_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
    real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
-   real(8),public,parameter :: hbarc_invsq =  2.56819e-5
+   real(8),public,parameter :: hbarc_over_mc2 = 38937.944929
+
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
    type(six_index_store),public :: store6j   ! holds 6j-symbols
  
@@ -533,6 +534,9 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
      ! kets/bras are pre-scaled by sqrt(2) if they 
      ! have two particles in the same sp-shell
         
+     ! get the units right. I hope 
+   
+     
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
@@ -779,24 +783,18 @@ real(8) function v_same(op)
 end function
 !=====================================================
 !=====================================================
-subroutine calculate_h0_harm_osc(hw,jbas,H,Htype,wT) 
+subroutine calculate_h0_harm_osc(hw,jbas,H,Htype) 
   ! fills out the one body piece of the hamiltonian
   implicit none 
   
   integer,intent(in) :: Htype
   integer :: i,j,mass,c1,c2,cx
   integer :: ni,li,ji,nj,lj,jj,tzi,tzj,AX
-  real(8) :: hw,kij,T,omegaT
-  real(8),optional :: wT
+  real(8) :: hw,kij,T
   type(sq_op) :: H 
   type(spd) :: jbas
  
   !Htype =  |[1]: T - Tcm + V |[2]: T + Uho + V |[3]: T+V | 
-
-  ! wT is the trap frequency in case 2. 
-  omegaT = hw 
-  If (present(wT)) omegaT = wt
-  
 
   AX = H%belowEF
   mass = H%Aprot + H%Aneut
@@ -840,9 +838,7 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype,wT)
            case(1) 
               T =  kij*(1.d0-1.d0/mass) 
            case(2) 
-              T = (kij+kij*(omegaT/hw)**2*(kron_del(ni,nj)&
-                   -kron_del(ni,nj+1)-kron_del(ni,nj-1)))/mass
-              ! dividing by mass for Hcm
+              T = 2*kij*kron_del(ni,nj)
            case(3)
               T = kij
            case(4)
@@ -851,7 +847,7 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype,wT)
            case(5)
               ! Hcm, lacking (omegaT/hw)**2 factor
               T = kij*(kron_del(ni,nj) - kron_del(ni,nj+1) - &
-                   kron_del(ni,nj-1) )/mass/hbarc_invsq/hw/hw
+                   kron_del(ni,nj-1) )/mass
         end select 
         
         cx = c1+c2 

@@ -52,9 +52,8 @@ program main_IMSRG
   if (hartree_fock) then 
      
      if (COM_calc) then 
-       
         call calc_HF(HS,jbasis,coefs,pipj,rirj)
-        call add_sq_op(pipj,1.d0,rirj,hw*hw*hbarc_invsq,Hcm)
+        call add_sq_op(pipj,1.d0,rirj,1.d0,Hcm) 
         call normal_order(Hcm,jbasis)
         Hcm%E0 = Hcm%E0 - 1.5d0*hw
      else
