@@ -4,8 +4,34 @@ module adams_ode
     
 contains
 
-subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwork )
+subroutine euler_ode( f,neqn,y,rx,jbas,t,dt) 
+  implicit none
 
+  external f
+  integer :: neqn 
+  real(8) :: t,dt
+  real(8),dimension(neqn) :: y,yp,z 
+  type(sq_op) :: rx,drx
+  type(spd) :: jbas
+
+! get derivatives  
+  call f(t,y,rx,jbas) 
+  
+! write rx as a vector
+  call vectorize(rx,yp) 
+  
+! euler step
+  z = yp + dt*y
+  
+! overwrite rx 
+  call repackage(rx,z)
+  t = t +dt
+end subroutine
+  
+  
+
+subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwork )
+  
 !*****************************************************************************80
 !
 !! ODE is the user interface to an ordinary differential equation solver.

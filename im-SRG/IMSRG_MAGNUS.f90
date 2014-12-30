@@ -137,8 +137,12 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
         Ecm(i+1) = Hcms%E0 ! store Ecm for this Hcm frequency 
      end do
         
-     open(unit=42,file='../../output/Ecm.dat',position='append') 
+     open(unit=42,file='../../output/'//&
+         trim(adjustl(prefix))//'_Ecm.dat')
+
      write(42,'(6(e14.6))') Hcms%hospace, wTs, Ecm 
+
+
      close(42)
      
      !update all the operators
