@@ -39,18 +39,27 @@ else:
     Jtarg ='0'
     valshell = '1s0d' 
 
-contin = raw_input('For more options type "more", else press enter: ') 
+if mag == 'mag':
+    contin = raw_input('For more options type "more", else press enter: ') 
+else:
+    contin = ''
 
 CMint = '0'
+RRMSint = '0'
 if contin.lower() ==  'more':
     print 'To calculate CM expectation value, and factorization frequency'
     CMint = raw_input('enter 1, otherwise enter 0: ') 
-    
-    
-        
-    
+    if CMint != '1':
+        print 'To calculate Point Nucleon RMS radius,' 
+        RRMSint = raw_input('enter 1, otherwise enter 0: ') 
+else if contin.lower() == 'COM':
+    print 'Including COM factorization calculation' 
+    CMint = 1 
+else if contin.lower() == 'RSQ':
+    print 'Including RMS radius calculation' 
+    RRMSint = 1
 
-
+    
 fq = open('run_all.bat','w')
 
 fq.write( '#!/bin/bash \n\n') 
@@ -74,6 +83,8 @@ mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','18gb','20gb','25gb']
 wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','04:00:00',  
 '6:00:00','10:00:00','15:00:00','25:00:00','45:00:00','75:00:00']
 ompnum = ['8','8','8','8','8','8','8','4','2','1','1']
+
+
 for R in Rlist:
     for hw in hwlist:
         
@@ -148,6 +159,8 @@ for R in Rlist:
         fx.write(valshell+'\n') 
         fx.write('# ENTER 1 TO CALCULATE Hcm, 0 otherwise\n')
         fx.write(CMint+'\n')
+        fx.write('# ENTER 1 TO CALCULATE Rrms, 0 otherwise\n') 
+        fx.write(RRMSint+'\n') 
         fx.write('########################################################\n')
         fx.write('# NOTES \n')
         fx.write('#\n')

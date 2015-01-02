@@ -174,6 +174,68 @@ subroutine TDA_expectation_value(TDA_HAM,TDA_OP)
 
 end subroutine 
 !=========================================================
+subroutine initialize_rms_radius(rms,rr,jbas)
+  implicit none 
+  
+  type(sq_op) :: rr, rms 
+  type(spd) :: jbas
+  real(8) :: mass_factor 
+  integer :: q,i
+  
+  mass_factor = 1.d0-1.d0/dfloat(rr%Aprot + rr%Aneut) 
+  
+  call calculate_h0_harm_osc(1.d0,jbas,rms,5)
+  
+  ! multiply by scale factors to make it into r^2 instead of u_ho 
+  rms%fhh = rms%fhh * hbarc2_over_mc2 * 2.d0 * mass_factor / rms%hospace
+  rms%fpp = rms%fpp * hbarc2_over_mc2 * 2.d0 * mass_factor / rms%hospace
+  rms%fph = rms%fph * hbarc2_over_mc2 * 2.d0 * mass_factor / rms%hospace
+  
+  
+  do q = 1, rms%nblocks
+     do i = 1,6
+        
+        rms%mat(q)%gam(i)%X = -2.d0 * hbarc2_over_mc2 &
+             / rr%hospace**2 / dfloat(rr%Aneut + rr%Aprot) * &
+             rr%mat(q)%gam(i)%X 
+        
+     end do 
+  end do 
+
+
+end subroutine 
+!=========================================================
+subroutine initialize_CM_radius(rms,rr,jbas)
+  implicit none 
+  
+  type(sq_op) :: rr, rms 
+  type(spd) :: jbas
+  real(8) :: mass_factor 
+  integer :: q,i
+  
+  mass_factor = 1.d0/dfloat(rr%Aprot + rr%Aneut) 
+  
+  call calculate_h0_harm_osc(1.d0,jbas,rms,5)
+  
+  ! multiply by scale factors to make it into r^2 instead of u_ho 
+  rms%fhh = rms%fhh * hbarc2_over_mc2 * 2.d0 * mass_factor / rms%hospace
+  rms%fpp = rms%fpp * hbarc2_over_mc2 * 2.d0 * mass_factor / rms%hospace
+  rms%fph = rms%fph * hbarc2_over_mc2 * 2.d0 * mass_factor / rms%hospace
+  
+  
+  do q = 1, rms%nblocks
+     do i = 1,6
+        
+        rms%mat(q)%gam(i)%X = 2.d0 * hbarc2_over_mc2 &
+             / rr%hospace**2 * mass_factor * &
+             rr%mat(q)%gam(i)%X 
+        
+     end do 
+  end do 
+
+
+end subroutine
+!====================================================================       
 end module
 
 

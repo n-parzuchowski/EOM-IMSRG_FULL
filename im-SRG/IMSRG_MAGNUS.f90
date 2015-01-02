@@ -126,7 +126,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      wTs = optimum_omega_for_CM_hamiltonian(Hcms%hospace,Hcms%E0) 
      
      do i = 1, 2
-     ! reconstruct 01 (Hcm) using the oakridge-boyz frequencies
+     ! reconstruct O1 (Hcm) using the oakridge-boyz frequencies
         call clear_sq_op(O1)
         call add_sq_op(O2,1.d0,O3,wTs(i)**2/Hcms%hospace**2,O1)
         call normal_order(O1,jbas) 
@@ -155,12 +155,23 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
      call copy_sq_op(Hcms,O2)
      call BCH_EXPAND(Hcms,G,O3,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call copy_sq_op(Hcms,O3)
+
+  else if (present(O1)) then 
      
+     call duplicate_sq_op(O1,Hcms)
+
+     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+     
+     call copy_sq_op(Hcms,O1) 
+
   end if
+
 !===========================================================================  
   close(36)
   close(43)
   close(44)
+  
+  
 end subroutine  
 !===========================================================================
 !===========================================================================
@@ -489,7 +500,7 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , DG ) !ME_general
      
      advals(i) = mat_frob_norm(INT2)*abs(cof(i))
-
+     
   end do 
    
   write(args,'(I3)') i 

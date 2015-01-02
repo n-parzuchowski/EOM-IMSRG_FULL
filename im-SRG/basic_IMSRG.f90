@@ -70,7 +70,8 @@ end type cross_coupled_31_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
    real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
-   real(8),public,parameter :: hbarc_over_mc2 = 38937.944929
+   real(8),public,parameter :: hbarc = 197.326968d0, m_nuc = 938.918725 !2006 values 
+   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
 
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
    type(six_index_store),public :: store6j   ! holds 6j-symbols
@@ -788,9 +789,10 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
   implicit none 
   
   integer,intent(in) :: Htype
+  real(8),intent(in) :: hw
   integer :: i,j,mass,c1,c2,cx
   integer :: ni,li,ji,nj,lj,jj,tzi,tzj,AX
-  real(8) :: hw,kij,T
+  real(8) :: kij,T
   type(sq_op) :: H 
   type(spd) :: jbas
  
@@ -1474,15 +1476,15 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,hw)
+subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,R2RMS,hw)
   !read inputs from file
   implicit none 
   
   character(200) :: spfile,intfile,input,prefix
   character(50) :: valence
   type(sq_op) :: H 
-  integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int
-  logical :: HF,MAG,EXTDA,COM
+  integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
+  logical :: HF,MAG,EXTDA,COM,R2RMS
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -1524,6 +1526,8 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,hw)
   read(22,*) valence
   read(22,*) 
   read(22,*) com_int
+  read(22,*)
+  read(22,*) rrms_int 
  
   valence = adjustl(valence)
   H%Jtarg = Jtarg
@@ -1537,6 +1541,8 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,hw)
   if (excalc == 1) EXTDA = .true.
   COM = .false.
   if (com_int == 1) COM = .true.
+  R2RMS = .false.
+  if (rrms_int == 1) R2RMS = .true.
   
   print*, trim(valence)
   select case (trim(valence)) 
@@ -2115,6 +2121,20 @@ real(8) function mbpt2(H,jbas)
 end function           
 !===================================================================
 !===================================================================  
+subroutine write_tilde_from_Rcm(rr) 
+  implicit none 
+  
+  type(sq_op) :: rr 
+  character(200) :: spfile,intfile,input,prefix
+  common /files/ spfile,intfile,prefix 
+
+  open(unit=53, file='../../output/'//&
+       trim(adjustl(prefix))//'_omegatilde.dat') 
+  write(53,'(2(e14.6))') rr%hospace,&
+       hbarc2_over_mc2*1.5d0/float(rr%Aprot+rr%Aneut)/rr%E0 
+  close(53) 
+end subroutine 
+
 end module
        
   
