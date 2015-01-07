@@ -43,9 +43,7 @@ program main_IMSRG
      call duplicate_sq_op(HS,rirj)
      call duplicate_sq_op(HS,r2_rms) 
      call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
-     call initialize_CM_radius_onebody(r2_rms,rirj,jbasis) 
-  
-     call print_matrix(r2_rms%fhh)
+     call initialize_CM_radius(r2_rms,rirj,jbasis) 
   else    
      call read_interaction(HS,jbasis,ham_type,hw)
   end if 
@@ -88,8 +86,7 @@ program main_IMSRG
         call magnus_decouple(HS,jbasis,Hcm,pipj,rirj,coefs,COM='yes') 
      else if (r2rms_calc) then
         call magnus_decouple(HS,jbasis,r2_rms)
-        !call write_tilde_from_Rcm(r2_rms)
-        print*, r2_rms%E0
+        call write_tilde_from_Rcm(r2_rms)
      else 
         call magnus_decouple(HS,jbasis) 
      end if 

@@ -102,12 +102,12 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
        ! ds = ds/2.d0 
        ! cycle 
      !end if 
+
      E_mbpt2 = mbpt2(HS,jbas) 
-   !  crit = abs(nrm2-nrm1)
+
      crit = abs(E_mbpt2) 
      nrm1 = nrm2 
      steps = steps + 1
-     !if (steps == 15) ds = 0.5d0 
      write(36,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
      write(*,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
   end do
@@ -354,7 +354,8 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
      write(args,'(I3)') i 
      args = adjustl(args) 
      
-     open(unit=42,file='../../output/Ecm_excited.dat',position='append') 
+     open(unit=42,file='../../output/'//trim(adjustl(prefix))&
+          //'_Ecm_excited.dat') 
      write(42,'('//trim(args)//'(e14.6))') Hcms%hospace, wTvec, E_old 
      close(42)
   
@@ -378,8 +379,16 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
 ! take expectation values 
      call TDA_expectation_value(TDA,O1TDA) 
      
-     print*, O1TDA%blkM(1)%eigval(1:TDA%map(1)) 
+     i = 1+TDA%map(1) 
+     write(args,'(I3)') i 
+     args = adjustl(args) 
      
+     open(unit=42,file='../../output/'//trim(adjustl(prefix))&
+          //'_Rrms_excited.dat') 
+     write(42,'('//trim(args)//'(e14.6))') Hcms%hospace,  &
+          O1TDA%blkM(1)%eigval(1:TDA%map(1)) 
+     close(42)
+        
   end if
 !===========================================================================  
   close(37)
@@ -389,12 +398,12 @@ end subroutine
 subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-4 
+  real(8), parameter :: conv = 1e-8
   integer :: trunc,i,m,n,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
-  real(8) ::  cof(12),adnorm,fullnorm,s,advals(12)
+  real(8) ::  cof(15),adnorm,fullnorm,s,advals(15)
   character(3) :: args
   
   advals = 0.d0 
@@ -402,7 +411,8 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   cof = (/1.d0,1.d0,0.5d0,0.166666666666666666d0, &
        0.04166666666666666d0,0.0083333333333333333d0,&
        .001388888888888d0,1.984126984d-4,2.48015873d-5,&
-       2.755731922d-6,2.755731922d-7,2.505210839d-8/) 
+       2.755731922d-6,2.755731922d-7,2.505210839d-8, &
+       2.087675698d-9,1.6059043837d-10,1.1470745598d-11/) 
 
   ! intermediates must be HERMITIAN
   INT2%herm = 1
@@ -418,7 +428,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
  
   advals(1) = abs(H%E0)   
  
-  do i = 2 , 12
+  do i = 2 , 15
 
      ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
@@ -453,7 +463,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      if (advals(i) < conv) exit
      
   end do 
- 
+
   i = i + 1
   write(args,'(I3)') i 
  
