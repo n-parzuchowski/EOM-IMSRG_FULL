@@ -416,7 +416,7 @@ subroutine divide_work(r1)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+ ! threads=omp_get_num_threads() 
 !$omp end parallel
 
   b = 0.d0
@@ -1742,7 +1742,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
   type(sq_op) :: HS
   type(cross_coupled_31_mat) :: CCME
   integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
-  integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,g,ta,tb,Atot,hg,pg
+  integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,Gindx,g,ta,tb,Atot,hg,pg
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x,JTM
   real(8) :: sm,sm2,pre
   logical :: phase
@@ -1811,7 +1811,15 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                     g = g + 1
                  end do
               
-                 Rindx = CCME%rmap(x)%Z(g)  
+                 Rindx = CCME%rmap(x)%Z(g)
+                 
+                 x = CCindex(b,a,HS%Nsp) 
+                 g = 1
+                 do while (CCME%qmap(x)%Z(g) .ne. q1 )
+                    g = g + 1
+                 end do
+              
+                 Gindx = CCME%rmap(x)%Z(g)
 
                  if ( (mod(la + lh,2) == mod(lb + lp,2)) .and. &
                       ( (ta + th) == (tb + tp) ) ) then  
@@ -1831,25 +1839,12 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                     CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
                          (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
-                 end if 
-                 
-                 if ( (mod(la + lp,2) == mod(lb + lh,2)) .and. &
-                      ( (ta + tp) == (tb + th) ) ) then
-                    
-                    Jmin = max(abs(jh - jb),abs(ja - jp)) 
-                    Jmax = min(jh+jb,ja+jp) 
-                    
-                    sm = 0.d0 
-                    do JT = Jmin,Jmax,2
-                       sm = sm + (-1)**(JT/2) * (JT + 1) * &
-                            sixj(jh,jp,JC,ja,jb,JT)  * &
-                            v_elem(p,a,h,b,JT,HS,jbas) 
-                    end do
-              
-                    ! store  < p a | v | h b> 
-                    CCME%CCR(q1)%X(NBindx,Rindx) = sm * &
-                         (-1) **( (jp + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
+               
+                    CCME%CCR(q1)%X(NBindx,Gindx) = sm * &
+                         (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
+
                  end if
+                 
               end do
            end do
         end do
