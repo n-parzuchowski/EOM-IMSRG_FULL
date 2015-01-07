@@ -416,7 +416,7 @@ subroutine divide_work(r1)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
- ! threads=omp_get_num_threads() 
+  threads=omp_get_num_threads() 
 !$omp end parallel
 
   b = 0.d0
@@ -1840,7 +1840,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                          (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
                
-                    CCME%CCR(q1)%X(NBindx,Gindx) = sm * &
+                    CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
                          (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
 
                  end if
