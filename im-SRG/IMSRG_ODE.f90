@@ -210,20 +210,10 @@ subroutine TDA_decouple( H , jbas, deriv_calculator )
      min_crit = min(min_crit,crit) 
      if (crit < conv_crit) exit
   end do 
-  
-  open(unit=38,file='../../output/'//&
-       trim(adjustl(prefix))//'_final_excited.dat')
-  
-  do q = 1, TDA%blocks
-     write(38,'(2(I4))') TDA%blkM(q)%lmda(1:2) 
-     do i = 1, TDA%map(q)
-        write(38,'(e14.6)') TDA%blkM(q)%eigval(i) + H%E0 
-     end do 
-  end do 
      
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   close(37)
-  close(38)
+  !close(38)
   
 end subroutine   
 !================================================

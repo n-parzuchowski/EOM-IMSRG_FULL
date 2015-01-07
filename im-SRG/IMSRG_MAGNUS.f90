@@ -280,7 +280,7 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
      call write_excited_states(steps,s,TDA,HS%E0,37) 
      
      crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
-     write(*,'(I6,6(e14.6))') steps,s,TDA%blkM(1)%eigval(1:2),E_old(1:2),crit
+     write(*,'(I6,6(e14.6))') steps,s,TDA%blkM(1)%eigval(1:4),crit
      E_old = TDA%blkM(1)%eigval
 
      nrm1 = nrm2 
@@ -309,8 +309,8 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
      O1TDA%blkM(1)%labels = TDA%blkM(1)%labels 
      
      call duplicate_CCMAT(HCC,O1CC)
-     call calculate_cross_coupled(O1,O1CC,jbas,.true.) 
-     call calc_TDA(O1TDA,O1,O1CC,jbas) 
+     call calculate_cross_coupled(Hcms,O1CC,jbas,.true.) 
+     call calc_TDA(O1TDA,Hcms,O1CC,jbas) 
 
      ! this gets the expectation values of all of the TDA vectors
      call TDA_expectation_value(TDA,O1TDA) 
@@ -337,8 +337,8 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
            ! Transform to decoupled basis
            call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
            
-           call calculate_cross_coupled(O1,O1CC,jbas,.true.) 
-           call calc_TDA(O1TDA,O1,O1CC,jbas) 
+           call calculate_cross_coupled(Hcms,O1CC,jbas,.true.) 
+           call calc_TDA(O1TDA,Hcms,O1CC,jbas) 
            ! new expectation values for this freq. 
            call TDA_expectation_value(TDA,O1TDA) 
 
@@ -357,6 +357,29 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
      open(unit=42,file='../../output/Ecm_excited.dat',position='append') 
      write(42,'('//trim(args)//'(e14.6))') Hcms%hospace, wTvec, E_old 
      close(42)
+  
+  else if (present(O1)) then 
+     
+     
+     call duplicate_sq_op(O1,Hcms) 
+    
+! transform observable
+     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+
+! make a new TDA array for the observable 
+     call duplicate_sp_mat(TDA,O1TDA)
+     allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
+     O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
+     call duplicate_CCMAT(HCC,O1CC)
+
+! populate new TDA array
+     call calculate_cross_coupled(O1,O1CC,jbas,.true.) 
+     call calc_TDA(O1TDA,O1,O1CC,jbas) 
+! take expectation values 
+     call TDA_expectation_value(TDA,O1TDA) 
+     
+     print*, O1TDA%blkM(1)%eigval(1:TDA%map(1)) 
+     
   end if
 !===========================================================================  
   close(37)

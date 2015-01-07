@@ -235,6 +235,179 @@ subroutine initialize_CM_radius(rms,rr,jbas)
 
 
 end subroutine
+!====================================================================
+!=========================================================
+subroutine initialize_CM_radius_onebody(rms,rr,jbas)
+  implicit none 
+  
+  type(sq_op) :: rr, rms 
+  type(spd) :: jbas
+  real(8) :: mass_factor, elem
+  integer :: q,a,b,ak,bk,na,nb,la,lb
+  
+  mass_factor = 1.d0/dfloat(rr%Aprot + rr%Aneut) 
+  
+  
+  ! multiply by scale factors to make it into r^2 instead of u_ho 
+  
+  do a = 1, rr%belowEF
+     
+     ak = jbas%holes(a)
+     na = jbas%nn(ak)
+     la = jbas%ll(ak) 
+     
+     do b = a, rr%belowEF
+     
+        bk = jbas%holes(b)
+        nb = jbas%nn(bk)
+        lb = jbas%ll(bk)
+
+  
+        if (la == lb - 1) then 
+           
+           if (na == nb) then 
+              
+              elem = sqrt(nb + lb + 0.5d0)
+           
+           else if (na == nb + 1)  then 
+              
+              elem = -1.d0*sqrt(nb + 1.d0)
+
+           else 
+              elem = 0.d0 
+              
+           end if 
+        
+        else if (la == lb + 1) then 
+           
+           if (na == nb) then 
+              
+              elem = sqrt(nb + lb + 1.5d0)
+           
+           else if (na == nb - 1) then 
+              
+              elem = -1.d0*sqrt(float(nb)) 
+           
+           else 
+              
+              elem = 0.d0 
+           end if 
+        else 
+           elem = 0.d0 
+        end if 
+  
+        rms%fhh(a,b) = sqrt(hbarc2_over_mc2 / rms%hospace) * elem * mass_factor
+        rms%fhh(b,a) = rms%fhh(a,b) 
+     end do  
+  end do 
+
+!fph  
+  do a = 1, rr%Nsp - rr%belowEF
+     
+     ak = jbas%parts(a)
+     na = jbas%nn(ak)
+     la = jbas%ll(ak) 
+     
+     do b = 1, rr%belowEF
+     
+        bk = jbas%holes(b)
+        nb = jbas%nn(bk)
+        lb = jbas%ll(bk)
+
+  
+        if (la == lb - 1) then 
+           
+           if (na == nb) then 
+              
+              elem = sqrt(nb + lb + 0.5d0)
+           
+           else if (na == nb + 1)  then 
+              
+              elem = -1.d0*sqrt(nb + 1.d0)
+
+           else 
+              elem = 0.d0 
+              
+           end if 
+        
+        else if (la == lb + 1) then 
+           
+           if (na == nb) then 
+              
+              elem = sqrt(nb + lb + 1.5d0)
+           
+           else if (na == nb - 1) then 
+              
+              elem = -1.d0*sqrt(float(nb)) 
+           
+           else 
+              
+              elem = 0.d0
+           end if 
+        else 
+           elem = 0.d0 
+        end if 
+  
+        rms%fph(a,b) = sqrt(hbarc2_over_mc2 / rms%hospace) * elem * mass_factor
+       
+     end do  
+  end do 
+ 
+!fpp
+   do a = 1,rr%Nsp-rr%belowEF
+     
+     ak = jbas%parts(a)
+     na = jbas%nn(ak)
+     la = jbas%ll(ak) 
+     
+     do b = a, rr%Nsp - rr%belowEF
+     
+        bk = jbas%parts(b)
+        nb = jbas%nn(bk)
+        lb = jbas%ll(bk)
+
+  
+        if (la == lb - 1) then 
+           
+           if (na == nb) then 
+              
+              elem = sqrt(nb + lb + 0.5d0)
+           
+           else if (na == nb + 1)  then 
+              
+              elem = -1.d0*sqrt(nb + 1.d0)
+
+           else 
+              elem = 0.d0 
+              
+           end if 
+        
+        else if (la == lb + 1) then 
+           
+           if (na == nb) then 
+              
+              elem = sqrt(nb + lb + 1.5d0)
+           
+           else if (na == nb - 1) then 
+              
+              elem = -1.d0*sqrt(float(nb)) 
+           
+           else 
+              
+              elem = 0.d0 
+           end if
+        else 
+           elem = 0.d0 
+        end if 
+  
+        rms%fpp(a,b) = sqrt(hbarc2_over_mc2 / rms%hospace) * elem * mass_factor
+        rms%fpp(b,a) = rms%fpp(a,b) 
+     end do  
+  end do 
+ 
+  
+
+end subroutine
 !====================================================================       
 end module
 
