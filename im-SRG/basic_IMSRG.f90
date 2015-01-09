@@ -418,7 +418,7 @@ subroutine divide_work(r1)
 !$omp parallel
   threads=omp_get_num_threads() 
 !$omp end parallel
-
+!threads = 1
   b = 0.d0
   do q = 1, r1%nblocks
      b = b + r1%mat(q)%nhh +r1%mat(q)%npp + r1%mat(q)%nph 
@@ -1744,7 +1744,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
   integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,Gindx,g,ta,tb,Atot,hg,pg
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x,JTM
-  real(8) :: sm,sm2,pre
+  real(8) :: sm,sm2,pre,horse
   logical :: phase
 
   Atot = HS%belowEF
@@ -1820,10 +1820,13 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                  end do
               
                  Gindx = CCME%rmap(x)%Z(g)
-
+                 
+                 sm = 0.d0 
+               
+!                 horse = 0.d0 
                  if ( (mod(la + lh,2) == mod(lb + lp,2)) .and. &
                       ( (ta + th) == (tb + tp) ) ) then  
-                       
+               
                     ! hapb 
                     Jmin = max(abs(jp - jb),abs(ja - jh)) 
                     Jmax = min(jp+jb,ja+jh) 
@@ -1842,9 +1845,8 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                
                     CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
                          (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
-
-                 end if
                  
+                 end if
               end do
            end do
         end do

@@ -83,12 +83,16 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   do while (crit > 1e-6) 
      
      call copy_sq_op(G,G0) 
+     
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+    ! print*, v_elem(1,11,1,11,0,G,jbas)
      call euler_step(G,DG,s,ds) 
+     
+     !call print_matrix(G%mat(1)%gam(4)%X)
      
      call copy_sq_op(HS,H0) 
      call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-     
+
      call copy_sq_op(ETA,ETA0)
     
      call build_gs_white(HS,ETA,jbas) 
@@ -428,7 +432,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
  
   advals(1) = abs(H%E0)   
  
-  do i = 2 , 15
+  do i = 2 ,15
 
      ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
@@ -503,8 +507,8 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   if (fullnorm < 1e-9) return
   
   q = 1
-!  return
-  do i = 2 , 7  
+
+  do i = 2 , 7
 
      call copy_sq_op( DG , INT1) 
      call copy_sq_op( INT2 , AD ) 

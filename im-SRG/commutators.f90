@@ -858,9 +858,9 @@ end subroutine
                   rjl = specific_rval(j,l,Ntot,qx,LCC)
                   rik = specific_rval(i,k,Ntot,qx,LCC)
                   
-                  sm = sm - (RES%herm*WCC%CCX(qx)%X(rjl,rik) - &
+                  sm = sm - (1.d0*WCC%CCX(qx)%X(rjl,rik) - &
                        WCC%CCR(qx)%X(rjl,rik) - &
-                       RES%herm*WCC%CCR(qx)%X(rik,rjl) + &
+                       1.d0*WCC%CCR(qx)%X(rik,rjl) + &
                        WCC%CCX(qx)%X(rik,rjl) ) * &
                        sixj(jk,jl,Jtot,jj,ji,JP) * &
                        (-1)**((ji + jl + Jtot)/2) 
@@ -884,9 +884,9 @@ end subroutine
                   rjk = specific_rval(j,k,Ntot,qx,LCC)
                   
                   sm = sm + ( WCC%CCR(qx)%X(ril,rjk) - &
-                       RES%herm*WCC%CCX(qx)%X(ril,rjk) - &
+                       1.d0*WCC%CCX(qx)%X(ril,rjk) - &
                        WCC%CCX(qx)%X(rjk,ril) + &
-                       RES%herm*WCC%CCR(qx)%X(rjk,ril) ) * &
+                       1.d0*WCC%CCR(qx)%X(rjk,ril) ) * &
                        sixj(jk,jl,Jtot,ji,jj,JP) * &
                        (-1)**((ji + jl)/2)
             
