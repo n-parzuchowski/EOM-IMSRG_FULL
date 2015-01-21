@@ -10,14 +10,15 @@ program main_IMSRG
   type(spd) :: jbasis
   type(sq_op) :: HS,ETA,DH,w1,w2,Hcm,rirj,pipj,r2_rms
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
-  type(full_sp_block_mat) :: coefs
+  type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb,k,l,m,n
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
   logical :: hartree_fock,magnus_exp,tda_calculation,COM_calc,r2rms_calc
-  external :: dHds_white_gs,dHds_TDA_shell
+  external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
+  external :: dHds_TDA_shell_w_2op
 
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
@@ -79,6 +80,9 @@ program main_IMSRG
 ! just a large series of IF statements deciding exactly which type of
 ! calculation to run. (The call statements run the full calculation) 
   
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+! ground state decoupling
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (magnus_exp) then 
     
      if (COM_calc) then 
@@ -103,23 +107,40 @@ program main_IMSRG
      end if
      
   end if
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+! excited state decoupling
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
   if (tda_calculation) then 
-
+     
+     call initialize_TDA(TDA,jbasis,HS%Jtarg,HS%Ptarg,HS%valcut)
+     allocate(HS%exlabels(TDA%map(1),2))
+     HS%exlabels=TDA%blkM(1)%labels
+     
      if (magnus_exp) then 
     
         if (COM_calc) then 
-           call magnus_TDA(HS,jbasis,Hcm,pipj,rirj,coefs,COM='yes') 
+           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
+           call calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
-           call magnus_TDA(HS,jbasis,r2_rms)
+           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
         else 
-           call magnus_TDA(HS,jbasis) 
+           call magnus_TDA(HS,TDA,jbasis) 
         end if
         
      else
      
-        call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
-            
+        if (COM_calc) then 
+           call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell_w_2op, &
+                pipj,ppTDA,rirj,rrTDA) 
+           call calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw) 
+        else if (r2rms_calc) then
+           call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell_w_1op,&
+                r2_rms,rrTDA)
+        else 
+           call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell) 
+        end if 
      end if
      
      

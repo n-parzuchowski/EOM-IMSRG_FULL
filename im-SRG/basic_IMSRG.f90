@@ -1282,6 +1282,23 @@ subroutine duplicate_sp_mat(H,T)
   end do 
 
 end subroutine
+!==========================================
+!==========================================  
+subroutine add_sp_mat(A,ax,B,bx,C) 
+  ! use all of the information about H to make 
+  ! an empty block matrix of the same size
+  implicit none 
+  
+  type(full_sp_block_mat) :: A,B,C 
+  real(8),intent(in) :: ax,bx
+  integer :: q
+  
+  do q = 1, A%blocks
+     if (A%map(q) == 0) cycle
+     C%blkM(q)%matrix = ax*A%blkM(q)%matrix + bx*B%blkM(q)%matrix
+  end do 
+
+end subroutine
 !=====================================================
 subroutine duplicate_sq_op(H,op) 
   ! make a copy of the shape of H onto op

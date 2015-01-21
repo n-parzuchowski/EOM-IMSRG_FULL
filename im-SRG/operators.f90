@@ -437,6 +437,55 @@ subroutine calculate_CM_energy(pp,rr,hw)
   close(42)
   
 end subroutine
+!=====================================================
+!==================================================================== 
+subroutine calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw) 
+  implicit none 
+  
+  type(full_sp_block_mat) :: TDA,HcmTDA,ppTDA,rrTDA
+  real(8) :: hw,wTs(2)
+  real(8),allocatable,dimension(:) :: energies,omegas 
+  integer :: i,q
+  character(200) ::  spfile,intfile,prefix
+  character(3) :: args
+  common /files/ spfile,intfile,prefix
+ 
+  
+  call duplicate_sp_mat(TDA,HcmTDA) 
+  allocate(energies(3*ppTDA%map(1))) 
+  allocate(omegas(2*TDA%map(1)))
+  
+  call add_sp_mat(ppTDA,1.d0,rrTDA,1.d0,HcmTDA) 
+  call TDA_expectation_value(TDA,HcmTDA) 
+
+  energies(1:TDA%map(1)) = HcmTDA%blkM(1)%eigval - 1.5d0*hw 
+  
+
+  do q = 1, TDA%map(1) 
+     ! new frequencies
+     wTs = optimum_omega_for_CM_hamiltonian(hw,energies(q)) 
+     omegas(q) = wTs(1) 
+     omegas(q+TDA%map(1)) = wTs(2)
+     
+     do i = 1, 2
+        call add_sp_mat(ppTDA,1.d0,rrTDA,wTs(i)**2/hw**2,HcmTDA)
+        call TDA_expectation_value(TDA,HcmTDA) 
+        energies(i*TDA%map(1)+q) = HcmTDA%blkM(1)%eigval(q) - 1.5d0*hw 
+     end do
+  end do 
+  
+  ! for formatting
+   i = 1+5*TDA%map(1) 
+   write(args,'(I3)') i 
+   args = adjustl(args) 
+
+  !write results to file
+  open(unit=42,file='../../output/'//&
+         trim(adjustl(prefix))//'_Ecm_excited.dat')
+  write(42,'('//trim(args)//'(e14.6))') hw, omegas, energies 
+  close(42)
+  
+end subroutine
 end module
 
 

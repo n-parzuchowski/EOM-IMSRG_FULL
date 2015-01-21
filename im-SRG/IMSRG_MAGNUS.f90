@@ -120,23 +120,21 @@ subroutine magnus_decouple(HS,jbas,O1,O2)
 end subroutine  
 !===========================================================================
 !===========================================================================
-subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM) 
+subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA) 
   ! runs IMSRG TDA decoupling using magnus expansion method
   implicit none 
   
   integer :: Atot,Ntot,nh,np,nb,q,steps,i
   type(spd) :: jbas
-  type(sq_op),optional :: O1,O2,O3
-  type(full_sp_block_mat),optional :: cof
-  type(full_sp_block_mat) :: cofspace,spop,TDA,O1TDA,O2TDA,O3TDA
-  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Hcms
-  type(cross_coupled_31_mat) :: GCC,ADCC,WCC,HCC,O1CC,O2CC,O3CC 
+  type(sq_op),optional :: O1,O2
+  type(full_sp_block_mat) :: TDA
+  type(full_sp_block_mat),optional :: O1TDA,O2TDA
+  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
+  type(cross_coupled_31_mat) :: GCC,ADCC,WCC,HCC,OeCC
   real(8) :: ds,s,crit,nrm1,nrm2,wTs(2),Ecm(3)
   real(8),allocatable,dimension(:) :: E_old,wTvec
   character(200) :: spfile,intfile,prefix
   character(3) :: args
-  character(3),intent(in),optional :: COM
-  logical :: com_calc
   common /files/ spfile,intfile,prefix
   
   call duplicate_sq_op(HS,ETA) !generator
@@ -156,37 +154,27 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
   DG%herm = -1
   G0%herm = -1 
   ETA0%herm = -1
-  
-  com_calc = .false. 
-  if (present(COM)) then 
-     com_calc = .true.
-     call duplicate_sq_op(O1,Hcms) 
-     ! full center of mass calculation requires all of the variables
-  end if
-  
+    
   call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
   call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
   call duplicate_CCMAT(ADCC,HCC) 
   call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
   
   ! TDA stuff
-  call initialize_TDA(TDA,jbas,HS%Jtarg,HS%Ptarg,HS%valcut)
-  allocate(HS%exlabels(TDA%map(1),2))
-  HS%exlabels=TDA%blkM(1)%labels
   call calculate_cross_coupled(HS,HCC,jbas,.true.)
   call calc_TDA(TDA,HS,HCC,jbas)
   call diagonalize_blocks(TDA)
   allocate(E_old(TDA%map(1)))
 
   s = 0.d0 
-  ds = 0.01d0
+  ds = 0.001d0
   crit = 10.
   steps = 0
 
   E_old = TDA%blkM(1)%eigval
   
   open(unit=37,file='../../output/'//&
-       trim(adjustl(prefix))//'_magnus_excited.dat')
+       trim(adjustl(prefix))//'_excited.dat')
   
   call write_excited_states(steps,s,TDA,HS%E0,37)
   call build_specific_space(HS,ETA,jbas) 
@@ -235,106 +223,33 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
   end do
 
 ! calculate any observables which have been requested =====================
-
-! center of mass Energy 
-  if (com_calc) then 
-       
- !    print*, TDA%map(1)
-     deallocate(E_old) 
-     allocate(E_old(3*TDA%map(1))) 
-     allocate(wTvec(2*TDA%map(1)))
-     
-     ! transform operator 
-     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-
-     ! calculate TDA approx to O1 
-     call duplicate_sp_mat(TDA,O1TDA)
-     
-     allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
-     O1TDA%blkM(1)%labels = TDA%blkM(1)%labels 
-     
-     call duplicate_CCMAT(HCC,O1CC)
-     call calculate_cross_coupled(Hcms,O1CC,jbas,.true.) 
-     call calc_TDA(O1TDA,Hcms,O1CC,jbas) 
-
-     ! this gets the expectation values of all of the TDA vectors
-     call TDA_expectation_value(TDA,O1TDA) 
-     
-     ! store exp. values
-     E_old(1:TDA%map(1)) = O1TDA%blkM(1)%eigval
-     
-     do q = 1,TDA%map(1) 
-     
-        ! new frequencies
-        wTs = optimum_omega_for_CM_hamiltonian(Hcms%hospace,O1TDA%blkM(1)%eigval(q)) 
-        
-        wTvec(q) = wTs(1) 
-        wTvec(q+TDA%map(1)) = wTs(2)  
-        
-        do i = 1, 2
-           
-           ! reconstruct 01 (Hcm) using the oakridge-boyz frequencies
-           call clear_sq_op(O1)
-           call add_sq_op(O2,1.d0,O3,wTs(i)**2/Hcms%hospace**2,O1)
-           call normal_order(O1,jbas) 
-           O1%E0 =O1%E0 - 1.5d0*wTs(i) 
-           
-           ! Transform to decoupled basis
-           call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-           
-           call calculate_cross_coupled(Hcms,O1CC,jbas,.true.) 
-           call calc_TDA(O1TDA,Hcms,O1CC,jbas) 
-           ! new expectation values for this freq. 
-           call TDA_expectation_value(TDA,O1TDA) 
-
-           ! store exp. value for new frequencies. 
-           E_old(i*TDA%map(1)+q) = O1TDA%blkM(1)%eigval(q) 
-           ! can't trust other eigenvalues, will be calculated for their own freq.
-           
-        end do
-     
-     end do 
-
-     i = 1+5*TDA%map(1) 
-     write(args,'(I3)') i 
-     args = adjustl(args) 
-     
-     open(unit=42,file='../../output/'//trim(adjustl(prefix))&
-          //'_Ecm_excited.dat') 
-     write(42,'('//trim(args)//'(e14.6))') Hcms%hospace, wTvec, E_old 
-     close(42)
   
-  else if (present(O1)) then 
-     
-     
-     call duplicate_sq_op(O1,Hcms) 
-    
-! transform observable
-     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+  if (present(O1)) then 
+     call duplicate_sq_op(O1,Oevolv) 
+     call duplicate_CCMAT(HCC,OeCC)
 
-! make a new TDA array for the observable 
+     if (present(O2)) then 
+        
+        ! transform observable
+        call BCH_EXPAND(Oevolv,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+        call duplicate_sp_mat(TDA,O2TDA) 
+        allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
+        O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
+        call calculate_cross_coupled(Oevolv,OeCC,jbas,.true.) 
+        call calc_TDA(O2TDA,Oevolv,OeCC,jbas)
+        call copy_sq_op(Oevolv,O2)
+     end if 
+     
+     ! transform observable
+     call BCH_EXPAND(Oevolv,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      call duplicate_sp_mat(TDA,O1TDA)
      allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
      O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-     call duplicate_CCMAT(HCC,O1CC)
+     call calculate_cross_coupled(Oevolv,OeCC,jbas,.true.) 
+     call calc_TDA(O1TDA,Oevolv,OeCC,jbas) 
+     call copy_sq_op(Oevolv,O1) 
+  end if 
 
-! populate new TDA array
-     call calculate_cross_coupled(O1,O1CC,jbas,.true.) 
-     call calc_TDA(O1TDA,O1,O1CC,jbas) 
-! take expectation values 
-     call TDA_expectation_value(TDA,O1TDA) 
-     
-     i = 1+TDA%map(1) 
-     write(args,'(I3)') i 
-     args = adjustl(args) 
-     
-     open(unit=42,file='../../output/'//trim(adjustl(prefix))&
-          //'_Rrms_excited.dat') 
-     write(42,'('//trim(args)//'(e14.6))') Hcms%hospace,  &
-          O1TDA%blkM(1)%eigval(1:TDA%map(1)) 
-     close(42)
-        
-  end if
 !===========================================================================  
   close(37)
 end subroutine
