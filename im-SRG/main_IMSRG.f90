@@ -3,6 +3,7 @@ program main_IMSRG
   use HF_mod
   use IMSRG_ODE
   use IMSRG_MAGNUS
+  use operators
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
@@ -15,7 +16,8 @@ program main_IMSRG
   integer :: np,nh,nb,k,l,m,n
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
   logical :: hartree_fock,magnus_exp,tda_calculation,COM_calc,r2rms_calc
-  external :: dHds_white_gs,dHds_TDA_shell,dHds_white_gs_with_operators
+  external :: dHds_white_gs,dHds_TDA_shell
+  external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
 
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
@@ -34,16 +36,14 @@ program main_IMSRG
   if (COM_calc) then  
      call duplicate_sq_op(HS,rirj)
      call duplicate_sq_op(HS,pipj)
-     call duplicate_sq_op(HS,Hcm)     
      call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
-     ! consider first the Hcm with same frequency as basis
      call calculate_h0_harm_osc(hw,jbasis,pipj,4)
      call calculate_h0_harm_osc(hw,jbasis,rirj,5)
   else if (r2rms_calc) then
      call duplicate_sq_op(HS,rirj)
      call duplicate_sq_op(HS,r2_rms) 
      call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
-     call initialize_rms_radius(r2_rms,rirj,jbasis) 
+     call initialize_CM_radius(r2_rms,rirj,jbasis) 
   else    
      call read_interaction(HS,jbasis,ham_type,hw)
   end if 
@@ -58,9 +58,8 @@ program main_IMSRG
      
      if (COM_calc) then 
         call calc_HF(HS,jbasis,coefs,pipj,rirj)
-        call add_sq_op(pipj,1.d0,rirj,1.d0,Hcm) 
-        call normal_order(Hcm,jbasis)
-        Hcm%E0 = Hcm%E0 - 1.5d0*hw
+        call normal_order(pipj,jbasis)
+        call normal_order(rirj,jbasis)
      else if (r2rms_calc) then 
         call calc_HF(HS,jbasis,coefs,r2_rms)
         call normal_order(r2_rms,jbasis)
@@ -83,10 +82,10 @@ program main_IMSRG
   if (magnus_exp) then 
     
      if (COM_calc) then 
-        call magnus_decouple(HS,jbasis,Hcm,pipj,rirj,coefs,COM='yes') 
+        call magnus_decouple(HS,jbasis,pipj,rirj)
+        call calculate_CM_energy(pipj,rirj,hw) 
      else if (r2rms_calc) then
         call magnus_decouple(HS,jbasis,r2_rms)
-        print*, sqrt(r2_rms%E0), 'cow'
         call write_tilde_from_Rcm(r2_rms)
      else 
         call magnus_decouple(HS,jbasis) 
@@ -94,15 +93,11 @@ program main_IMSRG
      
   else
      if (COM_calc) then 
-        call normal_order(pipj,jbasis)
-        call normal_order(rirj,jbasis) 
-        call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_operators,pipj,rirj)
-        call add_sq_op(pipj,1.d0,rirj,1.d0,Hcm)
-        Hcm%E0 = Hcm%E0 - 1.5d0*hw 
-        print*, Hcm%E0, 'ass'
+        call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_2op,pipj,rirj)
+        call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
      else if (r2rms_calc) then 
-        call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_operators,r2_rms) 
-        print*, sqrt(r2_rms%E0), 'blah'
+        call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_1op,r2_rms)
+        call write_tilde_from_Rcm(r2_rms)
      else 
         call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
      end if

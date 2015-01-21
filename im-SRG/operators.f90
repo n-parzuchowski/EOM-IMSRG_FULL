@@ -408,7 +408,35 @@ subroutine initialize_CM_radius_onebody(rms,rr,jbas)
   
 
 end subroutine
-!====================================================================       
+!==================================================================== 
+subroutine calculate_CM_energy(pp,rr,hw) 
+  implicit none 
+  
+  type(sq_op) :: pp,rr,Hcm
+  real(8) :: hw,wTs(2),Ecm(3) 
+  integer :: i
+  character(200) ::  spfile,intfile,prefix
+  common /files/ spfile,intfile,prefix
+ 
+  call duplicate_sq_op(pp,Hcm)
+  call add_sq_op(pp,1.d0,rr,1.d0,Hcm)
+  Ecm(1) = Hcm%E0 - 1.5d0*hw ! store Ecm for this Hcm frequency 
+    
+  ! new frequencies
+  wTs = optimum_omega_for_CM_hamiltonian(hw,Ecm(1)) 
+  
+  do i = 1, 2
+     call add_sq_op(pp,1.d0,rr,wTs(i)**2/hw**2,Hcm)
+     Ecm(i+1) = Hcm%E0 - 1.5d0 * wTs(i) 
+  end do   
+
+  !write results to file
+  open(unit=42,file='../../output/'//&
+         trim(adjustl(prefix))//'_Ecm.dat')
+  write(42,'(6(e14.6))') hw, wTs, Ecm 
+  close(42)
+  
+end subroutine
 end module
 
 

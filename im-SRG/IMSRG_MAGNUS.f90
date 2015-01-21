@@ -8,21 +8,17 @@ module IMSRG_MAGNUS
   
 contains
 
-subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM) 
+subroutine magnus_decouple(HS,jbas,O1,O2) 
   ! runs IMSRG using magnus expansion method
   implicit none 
   
   integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
   type(spd) :: jbas
-  type(sq_op),optional :: O1,O2,O3
-  type(full_sp_block_mat),optional :: cof
-  type(full_sp_block_mat) :: cofspace,spop 
-  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Hcms
+  type(sq_op),optional :: O1,O2
+  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3)
   character(200) :: spfile,intfile,prefix
-  character(3),intent(in),optional :: COM
-  logical :: com_calc
   common /files/ spfile,intfile,prefix
   
   call duplicate_sq_op(HS,ETA) !generator
@@ -41,14 +37,6 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   DG%herm = -1
   G0%herm = -1 
   ETA0%herm = -1
-  
-  
-  com_calc = .false. 
-  if (present(COM)) then 
-     com_calc = .true.
-     call duplicate_sq_op(O1,Hcms) 
-     ! full center of mass calculation requires all of the variables
-  end if
   
   call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
   call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
@@ -108,63 +96,26 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
 
 ! calculate any observables which have been requested =====================
 
-! center of mass Energy 
-  if (com_calc) then 
-     
-     ! transform operator 
-     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-   
-     Ecm(1) = Hcms%E0 ! store Ecm for this Hcm frequency 
+  if (present(O1)) then 
+     call duplicate_sq_op(O1,Oevolv)
     
-     ! new frequencies
-     wTs = optimum_omega_for_CM_hamiltonian(Hcms%hospace,Hcms%E0) 
+     if (present(O2)) then 
+
+       call BCH_EXPAND(Oevolv,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+       
+       call copy_sq_op(Oevolv,O2) 
+
+     end if 
+ 
+     call clear_sq_op(Oevolv)
+     call BCH_EXPAND(Oevolv,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      
-     do i = 1, 2
-     ! reconstruct O1 (Hcm) using the oakridge-boyz frequencies
-        call clear_sq_op(O1)
-        call add_sq_op(O2,1.d0,O3,wTs(i)**2/Hcms%hospace**2,O1)
-        call normal_order(O1,jbas) 
-        O1%E0 =O1%E0 - 1.5d0*wTs(i) 
-     
-        ! Transform to decoupled basis
-        call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-        Ecm(i+1) = Hcms%E0 ! store Ecm for this Hcm frequency 
-     end do
-        
-     open(unit=42,file='../../output/'//&
-         trim(adjustl(prefix))//'_Ecm.dat')
-
-     write(42,'(6(e14.6))') Hcms%hospace, wTs, Ecm 
-
-
-     close(42)
-     
-     !update all the operators
-     call clear_sq_op(O1)
-     call add_sq_op(O2,1.d0,O3,1.d0,O1)
-     ! here I have reset O1 to the Hcm with hw  instead of oakridge freqs
-
-     call copy_sq_op(Hcms,O1) 
-     call BCH_EXPAND(Hcms,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
-     call copy_sq_op(Hcms,O2)
-     call BCH_EXPAND(Hcms,G,O3,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
-     call copy_sq_op(Hcms,O3)
-
-  else if (present(O1)) then 
-     
-     call duplicate_sq_op(O1,Hcms)
-
-     call BCH_EXPAND(Hcms,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-     
-     call copy_sq_op(Hcms,O1) 
-
+     call copy_sq_op(Oevolv,O1) 
+          
   end if
 
 !===========================================================================  
   close(36)
-  close(43)
-  close(44)
-  
   
 end subroutine  
 !===========================================================================

@@ -109,7 +109,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
      E_mbpt2 = mbpt2(H,jbas) 
      crit = abs(E_mbpt2)
   
-     write(36,'(I6,5(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,O1%E0,crit
+     write(36,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
     
      if (crit < conv_crit) exit
@@ -394,7 +394,7 @@ subroutine dHds_TDA_shell(t,yy,yp,HS,jbas)
 end subroutine 
 !==============================================================
 !==============================================================
-subroutine dHds_white_gs_with_operators(t,yy,yp,HS,jbas) 
+subroutine dHds_white_gs_with_1op(t,yy,yp,HS,jbas) 
   ! calculates the derivatives inside the solver
   ! use in shampine and gordon, modified to include HS,jbas
   use basic_IMSRG
@@ -412,22 +412,16 @@ subroutine dHds_white_gs_with_operators(t,yy,yp,HS,jbas)
 !!! we need the sq_op structure to compute the derivatives at max speed
 !!! so we allocate a bunch of those to work in 
 
-  neq = 2*HS%neq!size(yp(:)) 
-  num_ops = neq/HS%neq - 1
+  neq = 2*HS%neq
  
 ! ALLOCATE A BUNCH OF WORKSPACE
   call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,DH) !derivative
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
-  call duplicate_sq_op(HS,O1) 
-  
- call repackage(O1,yy(HS%neq+1:2*HS%neq)) 
-
- if ( num_ops == 2 ) then    
-     call duplicate_sq_op(HS,O2)
-     call repackage(O2,yy(2*HS%neq+1:3*HS%neq))
-  end if 
+ 
+  call duplicate_sq_op(HS,O1)   
+  call repackage(O1,yy(HS%neq+1:2*HS%neq)) 
   
   call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
@@ -469,8 +463,83 @@ subroutine dHds_white_gs_with_operators(t,yy,yp,HS,jbas)
   
   ! rewrite in a form that shampine and gordon are comfortable with.
   call vectorize(DH,yp(HS%neq+1:2*HS%neq))
-  if (num_ops == 1) return 
-print*, 'FUCK'
+
+end subroutine
+!==================================================================
+!==================================================================
+subroutine dHds_white_gs_with_2op(t,yy,yp,HS,jbas) 
+  ! calculates the derivatives inside the solver
+  ! use in shampine and gordon, modified to include HS,jbas
+  use basic_IMSRG
+  use commutators
+  use generators
+  implicit none 
+  
+  real(8) :: t,ex,ex2
+  integer :: i,j,neq,bytes,n,m,p,q,r,s,px,qx,rx,sx,k,l,num_ops 
+  real(8) :: yp(*),yy(*)
+  type(spd) :: jbas
+  type(sq_op) :: HS,ETA,DH,w1,w2,O1,O2
+  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC 
+
+!!! we need the sq_op structure to compute the derivatives at max speed
+!!! so we allocate a bunch of those to work in 
+
+  neq = 3*HS%neq
+ 
+! ALLOCATE A BUNCH OF WORKSPACE
+  call duplicate_sq_op(HS,ETA) !generator
+  call duplicate_sq_op(HS,DH) !derivative
+  call duplicate_sq_op(HS,w1) !workspace
+  call duplicate_sq_op(HS,w2) !workspace
+  
+  call duplicate_sq_op(HS,O1) 
+  call repackage(O1,yy(HS%neq+1:2*HS%neq)) 
+
+  call duplicate_sq_op(HS,O2)
+  call repackage(O2,yy(2*HS%neq+1:3*HS%neq))
+  
+  call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
+  call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
+  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
+
+  call build_gs_white(HS,ETA,jbas) ! constructs generator
+  
+  call calculate_cross_coupled(HS,HSCC,jbas,.true.)
+  call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
+   
+  DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
+ 
+  call commutator_111(ETA,HS,DH,jbas) 
+  call commutator_121(ETA,HS,DH,jbas)
+  call commutator_122(ETA,HS,DH,jbas)
+  
+  call commutator_222_pp_hh(ETA,HS,DH,w1,w2,jbas)
+  
+  call commutator_221(ETA,HS,DH,w1,w2,jbas)
+  call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
+  
+  ! rewrite in a form that shampine and gordon are comfortable with.
+  call vectorize(DH,yp(1:HS%neq))
+  
+!===================================================================
+  
+  call calculate_cross_coupled(O1,HSCC,jbas,.true.)
+  
+  DH%E0 = commutator_110(ETA,O1,jbas) + commutator_220(ETA,O1,jbas)
+ 
+  call commutator_111(ETA,O1,DH,jbas) 
+  call commutator_121(ETA,O1,DH,jbas)
+  call commutator_122(ETA,O1,DH,jbas)
+  
+  call commutator_222_pp_hh(ETA,O1,DH,w1,w2,jbas)
+  
+  call commutator_221(ETA,O1,DH,w1,w2,jbas)
+  call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
+  
+  ! rewrite in a form that shampine and gordon are comfortable with.
+  call vectorize(DH,yp(HS%neq+1:2*HS%neq))
+
 !===================================================================
   call calculate_cross_coupled(O2,HSCC,jbas,.true.)
    
@@ -488,3 +557,4 @@ print*, 'FUCK'
   ! rewrite in a form that shampine and gordon are comfortable with.
   call vectorize(DH,yp(2*HS%neq+1:3*HS%neq))
 end subroutine
+
