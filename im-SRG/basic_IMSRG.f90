@@ -44,7 +44,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      integer :: Jtarg,Ptarg,valcut
-     real(8) :: E0,hospace 
+     real(8) :: E0,hospace
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 type sp_block_mat

@@ -827,7 +827,7 @@ end subroutine
          ti = jbas%itzp(i) 
          tj = jbas%itzp(j)
          
-         do JX = min(jxstart,IX),n2
+         do JX =min(jxstart,IX),n2
             pre2 = 1.d0 
             k = RES%mat(q)%qn(c2)%Y(JX,1)
             l = RES%mat(q)%qn(c2)%Y(JX,2)

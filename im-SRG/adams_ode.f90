@@ -15,7 +15,7 @@ subroutine euler_ode( f,neqn,y,rx,jbas,t,dt)
   type(spd) :: jbas
 
 ! get derivatives  
-  call f(t,y,rx,jbas) 
+  call f(t,y,yp,rx,jbas) 
   
 ! write rx as a vector
   call vectorize(rx,yp) 
@@ -205,7 +205,7 @@ subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwo
      print*, 'fuck... NaNs in the solver...'
      stop 
   end if 
-  
+ 
   iwt = iyy + neqn
   ip = iwt + neqn
   iyp = ip + neqn
@@ -529,8 +529,8 @@ subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
 !
     if ( isn <= 0 .and. abs ( tout - x ) < fouru * abs ( x ) ) then
       h = tout - x
-      call repackage( rx, yy ) 
-      call f ( x, yp, rx,jbas)
+      call repackage( rx, yy(1:rx%neq) ) 
+      call f ( x, yy, yp, rx,jbas)
       y(1:neqn) = yy(1:neqn) + h * yp(1:neqn)
       iflag = 2
       t = tout
@@ -854,8 +854,8 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
 !  Initialize.  Compute an appropriate step size for the first step.
 !
   if ( start ) then
-    call repackage( rx, y ) 
-    call f ( x, yp , rx,jbas)
+    call repackage( rx, y(1:rx%neq) ) 
+    call f ( x, y, yp , rx,jbas)
     phi(1:neqn,1) = yp(1:neqn)
     phi(1:neqn,2) = 0.0D+00
     total = sqrt ( sum ( ( yp(1:neqn) / wt(1:neqn) )**2 ) )
@@ -1007,9 +1007,9 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
     xold = x
     x = x + h
     absh = abs ( h )
-    call repackage( rx, p ) 
-    call f ( x, yp, rx,jbas)
-
+    call repackage( rx, p(1:rx%neq) ) 
+    call f ( x, p, yp, rx,jbas)
+ 
 !
 !  Estimate the errors at orders K, K-1 and K-2.
 !
@@ -1138,8 +1138,8 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
     y(1:neqn) = p(1:neqn) + h * g(kp1) * ( yp(1:neqn) - phi(1:neqn,1) )
   end if
 
-  call repackage( rx, y ) 
-  call f ( x, yp , rx,jbas )
+  call repackage( rx, y(1:rx%neq) ) 
+  call f ( x, y, yp , rx,jbas )
 
 !
 !  Update differences for the next step.

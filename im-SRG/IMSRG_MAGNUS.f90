@@ -12,7 +12,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   ! runs IMSRG using magnus expansion method
   implicit none 
   
-  integer :: Atot,Ntot,nh,np,nb,q,steps,i
+  integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
   type(spd) :: jbas
   type(sq_op),optional :: O1,O2,O3
   type(full_sp_block_mat),optional :: cof
@@ -57,9 +57,6 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   call build_gs_white(HS,ETA,jbas) 
   call copy_sq_op(HS,H) 
   
-  !E_old = HS%E0
- ! nrm1 = HS%E0 !mat_frob_norm(ETA) 
- ! nrm1 = mat_frob_norm(ETA) 
   s = 0.d0 
   ds = 1.d0
   crit = 10.
@@ -68,52 +65,45 @@ subroutine magnus_decouple(HS,jbas,O1,O2,O3,cof,COM)
   open(unit=36,file='../../output/'//&
        trim(adjustl(prefix))//'_0b_magnus_flow.dat')
 
-  open(unit=43,file='../../output/'//&
-       trim(adjustl(prefix))//'_magnus_terms.dat')
-
-  open(unit=44,file='../../output/'//&
-       trim(adjustl(prefix))//'_BCH_terms.dat')
-
-
   E_mbpt2 = mbpt2(HS,jbas) 
   crit=abs(E_mbpt2)
 
-  write(36,'(I6,4(e14.6))') steps,s,H%E0,HS%E0+E_mbpt2,crit
-  write(*,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+  write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
+  write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+
+  nrm1 = mat_frob_norm(ETA)
   do while (crit > 1e-6) 
      
      call copy_sq_op(G,G0) 
      
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
-    ! print*, v_elem(1,11,1,11,0,G,jbas)
      call euler_step(G,DG,s,ds) 
-     
-     !call print_matrix(G%mat(1)%gam(4)%X)
-     
+  
      call copy_sq_op(HS,H0) 
      call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
 
      call copy_sq_op(ETA,ETA0)
     
      call build_gs_white(HS,ETA,jbas) 
-!     nrm2 = HS%E0 !mat_frob_norm(ETA)
-  !    nrm2 = mat_frob_norm(ETA)
-     !if ( nrm1 < nrm2 )  then
-      !  s = s-ds
-       ! call copy_sq_op(G0,G)
-       ! call copy_sq_op(ETA0,ETA)
-       ! call copy_sq_op(H0,HS)
-       ! ds = ds/2.d0 
-       ! cycle 
-     !end if 
+
+     nrm2 = HS%E0 !mat_frob_norm(ETA)
+     nrm2 = mat_frob_norm(ETA)
+     if ( nrm1 < nrm2 )  then
+        s = s-ds
+        call copy_sq_op(G0,G)
+        call copy_sq_op(ETA0,ETA)
+        call copy_sq_op(H0,HS)
+        ds = ds/2.d0 
+        cycle 
+     end if 
 
      E_mbpt2 = mbpt2(HS,jbas) 
 
      crit = abs(E_mbpt2) 
      nrm1 = nrm2 
      steps = steps + 1
-     write(36,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-     write(*,'(I6,4(e14.6))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
   end do
 
 ! calculate any observables which have been requested =====================
@@ -258,7 +248,7 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
      call copy_sq_op(G,G0) 
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call euler_step(G,DG,s,ds) 
-     
+ 
      call copy_sq_op(HS,H0) 
      call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      
@@ -284,7 +274,7 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
      call write_excited_states(steps,s,TDA,HS%E0,37) 
      
      crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
-     write(*,'(I6,6(e14.6))') steps,s,TDA%blkM(1)%eigval(1:4),crit
+     write(*,'(I6,6(e15.7))') steps,s,TDA%blkM(1)%eigval(1:4),crit
      E_old = TDA%blkM(1)%eigval
 
      nrm1 = nrm2 
@@ -298,7 +288,7 @@ subroutine magnus_TDA(HS,jbas,O1,O2,O3,cof,COM)
 ! center of mass Energy 
   if (com_calc) then 
        
-     print*, TDA%map(1)
+ !    print*, TDA%map(1)
      deallocate(E_old) 
      allocate(E_old(3*TDA%map(1))) 
      allocate(wTvec(2*TDA%map(1)))
@@ -414,8 +404,8 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   
   cof = (/1.d0,1.d0,0.5d0,0.166666666666666666d0, &
        0.04166666666666666d0,0.0083333333333333333d0,&
-       .001388888888888d0,1.984126984d-4,2.48015873d-5,&
-       2.755731922d-6,2.755731922d-7,2.505210839d-8, &
+       .001388888888888d0,1.984126984d-4,2.48015873016d-5,&
+       2.75573192239d-6,2.75573192239d-7,2.505210839d-8, &
        2.087675698d-9,1.6059043837d-10,1.1470745598d-11/) 
 
   ! intermediates must be HERMITIAN
@@ -440,7 +430,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call copy_sq_op( HS , INT1) 
      call copy_sq_op( INT2 , AD ) 
      ! so to start, AD is equal to H
-      call clear_sq_op(INT2)    
+     call clear_sq_op(INT2)    
      !now: INT2 = [ G , AD ]  
         
 ! zero body commutator
@@ -467,22 +457,15 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      if (advals(i) < conv) exit
      
   end do 
-
-  i = i + 1
-  write(args,'(I3)') i 
  
-  args = adjustl(args) 
- 
-  fullnorm = abs(HS%E0) 
-  write(44,'('//trim(args)//'(e14.6))') s,advals(1:i-1)
 end subroutine 
 !===============================================================
 !===============================================================
 subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   implicit none 
   
-  real(8), parameter :: conv = 1e-4
-  integer :: trunc,i,q,j,k,l
+  real(8), parameter :: conv = 1e-8
+  integer :: trunc,i,q,j,k,l,ry
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
@@ -507,7 +490,7 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   if (fullnorm < 1e-9) return
   
   q = 1
-
+ ! return
   do i = 2 , 7
 
      call copy_sq_op( DG , INT1) 
@@ -533,18 +516,13 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)   
      call commutator_221(G,AD,INT2,w1,w2,jbas)     
      call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
-     
+                 
      call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , DG ) !ME_general
      
      advals(i) = mat_frob_norm(INT2)*abs(cof(i))
+    
+  end do   
      
-  end do 
-   
-  write(args,'(I3)') i 
-  args = adjustl(args) 
-  
-  write(43,'('//trim(args)//'(e14.6))') s,advals(1:i-1)/fullnorm
-  
 end subroutine 
 !=====================================================
 !=====================================================

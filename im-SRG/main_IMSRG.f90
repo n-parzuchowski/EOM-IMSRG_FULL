@@ -15,7 +15,7 @@ program main_IMSRG
   integer :: np,nh,nb,k,l,m,n
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
   logical :: hartree_fock,magnus_exp,tda_calculation,COM_calc,r2rms_calc
-  external :: dHds_white_gs,dHds_TDA_shell
+  external :: dHds_white_gs,dHds_TDA_shell,dHds_white_gs_with_operators
 
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
@@ -43,7 +43,7 @@ program main_IMSRG
      call duplicate_sq_op(HS,rirj)
      call duplicate_sq_op(HS,r2_rms) 
      call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
-     call initialize_CM_radius(r2_rms,rirj,jbasis) 
+     call initialize_rms_radius(r2_rms,rirj,jbasis) 
   else    
      call read_interaction(HS,jbasis,ham_type,hw)
   end if 
@@ -72,7 +72,7 @@ program main_IMSRG
   else 
      call normal_order(HS,jbasis) 
   end if
-
+  
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
@@ -86,6 +86,7 @@ program main_IMSRG
         call magnus_decouple(HS,jbasis,Hcm,pipj,rirj,coefs,COM='yes') 
      else if (r2rms_calc) then
         call magnus_decouple(HS,jbasis,r2_rms)
+        print*, sqrt(r2_rms%E0), 'cow'
         call write_tilde_from_Rcm(r2_rms)
      else 
         call magnus_decouple(HS,jbasis) 
@@ -93,7 +94,15 @@ program main_IMSRG
      
   else
      if (COM_calc) then 
-        call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
+        call normal_order(pipj,jbasis)
+        call normal_order(rirj,jbasis) 
+        call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_operators,pipj,rirj)
+        call add_sq_op(pipj,1.d0,rirj,1.d0,Hcm)
+        Hcm%E0 = Hcm%E0 - 1.5d0*hw 
+        print*, Hcm%E0, 'ass'
+     else if (r2rms_calc) then 
+        call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_operators,r2_rms) 
+        print*, sqrt(r2_rms%E0), 'blah'
      else 
         call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
      end if
@@ -111,7 +120,7 @@ program main_IMSRG
         else 
            call magnus_TDA(HS,jbasis) 
         end if
-     
+        
      else
      
         call TDA_decouple(HS,jbasis,dHds_TDA_shell) 
