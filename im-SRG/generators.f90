@@ -4,6 +4,45 @@ module generators
   
   
 contains
+
+!==========================================================
+!==========================================================
+subroutine build_gs_wegner(H,ETA,jbas,HCC,HODCC,WCC,w1,w2) 
+  use commutators
+  ! calculates the traditional white generator for
+  ! ground state decoupling
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H,ETA,HOD,w1,w2
+  type(cross_coupled_31_mat) :: HCC,HODCC,WCC
+  integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
+  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
+  real(8) :: Eden,sm,Javerage
+  
+  ETA%herm = -1
+
+  call duplicate_sq_op(H,HOD) 
+  
+  HOD%fph = H%fph
+
+  do q = 1,HOD%nblocks
+     HOD%mat(q)%gam(3)%X = H%mat(q)%gam(3)%X
+  end do 
+
+  call calculate_cross_coupled(HOD,HODCC,jbas,.true.)
+  call calculate_cross_coupled(H,HCC,jbas,.false.) 
+ 
+  call commutator_111(H,HOD,ETA,jbas) 
+  call commutator_121(H,HOD,ETA,jbas)
+  call commutator_122(H,HOD,ETA,jbas)    
+
+  call commutator_222_pp_hh(H,HOD,ETA,w1,w2,jbas)
+  
+  call commutator_221(H,HOD,ETA,w1,w2,jbas)
+  call commutator_222_ph(HCC,HODCC,ETA,WCC,jbas)
+
+end subroutine
 !==========================================================
 !==========================================================
 subroutine build_gs_white(H,ETA,jbas) 

@@ -3,6 +3,7 @@ program main_IMSRG
   use HF_mod
   use IMSRG_ODE
   use IMSRG_MAGNUS
+  use IMSRG_CANONICAL
   use operators
   ! ground state IMSRG calculation for nuclear system 
   implicit none
@@ -13,9 +14,9 @@ program main_IMSRG
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
-  integer :: np,nh,nb,k,l,m,n
+  integer :: np,nh,nb,k,l,m,n,method_int
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
-  logical :: hartree_fock,magnus_exp,tda_calculation,COM_calc,r2rms_calc
+  logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
   external :: dHds_TDA_shell_w_2op
@@ -25,7 +26,7 @@ program main_IMSRG
 !============================================================
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,magnus_exp,tda_calculation,COM_calc,r2rms_calc,hw)
+       hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,hw)
   
   HS%herm = 1
   HS%hospace = hw
@@ -83,7 +84,11 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (magnus_exp) then 
+  
+  
+  select case (method_int) 
+  
+  case (1) ! magnus 
     
      if (COM_calc) then 
         call magnus_decouple(HS,jbasis,pipj,rirj)
@@ -95,7 +100,7 @@ program main_IMSRG
         call magnus_decouple(HS,jbasis) 
      end if 
      
-  else
+  case (2) ! traditional
      if (COM_calc) then 
         call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_2op,pipj,rirj)
         call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
@@ -104,10 +109,22 @@ program main_IMSRG
         call write_tilde_from_Rcm(r2_rms)
      else 
         call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
+    !    call discrete_decouple(HS,jbasis) 
      end if
      
-  end if
+  case (3) 
+  
+     if (COM_calc) then 
+        call discrete_decouple(HS,jbasis,pipj,rirj)
+        call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
+     else if (r2rms_calc) then 
+        call discrete_decouple(HS,jbasis,r2_rms)
+        call write_tilde_from_Rcm(r2_rms)     
+     else 
+        call discrete_decouple(HS,jbasis) 
+     end if
 
+  end select
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -117,8 +134,9 @@ program main_IMSRG
      call initialize_TDA(TDA,jbasis,HS%Jtarg,HS%Ptarg,HS%valcut)
      allocate(HS%exlabels(TDA%map(1),2))
      HS%exlabels=TDA%blkM(1)%labels
-     
-     if (magnus_exp) then 
+    
+     select case (method_int) 
+        case(1) !magnus
     
         if (COM_calc) then 
            call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
@@ -129,7 +147,7 @@ program main_IMSRG
            call magnus_TDA(HS,TDA,jbasis) 
         end if
         
-     else
+        case(2) !traditional
      
         if (COM_calc) then 
            call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell_w_2op, &
@@ -141,7 +159,11 @@ program main_IMSRG
         else 
            call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell) 
         end if 
-     end if
+        
+        case(3) !discrete
+           
+           print*, 'not available'
+     end select
      
      
   end if 

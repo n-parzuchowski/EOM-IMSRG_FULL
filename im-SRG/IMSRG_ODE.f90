@@ -69,7 +69,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
   iflag = 1
   
   ! flow equation variables
-  ds = .1d0
+  ds = 0.1d0
   s = 0.d0 
   
   steps = 0 
@@ -435,6 +435,7 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
   call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
 
+ ! call build_gs_wegner(HS,ETA,jbas,HSCC,ETACC,WCC,w1,w2) 
   call build_gs_white(HS,ETA,jbas) ! constructs generator
   
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)

@@ -42,11 +42,12 @@ subroutine magnus_decouple(HS,jbas,O1,O2)
   call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
   call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
   
+  !call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
   call build_gs_white(HS,ETA,jbas) 
   call copy_sq_op(HS,H) 
   
   s = 0.d0 
-  ds = 1.d0
+  ds = 1.0d0
   crit = 10.
   steps = 0
 
@@ -71,7 +72,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2)
      call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
 
      call copy_sq_op(ETA,ETA0)
-    
+ !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
      call build_gs_white(HS,ETA,jbas) 
 
      nrm2 = HS%E0 !mat_frob_norm(ETA)

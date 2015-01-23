@@ -1425,6 +1425,32 @@ subroutine add_sq_op(A,ax,B,bx,C)
 end subroutine 
 !=====================================================
 !=====================================================
+!=====================================================
+!=====================================================
+subroutine scale_sq_op(A,ax) 
+  ! A = A*ax 
+  implicit none 
+  
+  type(sq_op) :: A
+  real(8) :: ax
+  integer :: q,i,j,holes,parts,nh,np,nb
+     
+  A%E0 = A%E0*ax 
+  A%fhh = A%fhh*ax
+  A%fpp = A%fpp*ax
+  A%fph = A%fph*ax 
+  
+  do q = 1, A%nblocks
+              
+     do i = 1,6
+        A%mat(q)%gam(i)%X = A%mat(q)%gam(i)%X*ax 
+     end do 
+     
+  end do 
+  
+end subroutine 
+!=====================================================
+!=====================================================
 subroutine clear_sq_op(C) 
   ! A*ax + B*bx = C 
   implicit none 
@@ -1493,7 +1519,7 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,R2RMS,hw)
+subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,hw)
   !read inputs from file
   implicit none 
   
@@ -1501,7 +1527,8 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,R2RMS,hw)
   character(50) :: valence
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
-  logical :: HF,MAG,EXTDA,COM,R2RMS
+  integer :: method
+  logical :: HF,EXTDA,COM,R2RMS
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -1532,7 +1559,7 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,R2RMS,hw)
   read(22,*);read(22,*)
   read(22,*) jx
   read(22,*);read(22,*)
-  read(22,*) jy
+  read(22,*) method
   read(22,*);read(22,*)
   read(22,*) excalc
   read(22,*)
@@ -1552,8 +1579,6 @@ subroutine read_main_input_file(input,H,htype,HF,MAG,EXTDA,COM,R2RMS,hw)
  
   HF = .false. 
   if (jx == 1) HF = .true. 
-  MAG = .false.
-  if (jy == 1) MAG = .true. 
   EXTDA = .false.
   if (excalc == 1) EXTDA = .true.
   COM = .false.
