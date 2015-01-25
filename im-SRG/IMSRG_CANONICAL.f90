@@ -15,9 +15,9 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
   integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
   type(spd) :: jbas
   type(sq_op),optional :: O1,O2
-  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
+  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,Oevolv
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
-  real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3)
+  real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),oldcrit
   character(200) :: spfile,intfile,prefix
   common /files/ spfile,intfile,prefix
   
@@ -28,7 +28,6 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
   call duplicate_sq_op(HS,INT1) !workspace
   call duplicate_sq_op(HS,INT2) !workspace
   call duplicate_sq_op(HS,AD) !workspace
-  ETA0%herm = -1
   
   call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
   call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
@@ -44,7 +43,10 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
 
   open(unit=36,file='../../output/'//&
        trim(adjustl(prefix))//'_0b_discrete_flow.dat')
-   
+
+if (present(O1)) then 
+   if (present(O2)) then 
+! two operators   
   do while (crit > 1e-6) 
  
     ! call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
@@ -53,15 +55,36 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
 
      call BCH_EXPAND(HS,ETA,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
     
+     call BCH_EXPAND(H,ETA,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+     call copy_sq_op(H,O2)
 
-     if (present(O1)) then 
-        if (present(O2)) then 
-           call BCH_EXPAND(H,ETA,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-           call copy_sq_op(H,O2)
-        end if 
-        call BCH_EXPAND(H,ETA,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-        call copy_sq_op(H,O1)
-     end if 
+     call BCH_EXPAND(H,ETA,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+     call copy_sq_op(H,O1)
+    
+     call copy_sq_op(HS,H)
+     E_mbpt2 = mbpt2(HS,jbas) 
+
+     crit = abs(E_mbpt2) 
+     
+     s = s + ds 
+     steps = steps + 1
+     
+     write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     
+  end do   
+else
+! one operator
+  do while (crit > 1e-6) 
+ 
+    ! call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
+     call build_gs_white(HS,ETA,jbas) 
+     call scale_sq_op(ETA,ds) 
+
+     call BCH_EXPAND(HS,ETA,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+    
+     call BCH_EXPAND(H,ETA,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+     call copy_sq_op(H,O1)
     
      call copy_sq_op(HS,H)
      E_mbpt2 = mbpt2(HS,jbas) 
@@ -75,10 +98,232 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
      write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
      
   end do 
+end if 
+else
+! no operators
+  do while (crit > 1e-6) 
+ 
+    ! call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
+     call build_gs_white(HS,ETA,jbas) 
+     call scale_sq_op(ETA,ds) 
+
+     call BCH_EXPAND(HS,ETA,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+      
+     call copy_sq_op(HS,H)
+     E_mbpt2 = mbpt2(HS,jbas) 
+
+     oldcrit = crit
+     crit = abs(E_mbpt2) 
+     
+     s = s + ds 
+     steps = steps + 1
+
+     write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     
+  end do 
   
+end if 
 
   close(36)
 end subroutine  
+
+
+subroutine discrete_TDA( HS , TDA, jbas,O1,O1TDA,O2,O2TDA ) 
+  ! runs IMSRG TDA decoupling using discrete transformation
+  implicit none 
+
+  ! SRG convergence / failsafe / error tolerances
+  integer,parameter :: max_steps = 50
+  real(8),parameter :: conv_crit = 1.d-5
+  real(8),parameter :: relerr = 1.d-5, abserr = 1.d-5
+
+  type(spd) :: jbas
+  type(sq_op) :: HS,H,ETA,w1,w2,AD,INT1,INT2
+  type(sq_op),optional :: O1,O2 
+  type(cross_coupled_31_mat) :: HCC,OeCC,ADCC,GCC,WCC
+  type(full_sp_block_mat) :: TDA
+  type(full_sp_block_mat),optional :: O1TDA,O2TDA
+  integer,dimension(5) :: iwork
+  real(8),allocatable,dimension(:) :: cur_vec,work,E_old
+  integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps ,i 
+  real(8) :: ds,s,crit,min_crit
+  character(200) :: spfile,intfile,prefix
+  common /files/ spfile,intfile,prefix
+  
+  
+  call duplicate_sq_op(HS,ETA) !generator
+  call duplicate_sq_op(HS,H) !evolved hamiltonian
+  call duplicate_sq_op(HS,w1) !workspace
+  call duplicate_sq_op(HS,w2) !workspace
+  call duplicate_sq_op(HS,INT1) !workspace
+  call duplicate_sq_op(HS,INT2) !workspace
+  call duplicate_sq_op(HS,AD) !workspace
+  
+  call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
+  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
+  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+  
+  call copy_sq_op(HS,H) 
+  
+  s = 0.d0 
+  ds = 0.001d0
+  
+  crit = 10.
+  steps = 0
+
+  call allocate_CCMAT(H,HCC,jbas) 
+  allocate(E_old(TDA%map(1)))
+  call calculate_cross_coupled(H,HCC,jbas,.true.) 
+  call calc_TDA(TDA,H,HCC,jbas) 
+  call diagonalize_blocks(TDA)
+
+  E_old = TDA%blkM(1)%eigval
+  open(unit=37,file='../../output/'//&
+       trim(adjustl(prefix))//'_excited.dat')
+
+  call write_excited_states(steps,s,TDA,H%E0,37) 
+  
+min_crit = 10000.d0
+if (present(O1)) then 
+   if (present(O2)) then 
+! two operators   
+  do while (crit > 1e-6) 
+ 
+    ! call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
+     call build_specific_space(HS,ETA,jbas) 
+     call scale_sq_op(ETA,ds) 
+
+     call BCH_EXPAND(HS,ETA,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+    
+     call BCH_EXPAND(H,ETA,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+     call copy_sq_op(H,O2)
+
+     call BCH_EXPAND(H,ETA,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+     call copy_sq_op(H,O1)
+    
+     call copy_sq_op(HS,H)
+
+     s = s + ds 
+     steps = steps + 1
+  
+     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calc_TDA(TDA,H,HCC,jbas) 
+     call diagonalize_blocks(TDA)
+  
+     call write_excited_states(steps,s,TDA,H%E0,37) 
+     
+     ! convergence criteria
+     crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
+     write(*,'(I4,7(e14.5))') steps,crit,E_old(1:6) 
+     E_old = TDA%blkM(1)%eigval
+ 
+
+     if (crit > 100*min_crit) then
+        print*, 'convergence failed' 
+        exit
+     end if 
+     min_crit = min(min_crit,crit) 
+     if (crit < conv_crit) exit
+     
+  end do   
+else
+! one operator
+  do while (crit > 1e-6) 
+ 
+    ! call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
+     call build_specific_space(HS,ETA,jbas) 
+     call scale_sq_op(ETA,ds) 
+
+     call BCH_EXPAND(HS,ETA,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+    
+     call BCH_EXPAND(H,ETA,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+     call copy_sq_op(H,O1)
+    
+     call copy_sq_op(HS,H)
+     s = s + ds 
+     steps = steps + 1
+  
+     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calc_TDA(TDA,H,HCC,jbas) 
+     call diagonalize_blocks(TDA)
+  
+     call write_excited_states(steps,s,TDA,H%E0,37) 
+     
+     ! convergence criteria
+     crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
+     write(*,'(I4,7(e14.5))') steps,crit,E_old(1:6) 
+     E_old = TDA%blkM(1)%eigval
+ 
+
+     if (crit > 100*min_crit) then
+        print*, 'convergence failed' 
+        exit
+     end if 
+     min_crit = min(min_crit,crit) 
+     if (crit < conv_crit) exit
+      
+  end do 
+end if 
+else
+! no operators
+  do while (crit > 1e-6) 
+ 
+    ! call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
+     call build_specific_space(HS,ETA,jbas) 
+     call scale_sq_op(ETA,ds) 
+
+     call BCH_EXPAND(HS,ETA,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+      
+     call copy_sq_op(HS,H)
+     s = s + ds 
+     steps = steps + 1
+  
+     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calc_TDA(TDA,H,HCC,jbas) 
+     call diagonalize_blocks(TDA)
+  
+     call write_excited_states(steps,s,TDA,H%E0,37) 
+     
+     ! convergence criteria
+     crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
+     write(*,'(I4,7(e14.5))') steps,crit,E_old(1:6) 
+     E_old = TDA%blkM(1)%eigval
+ 
+
+     if (crit > 100*min_crit) then
+        print*, 'convergence failed' 
+        exit
+     end if 
+     min_crit = min(min_crit,crit) 
+     if (crit < conv_crit) exit
+      
+  end do 
+  
+end if 
+
+! calculate TDA matrices for operators
+  if (present(O1)) then 
+     call duplicate_CCMAT(HCC,OeCC)
+
+     if (present(O2)) then 
+        allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
+        O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
+        call calculate_cross_coupled(O2,OeCC,jbas,.true.) 
+        call calc_TDA(O2TDA,O2,OeCC,jbas)
+     end if 
+     
+        allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
+        O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
+        call calculate_cross_coupled(O1,OeCC,jbas,.true.) 
+        call calc_TDA(O1TDA,O1,OeCC,jbas)
+        
+  end if 
+
+  close(37)
+end subroutine  
+  
+
 !=========================================================================
 !=========================================================================
 subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
@@ -146,7 +391,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , HS )   !basic_IMSRG
     
      advals(i) = abs(INT2%E0*cof(i))
-     if (advals(i) < conv) exit
+   !  if (advals(i) < conv) exit
      
   end do 
  

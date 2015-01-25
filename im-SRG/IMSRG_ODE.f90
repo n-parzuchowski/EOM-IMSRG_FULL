@@ -292,7 +292,6 @@ if (present(O1)) then
      ! convergence criteria
      crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
      write(*,'(I4,7(e14.5))') steps,crit,E_old(1:6) 
-!    write(*,'(7(e14.5))') crit,E_old(1:6)
      E_old = TDA%blkM(1)%eigval
  
 
@@ -385,7 +384,6 @@ end if
      call duplicate_CCMAT(HCC,OeCC)
 
      if (present(O2)) then 
-        !call duplicate_sp_mat(TDA,O2TDA) 
         allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
         O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
         call calculate_cross_coupled(O2,OeCC,jbas,.true.) 
@@ -393,7 +391,6 @@ end if
      end if 
      
      ! transform observable
-        !call duplicate_sp_mat(TDA,O1TDA) 
         allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
         O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
         call calculate_cross_coupled(O1,OeCC,jbas,.true.) 

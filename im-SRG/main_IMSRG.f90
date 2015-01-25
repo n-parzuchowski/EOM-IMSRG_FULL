@@ -161,8 +161,17 @@ program main_IMSRG
         end if 
         
         case(3) !discrete
-           
-           print*, 'not available'
+      
+         
+        if (COM_calc) then 
+           call discrete_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
+           call calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw) 
+        else if (r2rms_calc) then
+           call discrete_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
+        else 
+           call discrete_TDA(HS,TDA,jbasis) 
+        end if 
+      
      end select
      
      
