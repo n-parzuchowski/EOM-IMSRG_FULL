@@ -213,26 +213,36 @@ subroutine find_holes(jbas,pholes,nholes)
   
   rn = 0
   rp = 0 
+  ! protons have isospin -1/2 
+ 
   do while ((rn < nholes) .or. (rp < pholes))
      minpos = minloc(temp) !find lowest energy
      jbas%con(minpos(1)) = 1 ! thats a hole
      temp(minpos(1)) = 9.e9  ! replace it with big number
-     if ( jbas%itzp(minpos(1)) == -1 ) then
+     if ( jbas%itzp(minpos(1)) == 1 ) then
         if (rn < nholes ) then 
-           rn = rn + (jbas%jj(minpos(1))+1)  
+           rn = rn + (jbas%jj(minpos(1))+1) 
+           if (rn > nholes) then 
+              rn = rn - (jbas%jj(minpos(1))+1) 
+              jbas%con(minpos(1)) = 0 
+           end if 
         else 
            jbas%con(minpos(1)) = 0 
         end if 
      else
         if (rp < pholes ) then 
-           rp = rp + (jbas%jj(minpos(1))+1)  
+           rp = rp + (jbas%jj(minpos(1))+1) 
+           if (rp > pholes) then 
+              rp = rp - (jbas%jj(minpos(1))+1) 
+              jbas%con(minpos(1)) = 0 
+           end if 
         else 
            jbas%con(minpos(1)) = 0 
         end if 
      end if 
         
   end do 
- 
+  
   allocate(jbas%holes(sum(jbas%con)))
   allocate(jbas%parts(jbas%total_orbits - sum(jbas%con))) 
   ! these arrays help us later in f_elem (in this module) 
@@ -252,6 +262,7 @@ subroutine find_holes(jbas,pholes,nholes)
      end if 
      
   end do 
+  print*, jbas%con
 end subroutine  
 !==============================================
 !==============================================

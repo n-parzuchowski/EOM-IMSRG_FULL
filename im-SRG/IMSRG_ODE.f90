@@ -185,8 +185,8 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
 
   ! SRG convergence / failsafe / error tolerances
   integer,parameter :: max_steps = 50
-  real(8),parameter :: conv_crit = 1.d-5
-  real(8),parameter :: relerr = 1.d-5, abserr = 1.d-5
+  real(8),parameter :: conv_crit = 1.d-6
+  real(8),parameter :: relerr = 1.d-6, abserr = 1.d-6
 
   type(spd) :: jbas
   type(sq_op) :: H ,HOD
@@ -364,7 +364,7 @@ else
      
      ! convergence criteria
      crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
-     write(*,'(I4,7(e14.5))') steps,crit,E_old(1:6)
+     write(*,'(I4,2(e14.5))') steps,crit,E_old(1)
      E_old = TDA%blkM(1)%eigval
  
 
