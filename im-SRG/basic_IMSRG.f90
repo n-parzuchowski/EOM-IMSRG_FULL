@@ -262,7 +262,7 @@ subroutine find_holes(jbas,pholes,nholes)
      end if 
      
   end do 
-  print*, jbas%con
+  
 end subroutine  
 !==============================================
 !==============================================
@@ -1597,7 +1597,6 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,hw)
   R2RMS = .false.
   if (rrms_int == 1) R2RMS = .true.
   
-  print*, trim(valence)
   select case (trim(valence)) 
      case ('0p') 
         H%valcut = 6 

@@ -245,10 +245,15 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
   
   steps = 0 
 
+  print*
+  print*, H%exlabels(:,1)!TDA%blkM(1)%labels(:,1)
+  print*
+  print*, H%exlabels(:,2)!TDA%blkM(1)%labels(:,2)
   call allocate_CCMAT(H,HCC,jbas) 
   allocate(E_old(TDA%map(1)))
   call calculate_cross_coupled(H,HCC,jbas,.true.) 
   call calc_TDA(TDA,H,HCC,jbas) 
+
   call diagonalize_blocks(TDA)
   
      
@@ -384,20 +389,22 @@ end if
      call duplicate_CCMAT(HCC,OeCC)
 
      if (present(O2)) then 
+        call duplicate_sp_mat(TDA,O2TDA)
         allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
-        O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-        call calculate_cross_coupled(O2,OeCC,jbas,.true.) 
+        O2TDA%blkM(1)%labels = TDA%blkM(1)%labels   
+        call calculate_cross_coupled(O2,OeCC,jbas,.true.)
         call calc_TDA(O2TDA,O2,OeCC,jbas)
      end if 
-     
+
      ! transform observable
+        call duplicate_sp_mat(TDA,O1TDA)
         allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
         O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-        call calculate_cross_coupled(O1,OeCC,jbas,.true.) 
+        call calculate_cross_coupled(O1,OeCC,jbas,.true.)
         call calc_TDA(O1TDA,O1,OeCC,jbas)
         
   end if 
-
+  
 end subroutine   
 !================================================
 !================================================

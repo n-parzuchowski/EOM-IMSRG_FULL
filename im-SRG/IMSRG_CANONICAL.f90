@@ -307,12 +307,13 @@ end if
      call duplicate_CCMAT(HCC,OeCC)
 
      if (present(O2)) then 
+        call duplicate_sp_mat(TDA,O2TDA)
         allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
         O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
         call calculate_cross_coupled(O2,OeCC,jbas,.true.) 
         call calc_TDA(O2TDA,O2,OeCC,jbas)
      end if 
-     
+        call duplicate_sp_mat(TDA,O1TDA)     
         allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
         O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
         call calculate_cross_coupled(O1,OeCC,jbas,.true.) 

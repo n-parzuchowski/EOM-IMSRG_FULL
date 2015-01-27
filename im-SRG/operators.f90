@@ -35,6 +35,7 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
   JT = Jtarget 
       
         r = 0
+        ! count the states
         do ix = 1,nh
            do ax = 1,np 
               i =jbas%holes(ix) 
@@ -49,6 +50,7 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
            end do 
         end do 
               
+        ! allocate
         TDA%map(q) = r
         allocate(TDA%blkM(q)%matrix(r,r)) 
         allocate(TDA%blkM(q)%extra(10*r))
@@ -57,6 +59,7 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
         allocate(TDA%blkM(q)%states(r))
         TDA%blkM(q)%states = 0.d0
         
+        ! fill the states
         r = 0
         do ix = 1,nh
            do ax = 1,np 
@@ -460,7 +463,6 @@ subroutine calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw)
 
   energies(1:TDA%map(1)) = HcmTDA%blkM(1)%eigval - 1.5d0*hw 
   
-
   do q = 1, TDA%map(1) 
      ! new frequencies
      wTs = optimum_omega_for_CM_hamiltonian(hw,energies(q)) 
