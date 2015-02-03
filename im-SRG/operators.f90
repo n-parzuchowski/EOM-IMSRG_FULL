@@ -442,9 +442,10 @@ subroutine calculate_CM_energy(pp,rr,hw)
 end subroutine
 !=====================================================
 !==================================================================== 
-subroutine calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw) 
+subroutine calculate_CM_energy_TDA(TDA,rr,pp,ppTDA,rrTDA,hw) 
   implicit none 
   
+  type(sq_op) :: rr,pp,Hcm 
   type(full_sp_block_mat) :: TDA,HcmTDA,ppTDA,rrTDA
   real(8) :: hw,wTs(2)
   real(8),allocatable,dimension(:) :: energies,omegas 
@@ -455,13 +456,15 @@ subroutine calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw)
  
   
   call duplicate_sp_mat(TDA,HcmTDA) 
+  call duplicate_sq_op(rr,Hcm)
   allocate(energies(3*ppTDA%map(1))) 
   allocate(omegas(2*TDA%map(1)))
   
-  call add_sp_mat(ppTDA,1.d0,rrTDA,1.d0,HcmTDA) 
+  call add_sp_mat(ppTDA,1.d0,rrTDA,1.d0,HcmTDA)
+  call add_sq_op(pp,1.d0,rr,1.d0,Hcm) 
   call TDA_expectation_value(TDA,HcmTDA) 
 
-  energies(1:TDA%map(1)) = HcmTDA%blkM(1)%eigval - 1.5d0*hw 
+  energies(1:TDA%map(1)) = HcmTDA%blkM(1)%eigval + Hcm%E0 
   
   do q = 1, TDA%map(1) 
      ! new frequencies
@@ -470,9 +473,10 @@ subroutine calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw)
      omegas(q+TDA%map(1)) = wTs(2)
      
      do i = 1, 2
+        call add_sq_op(pp,1.d0,rr,wTs(i)**2/hw**2,Hcm) 
         call add_sp_mat(ppTDA,1.d0,rrTDA,wTs(i)**2/hw**2,HcmTDA)
         call TDA_expectation_value(TDA,HcmTDA) 
-        energies(i*TDA%map(1)+q) = HcmTDA%blkM(1)%eigval(q) - 1.5d0*hw 
+        energies(i*TDA%map(1)+q) = HcmTDA%blkM(1)%eigval(q) + Hcm%E0
      end do
   end do 
   

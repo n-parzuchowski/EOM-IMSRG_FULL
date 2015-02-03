@@ -140,10 +140,10 @@ program main_IMSRG
     
         if (COM_calc) then 
            call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
-           call calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw) 
+           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
            call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
-           print*, rrTDA%blkM(1)%eigval
+     !      print*, rrTDA%blkM(1)%eigval
         else 
            call magnus_TDA(HS,TDA,jbasis) 
         end if
@@ -153,7 +153,7 @@ program main_IMSRG
         if (COM_calc) then 
            call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell_w_2op, &
                 pipj,ppTDA,rirj,rrTDA) 
-           call calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw) 
+           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
            call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell_w_1op,&
                 r2_rms,rrTDA)
@@ -167,7 +167,7 @@ program main_IMSRG
          
         if (COM_calc) then 
            call discrete_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
-           call calculate_CM_energy_TDA(TDA,ppTDA,rrTDA,hw) 
+           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
            call discrete_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
         else 

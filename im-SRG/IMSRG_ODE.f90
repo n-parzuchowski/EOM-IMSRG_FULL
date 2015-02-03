@@ -53,7 +53,9 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
 
   ! add more room if there are other operators
   if (present(O1)) then 
-     if (present(O2)) then 
+     O1%neq=H%neq
+     if (present(O2)) then
+        O2%neq = H%neq
         neq = 3*neq
      else 
         neq = 2*neq
@@ -94,14 +96,14 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
      call vectorize(H,cur_vec(1:H%neq))
      call vectorize(O1,cur_vec(H%neq+1:2*H%neq))
      call vectorize(O2,cur_vec(2*H%neq+1:3*H%neq)) 
-     
+
      call ode(deriv_calculator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
-          
+
      call repackage(H,cur_vec(1:H%neq)) 
      call repackage(O1,cur_vec(H%neq+1:2*H%neq))
      call repackage(O2,cur_vec(2*H%neq+1:3*H%neq)) 
-   
+
      steps = steps + 1
   
      ! weak convergence criteria, but it works
@@ -245,10 +247,6 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
   
   steps = 0 
 
-  print*
-  print*, H%exlabels(:,1)!TDA%blkM(1)%labels(:,1)
-  print*
-  print*, H%exlabels(:,2)!TDA%blkM(1)%labels(:,2)
   call allocate_CCMAT(H,HCC,jbas) 
   allocate(E_old(TDA%map(1)))
   call calculate_cross_coupled(H,HCC,jbas,.true.) 
