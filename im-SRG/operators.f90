@@ -464,7 +464,7 @@ subroutine calculate_CM_energy_TDA(TDA,rr,pp,ppTDA,rrTDA,hw)
   call add_sq_op(pp,1.d0,rr,1.d0,Hcm) 
   call TDA_expectation_value(TDA,HcmTDA) 
 
-  energies(1:TDA%map(1)) = HcmTDA%blkM(1)%eigval + Hcm%E0 
+  energies(1:TDA%map(1)) = HcmTDA%blkM(1)%eigval + Hcm%E0 - 1.5d0*hw
   
   do q = 1, TDA%map(1) 
      ! new frequencies
@@ -476,7 +476,7 @@ subroutine calculate_CM_energy_TDA(TDA,rr,pp,ppTDA,rrTDA,hw)
         call add_sq_op(pp,1.d0,rr,wTs(i)**2/hw**2,Hcm) 
         call add_sp_mat(ppTDA,1.d0,rrTDA,wTs(i)**2/hw**2,HcmTDA)
         call TDA_expectation_value(TDA,HcmTDA) 
-        energies(i*TDA%map(1)+q) = HcmTDA%blkM(1)%eigval(q) + Hcm%E0
+        energies(i*TDA%map(1)+q) = HcmTDA%blkM(1)%eigval(q) + Hcm%E0 - 1.5d0*wTs(i) 
      end do
   end do 
   

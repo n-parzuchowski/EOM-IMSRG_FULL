@@ -81,7 +81,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
   
   E_mbpt2 = mbpt2(H,jbas) 
   crit = abs(E_mbpt2)
-  
+ 
   write(36,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
   write(*,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
 
@@ -111,6 +111,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
      E_mbpt2 = mbpt2(H,jbas) 
      crit = abs(E_mbpt2)
   
+     write(47,'(I6,3(e15.7))') steps,s,O1%E0,O2%E0
      write(36,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
     
@@ -290,6 +291,7 @@ if (present(O1)) then
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
   
+     write(47,'(I6,3(e15.7))') steps,s,O1%E0,O2%E0
      call write_excited_states(steps,s,TDA,H%E0,37) 
      
      ! convergence criteria
