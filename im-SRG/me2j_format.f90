@@ -1,12 +1,12 @@
-module heiko_format
+module me2j_format
   use basic_IMSRG
   implicit none
   
   contains
 
-subroutine get_heiko_spfile(eMaxchr)
+subroutine get_me2j_spfile(eMaxchr)
   ! This constructs the sps file for
-  ! heiko's format, after it's been converted to a pn-basis 
+  ! me2j's format, after it's been converted to a pn-basis 
   implicit none 
   
   integer :: e,eMax,l,jj,tz,q,n
@@ -40,22 +40,29 @@ subroutine get_heiko_spfile(eMaxchr)
 end subroutine
 
 
-subroutine read_heiko_interaction(H,jbas,htype,hw) 
+subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp) 
 
   integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype
   integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td
   integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR
   integer,allocatable,dimension(:) :: indx 
-  real(8),allocatable,dimension(:) :: ME,MEpp,me_fromfile,ppff,rrff
+  real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
   real(8) :: V,g1,g2,g3,hw,pre2
   type(spd) :: jbas 
-  type(sq_op) :: H,pp,rr
+  type(sq_op) :: H
+  type(sq_op),optional :: pp,rr
   logical :: pp_calc,rr_calc
+  character(2) :: eMaxchr
+  character(200) :: spfile,intfile,input,prefix 
+  common /files/ spfile,intfile,prefix 
   
   pp_calc=.false.
   rr_calc=.false.
-  COM = 1
-
+  COM = 0
+  
+  if (present(pp)) pp_calc=.true.
+  if (present(rr)) rr_calc=.true.
+  if (htype == 1) COM = 1
 
   Ntot = jbas%total_orbits/2
   
@@ -67,7 +74,7 @@ subroutine read_heiko_interaction(H,jbas,htype,hw)
   indx = 0
 
   ! move in increments of two, because I use a pn basis,
-  !  heikos is isospin coupled (half the states) 
+  !  heiko's is isospin coupled (half the states) 
   
   eMax = 4
   
@@ -119,14 +126,33 @@ subroutine read_heiko_interaction(H,jbas,htype,hw)
   allocate(mepp(iMax))
   allocate(me_fromfile(10)) 
   allocate(ppff(10)) 
+  if (rr_calc) then 
+     allocate(rrff(10)) 
+     allocate(merr(iMax)) 
+  end if 
   
-  if (pp_calc) allocate(rrff(10)) 
+  eMax = maxval(jbas%e) 
+  write(eMaxchr,'(I2)') eMax 
+  eMaxchr = adjustl(eMaxchr)  
   
-  open(unit=25,file='../../TBME_input/chi2b_srg0200_eMax04_hwHO024.me2j') 
-  open(unit=24,file='../../TBME_input/tpp_eMax04.me2j') 
+  open(unit=25,file = '../../TBME_input/'//trim(adjustl(intfile))) 
+  
+  
+  if (len(trim(eMaxchr)) == 1) then 
+     open(unit=24,file='../../TBME_input/tpp_eMax0'//trim(eMaxchr)//'.me2j') 
+     if (rr_calc) then 
+        open(unit=23,file='../../TBME_input/r1r2_eMax0'//trim(eMaxchr)//'.me2j')
+     end if
+  else
+     open(unit=24,file='../../TBME_input/tpp_eMax'//trim(eMaxchr)//'.me2j') 
+     if (rr_calc) then 
+        open(unit=23,file='../../TBME_input/r1r2_eMax'//trim(eMaxchr)//'.me2j') 
+     end if
+  end if 
+  
   read(25,*) ! first line is garbage
   read(24,*) 
-  
+  if (rr_calc) read(23,*)
   endpoint = 10 
  
   do i = 1,iMax,10
@@ -136,17 +162,30 @@ subroutine read_heiko_interaction(H,jbas,htype,hw)
         deallocate(ppff) 
         allocate(me_fromfile( iMax - i - 1) ) 
         allocate(ppff(iMax-i-1)) 
+        if (rr_calc) then 
+           deallocate(rrff)
+           allocate(rrff(iMax-i-1)) 
+        end if 
         endpoint = iMax-i-1
      end if 
      
      read(25,*) me_fromfile
      read(24,*) ppff 
     
-     do j = 1,endpoint 
-        ME(i+j-1) = me_fromfile(j)
-        MEpp(i+j-1) = ppff(j) 
-     end do 
-     
+     if (rr_calc) then 
+  
+        do j = 1,endpoint 
+           ME(i+j-1) = me_fromfile(j)
+           MEpp(i+j-1) = ppff(j) 
+           MErr(i+j-1) = rrff(j)
+        end do
+     else
+        
+        do j = 1,endpoint 
+           ME(i+j-1) = me_fromfile(j)
+           MEpp(i+j-1) = ppff(j) 
+        end do
+     end if 
   end do
   
   close(25);close(24)
@@ -210,8 +249,6 @@ do a = nlj1,nlj1+1
             T = T/2
             q = block_index(JT,T,Par)
     
-            
-            
      ! convert to pn matrix element       
      V =  0.125d0*(ta-tb)*(tc-td)*me_fromfile(1)+&   ! 00 clebsch
           kron_del(ta+tb,-2)*kron_del(tc+td,-2)*me_fromfile(2)+& ! 1-1 
@@ -224,10 +261,22 @@ do a = nlj1,nlj1+1
           kron_del(ta+tb,2)*kron_del(tc+td,2)*ppff(4)+& !11 
           0.125d0*abs((ta-tb)*(tc-td))*ppff(3) !10 
 
+     if (rr_calc) then 
+        g2 = 0.125d0*(ta-tb)*(tc-td)*rrff(1)+&   ! 00 clebsch
+          kron_del(ta+tb,-2)*kron_del(tc+td,-2)*rrff(2)+& ! 1-1 
+          kron_del(ta+tb,2)*kron_del(tc+td,2)*rrff(4)+& !11 
+          0.125d0*abs((ta-tb)*(tc-td))*rrff(3) !10 
+     end if 
+     
+     ! getting rid of weird mass scaling 
+     g3 = -2.d0*g3/hbarc2_over_mc2 
 
      ! center of mass subtraction
-     V = (V + g3*2.d0/hbarc2_over_mc2*COM*hw/(H%Aneut+H%Aprot)) *pre2 
+     V = (V - g3*COM*hw/(H%Aneut+H%Aprot)) *pre2 
     
+     g3 = g3*pre2
+     g2 = g2*pre2
+     
      C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
      C2 = jbas%con(c)+jbas%con(d) + 1
     

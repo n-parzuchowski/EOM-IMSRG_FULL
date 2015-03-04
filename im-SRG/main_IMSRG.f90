@@ -5,7 +5,7 @@ program main_IMSRG
   use IMSRG_MAGNUS
   use IMSRG_CANONICAL
   use operators
-  use heiko_format
+  use me2j_format
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
@@ -17,7 +17,7 @@ program main_IMSRG
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb,k,l,m,n,method_int
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
-  logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc
+  logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
   external :: dHds_TDA_shell_w_2op
@@ -27,7 +27,7 @@ program main_IMSRG
 !============================================================
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,hw)
+       hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,hw)
   
   HS%herm = 1
   HS%hospace = hw
@@ -39,21 +39,29 @@ program main_IMSRG
   if (COM_calc) then  
      call duplicate_sq_op(HS,rirj)
      call duplicate_sq_op(HS,pipj)
-     call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
+     if (me2j) then 
+        call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj) 
+     else
+        call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
+     end if
      call calculate_h0_harm_osc(hw,jbasis,pipj,4)
      call calculate_h0_harm_osc(hw,jbasis,rirj,5)
   else if (r2rms_calc) then
      call duplicate_sq_op(HS,rirj)
      call duplicate_sq_op(HS,r2_rms) 
-     call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
+     if (me2j) then 
+        call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj) 
+     else
+        call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
+     end if
      call initialize_CM_radius(r2_rms,rirj,jbasis) 
   else    
-     call read_heiko_interaction(HS,jbasis,ham_type,hw) 
-    ! call read_interaction(HS,jbasis,ham_type,hw)
+     if (me2j) then 
+        call read_me2j_interaction(HS,jbasis,ham_type,hw) 
+     else
+        call read_interaction(HS,jbasis,ham_type,hw)
+     end if 
   end if 
-  !stop
-  print*, v_elem(1,1,15,5,0,HS,jbasis),v_elem(1,1,5,15,0,HS,jbasis)
-  print*, v_elem(1,7,1,21,0,HS,jbasis) 
 !============================================================
 ! BUILD BASIS
 !============================================================

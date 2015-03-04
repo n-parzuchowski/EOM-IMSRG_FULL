@@ -1530,7 +1530,7 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,hw)
+subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,ME2J,hw)
   !read inputs from file
   implicit none 
   
@@ -1539,7 +1539,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,hw)
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
   integer :: method
-  logical :: HF,EXTDA,COM,R2RMS
+  logical :: HF,EXTDA,COM,R2RMS,ME2J
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -1610,6 +1610,19 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,hw)
         stop 'valence space not listed in database, SEE basic_IMSRG.f90' 
   end select 
         
+  me2j = .true.
+  if( intfile(len(trim(intfile))-3:len(trim(intfile))) == '.int') then 
+     me2j =.false.
+   !  if (spfile(1:2) .ne. 'nl') then 
+    !    STOP 'inconsistent interaction and sps files' 
+    ! end if 
+  else 
+     if (spfile(1:2) .ne. 'hk') then 
+        STOP 'inconsistent interaction and sps files' 
+     end if 
+  end if 
+  
+  
 end subroutine
 !=======================================================  
 !=======================================================
