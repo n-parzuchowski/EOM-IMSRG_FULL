@@ -1894,7 +1894,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                     CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
                          (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
-               
+                             
                     CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
                          (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
                  
@@ -1906,6 +1906,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
 
   end do 
 !$omp end parallel do
+
 end subroutine 
 !===========================================================
 !===========================================================     

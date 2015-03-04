@@ -5,6 +5,7 @@ program main_IMSRG
   use IMSRG_MAGNUS
   use IMSRG_CANONICAL
   use operators
+  use heiko_format
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
@@ -31,7 +32,7 @@ program main_IMSRG
   HS%herm = 1
   HS%hospace = hw
 
-  call read_sp_basis(jbasis,HS%Aprot,HS%Aneut) 
+  call read_sp_basis(jbasis,HS%Aprot,HS%Aneut)
   call allocate_blocks(jbasis,HS)   
   call print_header
   ! for calculating COM expectation value
@@ -47,10 +48,12 @@ program main_IMSRG
      call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
      call initialize_CM_radius(r2_rms,rirj,jbasis) 
   else    
-     call read_interaction(HS,jbasis,ham_type,hw)
+     call read_heiko_interaction(HS,jbasis,ham_type,hw) 
+    ! call read_interaction(HS,jbasis,ham_type,hw)
   end if 
-  
-  
+  !stop
+  print*, v_elem(1,1,15,5,0,HS,jbasis),v_elem(1,1,5,15,0,HS,jbasis)
+  print*, v_elem(1,7,1,21,0,HS,jbasis) 
 !============================================================
 ! BUILD BASIS
 !============================================================

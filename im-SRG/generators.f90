@@ -131,7 +131,7 @@ subroutine build_gs_white(H,ETA,jbas)
            
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
-           
+            
            ETA%mat(q)%gam(3)%X(IX,JX) = H%mat(q)%gam(3)%X(IX,JX)/Eden 
            
         end do 

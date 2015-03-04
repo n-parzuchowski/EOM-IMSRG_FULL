@@ -254,7 +254,7 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
   call calc_TDA(TDA,H,HCC,jbas) 
 
   call diagonalize_blocks(TDA)
-  
+  call print_matrix(TDA%blkM(1)%matrix)
      
   E_old = TDA%blkM(1)%eigval
     
@@ -364,7 +364,8 @@ else
      call calculate_cross_coupled(H,HCC,jbas,.true.) 
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
-  
+
+     
      call write_excited_states(steps,s,TDA,H%E0,37) 
      
      ! convergence criteria
@@ -381,7 +382,7 @@ else
      if (crit < conv_crit) exit
   end do 
 end if 
-     
+    call print_matrix(TDA%blkM(1)%matrix) 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   close(37)
 ! calculate TDA matrices for operators

@@ -1,4 +1,4 @@
-FC = gfortran $(FFLAGS)  
+FC = gfortran $(TFLAGS)  
 CC = g++ $(CFLAGS) 
 
 p1 = run_IMSRG
@@ -6,13 +6,13 @@ p2 = get_HO_energies
 p3 = truncate
 
 FFLAGS = -O3 -fopenmp
-TFLAGS = -g -O0 -fbounds-check
+TFLAGS = -g -O0 -fbounds-check -fopenmp
 CFLAGS = -std=c++11 -O3
 
 LIBS =  -L/user/local/lib/ -llapack -lblas
 
-all: anglib.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o main_IMSRG.o
-	${FC} anglib.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o main_IMSRG.o -o ${p1} ${LIBS}
+all: anglib.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o heiko_format.o main_IMSRG.o
+	${FC} anglib.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o heiko_format.o main_IMSRG.o -o ${p1} ${LIBS}
 
 basic_IMSRG.o: basic_IMSRG.f90
 	${FC} -c basic_IMSRG.f90 ${LIBS}
@@ -47,6 +47,9 @@ IMSRG_CANONICAL.o: IMSRG_CANONICAL.f90
 operators.o: operators.f90
 	${FC} -c operators.f90 ${LIBS}
 
+heiko_format.o: heiko_format.f90
+	${FC} -c heiko_format.f90 ${LIBS}
+ 
 HO: add_sp_energies.f90
 	${FC} add_sp_energies.f90 -o ${p2} 
 

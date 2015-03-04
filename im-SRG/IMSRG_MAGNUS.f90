@@ -222,7 +222,7 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
      
      
   end do
-
+ 
 ! calculate any observables which have been requested =====================
   
   if (present(O1)) then 

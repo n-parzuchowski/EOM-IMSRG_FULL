@@ -40,9 +40,9 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
            do ax = 1,np 
               i =jbas%holes(ix) 
               a =jbas%parts(ax)
-              
               if (a > cut) cycle 
               if (jbas%itzp(i) .ne. jbas%itzp(a) ) cycle ! cannot change from p to n
+            
               if (.not. (triangle(jbas%jj(i),jbas%jj(a),JT))) cycle 
               if (mod(jbas%ll(i)+jbas%ll(a),2) .ne. PI )  cycle ! technically l_a - l_i  
               
@@ -64,10 +64,10 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
         do ix = 1,nh
            do ax = 1,np 
               i =jbas%holes(ix) 
-              a =jbas%parts(ax)
-              
+              a =jbas%parts(ax)              
               if (a > cut) cycle 
               if (jbas%itzp(i) .ne. jbas%itzp(a) ) cycle ! cannot change from p to n
+            
               if (.not. (triangle(jbas%jj(i),jbas%jj(a),JT))) cycle 
               if (mod(jbas%ll(i)+jbas%ll(a),2) .ne. PI )  cycle ! technically l_a - l_i 
               r = r + 1 
@@ -82,6 +82,8 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
  !    end do 
  ! end do 
 
+       print*, TDA%blkM(1)%labels(:,1)
+       print*, TDA%blkM(1)%labels(:,2)
 end subroutine 
 !==========================================
 !==========================================
