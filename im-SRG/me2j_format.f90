@@ -41,7 +41,9 @@ end subroutine
 
 
 subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp) 
-
+  use gzipmod
+  implicit none 
+  
   integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype
   integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td
   integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR
@@ -52,8 +54,12 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   type(sq_op) :: H
   type(sq_op),optional :: pp,rr
   logical :: pp_calc,rr_calc
+  character(1) :: rem
   character(2) :: eMaxchr
-  character(200) :: spfile,intfile,input,prefix 
+  character(200) :: spfile,intfile,input,prefix
+  type(c_ptr) :: buf
+  integer :: hndle,sz,rx
+  character(kind=C_CHAR,len=129) :: buffer
   common /files/ spfile,intfile,prefix 
   
   pp_calc=.false.
@@ -135,7 +141,9 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   write(eMaxchr,'(I2)') eMax 
   eMaxchr = adjustl(eMaxchr)  
   
-  open(unit=25,file = '../../TBME_input/'//trim(adjustl(intfile))) 
+  
+  !open(unit=25,file='../../TBME_input/'//trim(adjustl(intfile))) 
+  hndle=gzOpen('../../TBME_input/'//trim(adjustl(intfile)),'r') 
   
   
   if (len(trim(eMaxchr)) == 1) then 
@@ -150,11 +158,14 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
      end if
   end if 
   
-  read(25,*) ! first line is garbage
+  !read(25,*) ! first line is garbage
+  sz=50
+  buf=gzGets(hndle,buffer,sz) 
   read(24,*) 
   if (rr_calc) read(23,*)
   endpoint = 10 
- 
+  write(rem,'(I1)') endpoint-1
+  sz = 129
   do i = 1,iMax,10
      
      if (i+10 > iMax) then 
@@ -167,9 +178,16 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
            allocate(rrff(iMax-i-1)) 
         end if 
         endpoint = iMax-i-1
-     end if 
+        sz = 12+(endpoint-1)*13 
+        write(rem,'(I1)') endpoint-1
+     end if
      
-     read(25,*) me_fromfile
+     buf=gzGets(hndle,buffer(1:sz),sz)
+     print*, buffer(1:sz)
+     !read(buffer,'(f12.7,'//rem//'(f13.7))') me_fromfile 
+     print*, me_fromfile 
+     stop
+     !read(25,*) me_fromfile
      read(24,*) ppff 
     
      if (rr_calc) then 
@@ -188,7 +206,9 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
      end if 
   end do
   
-  close(25);close(24)
+  rx = gzClose(hndle) 
+  !close(25);
+  close(24)
   deallocate(me_fromfile)
   deallocate(ppff)
   allocate(me_fromfile(4))

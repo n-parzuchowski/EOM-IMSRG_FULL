@@ -9,10 +9,10 @@ FFLAGS = -O3 -fopenmp
 TFLAGS = -g -O0 -fbounds-check -fopenmp
 CFLAGS = -std=c++11 -O3
 
-LIBS =  -L/user/local/lib/ -llapack -lblas
+LIBS =  -L/user/local/lib/ -llapack -lblas -lz
 
-all: anglib.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o me2j_format.o main_IMSRG.o
-	${FC} anglib.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o me2j_format.o main_IMSRG.o -o ${p1} ${LIBS}
+all: anglib.o gzipmod.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o me2j_format.o main_IMSRG.o
+	${FC} anglib.o gzipmod.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o me2j_format.o main_IMSRG.o -o ${p1} ${LIBS}
 
 basic_IMSRG.o: basic_IMSRG.f90
 	${FC} -c basic_IMSRG.f90 ${LIBS}
@@ -49,7 +49,10 @@ operators.o: operators.f90
 
 me2j_format.o: me2j_format.f90
 	${FC} -c me2j_format.f90 ${LIBS}
- 
+
+gzipmod.o: gzipmod.f90
+	${FC} -c gzipmod.f90 ${LIBS}
+
 HO: add_sp_energies.f90
 	${FC} add_sp_energies.f90 -o ${p2} 
 
