@@ -48,7 +48,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   
   integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype
   integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td
-  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR
+  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz
   integer,allocatable,dimension(:) :: indx 
   real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
   real(8) :: V,g1,g2,g3,hw,pre2
@@ -61,7 +61,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   character(200) :: spfile,intfile,input,prefix
   type(c_ptr) :: buf
   integer(c_int) :: hndle,sz,rx
-  character(kind=C_CHAR,len=129) :: buffer
+  character(kind=C_CHAR,len=200) :: buffer
   common /files/ spfile,intfile,prefix 
   
   pp_calc=.false.
@@ -145,8 +145,8 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   
   
   !open(unit=25,file='../../TBME_input/'//trim(adjustl(intfile))) 
-  hndle=gzOpen('../../TBME_input/'//trim(adjustl(intfile)),'r') 
-  
+  hndle=gzOpen("../../TBME_input/"//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
+  print*, "../../TBME_input/"//trim(adjustl(intfile))
   
   if (len(trim(eMaxchr)) == 1) then 
      open(unit=24,file='../../TBME_input/tpp_eMax0'//trim(eMaxchr)//'.me2j') 
@@ -161,35 +161,35 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   end if 
   
   !read(25,*) ! first line is garbage
-  sz=50
+  sz=200
   buf=gzGets(hndle,buffer,sz) 
-  print*, buffer
+ 
   read(24,*) 
   if (rr_calc) read(23,*)
   endpoint = 10 
   write(rem,'(I1)') endpoint-1
-  sz = 129
+  endsz = 130 
+  
   do i = 1,iMax,10
-     
+  
      if (i+10 > iMax) then 
         deallocate(me_fromfile)
         deallocate(ppff) 
-        allocate(me_fromfile( iMax - i - 1) ) 
-        allocate(ppff(iMax-i-1)) 
+        allocate(me_fromfile( iMax - i + 1) ) 
+        allocate(ppff(iMax-i + 1)) 
         if (rr_calc) then 
            deallocate(rrff)
-           allocate(rrff(iMax-i-1)) 
+           allocate(rrff(iMax-i + 1)) 
         end if 
-        endpoint = iMax-i-1
-        sz = 12+(endpoint-1)*13 
+        endpoint = iMax-i + 1
+        endsz = 13+(endpoint-1)*13 
         write(rem,'(I1)') endpoint-1
      end if
-     
-     buf=gzGets(hndle,buffer,sz)
-     print*, buffer(1:sz)
-     !read(buffer,'(f12.7,'//rem//'(f13.7))') me_fromfile 
-    ! print*, me_fromfile 
-     stop
+  
+     buf = gzGets(hndle,buffer(1:sz),sz)
+  
+     read(buffer(1:endsz),'(f12.7,'//rem//'(f13.7))') me_fromfile 
+  
      !read(25,*) me_fromfile
      read(24,*) ppff 
     
@@ -208,7 +208,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
         end do
      end if 
   end do
-  
+
   rx = gzClose(hndle) 
   !close(25);
   close(24)
