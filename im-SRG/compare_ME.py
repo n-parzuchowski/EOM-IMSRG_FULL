@@ -1,4 +1,4 @@
-fl = open('../../../ragnarcode/koshiroammended/fort.45','r')   # kosh
+fl = open('fort.45','r')   # kosh
 fx = open('fort.75','r')   # nath
 #fy = open('../sp_inputs/nl4.sps') 
 
@@ -20,7 +20,7 @@ for line in fl:
     j = max(int(a[0]),int(a[1])) - 1
     k = min(int(a[2]),int(a[3])) - 1
     l = max(int(a[2]),int(a[3])) - 1
-    g = abs(float(a[4]))
+    g = float(a[4])
     
     g_kosh[l + 30 * k + 900 * j + 27000*i] = g 
     
@@ -32,7 +32,7 @@ for line in fx:
     j = max(int(a[0]),int(a[1])) - 1
     k = min(int(a[2]),int(a[3])) - 1
     l = max(int(a[2]),int(a[3])) - 1
-    g = abs(float(a[4]))
+    g = float(a[4])
 
     g_nat[l + 30 * k + 900 * j + 27000*i]= g
 
@@ -50,6 +50,7 @@ for i in range(30):
                 g2 = max(g_nat[l + 30 * k + 900 * j + 27000*i], \
                     g_nat[j + 30 * i + 900 * l + 27000*k])
                 #print g2
-                if (abs(g1 - g2) > 1e-9):
+                if (abs(g1 - g2) > 1e-2):
                     print i+1,j+1,k+1,l+1,g1,g2
+                    qdubs=raw_input('')
                 

@@ -83,8 +83,8 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
 
   ! move in increments of two, because I use a pn basis,
   !  heiko's is isospin coupled (half the states) 
-  
-  eMax = 4
+
+  eMax = maxval(jbas%e)   
   
   ! counting the states, and labeling them
   do nlj1=1, 2*Ntot,2 
@@ -139,7 +139,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
      allocate(merr(iMax)) 
   end if 
   
-  eMax = maxval(jbas%e) 
+
   write(eMaxchr,'(I2)') eMax 
   eMaxchr = adjustl(eMaxchr)  
   
@@ -230,8 +230,6 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   allocate(me_fromfile(4))
   allocate(ppff(4)) 
   
-
-
   ! redo this loop to put everything in pn basis
   
   i=0
@@ -286,7 +284,7 @@ do a = nlj1,nlj1+1
             
             T = ta+tb
             if (tc+td .ne. T) cycle
-            T = -1*T/2
+            T = -T/2
             q = block_index(JT,T,Par)
     
      ! convert to pn matrix element       
@@ -353,6 +351,7 @@ do a = nlj1,nlj1+1
         j_min = H%xmap(x)%Z(1)  
         i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
      end if
+
      ! kets/bras are pre-scaled by sqrt(2) if they 
      ! have two particles in the same sp-shell
         

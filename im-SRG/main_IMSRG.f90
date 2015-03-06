@@ -21,11 +21,14 @@ program main_IMSRG
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
   external :: dHds_TDA_shell_w_2op
-
+  integer :: heiko(30)
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
  
+  heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
+       13,14,29,30,27,28,25,26,23,24,21,22/) 
+  
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,hw)
@@ -62,8 +65,8 @@ program main_IMSRG
      else
         call read_interaction(HS,jbasis,ham_type,hw)
      end if 
-  end if 
- 
+  end if
+  
 !============================================================
 ! BUILD BASIS
 !============================================================
@@ -86,7 +89,7 @@ program main_IMSRG
   else 
      call normal_order(HS,jbasis) 
   end if
-  
+
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 

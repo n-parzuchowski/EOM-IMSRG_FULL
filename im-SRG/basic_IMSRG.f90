@@ -100,13 +100,16 @@ subroutine read_sp_basis(jbas,hp,hn)
   
   type(spd) :: jbas
   character(200) :: spfile,intfile,prefix
+  character(2) :: hk
+  character(200) :: interm
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
   integer :: q,r,Jtarget,PARtarget
   real(8) :: e
   common /files/ spfile,intfile,prefix
   
-  open(unit=39,file='../../sp_inputs/'//trim(adjustl(spfile)))
-  
+  interm= adjustl(spfile)
+  open(unit=39,file='../../sp_inputs/'//trim(interm))
+  hk=interm(1:2)
   ix = 0 
   
   ! count the number of states in the file. 
@@ -150,7 +153,7 @@ subroutine read_sp_basis(jbas,hp,hn)
 
   end do 
  
-  call find_holes(jbas,hp,hn) 
+  call find_holes(jbas,hp,hn,hk) 
   
   jbas%Jtotal_max = maxval(jbas%jj) 
   jbas%lmax = maxval(jbas%ll) 
@@ -201,12 +204,13 @@ subroutine read_sp_basis(jbas,hp,hn)
 end subroutine  
 !==============================================
 !==============================================
-subroutine find_holes(jbas,pholes,nholes) 
+subroutine find_holes(jbas,pholes,nholes,hk) 
   implicit none 
   
   type(spd) :: jbas
   integer :: pholes,nholes,i,minpos(1),rn,rp,r1,r2
   real(8),dimension(jbas%total_orbits) :: temp
+  character(2) :: hk
   
   temp = jbas%e
   jbas%con = 0 ! zero if particle, one if hole
@@ -215,34 +219,53 @@ subroutine find_holes(jbas,pholes,nholes)
   rp = 0 
   ! protons have isospin -1/2 
  
-  do while ((rn < nholes) .or. (rp < pholes))
-     minpos = minloc(temp) !find lowest energy
-     jbas%con(minpos(1)) = 1 ! thats a hole
-     temp(minpos(1)) = 9.e9  ! replace it with big number
-     if ( jbas%itzp(minpos(1)) == 1 ) then
-        if (rn < nholes ) then 
-           rn = rn + (jbas%jj(minpos(1))+1) 
-           if (rn > nholes) then 
-              rn = rn - (jbas%jj(minpos(1))+1) 
-              jbas%con(minpos(1)) = 0 
-           end if 
-        else 
-           jbas%con(minpos(1)) = 0 
-        end if 
-     else
-        if (rp < pholes ) then 
-           rp = rp + (jbas%jj(minpos(1))+1) 
-           if (rp > pholes) then 
-              rp = rp - (jbas%jj(minpos(1))+1) 
-              jbas%con(minpos(1)) = 0 
-           end if 
-        else 
-           jbas%con(minpos(1)) = 0 
-        end if 
+  if (pholes==nholes) then 
+
+     if (pholes == 2) then 
+        jbas%con(1:2) = 1
+     else if (pholes == 8) then 
+        jbas%con(1:6) = 1
+     else if (pholes == 20) then 
+        jbas%con(1:12) = 1
+     else 
+        STOP 'this nucleus is not available' 
      end if 
+
+   else
+     if (pholes == 2) then 
+        jbas%con(1:2) = 1
+     else if (pholes == 8) then 
+        jbas%con(1:6) = 1
         
-  end do 
-  
+        if (nholes == 14) then 
+           if (hk == 'hk') then 
+              jbas%con(12) = 1
+           else 
+              jbas%con(8) = 1 
+           end if
+        else if (nholes == 16) then
+           jbas%con(12) = 1
+           jbas%con(8) = 1
+        else 
+           STOP 'this nucleus is not available' 
+        end if
+     
+     else if (pholes == 20) then 
+        jbas%con(1:12) = 1
+        if (nholes == 28) then 
+           if (hk=='hk') then 
+              jbas%con(20) = 1
+           else 
+              jbas%con(14) = 1
+           end if 
+         else 
+            STOP 'this nucleus is not available' 
+         end if 
+     else 
+        STOP 'this nucleus is not available' 
+     end if 
+  end if 
+    
   allocate(jbas%holes(sum(jbas%con)))
   allocate(jbas%parts(jbas%total_orbits - sum(jbas%con))) 
   ! these arrays help us later in f_elem (in this module) 
@@ -262,7 +285,7 @@ subroutine find_holes(jbas,pholes,nholes)
      end if 
      
   end do 
-  
+ 
 end subroutine  
 !==============================================
 !==============================================
@@ -276,7 +299,7 @@ subroutine allocate_blocks(jbas,op)
   integer :: Jtot,Tz,Par,nph,npp,nhh,CX,j_min,j_max,numJ
   
   AX = sum(jbas%con) !number of shells under eF 
-  op%belowEF = AX  
+  op%belowEF = AX
   op%Nsp = jbas%total_orbits
   N = op%Nsp  !number of sp shells
   
