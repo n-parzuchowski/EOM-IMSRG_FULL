@@ -59,6 +59,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   character(1) :: rem
   character(2) :: eMaxchr
   character(200) :: spfile,intfile,input,prefix
+  character(200) :: itpath
   type(c_ptr) :: buf,buf2,buf3
   integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
@@ -143,23 +144,26 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   write(eMaxchr,'(I2)') eMax 
   eMaxchr = adjustl(eMaxchr)  
   
-  
+  open(unit=34,file='../../inifiles/interactionpath')
+  read(34,*) itpath 
+  itpath = adjustl(itpath) 
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
-  hndle=gzOpen("../../TBME_input/"//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
+  hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
   
+  print*, trim(itpath)
   
   ! opening the pipj and rirj files 
   if (len(trim(eMaxchr)) == 1) then 
-     hndle2=gzOpen("../../TBME_input/tpp_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
+     hndle2=gzOpen(trim(itpath)//"tpp_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      if (rr_calc) then 
-        hndle3=gzOpen("../../TBME_input/r1r2_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
+        hndle3=gzOpen(trim(itpath)//"r1r2_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      end if
   else
-      hndle2=gzOpen("../../TBME_input/tpp_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
+      hndle2=gzOpen(trim(itpath)//"tpp_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      if (rr_calc) then 
-        hndle3=gzOpen("../../TBME_input/r1r2_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
+        hndle3=gzOpen(trim(itpath)//"r1r2_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      end if
   end if 
   
