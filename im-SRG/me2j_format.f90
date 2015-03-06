@@ -59,9 +59,9 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   character(1) :: rem
   character(2) :: eMaxchr
   character(200) :: spfile,intfile,input,prefix
-  type(c_ptr) :: buf
-  integer(c_int) :: hndle,sz,rx
-  character(kind=C_CHAR,len=200) :: buffer
+  type(c_ptr) :: buf,buf2,buf3
+  integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
+  character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
   common /files/ spfile,intfile,prefix 
   
   pp_calc=.false.
@@ -144,28 +144,32 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   eMaxchr = adjustl(eMaxchr)  
   
   
-  !open(unit=25,file='../../TBME_input/'//trim(adjustl(intfile))) 
-  hndle=gzOpen("../../TBME_input/"//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
-  print*, "../../TBME_input/"//trim(adjustl(intfile))
+  ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   
+  ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
+  hndle=gzOpen("../../TBME_input/"//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
+  
+  
+  ! opening the pipj and rirj files 
   if (len(trim(eMaxchr)) == 1) then 
-     open(unit=24,file='../../TBME_input/tpp_eMax0'//trim(eMaxchr)//'.me2j') 
+     hndle2=gzOpen("../../TBME_input/tpp_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      if (rr_calc) then 
-        open(unit=23,file='../../TBME_input/r1r2_eMax0'//trim(eMaxchr)//'.me2j')
+        hndle3=gzOpen("../../TBME_input/r1r2_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      end if
   else
-     open(unit=24,file='../../TBME_input/tpp_eMax'//trim(eMaxchr)//'.me2j') 
+      hndle2=gzOpen("../../TBME_input/tpp_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      if (rr_calc) then 
-        open(unit=23,file='../../TBME_input/r1r2_eMax'//trim(eMaxchr)//'.me2j') 
+        hndle3=gzOpen("../../TBME_input/r1r2_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      end if
   end if 
   
-  !read(25,*) ! first line is garbage
-  sz=200
+  
+  sz=200;sz2=200;sz3=200 !c_ints, don't reuse them 
+  
   buf=gzGets(hndle,buffer,sz) 
- 
-  read(24,*) 
-  if (rr_calc) read(23,*)
+  buf2=gzGets(hndle2,buffer2,sz2)
+  if (rr_calc) buf3=gzGets(hndle3,buffer3,sz3)
+  
   endpoint = 10 
   write(rem,'(I1)') endpoint-1
   endsz = 130 
@@ -187,19 +191,23 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
      end if
   
      buf = gzGets(hndle,buffer(1:sz),sz)
+     buf2 = gzGets(hndle2,buffer2(1:sz2),sz2)
+     
   
      read(buffer(1:endsz),'(f12.7,'//rem//'(f13.7))') me_fromfile 
-  
-     !read(25,*) me_fromfile
-     read(24,*) ppff 
-    
+     read(buffer2(1:endsz),'(f12.7,'//rem//'(f13.7))') ppff 
+   
      if (rr_calc) then 
-  
+        
+        buf3 = gzGets(hndle3,buffer3(1:sz3),sz3)
+        read(buffer3(1:endsz),'(f12.7,'//rem//'(f13.7))') rrff 
+        
         do j = 1,endpoint 
            ME(i+j-1) = me_fromfile(j)
            MEpp(i+j-1) = ppff(j) 
            MErr(i+j-1) = rrff(j)
         end do
+        
      else
         
         do j = 1,endpoint 
@@ -210,12 +218,20 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   end do
 
   rx = gzClose(hndle) 
-  !close(25);
-  close(24)
+  rx = gzClose(hndle2)
+  if(rr_calc) then 
+     rx = gzClose(hndle3)
+     deallocate(rrff)
+     allocate(rrff(4))
+  end if 
+  
   deallocate(me_fromfile)
   deallocate(ppff)
   allocate(me_fromfile(4))
   allocate(ppff(4)) 
+  
+
+
   ! redo this loop to put everything in pn basis
   
   i=0
@@ -247,6 +263,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
               do JT = jmin,jmax,2
                  me_fromfile=ME(i+1:i+4)
                  ppff = MEpp(i+1:i+4)
+                 if (rr_calc) rrff = MErr(i+1:i+4)
                  i = i + 4 ! four different TMt qnums
  
 
@@ -262,14 +279,14 @@ do a = nlj1,nlj1+1
             if ( a == b ) pre2 = pre2*sqrt(0.5d0) 
             if ( c == d ) pre2 = pre2*sqrt(0.5d0) 
             
-            ta = jbas%itzp(a)
-            tb = jbas%itzp(b)
-            tc = jbas%itzp(c)
-            td = jbas%itzp(d)
+            ta = -jbas%itzp(a)
+            tb = -jbas%itzp(b)
+            tc = -jbas%itzp(c)
+            td = -jbas%itzp(d)
             
             T = ta+tb
             if (tc+td .ne. T) cycle
-            T = T/2
+            T = -1*T/2
             q = block_index(JT,T,Par)
     
      ! convert to pn matrix element       
