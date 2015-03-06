@@ -25,6 +25,7 @@ program main_IMSRG
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
+
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,hw)

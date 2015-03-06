@@ -13,18 +13,20 @@ subroutine get_me2j_spfile(eMaxchr)
   character(2) :: eMaxchr
   character(13) :: fmt
   
+
   read(eMaxchr,'(I2)') eMax
   eMaxchr = adjustl(eMaxchr) 
-  open(unit=24,file='hk'//trim(eMaxchr)//'.sps')
+  open(unit=24,file='../../sp_inputs/hk'//trim(eMaxchr)//'.sps')
   
   q = 1
+  
   fmt = '(5(I5),e17.7)'
   do  e = 0,eMax
      
      do l = mod(e,2),e,2
         
         n = (e-l)/2
-        
+  
         do jj = abs(2*l-1),2*l+1,2
            
            do tz = -1,1,2
@@ -58,7 +60,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   character(2) :: eMaxchr
   character(200) :: spfile,intfile,input,prefix
   type(c_ptr) :: buf
-  integer :: hndle,sz,rx
+  integer(c_int) :: hndle,sz,rx
   character(kind=C_CHAR,len=129) :: buffer
   common /files/ spfile,intfile,prefix 
   
@@ -161,6 +163,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   !read(25,*) ! first line is garbage
   sz=50
   buf=gzGets(hndle,buffer,sz) 
+  print*, buffer
   read(24,*) 
   if (rr_calc) read(23,*)
   endpoint = 10 
@@ -182,10 +185,10 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
         write(rem,'(I1)') endpoint-1
      end if
      
-     buf=gzGets(hndle,buffer(1:sz),sz)
+     buf=gzGets(hndle,buffer,sz)
      print*, buffer(1:sz)
      !read(buffer,'(f12.7,'//rem//'(f13.7))') me_fromfile 
-     print*, me_fromfile 
+    ! print*, me_fromfile 
      stop
      !read(25,*) me_fromfile
      read(24,*) ppff 
