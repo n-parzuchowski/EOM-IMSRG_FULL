@@ -1,5 +1,5 @@
 FC = gfortran $(FFLAGS)  
-CC = g++ $(CFLAGS) 
+CXX = g++ $(CXXFLAGS) 
 
 p1 = run_IMSRG
 p2 = get_HO_energies
@@ -7,54 +7,44 @@ p3 = truncate
 
 FFLAGS = -O3 -fopenmp
 TFLAGS = -g -O0 -fbounds-check -fopenmp
-CFLAGS = -std=c++11 -O3
+CXXFLAGS = -std=c++11 -O3
 
 LIBS =  -L/user/local/lib/ -llapack -lblas -lz
 
-all: anglib.o gzipmod.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o me2j_format.o main_IMSRG.o
-	${FC} anglib.o gzipmod.o basic_IMSRG.o HF_mod.o commutators.o generators.o adams_ode.o operators.o IMSRG_ODE.o IMSRG_MAGNUS.o IMSRG_CANONICAL.o me2j_format.o main_IMSRG.o -o ${p1} ${LIBS}
+obfiles = bin
+modfiles = md
 
-basic_IMSRG.o: basic_IMSRG.f90
-	${FC} -c basic_IMSRG.f90 ${LIBS}
+F90SRC=$(wildcard *.f90)
+OBJ = $(patsubst %.f90, $(obfiles)/%.o, $(wildcard *.f90))  
+OBJ_f = $(patsubst %.f, $(obfiles)/%.o, $(wildcard *.f))  
 
-main_IMSRG.o:  main_IMSRG.f90
-	${FC} -c  main_IMSRG.f90 ${LIBS}
+all: $(OBJ_f) $(OBJ)
+	${FC} $^ -o ${p1} -J$(modfiles) ${LIBS}
 
-anglib.o: anglib.f
-	${FC} -c anglib.f ${LIBS}
+$(OBJ): | $(obfiles)
+$(OBJ_f): | $(obfiles)
 
-HF_mod.o: HF_mod.f90
-	${FC} -c HF_mod.f90 ${LIBS}
+$(obfiles):
+	@mkdir -p $@
+	@mkdir -p $(modfiles)
 
-generators.o: generators.f90
-	${FC} -c generators.f90 ${LIBS}
+$(obfiles)/%.o: %.f
+	${FC} -c -o $@ $< -J$(modfiles) ${LIBS}
 
-commutators.o: commutators.f90
-	${FC} -c commutators.f90 ${LIBS}
+$(obfiles)/%.o: %.f90
+	${FC} -c -o $@ $< -J$(modfiles) ${LIBS}
 
-adams_ode.o: adams_ode.f90
-	${FC} -c adams_ode.f90 ${LIBS} 
-
-IMSRG_ODE.o: IMSRG_ODE.f90
-	${FC} -c IMSRG_ODE.f90 ${LIBS} 
-
-IMSRG_MAGNUS.o: IMSRG_MAGNUS.f90
-	${FC} -c IMSRG_MAGNUS.f90 ${LIBS} 
-
-IMSRG_CANONICAL.o: IMSRG_CANONICAL.f90
-	${FC} -c IMSRG_CANONICAL.f90 ${LIBS} 
-
-operators.o: operators.f90
-	${FC} -c operators.f90 ${LIBS}
-
-me2j_format.o: me2j_format.f90
-	${FC} -c me2j_format.f90 ${LIBS}
-
-gzipmod.o: gzipmod.f90
-	${FC} -c gzipmod.f90 ${LIBS}
-
-HO: add_sp_energies.f90
-	${FC} add_sp_energies.f90 -o ${p2} 
+# nice gift from FEI to detect dependencies automatically
+dependencies.mk: $(F90SRC)
+	@for f in $^; do \
+	    printf "%s:" "$(obfiles)/$${f%.f90}.o"; \
+	    awk -v p="$(obfiles)/" \
+	        '$$1 == "use" && NF == 2 { printf " %s%s.o",p,$$2 }' "$$f"; \
+	    echo; \
+	done >$@.tmp; \
+	mv $@.tmp $@
+ 
+-include dependencies.mk
 
 truncate: truncate_interaction.cpp
 	${CC} truncate_interaction.cpp -o ${p3}
@@ -65,4 +55,7 @@ clean:
 	rm -f *.o
 	rm -f *.mod
 	rm -f *~
+	rm -rf $(obfiles)
+	rm -rf $(modfiles)
+	rm -f dependencies.mk
 

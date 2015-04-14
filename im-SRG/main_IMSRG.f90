@@ -15,13 +15,14 @@ program main_IMSRG
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
-  integer :: np,nh,nb,k,l,m,n,method_int
-  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx
+  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb
+  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00
   logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
   external :: dHds_TDA_shell_w_2op
   integer :: heiko(30)
+
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
@@ -39,32 +40,43 @@ program main_IMSRG
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut)
   call allocate_blocks(jbasis,HS)   
   call print_header
+  
   ! for calculating COM expectation value
   if (COM_calc) then  
+     
      call duplicate_sq_op(HS,rirj)
      call duplicate_sq_op(HS,pipj)
-     if (me2j) then 
+     
+     if (me2j) then  ! heiko format or scott format? 
         call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj) 
      else
         call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
      end if
+     
      call calculate_h0_harm_osc(hw,jbasis,pipj,4)
      call calculate_h0_harm_osc(hw,jbasis,rirj,5)
-  else if (r2rms_calc) then
+ !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  else if (r2rms_calc) then ! radius of some sort 
+  
      call duplicate_sq_op(HS,rirj)
      call duplicate_sq_op(HS,r2_rms) 
+     
      if (me2j) then 
         call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj) 
      else
         call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
      end if
+     
      call initialize_CM_radius(r2_rms,rirj,jbasis) 
-  else    
+ !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+  else    ! normal boring
+  
      if (me2j) then 
         call read_me2j_interaction(HS,jbasis,ham_type,hw) 
      else
         call read_interaction(HS,jbasis,ham_type,hw)
-     end if 
+     end if
+     
   end if
   
 !============================================================
@@ -100,8 +112,7 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
-  
+
   select case (method_int) 
   
   case (1) ! magnus 
@@ -144,7 +155,6 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
   if (tda_calculation) then 
      
      call initialize_TDA(TDA,jbasis,HS%Jtarg,HS%Ptarg,HS%valcut)

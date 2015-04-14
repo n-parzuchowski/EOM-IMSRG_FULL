@@ -4,6 +4,7 @@ module IMSRG_MAGNUS
   use generators
   use basic_IMSRG
   use HF_mod 
+  use mscheme
   implicit none 
   
 contains
@@ -14,10 +15,11 @@ subroutine magnus_decouple(HS,jbas,O1,O2)
   
   integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
   type(spd) :: jbas
+  type(mscheme_3body) :: threebd
   type(sq_op),optional :: O1,O2
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
-  real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3)
+  real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00
   character(200) :: spfile,intfile,prefix
   common /files/ spfile,intfile,prefix
   
@@ -97,6 +99,11 @@ subroutine magnus_decouple(HS,jbas,O1,O2)
 
 ! calculate any observables which have been requested =====================
 
+  corr = dcgi00()
+  call allocate_3body_storage(threebd,jbas)
+  corr =  fourth_order_restore(G,H,threebd,jbas) 
+  print*, 'FINAL ENERGY:', corr + HS%E0
+  
   if (present(O1)) then 
      call duplicate_sq_op(O1,Oevolv)
     
@@ -407,6 +414,13 @@ end subroutine
 end module
 !================================================
 !================================================
+!subroutine restore_quadrupoles( X , OM ) 
+ ! implicit none
+  
+ ! type(sq_op) :: X,OM,INT1
+  
+  
+  
   
   
   

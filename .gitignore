@@ -22,3 +22,4 @@ get_HO*
 truncate
 fort*
 *.out
+*.mk

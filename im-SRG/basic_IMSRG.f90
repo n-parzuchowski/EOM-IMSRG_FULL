@@ -47,6 +47,17 @@ module basic_IMSRG
      real(8) :: E0,hospace
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+  TYPE :: mscheme_3body !second quantized operator 
+     type(real_mat),allocatable,dimension(:) :: Wmat
+     type(int_vec),allocatable,dimension(:) :: lam
+     type(int_mat),allocatable,dimension(:) :: qn_h,qn_p
+     integer,allocatable,dimension(:,:) :: qnm_holes,qnm_parts
+     integer,allocatable,dimension(:) :: direct_omp 
+     integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
+     integer :: Jtarg,Ptarg,valcut,oc_m,un_m
+     real(8) :: E0,hospace
+  END TYPE mscheme_3body 
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 type sp_block_mat
    real(8),allocatable,dimension(:,:) :: matrix!,eigvec
    real(8),allocatable,dimension(:) :: Eigval,extra
@@ -227,6 +238,13 @@ subroutine find_holes(jbas,pholes,nholes,hk)
         jbas%con(1:6) = 1
      else if (pholes == 20) then 
         jbas%con(1:12) = 1
+     else if (pholes == 28) then 
+        if (hk == 'hk') then 
+           jbas%con(1:12) = 1
+           jbas%con(19:20) = 1
+        else
+           jbas%con(1:14) = 1 
+        end if    
      else 
         STOP 'this nucleus is not available' 
      end if 
@@ -261,7 +279,31 @@ subroutine find_holes(jbas,pholes,nholes,hk)
          else 
             STOP 'this nucleus is not available' 
          end if 
-     else 
+     else if (pholes == 20) then 
+        jbas%con(1:12) = 1
+        if (nholes == 28) then 
+           if (hk=='hk') then 
+              jbas%con(20) = 1
+           else 
+              jbas%con(14) = 1
+           end if 
+         else 
+            STOP 'this nucleus is not available' 
+         end if 
+      else if (pholes == 28) then 
+        jbas%con(1:12) = 1
+        if (nholes == 20) then 
+           if (hk=='hk') then 
+              jbas%con(19) = 1
+           else 
+              jbas%con(13) = 1
+           end if  
+        else 
+            STOP 'this nucleus is not available' 
+         end if 
+
+      
+      else 
         STOP 'this nucleus is not available' 
      end if 
   end if 

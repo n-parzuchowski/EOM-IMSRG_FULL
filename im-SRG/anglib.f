@@ -1,4 +1,5 @@
-
+c     horrifying but fast and functional ang. mom. routines
+c     abandon hope ye who enter here
 
       function  dcg(aj1,am1,aj2,am2,aj3,am3c)
 c *****
@@ -169,7 +170,9 @@ c     write(6,600)  nm
       return
  
       entry dcgi(j1,m1,j2,m2,j,m)
- 
+c     this ludicrous thing seems to give the CG coefs, 
+c     but you need to supply twice the values, and only use half in j1,j2
+c     which you then mult by 2.
 **** condition check ****
       if ( (j1.lt.0).or.(iabs(m1).gt.j1).or.
      &     (j2.lt.0).or.(iabs(m2).gt.j2).or.
