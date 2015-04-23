@@ -44,7 +44,7 @@ real(8) function V_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas)
         sm = sm + dcgi( ja, ma , jb, mb, JT, MT) * &
              dcgi( jc, mc , jd, md, JT, MT) * &
              v_elem(a,b,c,d,JT,Op,jbas)
-      
+
   end do 
   
   v_mscheme = sm 
@@ -310,10 +310,8 @@ real(8) function fourth_order_restore(OMEGA,H,XR,jbas)
   real(8) :: sm,correction,denom
   
   
- !   print*, jbas%holesb4
- ! print*
- ! print*, jbas%partsb4
- ! stop
+  print*, 'calculating approximate 4th order triples' 
+  print*, 'this will probably take a while...' 
   
   tot_threads = size(XR%direct_omp)-1
   correction = 0.d0 
@@ -323,7 +321,7 @@ real(8) function fourth_order_restore(OMEGA,H,XR,jbas)
 do thread = 1,tot_threads
   do q = 1+XR%direct_omp(thread), XR%direct_omp(thread+1)
      
-     print*, q,XR%nblocks
+    ! print*, q,XR%nblocks
      do II = 1, size(XR%qn_h(q)%Y(:,1))
      
         i = XR%qn_h(q)%Y(II,1)
