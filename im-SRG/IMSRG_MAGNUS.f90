@@ -9,7 +9,7 @@ module IMSRG_MAGNUS
   
 contains
 
-subroutine magnus_decouple(HS,jbas,O1,O2) 
+subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips) 
   ! runs IMSRG using magnus expansion method
   implicit none 
   
@@ -21,8 +21,20 @@ subroutine magnus_decouple(HS,jbas,O1,O2)
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00
   character(200) :: spfile,intfile,prefix
+  character(1),optional :: quads,trips
+  logical :: qd_calc,trip_calc
   common /files/ spfile,intfile,prefix
   
+  qd_calc = .false. 
+  if (present(quads)) then 
+     qd_calc = .true.
+  end if 
+  
+  trip_calc = .false. 
+  if (present(trips)) then 
+     trip_calc=.true.
+  end if 
+     
   call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian
   call duplicate_sq_op(HS,w1) !workspace
@@ -70,9 +82,15 @@ subroutine magnus_decouple(HS,jbas,O1,O2)
      call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call euler_step(G,DG,s,ds) 
   
-     call copy_sq_op(HS,H0) 
-     call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,'y') 
-
+     call copy_sq_op(HS,H0)
+     
+     if (qd_calc) then 
+        ! calculate quadrupoles correction
+        call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,'y') 
+     else
+        call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+     end if
+     
      call copy_sq_op(ETA,ETA0)
  !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
      call build_gs_white(HS,ETA,jbas) 
@@ -99,10 +117,13 @@ subroutine magnus_decouple(HS,jbas,O1,O2)
 
 ! calculate any observables which have been requested =====================
 
-  corr = dcgi00()
-  call allocate_3body_storage(threebd,jbas)
-  corr =  fourth_order_restore(G,H,threebd,jbas) 
-  print*, 'FINAL ENERGY:', corr + HS%E0
+  ! triples correction
+  if (trip_calc) then 
+     corr = dcgi00()
+     call allocate_3body_storage(threebd,jbas)
+     corr =  fourth_order_restore(G,H,threebd,jbas) 
+     print*, 'FINAL ENERGY:', corr + HS%E0
+  end if 
   
   if (present(O1)) then 
      call duplicate_sq_op(O1,Oevolv)

@@ -151,6 +151,42 @@ program main_IMSRG
         call discrete_decouple(HS,jbasis) 
      end if
 
+  case (4) ! magnus(2/3) 
+    
+     if (COM_calc) then 
+        call magnus_decouple(HS,jbasis,pipj,rirj,quads='y')
+        call calculate_CM_energy(pipj,rirj,hw) 
+     else if (r2rms_calc) then
+        call magnus_decouple(HS,jbasis,r2_rms,quads='y')
+        call write_tilde_from_Rcm(r2_rms)
+     else 
+        call magnus_decouple(HS,jbasis,quads='y') 
+     end if 
+     
+  case (5) ! magnus(2/3)[T] 
+    
+     if (COM_calc) then 
+        call magnus_decouple(HS,jbasis,pipj,rirj,quads='y',trips='y')
+        call calculate_CM_energy(pipj,rirj,hw) 
+     else if (r2rms_calc) then
+        call magnus_decouple(HS,jbasis,r2_rms,quads='y',trips='y')
+        call write_tilde_from_Rcm(r2_rms)
+     else 
+        call magnus_decouple(HS,jbasis,quads='y',trips='y') 
+     end if 
+
+  case (6) ! magnus(2)[T] 
+    
+     if (COM_calc) then 
+        call magnus_decouple(HS,jbasis,pipj,rirj,trips='y')
+        call calculate_CM_energy(pipj,rirj,hw) 
+     else if (r2rms_calc) then
+        call magnus_decouple(HS,jbasis,r2_rms,trips='y')
+        call write_tilde_from_Rcm(r2_rms)
+     else 
+        call magnus_decouple(HS,jbasis,trips='y') 
+     end if 
+
   end select
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
