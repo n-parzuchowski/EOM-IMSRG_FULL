@@ -17,7 +17,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   type(spd) :: jbas
   type(mscheme_3body) :: threebd
   type(sq_op),optional :: O1,O2
-  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
+  type(sq_op) :: H,H2,G1b,G2b,G,ETA,HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00
   character(200) :: spfile,intfile,prefix
@@ -37,6 +37,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      
   call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian
+  call duplicate_sq_op(HS,H2) !evolved hamiltonian
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
   call duplicate_sq_op(HS,INT1) !workspace
@@ -47,6 +48,8 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   call duplicate_sq_op(HS,G0) ! backup copy of G
   call duplicate_sq_op(HS,ETA0) ! backup copy of G
   call duplicate_sq_op(HS,H0) ! backup copy of G
+  call duplicate_sq_op(HS,G1b)
+  call duplicate_sq_op(HS,G2b) 
   G%herm = -1 
   DG%herm = -1
   G0%herm = -1 
@@ -88,6 +91,10 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
         ! calculate quadrupoles correction
         call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,'y') 
      else
+        ! make two separate operators
+        !call split_1b_2b(G,G1b,G2b) 
+        !call BCH_EXPAND(H2,G1b,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+        !call BCH_EXPAND(HS,G2b,H2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
         call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      end if
      
@@ -115,6 +122,10 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
   end do
 
+!  call split_1b_2b(G,G1b,G2b) 
+!  call BCH_EXPAND(H2,G1b,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+!  call BCH_EXPAND(HS,G2b,H2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+ 
 ! calculate any observables which have been requested =====================
 
   ! triples correction
@@ -358,7 +369,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
      ! so now just add INT1 + c_n * INT2 to get current value of HS
           
      call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2) 
-     call add_sq_op(INT1 , 1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
+     call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
         
      if (qd_calc) then 
         call restore_quadrupoles(AD,G,w1,w2,INT3,jbas) 

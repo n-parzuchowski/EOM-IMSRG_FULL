@@ -1403,6 +1403,8 @@ subroutine duplicate_sq_op(H,op)
   allocate(op%fpp(parts,parts)) 
   allocate(op%fph(parts,holes)) 
   
+  ! everything is initialized to zero
+  op%E0 = 0.d0 
   op%fhh = 0.d0
   op%fpp = 0.d0
   op%fph = 0.d0 
@@ -1461,6 +1463,7 @@ subroutine copy_sq_op(H,op)
   type(sq_op) :: H,op
   integer :: q,i,j,holes,parts,nh,np,nb
      
+  op%herm = H%herm
   op%E0 = H%E0
   op%fhh = H%fhh
   op%fpp = H%fpp
@@ -1475,6 +1478,33 @@ subroutine copy_sq_op(H,op)
   end do 
   
 end subroutine 
+!======================================================
+!======================================================
+subroutine split_1b_2b(Op,onebd,twobd) 
+  ! make a copy of H onto op
+  implicit none 
+  
+  type(sq_op) :: Op,onebd,twobd
+  integer :: q,i,j,holes,parts,nh,np,nb
+
+  onebd%herm = Op%herm
+  twobd%herm = Op%herm 
+  
+  onebd%E0 = Op%E0
+  onebd%fhh = Op%fhh
+  onebd%fpp = Op%fpp
+  onebd%fph = Op%fph
+  
+  do q = 1, op%nblocks
+              
+     do i = 1,6
+        twobd%mat(q)%gam(i)%X = Op%mat(q)%gam(i)%X
+     end do 
+     
+  end do 
+  
+end subroutine 
+
 !=====================================================
 !=====================================================
 subroutine add_sq_op(A,ax,B,bx,C) 

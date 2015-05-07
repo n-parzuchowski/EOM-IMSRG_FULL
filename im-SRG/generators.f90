@@ -94,7 +94,7 @@ subroutine build_gs_white(H,ETA,jbas)
      end do 
   end do 
   
-  ! two body part 
+!  two body part 
   
   do  q = 1, H%nblocks
          
