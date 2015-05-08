@@ -472,6 +472,7 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
   integer :: p1x,p2x,h1x,h2x
   integer :: i,j,b,q,Abody,Ntot,nh,np,nb,a,c,p1,p2,h1,h2,cx
   integer :: AA,II,Jtot,ik,jk,ck,ji,jj,ti,tj,li,lj,jc,JT,pm,jp1,jp2,ja,jb
+  integer :: kx,dx,k,d
   real(8) :: sm,sm2
   
   Abody = X%belowEF
@@ -514,7 +515,7 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
            jc = jbas%jj(ck)
            do JT = abs(jc - ji),jc+ji,2
               sm = sm + v_elem(ck,ik,ck,jk,JT,w1,jbas)*(JT + 1)
-              sm2 = sm2 - v_elem(ck,ik,ck,jk,JT,w2,jbas)*(JT + 1) 
+              sm2 = sm2 + v_elem(ck,ik,ck,jk,JT,w2,jbas)*(JT + 1) 
               ! w2 is subtracted, because the commutator in this case has a minus sign. 
            end do
         end do 
@@ -524,8 +525,33 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
        ! nothing is hermitian or anti-hermitian here
      end do 
   end do       
+  
+        !call print_matrix(INT1%fhh)
+  ! i = jbas%holes(4)
+  ! j = jbas%holes(4) 
+  
+  ! sm = 0.d0 
+  ! do kx = 1,Abody
+  !    do cx = 1,Ntot-Abody
+  !       do dx = 1,Ntot-Abody 
            
-        
+  !          k = jbas%holes(kx)
+  !          c = jbas%parts(cx)
+  !          d = jbas%parts(dx)
+           
+  !          do JT = 0,18,2
+  !             sm = sm + (JT+1.d0) * v_elem(k,j,c,d,JT,X,jbas) * v_elem(c,d,k,i,JT,OM,jbas) /2.d0
+  !          end do 
+           
+  !       end do 
+  !    end do
+  ! end do 
+  
+  ! sm = sm /(jbas%jj(j)+1.d0) 
+  
+  ! print*, sm, INT1%fhh(4,4) 
+           
+           
 ! fpp
   do i = 1 , Ntot - Abody
      ik = jbas%parts(i) 
@@ -552,7 +578,7 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
            ! w2 matrix results from multiplying the hh channel
            do JT = abs(jc - ji),jc+ji,2
               ! the hermiticity of X and OM are exploited here. 
-              sm = sm - X%herm*OM%herm*v_elem(ck,jk,ck,ik,JT,w1,jbas)*(JT + 1) 
+              sm = sm + X%herm*OM%herm*v_elem(ck,jk,ck,ik,JT,w1,jbas)*(JT + 1) 
               sm2 = sm2 + v_elem(ck,jk,ck,ik,JT,w2,jbas)*(JT + 1)
            end do 
         end do 
@@ -562,7 +588,37 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
         
      end do 
   end do       
+ 
+!  call print_matrix(INT1%fpp)
+  ! i = jbas%parts(4)
+  ! j = jbas%parts(4) 
   
+  ! sm = 0.d0 
+  ! do kx = 1,Ntot-Abody
+  !    do cx = 1,Abody
+  !       do dx = 1,Abody 
+           
+  !          k = jbas%parts(kx)
+  !          c = jbas%holes(cx)
+  !          d = jbas%holes(dx)
+           
+  !          do JT = 0,18,2
+  !             sm = sm + (JT+1.d0) * v_elem(k,i,c,d,JT,OM,jbas) * v_elem(c,d,k,j,JT,X,jbas) /2.d0
+  !          end do 
+           
+  !       end do 
+  !    end do
+  ! end do 
+  
+  ! sm = sm /(jbas%jj(j)+1.d0) 
+  
+  ! print*, sm, INT1%fpp(4,4) 
+
+
+
+
+
+ 
   !!! now add the new stuff to RES
   
   do q = 1, RES%nblocks
@@ -595,10 +651,10 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
               ! i've already built the INT2 minus signs into the one-body
               ! insertion
               RES%mat(q)%gam(3)%X(AA,II) = RES%mat(q)%gam(3)%X(AA,II) &
-                   + 2*INT1%fhh(c,h1) * v_elem(a,b,cx,j,Jtot,OM,jbas)  &
-                   - (-2)**((ji+jj-Jtot)/2)*INT1%fhh(c,h2) * v_elem(a,b,cx,i,Jtot,OM,jbas)! &
-             !      + INT2%fhh(c,h1) * v_elem(a,b,cx,j,Jtot,X,jbas) &
-              !     - (-1)**((ji+jj-Jtot)/2)*INT2%fhh(c,h2) * v_elem(a,b,cx,i,Jtot,X,jbas)
+                   - INT1%fhh(h1,c) * v_elem(a,b,cx,j,Jtot,OM,jbas)  &
+                   + (-1)**((ji+jj-Jtot)/2)*INT1%fhh(h2,c) * v_elem(a,b,cx,i,Jtot,OM,jbas) &
+                   + INT2%fhh(h1,c) * v_elem(a,b,cx,j,Jtot,X,jbas) &
+                   - (-1)**((ji+jj-Jtot)/2)*INT2%fhh(h2,c) * v_elem(a,b,cx,i,Jtot,X,jbas)
                    
           end do 
        
@@ -612,10 +668,10 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
               ! i've already built the INT2 minus signs into the one-body
               ! insertion
                RES%mat(q)%gam(3)%X(AA,II) = RES%mat(q)%gam(3)%X(AA,II) &
-                   + 2*INT1%fpp(p1,c) * v_elem(cx,b,i,j,Jtot,OM,jbas) &
-                    -(-2)**((ja+jb-Jtot)/2)* INT1%fpp(p2,c) * v_elem(cx,a,i,j,Jtot,OM,jbas)! &
-                !    + INT2%fpp(p1,c) * v_elem(cx,b,i,j,Jtot,X,jbas) &
-                 !   -(-1)**((ja+jb-Jtot)/2)*INT2%fpp(p2,c) * v_elem(cx,a,i,j,Jtot,X,jbas)
+                   - INT1%fpp(p1,c) * v_elem(cx,b,i,j,Jtot,OM,jbas) &
+                    + (-1)**((ja+jb-Jtot)/2)* INT1%fpp(p2,c) * v_elem(cx,a,i,j,Jtot,OM,jbas) &
+                    + INT2%fpp(p1,c) * v_elem(cx,b,i,j,Jtot,X,jbas) &
+                    -(-1)**((ja+jb-Jtot)/2)*INT2%fpp(p2,c) * v_elem(cx,a,i,j,Jtot,X,jbas)
                    
           end do 
        end do 
