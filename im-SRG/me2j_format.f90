@@ -152,7 +152,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
   hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
   
-  print*, trim(itpath)
+ ! print*, trim(itpath)
   
   ! opening the pipj and rirj files 
   if (len(trim(eMaxchr)) == 1) then 
@@ -413,5 +413,7 @@ do a = nlj1,nlj1+1
   end do   
  
 end subroutine
+!==========================================================
+
 
 end module

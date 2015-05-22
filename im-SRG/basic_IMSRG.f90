@@ -1496,7 +1496,7 @@ subroutine split_1b_2b(Op,onebd,twobd)
   onebd%fph = Op%fph
   
   do q = 1, op%nblocks
-              
+     i=3         
      do i = 1,6
         twobd%mat(q)%gam(i)%X = Op%mat(q)%gam(i)%X
      end do 

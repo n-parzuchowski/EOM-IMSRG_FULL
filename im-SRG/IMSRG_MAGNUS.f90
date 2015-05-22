@@ -89,6 +89,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      
      if (qd_calc) then 
         ! calculate quadrupoles correction
+       ! call split_1b_2b(G,G1b,G2b) 
+       ! call BCH_EXPAND(H2,G1b,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+       ! call BCH_EXPAND(HS,G2b,H2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,'y')   
         call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,'y') 
      else
         ! make two separate operators
@@ -207,7 +210,7 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
   allocate(E_old(TDA%map(1)))
 
   s = 0.d0 
-  ds = 0.001d0
+  ds = 0.01d0
   crit = 10.
   steps = 0
 
@@ -369,6 +372,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
      ! so now just add INT1 + c_n * INT2 to get current value of HS
           
      call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2) 
+    
      call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
         
      if (qd_calc) then 
@@ -525,32 +529,6 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
        ! nothing is hermitian or anti-hermitian here
      end do 
   end do       
-  
-        !call print_matrix(INT1%fhh)
-  ! i = jbas%holes(4)
-  ! j = jbas%holes(4) 
-  
-  ! sm = 0.d0 
-  ! do kx = 1,Abody
-  !    do cx = 1,Ntot-Abody
-  !       do dx = 1,Ntot-Abody 
-           
-  !          k = jbas%holes(kx)
-  !          c = jbas%parts(cx)
-  !          d = jbas%parts(dx)
-           
-  !          do JT = 0,18,2
-  !             sm = sm + (JT+1.d0) * v_elem(k,j,c,d,JT,X,jbas) * v_elem(c,d,k,i,JT,OM,jbas) /2.d0
-  !          end do 
-           
-  !       end do 
-  !    end do
-  ! end do 
-  
-  ! sm = sm /(jbas%jj(j)+1.d0) 
-  
-  ! print*, sm, INT1%fhh(4,4) 
-           
            
 ! fpp
   do i = 1 , Ntot - Abody
@@ -588,37 +566,7 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
         
      end do 
   end do       
- 
-!  call print_matrix(INT1%fpp)
-  ! i = jbas%parts(4)
-  ! j = jbas%parts(4) 
   
-  ! sm = 0.d0 
-  ! do kx = 1,Ntot-Abody
-  !    do cx = 1,Abody
-  !       do dx = 1,Abody 
-           
-  !          k = jbas%parts(kx)
-  !          c = jbas%holes(cx)
-  !          d = jbas%holes(dx)
-           
-  !          do JT = 0,18,2
-  !             sm = sm + (JT+1.d0) * v_elem(k,i,c,d,JT,OM,jbas) * v_elem(c,d,k,j,JT,X,jbas) /2.d0
-  !          end do 
-           
-  !       end do 
-  !    end do
-  ! end do 
-  
-  ! sm = sm /(jbas%jj(j)+1.d0) 
-  
-  ! print*, sm, INT1%fpp(4,4) 
-
-
-
-
-
- 
   !!! now add the new stuff to RES
   
   do q = 1, RES%nblocks

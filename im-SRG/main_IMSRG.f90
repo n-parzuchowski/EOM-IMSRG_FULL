@@ -67,7 +67,7 @@ program main_IMSRG
         call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
      end if
      
-     call initialize_CM_radius(r2_rms,rirj,jbasis) 
+     call initialize_rms_radius(r2_rms,rirj,jbasis) 
  !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   else    ! normal boring
   
@@ -133,8 +133,9 @@ program main_IMSRG
         call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
      else if (r2rms_calc) then 
         call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_1op,r2_rms)
-        call write_tilde_from_Rcm(r2_rms)
-     else 
+!        call write_tilde_from_Rcm(r2_rms)
+        print*, sqrt(r2_rms%E0)
+    else 
         call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
     !    call discrete_decouple(HS,jbasis) 
      end if
@@ -235,6 +236,42 @@ program main_IMSRG
         else 
            call discrete_TDA(HS,TDA,jbasis) 
         end if 
+        
+        case(4) !magnus
+    
+        if (COM_calc) then 
+           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
+           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
+        else if (r2rms_calc) then
+           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
+     !      print*, rrTDA%blkM(1)%eigval
+        else 
+           call magnus_TDA(HS,TDA,jbasis) 
+        end if
+        
+        case(5) !magnus
+    
+        if (COM_calc) then 
+           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
+           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
+        else if (r2rms_calc) then
+           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
+     !      print*, rrTDA%blkM(1)%eigval
+        else 
+           call magnus_TDA(HS,TDA,jbasis) 
+        end if
+        
+        case(6) !magnus
+    
+        if (COM_calc) then 
+           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
+           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
+        else if (r2rms_calc) then
+           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
+     !      print*, rrTDA%blkM(1)%eigval
+        else 
+           call magnus_TDA(HS,TDA,jbasis) 
+        end if
       
      end select
      
