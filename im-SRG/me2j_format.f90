@@ -549,7 +549,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype,Lmax
   integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td,bMax
   integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz,aMax
-  integer :: t1,t2,lj1,lj2,n1,n2,Pi,Tz,AA,BB,qq
+  integer :: t1,t2,lj1,lj2,n1,n2,Pi,Tz,AA,BB,qq,iq,jq
   integer,allocatable,dimension(:) :: indx , nMax_lj
   real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
   real(8) :: V,g1,g2,g3,hw,pre2
@@ -570,7 +570,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   
   rr_calc = .false.
   pp_calc = .false. 
-  
+  Ntot = jbas%total_orbits
   Lmax = 10
   eMax = 14
 ! populate lj array
@@ -617,7 +617,9 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   buf=gzGets(hndle,buffer,sz) 
   buf=gzGets(hndle,buffer,sz) 
   
+
   read(buffer(6:8),'(I3)') bMax
+!  stop
 !  if (bMax+1 .ne. H%nblocks) print*, 'fuck, diff num of blcks' , bMax, H%nblocks
   
 sz = 20
@@ -727,7 +729,7 @@ do Tz = 1 , -1, -1
      do JT = 0, 2*jbas%Jtotal_max,2 
         if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
         qq = qq+1 ! heikos block index
-     
+        print*, qq
         q = block_index(JT,Tz,Pi) ! my block index
         
         ! space then label
@@ -736,9 +738,11 @@ do Tz = 1 , -1, -1
         ! ignore
       sz = 30
       
-      
-      do AA = 1, stors%mat(qq)%npp 
-         do BB = AA , stors%mat(qq)%npp 
+      AA = 1 
+      do while (AA <= stors%mat(qq)%npp )
+         
+         BB = AA
+         do while (BB <= stors%mat(qq)%npp )
             
       buf=gzGets(hndle,buffer,sz)
          ! figure out where the spaces are that separate things 
@@ -746,7 +750,9 @@ do Tz = 1 , -1, -1
       ! first space
       do 
          if ( buffer(i:i) == ' ' ) then
+            read(buffer(1:i-1),'(I5)')  iq 
             i = i + 2
+            j = i 
             exit
          end if
          i = i + 1
@@ -754,17 +760,27 @@ do Tz = 1 , -1, -1
       ! second space
       do 
          if ( buffer(i:i) == ' ' ) then 
+            read(buffer(j:i-1),'(I5)') jq 
             i = i + 2
             exit
          end if
          i = i + 1
       end do
+      
+      if (iq .ne. AA - 1) then
+         stop 'inconvenient missing matrix element'
+      end if
+      if (jq .ne. BB - 1) then 
+         BB = BB + 1
+      end if
       ! okay now i should be the position of the first 
       ! character of the TBME for the labels a <= b
+      
       
       if ( buffer(i:i) == '-' ) then 
          ! negative number
          read(buffer(i:i+10), '( f11.8 )' )  V 
+         
       else 
          ! positive
          read(buffer(i:i+9), '( f10.8 )' )  V 
@@ -876,8 +892,9 @@ do Tz = 1 , -1, -1
      end if 
      ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
 
-    
+           BB = BB + 1
         end do ! end loop over BB
+        AA = AA + 1
      end do  ! end loop over AA
      
      

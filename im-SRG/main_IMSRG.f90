@@ -75,7 +75,7 @@ program main_IMSRG
   else    ! normal boring
   
      if (me2j) then 
-        call read_me2b_interaction(HS,jbasis,ham_type,hw) 
+        call read_me2j_interaction(HS,jbasis,ham_type,hw) 
      else if (me2b) then
         ! pre normal ordered interaction with three body included at No2b
         call read_me2b_interaction(HS,jbasis,ham_type,hw) 
