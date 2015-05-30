@@ -16,14 +16,14 @@ subroutine get_me2j_spfile(eMaxchr)
 
   read(eMaxchr,'(I2)') eMax
   eMaxchr = adjustl(eMaxchr) 
-  open(unit=24,file='../../sp_inputs/hk'//trim(eMaxchr)//'.sps')
+  open(unit=24,file='../../sp_inputs/hk'//trim(eMaxchr)//'Lmax10.sps')
   
   q = 1
   
   fmt = '(5(I5),e17.7)'
   do  e = 0,eMax
      
-     do l = mod(e,2),e,2
+     do l = mod(e,2),min(e,10),2
         
         n = (e-l)/2
   
@@ -281,6 +281,7 @@ do a = nlj1,nlj1+1
             if ( a == b ) pre2 = pre2*sqrt(0.5d0) 
             if ( c == d ) pre2 = pre2*sqrt(0.5d0) 
             
+            ! heikos labeling is backwards
             ta = -jbas%itzp(a)
             tb = -jbas%itzp(b)
             tc = -jbas%itzp(c)
@@ -290,7 +291,8 @@ do a = nlj1,nlj1+1
             if (tc+td .ne. T) cycle
             T = -T/2
             q = block_index(JT,T,Par)
-    
+
+            write(42,*) me_fromfile(1), me_fromfile(3) ,(nlj1+1)/2,(nlj2+1)/2,(nnlj1+1)/2,(nnlj2+1)/2,JT/2
      ! convert to pn matrix element       
      V =  0.125d0*(ta-tb)*(tc-td)*me_fromfile(1)+&   ! 00 clebsch
           kron_del(ta+tb,-2)*kron_del(tc+td,-2)*me_fromfile(2)+& ! 1-1 
@@ -414,6 +416,580 @@ do a = nlj1,nlj1+1
  
 end subroutine
 !==========================================================
+subroutine export_to_nushellX(H,jbas) 
+  implicit none 
+  
+  type(sq_op) :: H
+  type(spd) :: jbas
+  integer :: i,j,k,l,J_tot,T_tot,Jx,Tx
+  integer :: tot_pp_elems,tot_nn_elems,tot_pn_elems
+  real(8) :: pre,mat_elem
+  character(200) :: spfile,intfile,prefix 
+  real(8),allocatable,dimension(:) :: sp_ens
+  common /files/ spfile,intfile,prefix 
+  
+
+  open(unit=34,file='../../hamiltonians/'// &
+       trim(adjustl(prefix))//'_nushell_1bd.sps') 
+
+  write(34,'(A3)') 'iso' ! SHERPA only works for isospin coupled right now
+  write(34,'(I2)') jbas%total_orbits/2 ! isospin coupled so devide by 2
+  
+  ! write .sps file
+  do i = 1,jbas%total_orbits,2
+     
+     write(34,'(f10.1,2(f5.1),I3)') float(jbas%nn(i)),float(jbas%ll(i)), &
+          float(jbas%jj(i))/2.0, 2 
+     
+  end do 
+  close(34)
+  
+  
+  open(unit=33,file='t1') ! pn 
+  open(unit=34,file='t3') ! pp  
+  open(unit=35,file='t4') ! nn
+  
+  tot_pn_elems = 0 
+  tot_nn_elems = 0 
+  tot_pp_elems = 0 
+  
+  do T_tot = 0,1
+     do J_tot = 0,jbas%Jtotal_max
+        
+        
+        do i = 1, jbas%total_orbits/2
+           do j = i, jbas%total_orbits/2
+              
+              do k = 1, jbas%total_orbits/2
+                 do l = k,jbas%total_orbits/2
+                                      
+                    pre = 1.d0 
+                    if ( i == j)  pre = pre * .70710681186  
+                    if ( k == l)  pre = pre * .70710681186 
+                    
+                    Jx = J_tot*2
+                    Tx = T_tot*2
+          
+                    mat_elem = 0.5 * ( v_elem( 2*i-1 , 2*j , 2*k-1, 2*l , Jx,H,jbas ) + &
+                         v_elem( 2*i , 2*j-1 , 2*k , 2*l-1 , Jx,H,jbas ) - (-1)**(T_tot) * &
+                         ( v_elem( 2*i-1 , 2*j , 2*k , 2*l-1 , Jx,H,jbas ) +  &
+                         v_elem( 2*i , 2*j-1 , 2*k-1 , 2*l , Jx,H,jbas ) ) ) !* pre**4
+                     
+                         mat_elem = mat_elem +0.5 * ( T_twobody( 2*i-1 , 2*j , 2*k-1,2*l , Jx,Tx,H,jbas ) + &
+                              T_twobody( 2*i , 2*j-1 , 2*k,2*l-1 , Jx,Tx,H,jbas ) - (-1)**(T_tot) * &
+                              ( T_twobody( 2*i-1 , 2*j , 2*k,2*l-1 , Jx,Tx,H,jbas ) +  &
+                              T_twobody( 2*i , 2*j-1 , 2*k-1,2*l , Jx,Tx,H,jbas ) ) ) !* pre**4
+                    
+                    if (abs(mat_elem) > 1e-10) then 
+                       write(33,'(4(I3),I5,I3,f15.7)') i,j,k,l,J_tot,T_tot,mat_elem
+                       tot_pn_elems = tot_pn_elems + 1 
+                    end if 
+  
+                    if (T_tot == 0)  cycle ! pp and nn terms are not included in T=0
+                    
+                    ! pp terms  Mt = -1
+                    mat_elem = v_elem( 2*i-1 , 2*j-1 , 2*k-1, 2*l-1 , Jx,H,jbas )*pre
+                     
+                    if (abs(mat_elem) > 1e-10) then 
+                       write(34,'(4(I3),I5,I3,f15.7)') i,j,k,l,J_tot,T_tot,mat_elem
+                       tot_pp_elems = tot_pp_elems + 1 
+                    end if 
+                   
+                    ! nn terms Mt = +1
+                    mat_elem = v_elem( 2*i , 2*j , 2*k, 2*l , Jx,H,jbas )*pre
+                   
+                    if (abs(mat_elem) > 1e-10) then 
+                       write(35,'(4(I3),I5,I3,f15.7)') i,j,k,l,J_tot,T_tot,mat_elem
+                       tot_nn_elems = tot_nn_elems + 1 
+                    end if 
+                   
+                    
+                  end do 
+               end do 
+            end do 
+         end do 
+     end do 
+  end do 
+  close(33)
+  close(34)
+  close(35)
+ 
+  allocate(sp_ens(jbas%total_orbits/2)) 
+  do i = 1, jbas%total_orbits/2
+     sp_ens(i) = T_elem(2*i,2*i,H,jbas)  
+  end do
+!=====write pn to file=======
+  open(unit=33,file='t2') 
+  write(33,*) tot_pn_elems, sp_ens,1.d0,1.d0,0.d0
+  close(33) 
+  
+  call system('cat t2 t1 > '//'../../hamiltonians/'// &
+       trim(adjustl(prefix))//'_nushell_TBME_Tz0.int && rm t1 && rm t2') 
+!=====write pp to file=======
+  open(unit=33,file='t2') 
+  write(33,*) tot_pp_elems, sp_ens,1.d0,1.d0,0.d0
+  close(33) 
+  
+  call system('cat t2 t3 > '//'../../hamiltonians/'// &
+       trim(adjustl(prefix))//'_nushell_TBME_TzM.int && rm t3 && rm t2') 
+!=====write nn to file=======
+  open(unit=33,file='t2') 
+  write(33,*) tot_nn_elems, sp_ens,1.d0,1.d0,0.d0
+  close(33) 
+  
+  call system('cat t2 t4 > '//'../../hamiltonians/'// &
+       trim(adjustl(prefix))//'_nushell_TBME_Tz1.int && rm t4 && rm t2') 
+  
+end subroutine
+
+subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp) 
+  use gzipmod
+  implicit none 
+  
+  integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype,Lmax
+  integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td,bMax
+  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz,aMax
+  integer :: t1,t2,lj1,lj2,n1,n2,Pi,Tz,AA,BB,qq
+  integer,allocatable,dimension(:) :: indx , nMax_lj
+  real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
+  real(8) :: V,g1,g2,g3,hw,pre2
+  type(spd) :: jbas 
+  type(sq_op) :: H,stors
+  type(sq_op),optional :: pp,rr
+  logical :: pp_calc,rr_calc
+  character(1) :: rem
+  character(2) :: eMaxchr
+  character(200) :: spfile,intfile,input,prefix
+  character(200) :: itpath,me1bfile
+  integer :: lj,twol,twoj,ljMax,idx,idxx
+  integer,allocatable,dimension(:,:) :: SPBljs 
+  type(c_ptr) :: buf,buf2,buf3
+  integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
+  character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
+  common /files/ spfile,intfile,prefix 
+  
+  rr_calc = .false.
+  pp_calc = .false. 
+  
+  Lmax = 10
+  eMax = 14
+! populate lj array
+  lj = 0
+  do twol = 0, 2 * Lmax , 2
+     do  twoj = abs(twol - 1) , twol+1 , 2
+        lj=lj+1
+     end do 
+  end do 
+  ljMax = lj 
+  allocate(SPBljs(lj,2)) 
+  allocate(nMax_lj(lj))
+  
+  lj = 0
+  do twol = 0, 2 * Lmax , 2
+     do  twoj = abs(twol - 1) , twol+1 , 2
+        lj=lj+1
+        SPBljs(lj,1) = twol
+        sPBljs(lj,2) = twoj
+        nMax_lj(lj) = (eMax - twol/2)/2
+     end do
+  end do
+  
+  allocate(stors%mat(H%nblocks))
 
 
+  open(unit=34,file='../../inifiles/interactionpath_me2b')
+  read(34,*) itpath 
+  itpath = adjustl(itpath) 
+  ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
+  
+  ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
+  hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
+  
+ ! print*, trim(itpath)
+
+! here is where we start dealing with the two body piece
+
+! hndle=gzOpen('O16_chi2b3bjs_lec04_srg0625_eMax14_lMax10_hwHO020.ham0.me2b.gz'//achar(0),"r"//achar(0)) 
+  
+  sz=200
+  
+  buf=gzGets(hndle,buffer,sz) 
+  buf=gzGets(hndle,buffer,sz) 
+  buf=gzGets(hndle,buffer,sz) 
+  
+  read(buffer(6:8),'(I3)') bMax
+!  if (bMax+1 .ne. H%nblocks) print*, 'fuck, diff num of blcks' , bMax, H%nblocks
+  
+sz = 20
+ q = 0
+! heiko's code calls protons 1 and neutrons 0
+
+do Tz = 1 , -1, -1  
+  do Pi = 0,1
+     do JT = 0, 2*jbas%Jtotal_max,2 
+        if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
+        q = q+1
+     
+      buf=gzGets(hndle,buffer,sz) 
+     
+  
+      read(buffer(10:16),'(I6)') aMax 
+  
+      stors%mat(q)%npp = aMax + 1 ! don't worry about pp, hh, ph for this
+      
+      ! this is the map from heiko's "a" to my two sp labels
+  
+      allocate(stors%mat(q)%qn(1)%Y( aMax+1, 2) ) 
+  
+      stors%mat(q)%lam(1) = JT
+      stors%mat(q)%lam(2) = Pi
+      stors%mat(q)%lam(3) = Tz
+      
+      select case ( Tz)
+         case ( -1 ) 
+            t1 = -1
+            t2 = -1
+         case ( 0 ) 
+            t1 = -1 
+            t2 = 1
+         case ( 1 ) 
+            t1 = 1
+            t2 = 1
+         case default 
+            print*, 'son of a fuck.' 
+      end select
+                 
+      a = 0
+     
+      do lj1 = 1, ljMax
+        do lj2 = 1, ljMax
+
+           j1 = SPBljs(lj1,2) 
+           j2 = SPBljs(lj2,2)
+           l1 = SPBljs(lj1,1)/2
+           l2 = SPBljs(lj2,1)/2
+           
+           if ( ( JT < abs(j1-j2) ) .or. (JT > j1 + j2) ) cycle
+           if ( mod(l1 + l2 ,2 ) .ne.Pi ) cycle 
+
+
+           do n1 = 0,nMax_lj(lj1)
+              idx = (lj1-1) * (nMax_lj(1) +1 ) +n1 
+              do n2 = 0,nMax_lj(lj2) 
+                 idxx = (lj2-1) * (nMax_lj(1) +1 ) +n2                 
+                 
+                  if ( (Tz .ne. 0) .and. (idx > idxx) ) cycle
+                  if ( (mod(JT/2,2) == 1) .and. (lj1==lj2) .and. &
+                       (n1==n2) .and. (Tz .ne. 0) ) cycle
+                  
+                  ! now search for sp labels
+                  do i = 1, jbas%total_orbits 
+                     if ( jbas%jj(i) .ne. j1 ) cycle
+                     if ( jbas%nn(i) .ne. n1 ) cycle
+                     if ( jbas%ll(i) .ne. l1 ) cycle
+                     if ( jbas%itzp(i) .ne. t1 ) cycle                     
+                     exit
+                  end do 
+                  
+                  do j = 1, jbas%total_orbits 
+                     if ( jbas%jj(j) .ne. j2 ) cycle
+                     if ( jbas%nn(j) .ne. n2 ) cycle
+                     if ( jbas%ll(j) .ne. l2 ) cycle
+                     if ( jbas%itzp(j) .ne. t2 ) cycle                     
+                     exit
+                  end do 
+                  
+                  a = a + 1
+                 stors%mat(q)%qn(1)%Y(a,1) = i
+                 stors%mat(q)%qn(1)%Y(a,2) = j
+
+               end do
+            end do
+         end do
+      end do
+      
+    
+      if ( a .ne. aMax+1 ) print*, 'douche',q, a, aMax,JT,Pi,Tz
+    
+   end do
+end do 
+end do 
+
+
+
+! okay for now on there is a space, then a line that specifies the block
+! and aMax for the block. We already know that stuff so we will just ignore
+! it and read in the matrix elements
+sz = 200
+qq = 0
+do Tz = 1 , -1, -1  
+  do Pi = 0,1
+     do JT = 0, 2*jbas%Jtotal_max,2 
+        if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
+        qq = qq+1 ! heikos block index
+     
+        q = block_index(JT,Tz,Pi) ! my block index
+        
+        ! space then label
+      buf=gzGets(hndle,buffer,sz) 
+      buf=gzGets(hndle,buffer,sz)
+        ! ignore
+      sz = 30
+      
+      
+      do AA = 1, stors%mat(qq)%npp 
+         do BB = AA , stors%mat(qq)%npp 
+            
+      buf=gzGets(hndle,buffer,sz)
+         ! figure out where the spaces are that separate things 
+      i = 1
+      ! first space
+      do 
+         if ( buffer(i:i) == ' ' ) then
+            i = i + 2
+            exit
+         end if
+         i = i + 1
+      end do
+      ! second space
+      do 
+         if ( buffer(i:i) == ' ' ) then 
+            i = i + 2
+            exit
+         end if
+         i = i + 1
+      end do
+      ! okay now i should be the position of the first 
+      ! character of the TBME for the labels a <= b
+      
+      if ( buffer(i:i) == '-' ) then 
+         ! negative number
+         read(buffer(i:i+10), '( f11.8 )' )  V 
+      else 
+         ! positive
+         read(buffer(i:i+9), '( f10.8 )' )  V 
+      end if 
+      
+      
+      
+      ! oTay should have the matrix element now. 
+     
+      ! indeces     
+      a = stors%mat(qq)%qn(1)%Y(AA,1)
+      b = stors%mat(qq)%qn(1)%Y(AA,2)      
+      c = stors%mat(qq)%qn(1)%Y(BB,1)
+      d = stors%mat(qq)%qn(1)%Y(BB,2)      
+       
+      ! i think the scaling and COM subtraction have already been done
+      ! I HOpe. 
+
+!=========================================================================
+      ! start the classical method of sorting these into my arrays now
+!=========================================================================     
+     C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+     C2 = jbas%con(c)+jbas%con(d) + 1
+    
+     qx = C1*C2
+     qx = qx + adjust_index(qx)   !Vpppp nature  
+
+     ! get the indeces in the correct order
+     pre = 1
+     if ( a > b )  then 
+        
+        x = bosonic_tp_index(b,a,Ntot) 
+        j_min = H%xmap(x)%Z(1)  
+        i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -JT)/2 ) 
+     else
+       ! if (a == b) pre = pre * sqrt( 2.d0 )
+       
+        x = bosonic_tp_index(a,b,Ntot) 
+       
+        j_min = H%xmap(x)%Z(1)  
+        i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+     end if
+  
+     if (c > d)  then     
+        
+        x = bosonic_tp_index(d,c,Ntot) 
+        j_min = H%xmap(x)%Z(1)  
+        i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        
+        pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
+     else 
+       ! if (c == d) pre = pre * sqrt( 2.d0 )
+      
+        x = bosonic_tp_index(c,d,Ntot) 
+        j_min = H%xmap(x)%Z(1)  
+        i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+     end if
+
+     ! kets/bras are pre-scaled by sqrt(2) if they 
+     ! have two particles in the same sp-shell
+        
+     ! get the units right. I hope 
+ 
+     
+     if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
+        H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
+        H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
+        
+        if (rr_calc) then 
+           STOP 'fuck, this is not implemented yet' 
+           rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot)
+           rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot)
+        end if 
+
+        if (pp_calc) then 
+           STOP 'fuck, this is not implemented yet' 
+           pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot)
+           pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot)
+        end if 
+
+        
+     else if (C1>C2) then
+        H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
+        
+        if (rr_calc) then 
+           STOP 'fuck, this is not implemented yet' 
+           rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot) 
+        end if
+        
+        if (pp_calc) then 
+           STOP 'fuck, this is not implemented yet' 
+           pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot) 
+        end if
+
+     else
+        H%mat(q)%gam(qx)%X(i1,i2) = V * pre
+        
+        if (rr_calc) then 
+           STOP 'fuck, this is not implemented yet' 
+           rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot) 
+        end if
+
+        if (pp_calc) then 
+           STOP 'fuck, this is not implemented yet' 
+           pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot) 
+        end if
+
+     end if 
+     ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
+
+    
+        end do ! end loop over BB
+     end do  ! end loop over AA
+     
+     
+     
+      end do   ! end loops over conserved quantities
+   end do 
+end do 
+         
+      
+! i guess we are done with the two body piece
+
+me1bfile = intfile(1:len(intfile)-5)//'2b.gz'
+hndle=gzOpen(trim(itpath)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0)) 
+  
+!14  hndle=gzOpen('O16_chi2b3bjs_lec04_srg0625_eMax14_lMax10_hwHO020.ham0.me1b.gz'//achar(0),"r"//achar(0)) 
+  
+  sz=200
+
+  ! read verion line, and then some integer
+  buf=gzGets(hndle,buffer,sz) 
+  ! the integer probably has to do with the file size
+  buf=gzGets(hndle,buffer,sz) 
+ 
+  read(buffer(1:4),'(I4)') aMax 
+ 
+  sz = 20
+  ! I assume this is the zero body piece right here
+  buf=gzGets(hndle,buffer,sz) 
+ 
+  ! lets get it right since it can have up to 4 digits before the decimal
+  if (buffer(4:4) == '.') then 
+     read(buffer(1:10),'(f10.6)') H%E0 
+  else if (buffer(5:5) == '.') then 
+     read(buffer(1:11),'(f11.6)') H%E0 
+  else if (buffer(6:6) == '.') then 
+     read(buffer(1:12),'(f12.6)') H%E0
+  else 
+     print*, 'what the fuck is going on with the me1b file? ' 
+  end if 
+  
+! now lets read the 1 body piece
+  
+
+sz=200
+
+do a= 1, aMax
+  
+
+    buf=gzGets(hndle,buffer,sz) 
+    
+    read(buffer(2:2),'(I1)') t1
+    read(buffer(4:5),'(I2)') lj
+    read(buffer(8:9),'(I2)') n1
+    read(buffer(11:12),'(I2)') n2
+      
+    t1 = (-2*t1+ 1)  
+    
+    lj = lj + 1
+    l1 = SPBljs(lj,1)/2
+    j1 = SPBljs(lj,2)
+      
+          
+    read(buffer(15:28),'(f14.10)') V
+            ! V is now the one body matrix element
+             ! now search for sp labels
+                  do i = 1, jbas%total_orbits 
+                     if ( jbas%jj(i) .ne. j1 ) cycle
+                     if ( jbas%nn(i) .ne. n1 ) cycle
+                     if ( jbas%ll(i) .ne. l1 ) cycle
+                     if ( jbas%itzp(i) .ne. t1 ) cycle                     
+                     exit
+                  end do 
+                  
+                  do j = 1, jbas%total_orbits 
+                     if ( jbas%jj(j) .ne. j1 ) cycle
+                     if ( jbas%nn(j) .ne. n2 ) cycle
+                     if ( jbas%ll(j) .ne. l1 ) cycle
+                     if ( jbas%itzp(j) .ne. t1 ) cycle                     
+                     exit
+                  end do
+                  
+                 
+                  ! okay now I have my indeces 
+           
+                 
+                  if (jbas%con(i) + jbas%con(j) == 2 ) then 
+                     
+                     !fhh 
+                     
+                     H%fhh( jbas%holesb4(i)+1 , jbas%holesb4(j)+1 ) = V 
+                     
+                  else if (jbas%con(i) + jbas%con(j) == 0 ) then 
+                     
+                     !fpp 
+                     
+                     H%fpp( jbas%partsb4(i)+1 , jbas%partsb4(j)+1 ) = V 
+                  
+                  else if ((jbas%con(i)==0) .and. (jbas%con(j) == 1) ) then 
+                     !fph
+                     H%fph( jbas%partsb4(i)+1 , jbas%holesb4(j)+1 ) = V 
+                  end if 
+                  
+           
+   end do 
+
+rx = gzClose(hndle)
+
+
+end subroutine
+!==========================================================
+
+  
 end module
+
+

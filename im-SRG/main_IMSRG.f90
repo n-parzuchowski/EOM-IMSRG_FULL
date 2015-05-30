@@ -17,11 +17,12 @@ program main_IMSRG
   integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00
-  logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j
+  logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j,me2b
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
   external :: dHds_TDA_shell_w_2op
   integer :: heiko(30)
+ 
 
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
@@ -32,8 +33,10 @@ program main_IMSRG
   
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,hw)
+       hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,&
+       me2b,hw)
   
+ 
   HS%herm = 1
   HS%hospace = hw
 
@@ -72,13 +75,18 @@ program main_IMSRG
   else    ! normal boring
   
      if (me2j) then 
-        call read_me2j_interaction(HS,jbasis,ham_type,hw) 
+        call read_me2b_interaction(HS,jbasis,ham_type,hw) 
+     else if (me2b) then
+        ! pre normal ordered interaction with three body included at No2b
+        call read_me2b_interaction(HS,jbasis,ham_type,hw) 
+        goto 12 ! skip the normal ordering. 
+        ! it's already done
      else
         call read_interaction(HS,jbasis,ham_type,hw)
      end if
      
   end if
-  
+ 
 !============================================================
 ! BUILD BASIS
 !============================================================
@@ -101,6 +109,13 @@ program main_IMSRG
   else 
      call normal_order(HS,jbasis) 
   end if
+
+ 
+12  print*, HS%E0
+  
+call  print_matrix( HS%fhh )
+call print_matrix( HS%mat(1)%gam(1)%X(1:10,1:10) ) 
+  stop
 
 !============================================================
 ! IM-SRG CALCULATION 

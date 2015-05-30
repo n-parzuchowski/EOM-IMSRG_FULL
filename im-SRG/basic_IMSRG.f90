@@ -345,8 +345,8 @@ subroutine allocate_blocks(jbas,op)
   op%Nsp = jbas%total_orbits
   N = op%Nsp  !number of sp shells
   
-  op%nblocks =  (jbas%Jtotal_max + 1) * 6    ! 6 possible values of par * Tz    
-  
+  op%nblocks =  (jbas%Jtotal_max + 1) * 6 ! -3  ! 6 possible values of par * Tz  
+                                               ! except for Jtot=Jmax has 3
   allocate(op%mat(op%nblocks)) 
   allocate(op%fpp(N-AX,N-AX))
   allocate(op%fph(N-AX,AX))
@@ -377,7 +377,7 @@ subroutine allocate_blocks(jbas,op)
   do Jtot = 0,2*jbas%Jtotal_max,2 !looping over blocks
      do Tz = -1,1
         do Par = 0,1
-     
+           !if ((Jtot == 2*jbas%Jtotal_max) .and. (Par==1)) cycle
      op%mat(q)%lam(1)=Jtot
      op%mat(q)%lam(2)=Par
      op%mat(q)%lam(3)=Tz
@@ -833,7 +833,136 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
    ! stored info if we are looking for this same ME next time. 
    c1_c=C1;c2_c=C2;q_c=q;qx_c=qx
    i1_c=i1;i2_c=i2;pre_c=pre;fail_c=.false.   
+end function
+!==============================================================
+!==============================================================
+real(8) function T_twobody(a,b,c,d,J,T,op,jbas) 
+  ! grabs the matrix element you are looking for
+  implicit none
+  
+  integer :: a,b,c,d,J,T,P,q,qx,c1,c2,N,i,JT,ax,bx,cx,dx
+  integer :: int1,int2,i1,i2,j_min,x,ji,x1,x2,x3,x4
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,na,nb,nc,nd
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  
+  logical :: fail_c
+  type(sq_op) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c,sm1,sm2,sm3,sm4
+ 
+  !make sure the matrix element exists first
+  
+ ja = jbas%jj(a)
+ jb = jbas%jj(b)
+ jc = jbas%jj(c)
+ jd = jbas%jj(d)
+  
+ la = jbas%ll(a)
+ lb = jbas%ll(b)
+ lc = jbas%ll(c)
+ ld = jbas%ll(d)
+ 
+ na = jbas%nn(a)
+ nb = jbas%nn(b)
+ nc = jbas%nn(c)
+ nd = jbas%nn(d) 
+ 
+ if ( .not. ((triangle(ja,jb,J)) .and. (triangle (jc,jd,J))) ) then 
+    T_twobody = 0.d0
+    return
+ end if 
+ 
+ pre = 1.d0 
+ if (a == b) pre = pre * sqrt( 2.d0 )
+ if (c == d) pre = pre * sqrt( 2.d0 )
+ 
+ sm1=0.d0
+ sm2=0.d0
+ sm3=0.d0
+ sm4=0.d0
+ 
+ do i1 = 1,op%belowEF
+    i = jbas%holes(i1) 
+    ji = jbas%jj(i) 
+    
+    do JT = abs(ja-ji), ja +ji,2 
+       sm1 = sm1 + v_elem(a,i,c,i,JT,op,jbas) * (JT+1.d0)  
+    end do 
+   
+    do JT = abs(jb-ji), jb +ji,2 
+       sm2 = sm2 + v_elem(b,i,d,i,JT,op,jbas) * (JT+1.d0)  
+    end do 
+
+    do JT = abs(jb-ji), jb +ji,2 
+       sm3 = sm3 + v_elem(b,i,c,i,JT,op,jbas) * (JT+1.d0)  
+    end do 
+
+    do JT = abs(ja-ji), ja +ji,2 
+       sm4 = sm4 + v_elem(a,i,d,i,JT,op,jbas) * (JT+1.d0)  
+    end do
+   
+    sm1 = sm1/(ja +1.d0)
+    sm4 = sm4/(ja +1.d0)
+    sm2 = sm2/(jb +1.d0)
+    sm3 = sm3/(jb +1.d0)
+ end do 
+
+ x1 = 1.d0
+ x2 = 1.d0 
+ x3 = 1.d0 
+ x4 = 1.d0 
+ if ((ja == jc).and.(la==lc).and.(na==nc)) x1 = 0.d0
+ if ((ja == jd).and.(la==ld).and.(na==nd)) x3 = 0.d0
+ if ((jb == jd).and.(lb==ld).and.(nb==nd)) x2 = 0.d0
+ if ((jb == jc).and.(lb==lc).and.(nb==nc)) x4 = 0.d0
+ 
+ T_twobody = pre*(kron_del(b,d)*x1* (f_elem(a,c,op,jbas)-sm1) + &
+      kron_del(a,c)*x2 * (f_elem(b,d,op,jbas)-sm2) - &
+      (-1)** ( (ja + jb - J)/2 ) * x3* kron_del(a,d) * (f_elem(b,c,op,jbas)-sm3) - &
+      (-1)** ( (jc + jd - J)/2 ) * x4* kron_del(b,c) * (f_elem(a,d,op,jbas)-sm4))
+ 
 end function 
+!=====================================================
+!=====================================================
+real(8) function T_elem(a,b,op,jbas) 
+  ! grabs the matrix element you are looking for
+  implicit none
+  
+  integer :: a,b,c,d,J,T,P,q,qx,c1,c2,N,i,JT
+  integer :: int1,int2,i1,i2,j_min,x,ji
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  
+  logical :: fail_c
+  type(sq_op) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c,sm1,sm2,sm3,sm4
+  
+ ja = jbas%jj(a)
+ jb = jbas%jj(b)
+ 
+ ta = jbas%itzp(a)
+ tb = jbas%itzp(b)
+ 
+ la = jbas%ll(a)
+ lb = jbas%ll(b)
+ 
+ if (( ja .ne. jb ) .or. (la .ne. lb) .or. (ta .ne. tb)) then 
+    T_elem = 0.d0
+    return
+ end if 
+ 
+ sm1 = 0.d0  
+  do i1 = 1,op%belowEF
+    i = jbas%holes(i1) 
+    ji = jbas%jj(i) 
+    
+    do JT = abs(ja-ji), ja +ji,2 
+       sm1 = sm1 + v_elem(a,i,b,i,JT,op,jbas) * (JT+1.d0)  
+    end do 
+  end do 
+  
+  T_elem = f_elem(a,b,op,jbas) - sm1/(ja+1.d0) 
+
+end function
 !=====================================================
 !=====================================================
 real(8) function v_same(op) 
@@ -1625,7 +1754,8 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,ME2J,hw)
+subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
+     ME2J,ME2b,hw)
   !read inputs from file
   implicit none 
   
@@ -1634,7 +1764,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,ME2J,hw)
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
   integer :: method
-  logical :: HF,EXTDA,COM,R2RMS,ME2J
+  logical :: HF,EXTDA,COM,R2RMS,ME2J,ME2B
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -1706,11 +1836,15 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,ME2J,hw)
   end select 
         
   me2j = .true.
+  me2b = .false. 
   if( intfile(len(trim(intfile))-3:len(trim(intfile))) == '.int') then 
      me2j =.false.
    !  if (spfile(1:2) .ne. 'nl') then 
     !    STOP 'inconsistent interaction and sps files' 
     ! end if 
+  else if( intfile(len(trim(intfile))-6:len(trim(intfile))) == 'me2b.gz') then 
+     me2j =.false.
+     me2b = .true.
   else 
      if (spfile(1:2) .ne. 'hk') then 
         STOP 'inconsistent interaction and sps files' 
