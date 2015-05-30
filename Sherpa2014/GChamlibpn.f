@@ -80,8 +80,8 @@ c==============  interaction file name
 c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 c============== define dimensions of ej
 c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-      real,allocatable,dimension(:,:,:,:,:,:)  :: ej   ! in pn formalism
-      real,allocatable,dimension(:,:,:,:,:,:)  :: vjt  ! in isospin
+      real,allocatable,dimension(:,:,:,:,:,:,:)  :: ej   ! in pn formalism
+      real,allocatable,dimension(:,:,:,:,:,:,:)  :: vjt  ! in isospin
       
 c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 c============== single-particle enrgies
@@ -106,7 +106,7 @@ c============== integers
 c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
       integer nint,nspe
       integer i1,i2,i3,i4,ia,ib,ic,id,jj,iso
-      integer i,j,k,l,ii,ilast,index
+      integer i,j,k,l,ii,ilast,index,qq
       integer jabmax,jabmin,jcdmax,jcdmin,jmax,jmin,jr,is,ismin
       integer mij,mkl,iij,ikl,ma,mb,mc,md,iza,izb,izc,izd
       integer ja,jb,jc,jd
@@ -172,8 +172,8 @@ C -------------- # of proton and neutron single-particle energies must be =
 C---------------END OF ERROR TRAP --------------------------
       nspe=norb(1)
 C      print*,'nspe=',nspe
-      allocate(vjt(0:j2max,0:1,1:nspe,1:nspe,1:nspe,1:nspe))
-      allocate(ej(0:j2max,0:1,1:2*nspe,1:2*nspe,1:2*nspe,1:2*nspe))
+      allocate(vjt(0:j2max,0:1,3,1:nspe,1:nspe,1:nspe,1:nspe))
+      allocate(ej(0:j2max,0:1,3,1:2*nspe,1:2*nspe,1:2*nspe,1:2*nspe))
       allocate(spe(norb(1)+norb(2)))
 
 C      deassociate(hvecpp_p,hvecnn_p,hvecpn_p)
@@ -219,23 +219,27 @@ c++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
       allocate(temp(nspe))
 
       write(6,*)' Enter number of interactions to read in '
-      read(5,*)n_ham
-      if(n_ham .le. 0)n_ham = 1
+!      read(5,*)n_ham
+   !   if(n_ham .le. 0)n_ham = 1
 
-      do i_ham = 1,n_ham
-
+   !   do i_ham = 1,n_ham
+      i_ham = 1
 1     continue
       write(6,*)'Enter interaction file name (.int)'
       write(6,*)' ATTN: I ASSUME INTERACTION IS IN ISOSPIN FORM '
 
-      if(i_ham.gt.1)then
-           write(6,*)' Enter "null" if you do not want another '
-      endif
+c$$$      if(i_ham.gt.1)then
+c$$$           write(6,*)' Enter "null" if you do not want another '
+c$$$      endif
 
       read(5,'(a)')input
-      if(input.eq.'null')goto 22
+c      if(input.eq.'null')goto 22
       ilast=index(input,' ')-1
-      open(unit=1,file=input(1:ilast)//'.int',status='old',err=2)
+     
+      open(unit=34,file=input(1:ilast)//'_Tz0.int',status='old',err=2) ! pn 
+      open(unit=35,file=input(1:ilast)//'_Tz+1.int',status='old',err=2) ! nn 
+      open(unit=36,file=input(1:ilast)//'_Tz-1.int',status='old',err=2) ! pp
+      
       goto 3
 2     continue
       write(6,*)' That file does not exist '
@@ -257,8 +261,13 @@ c      if(scale.ne.1.0)write(6,*)' scale = ',scale,xspe
 c      if(xspe.eq.0.)then
 c	write(6,*)' single-particle set = 0'
 c      endif
+      
+      ! SHERPA's isospin convention is backwards from mine. 
+      ! everyone's seems to be. I guess that means I'm wrong. 
 
-      read(1,*)nint,(temp(i),i=1,nspe)
+      do qq = 1,3 ! loop over isospin projection   Mt = (/ 0 , -1 , +1 /) 
+         
+      read(qq+33,*)nint,(temp(i),i=1,nspe)
       write(6,*)nspe,(temp(i)*xspe,i=1,nspe)
       do i =1,nspe
 	spe(i)=spe(i)+temp(i)*xspe
@@ -272,7 +281,7 @@ c      endif
 C++++++++++++++++++++++++++++END OF ERROR TRAP++++++++++++++++++++++++
 
       do i=1,nint
-         read(1,*)ia,ib,ic,id,jj,iso,vvv
+         read(qq+33,*)ia,ib,ic,id,jj,iso,vvv
          if(jj.gt.j2max)then
             write(6,*)'You shoud not be here: ',jj,'>',j2max
             write(6,*)'Check dimensions or interaction file.'
@@ -315,17 +324,19 @@ C -------- ADDED FEB 2008 CWJ to fix bug
       endif
 C--------- END BUG FIX Feb 2008
 C      print*,ia,ib,ic,id
-      vjt(jj,iso,ia,ib,ic,id)=vjt(jj,iso,ia,ib,ic,id)+vvv
+      vjt(jj,iso,qq,ia,ib,ic,id)=vjt(jj,iso,qq,ia,ib,ic,id)+vvv
       enddo		! end loop over nint
-      close(1)
-      enddo		! end loop over n_ham
-22     continue      
+      close(qq+33)
+      !enddo		! end loop over n_ham
+!22     continue      
 
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 C                 option to read in an external field   NEW
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-      allocate(vextp(nsps(1),nsps(1)),vextn(nsps(1),nsps(1)))
+      
+      if (qq == 1) then 
+         allocate(vextp(nsps(1),nsps(1)),vextn(nsps(1),nsps(1)))
+      end if 
       vextp = 0.
       vextn = 0.
 
@@ -401,28 +412,28 @@ c++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                do id = ic,nspe
                   do jj = 0,j2max
                     do iso =0,1
-         vvv= vjt(jj,iso,ia,ib,ic,id)
+         vvv= vjt(jj,iso,qq,ia,ib,ic,id)
          if(vvv.ne.0.0)then
 
  
-         vjt(jj,iso,ic,id,ia,ib)=vvv
+         vjt(jj,iso,qq,ic,id,ia,ib)=vvv
  
          iaabb=int(orb_qn(ia,3)+orb_qn(ib,3)-dfloat(jj+iso))
          iccdd=int(orb_qn(ic,3)+orb_qn(id,3)-dfloat(jj+iso))
          phab=(-1.)**iaabb
          phcd=(-1.)**iccdd
          if(ia.ne.ib)then
-            vjt(jj,iso,ib,ia,ic,id)=phab*vvv
+            vjt(jj,iso,qq,ib,ia,ic,id)=phab*vvv
             
-            vjt(jj,iso,ic,id,ib,ia)=phab*vvv
+            vjt(jj,iso,qq,ic,id,ib,ia)=phab*vvv
          end if
          if(ic.ne.id)then
-            vjt(jj,iso,ia,ib,id,ic)=phcd*vvv
-            vjt(jj,iso,id,ic,ia,ib)=phcd*vvv
+            vjt(jj,iso,qq,ia,ib,id,ic)=phcd*vvv
+            vjt(jj,iso,qq,id,ic,ia,ib)=phcd*vvv
          end if
          if(ia.ne.ib.and.ic.ne.id)then
-           vjt(jj,iso,ib,ia,id,ic)=phcd*phab*vvv
-           vjt(jj,iso,id,ic,ib,ia)=phcd*phab*vvv
+           vjt(jj,iso,qq,ib,ia,id,ic)=phcd*phab*vvv
+           vjt(jj,iso,qq,id,ic,ib,ia)=phcd*phab*vvv
          end if
       endif
       end do
@@ -431,6 +442,8 @@ c++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
       enddo
       enddo
       enddo
+      ! end of isospin loop
+      end do
       
 
 
@@ -480,31 +493,38 @@ C      stop
          jj=jtot(i)
       	 if(abs(ttot).gt.0)then 
       	    iso =1
-      	    xme = vjt(jj,1,map(ia),map(ib),map(ic),map(id))
+            if (ttot .gt. 0) then 
+               qq = 3  ! pp 
+            else 
+               qq = 2  ! nn 
+            end if 
+            xme = vjt(jj,1,qq,map(ia),map(ib),map(ic),map(id))
+               
          else
             iso = 0
-      	    xme = (vjt(jj,0,map(ia),map(ib),map(ic),map(id))
-     &  +vjt(jj,1,map(ia),map(ib),map(ic),map(id)))       
+            qq = 1   !pn
+      	    xme = (vjt(jj,0,qq,map(ia),map(ib),map(ic),map(id))
+     &  +vjt(jj,1,qq,map(ia),map(ib),map(ic),map(id)))       
 
          endif
 C         print*,ia,ib,ic,id
-         ej(jj,iso,ia,ib,ic,id)=xme
-         ej(jj,iso,ic,id,ia,ib)=xme
+         ej(jj,iso,qq,ia,ib,ic,id)=xme
+         ej(jj,iso,qq,ic,id,ia,ib)=xme
          iaabb=int(orb_qn(ia,3)+orb_qn(ib,3)-dfloat(jj+iso))
          iccdd=int(orb_qn(ic,3)+orb_qn(id,3)-dfloat(jj+iso))
          phab=(-1.)**iaabb
          phcd=(-1.)**iccdd
          if(ia.ne.ib)then
-            ej(jj,iso,ib,ia,ic,id)=phab*xme
-            ej(jj,iso,ic,id,ib,ia)=phab*xme
+            ej(jj,iso,qq,ib,ia,ic,id)=phab*xme
+            ej(jj,iso,qq,ic,id,ib,ia)=phab*xme
          end if
          if(ic.ne.id)then
-            ej(jj,iso,ia,ib,id,ic)=phcd*xme
-            ej(jj,iso,id,ic,ia,ib)=phcd*xme
+            ej(jj,iso,qq,ia,ib,id,ic)=phcd*xme
+            ej(jj,iso,qq,id,ic,ia,ib)=phcd*xme
          end if
          if(ia.ne.ib.and.ic.ne.id)then
-            ej(jj,iso,ib,ia,id,ic)=phcd*phab*xme
-            ej(jj,iso,id,ic,ib,ia)=phcd*phab*xme
+            ej(jj,iso,qq,ib,ia,id,ic)=phcd*phab*xme
+            ej(jj,iso,qq,id,ic,ib,ia)=phcd*phab*xme
          end if         
       enddo
 
@@ -604,7 +624,7 @@ c++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
                         sum=sum+cleb(ja,ma,jb,mb,jr,mij)*
      &                          cleb(jc,mc,jd,md,jr,mkl)*
-     &                  (ej(jj,1,ia,ib,ic,id)*cleb(1,ta,1,tb,2,tij)
+     &                  (ej(jj,1,3,ia,ib,ic,id)*cleb(1,ta,1,tb,2,tij)
      &                                       *cleb(1,tc,1,td,2,tkl))
                      end do
                      sum=-fact*sum
@@ -721,7 +741,7 @@ c++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                         jj=jr/2
                         sum=sum+cleb(ja,ma,jb,mb,jr,mij)*
      &                          cleb(jc,mc,jd,md,jr,mkl)*
-     &                          ej(jj,1,ia,ib,ic,id)
+     &                          ej(jj,1,2,ia,ib,ic,id)
                      end do
                      sum=-fact*sum
                      if(abs(sum).gt.small)then
@@ -818,8 +838,8 @@ C
                         jj=jr/2
                         sum=sum+cleb(ja,ma,jb,mb,jr,mij)*
      &                          cleb(jc,mc,jd,md,jr,mkl)*
-     &                          (ej(jj,1,ia,ib,ic,id)+
-     &                           ej(jj,0,ia,ib,ic,id))
+     &                          (ej(jj,1,1,ia,ib,ic,id)+
+     &                           ej(jj,0,1,ia,ib,ic,id))
                      end do
                      sum=0.5*fact*sum
                      if(abs(sum).gt.small)then

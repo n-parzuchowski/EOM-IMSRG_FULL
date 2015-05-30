@@ -1,5 +1,5 @@
 COMP = gfortran
-OPTIONS = -O2 -fopenmp  # -r8 
+OPTIONS = -O2 -fopenmp -fbounds-check  # -r8 
 
 OBJ1 = \
 modulesSHERPA.o\
