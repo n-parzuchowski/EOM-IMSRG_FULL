@@ -737,12 +737,13 @@ do Tz = 1 , -1, -1
       buf=gzGets(hndle,buffer,sz)
         ! ignore
       sz = 30
-      
-      AA = 1 
-      do while (AA <= stors%mat(qq)%npp )
+    
+      do 
+!      AA = 1 
+ !     do while (AA <= stors%mat(qq)%npp )
          
-         BB = AA
-         do while (BB <= stors%mat(qq)%npp )
+  !       BB = AA
+   !      do while (BB <= stors%mat(qq)%npp )
             
       buf=gzGets(hndle,buffer,sz)
          ! figure out where the spaces are that separate things 
@@ -750,7 +751,7 @@ do Tz = 1 , -1, -1
       ! first space
       do 
          if ( buffer(i:i) == ' ' ) then
-            read(buffer(1:i-1),'(I5)')  iq 
+            read(buffer(1:i-1),'(I5)')  AA 
             i = i + 2
             j = i 
             exit
@@ -760,23 +761,16 @@ do Tz = 1 , -1, -1
       ! second space
       do 
          if ( buffer(i:i) == ' ' ) then 
-            read(buffer(j:i-1),'(I5)') jq 
+            read(buffer(j:i-1),'(I5)') BB 
             i = i + 2
             exit
          end if
          i = i + 1
       end do
       
-      if (iq .ne. AA - 1) then
-         stop 'inconvenient missing matrix element'
-      end if
-      if (jq .ne. BB - 1) then 
-         BB = BB + 1
-      end if
-      ! okay now i should be the position of the first 
-      ! character of the TBME for the labels a <= b
-      
-      
+      AA = AA + 1
+      BB = BB + 1
+   
       if ( buffer(i:i) == '-' ) then 
          ! negative number
          read(buffer(i:i+10), '( f11.8 )' )  V 
@@ -892,13 +886,18 @@ do Tz = 1 , -1, -1
      end if 
      ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
 
-           BB = BB + 1
-        end do ! end loop over BB
-        AA = AA + 1
-     end do  ! end loop over AA
+        !   BB = BB + 1
+       ! end do ! end loop over BB
+       ! AA = AA + 1
+     !end do  ! end loop over AA
      
-     
-     
+            if (AA == stors%mat(qq)%npp) then 
+               if (BB == stors%mat(qq)%npp) then 
+                  exit
+               end if 
+            end if
+           
+        end do 
       end do   ! end loops over conserved quantities
    end do 
 end do 
