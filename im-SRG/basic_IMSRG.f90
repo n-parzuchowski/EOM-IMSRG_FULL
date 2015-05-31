@@ -1609,6 +1609,85 @@ subroutine copy_sq_op(H,op)
 end subroutine 
 !======================================================
 !======================================================
+subroutine write_binary_operator(H,stage) 
+  ! first figure out how many equations there are:
+ 
+  type(sq_op) :: H 
+  integer Atot,Ntot,q
+  real(8),allocatable,dimension(:):: outvec 
+  character(*),intent(in) :: stage 
+  character(200) :: spfile,intfile,input,prefix
+  common /files/ spfile,intfile,prefix 
+  
+  Atot = H%belowEF
+  Ntot = H%Nsp
+  
+  neq = 1 + Atot*Atot + Atot*(Ntot-Atot) + (Ntot - Atot)**2 
+  
+  do q = 1, H%nblocks
+     
+     nh = H%mat(q)%nhh
+     np = H%mat(q)%npp
+     nb = H%mat(q)%nph 
+     
+     neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
+  end do 
+  
+  H%neq = neq
+  allocate(outvec(neq)) 
+  
+  call vectorize(H,outvec) 
+  
+  open(unit=55,file='../../hamiltonians/'//&
+       trim(adjustl(prefix))//'_'//trim(adjustl(stage)),&
+       form='unformatted')
+  
+  do q =1,neq
+     write(55) outvec(q) 
+  end do 
+  close(55) 
+  
+end subroutine
+!======================================================
+!======================================================
+subroutine read_binary_operator(H,stage) 
+  ! first figure out how many equations there are:
+ 
+  type(sq_op) :: H 
+  integer Atot,Ntot,q
+  real(8),allocatable,dimension(:):: outvec 
+  character(*),intent(in) :: stage 
+  character(200) :: spfile,intfile,input,prefix
+  common /files/ spfile,intfile,prefix 
+  
+  Atot = H%belowEF
+  Ntot = H%Nsp
+  
+  neq = 1 + Atot*Atot + Atot*(Ntot-Atot) + (Ntot - Atot)**2 
+  
+  do q = 1, H%nblocks
+     
+     nh = H%mat(q)%nhh
+     np = H%mat(q)%npp
+     nb = H%mat(q)%nph 
+     
+     neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
+  end do 
+  H%neq = neq
+  allocate(outvec(neq)) 
+   
+  open(unit=55,file='../../hamiltonians/'//&
+       trim(adjustl(prefix))//'_'//trim(adjustl(stage)),&
+       form='unformatted')
+  
+  do q =1,neq
+     read(55) outvec(q) 
+  end do 
+  close(55) 
+  call repackage(H,outvec) 
+end subroutine
+!======================================================
+!======================================================
 subroutine split_1b_2b(Op,onebd,twobd) 
   ! make a copy of H onto op
   implicit none 
@@ -1755,7 +1834,7 @@ subroutine print_matrix(matrix)
 end subroutine 
 !===============================================  
 subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
-     ME2J,ME2b,hw)
+     ME2J,ME2b,hw,skip_setup,skip_gs)
   !read inputs from file
   implicit none 
   
@@ -1764,7 +1843,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
   integer :: method
-  logical :: HF,EXTDA,COM,R2RMS,ME2J,ME2B
+  logical :: HF,EXTDA,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -1851,7 +1930,15 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
      end if 
   end if 
   
-  
+  inquire( file='../../hamiltonians/'//&
+       trim(adjustl(prefix))//'_bare' , exist = skip_setup )
+
+  if (EXTDA) then 
+  inquire( file='../../hamiltonians/'//&
+       trim(adjustl(prefix))//'_gs_decoup' , exist = skip_gs )
+  else 
+     skip_gs = .false.
+  end if
 end subroutine
 !=======================================================  
 !=======================================================

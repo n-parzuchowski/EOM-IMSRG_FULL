@@ -446,7 +446,7 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
    
   DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
-
+  !print*, 'dE0/ds =', DH%E0
   call commutator_111(ETA,HS,DH,jbas) 
   call commutator_121(ETA,HS,DH,jbas)
   call commutator_122(ETA,HS,DH,jbas)

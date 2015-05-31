@@ -572,7 +572,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   pp_calc = .false. 
   Ntot = jbas%total_orbits
   Lmax = 10
-  eMax = 14
+  eMax = 10
 ! populate lj array
   lj = 0
   do twol = 0, 2 * Lmax , 2
@@ -601,15 +601,11 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   read(34,*) itpath 
   itpath = adjustl(itpath) 
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
-  
+!  goto 14
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
   hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
   
- ! print*, trim(itpath)
-
 ! here is where we start dealing with the two body piece
-
-! hndle=gzOpen('O16_chi2b3bjs_lec04_srg0625_eMax14_lMax10_hwHO020.ham0.me2b.gz'//achar(0),"r"//achar(0)) 
   
   sz=200
   
@@ -629,93 +625,96 @@ sz = 20
 do Tz = 1 , -1, -1  
   do Pi = 0,1
      do JT = 0, 2*jbas%Jtotal_max,2 
+        if ((Lmax == eMax) .and. (JT == 2*jbas%Jtotal_max)&
+             .and. (Abs(Tz)==1)) cycle
         if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
         q = q+1
      
-      buf=gzGets(hndle,buffer,sz) 
+        buf=gzGets(hndle,buffer,sz) 
      
   
-      read(buffer(10:16),'(I6)') aMax 
+        read(buffer(10:16),'(I6)') aMax 
   
-      stors%mat(q)%npp = aMax + 1 ! don't worry about pp, hh, ph for this
+        stors%mat(q)%npp = aMax + 1 ! don't worry about pp, hh, ph for this
       
-      ! this is the map from heiko's "a" to my two sp labels
+        ! this is the map from heiko's "a" to my two sp labels
+        
+      !  print*, aMax+1
+        allocate(stors%mat(q)%qn(1)%Y( aMax+1, 2) ) 
   
-      allocate(stors%mat(q)%qn(1)%Y( aMax+1, 2) ) 
-  
-      stors%mat(q)%lam(1) = JT
-      stors%mat(q)%lam(2) = Pi
-      stors%mat(q)%lam(3) = Tz
-      
-      select case ( Tz)
-         case ( -1 ) 
-            t1 = -1
-            t2 = -1
-         case ( 0 ) 
-            t1 = -1 
-            t2 = 1
-         case ( 1 ) 
-            t1 = 1
-            t2 = 1
-         case default 
-            print*, 'son of a fuck.' 
-      end select
+        stors%mat(q)%lam(1) = JT
+        stors%mat(q)%lam(2) = Pi
+        stors%mat(q)%lam(3) = Tz
+        
+        select case ( Tz)
+           case ( -1 ) 
+              t1 = -1
+              t2 = -1
+           case ( 0 ) 
+              t1 = -1 
+              t2 = 1
+           case ( 1 ) 
+              t1 = 1
+              t2 = 1 
+        end select
                  
-      a = 0
+        a = 0
      
-      do lj1 = 1, ljMax
-        do lj2 = 1, ljMax
+        do lj1 = 1, ljMax
+           do lj2 = 1, ljMax
 
-           j1 = SPBljs(lj1,2) 
-           j2 = SPBljs(lj2,2)
-           l1 = SPBljs(lj1,1)/2
-           l2 = SPBljs(lj2,1)/2
+              j1 = SPBljs(lj1,2) 
+              j2 = SPBljs(lj2,2)
+              l1 = SPBljs(lj1,1)/2
+              l2 = SPBljs(lj2,1)/2
            
-           if ( ( JT < abs(j1-j2) ) .or. (JT > j1 + j2) ) cycle
-           if ( mod(l1 + l2 ,2 ) .ne.Pi ) cycle 
+              if ( ( JT < abs(j1-j2) ) .or. (JT > j1 + j2) ) cycle
+              if ( mod(l1 + l2 ,2 ) .ne.Pi ) cycle 
 
-
-           do n1 = 0,nMax_lj(lj1)
-              idx = (lj1-1) * (nMax_lj(1) +1 ) +n1 
-              do n2 = 0,nMax_lj(lj2) 
-                 idxx = (lj2-1) * (nMax_lj(1) +1 ) +n2                 
+              
+              do n1 = 0,nMax_lj(lj1)
+                 idx = (lj1-1) * (nMax_lj(1) +1 ) +n1 
+                 do n2 = 0,nMax_lj(lj2) 
+                    idxx = (lj2-1) * (nMax_lj(1) +1 ) +n2                 
                  
-                  if ( (Tz .ne. 0) .and. (idx > idxx) ) cycle
-                  if ( (mod(JT/2,2) == 1) .and. (lj1==lj2) .and. &
-                       (n1==n2) .and. (Tz .ne. 0) ) cycle
+                    if ( (Tz .ne. 0) .and. (idx > idxx) ) cycle
+                    if ( (mod(JT/2,2) == 1) .and. (lj1==lj2) .and. &
+                         (n1==n2) .and. (Tz .ne. 0) ) cycle
                   
-                  ! now search for sp labels
-                  do i = 1, jbas%total_orbits 
-                     if ( jbas%jj(i) .ne. j1 ) cycle
-                     if ( jbas%nn(i) .ne. n1 ) cycle
-                     if ( jbas%ll(i) .ne. l1 ) cycle
-                     if ( jbas%itzp(i) .ne. t1 ) cycle                     
-                     exit
-                  end do 
+                    ! now search for sp labels
+                    do i = 1, jbas%total_orbits 
+                       if ( jbas%jj(i) .ne. j1 ) cycle
+                       if ( jbas%nn(i) .ne. n1 ) cycle
+                       if ( jbas%ll(i) .ne. l1 ) cycle
+                       if ( jbas%itzp(i) .ne. t1 ) cycle                     
+                       exit
+                    end do
                   
-                  do j = 1, jbas%total_orbits 
-                     if ( jbas%jj(j) .ne. j2 ) cycle
-                     if ( jbas%nn(j) .ne. n2 ) cycle
-                     if ( jbas%ll(j) .ne. l2 ) cycle
-                     if ( jbas%itzp(j) .ne. t2 ) cycle                     
-                     exit
-                  end do 
+                    do j = 1, jbas%total_orbits 
+                       if ( jbas%jj(j) .ne. j2 ) cycle
+                       if ( jbas%nn(j) .ne. n2 ) cycle
+                       if ( jbas%ll(j) .ne. l2 ) cycle
+                       if ( jbas%itzp(j) .ne. t2 ) cycle                     
+                       exit
+                    end do
                   
-                  a = a + 1
-                 stors%mat(q)%qn(1)%Y(a,1) = i
-                 stors%mat(q)%qn(1)%Y(a,2) = j
+                    
+                    a = a + 1
+                  !  print*, a
+                    stors%mat(q)%qn(1)%Y(a,1) = i
+                    stors%mat(q)%qn(1)%Y(a,2) = j
 
-               end do
-            end do
-         end do
-      end do
-      
+                 end do
+              end do
+           end do
+        end do
+        
     
-      if ( a .ne. aMax+1 ) print*, 'douche',q, a, aMax,JT,Pi,Tz
+        if ( a .ne. aMax+1 ) print*, 'douche',q, a, aMax,JT,Pi,Tz
     
-   end do
-end do 
-end do 
+     end do
+  end do
+end do
 
 
 
@@ -727,6 +726,8 @@ qq = 0
 do Tz = 1 , -1, -1  
   do Pi = 0,1
      do JT = 0, 2*jbas%Jtotal_max,2 
+        if ((Lmax == eMax) .and. (JT == 2*jbas%Jtotal_max)&
+             .and. (Abs(Tz)==1)) cycle
         if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
         qq = qq+1 ! heikos block index
         print*, qq
@@ -811,10 +812,10 @@ do Tz = 1 , -1, -1
         i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -JT)/2 ) 
      else
-       ! if (a == b) pre = pre * sqrt( 2.d0 )
+        if (a == b) pre = pre / sqrt( 2.d0 )
        
         x = bosonic_tp_index(a,b,Ntot) 
-       
+        
         j_min = H%xmap(x)%Z(1)  
         i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
      end if
@@ -827,7 +828,7 @@ do Tz = 1 , -1, -1
         
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
      else 
-       ! if (c == d) pre = pre * sqrt( 2.d0 )
+        if (c == d) pre = pre / sqrt( 2.d0 )
       
         x = bosonic_tp_index(c,d,Ntot) 
         j_min = H%xmap(x)%Z(1)  
@@ -905,11 +906,9 @@ end do
       
 ! i guess we are done with the two body piece
 
-me1bfile = intfile(1:len(intfile)-5)//'2b.gz'
+14 me1bfile = intfile(1:len(trim(intfile))-5)//'1b.gz'
 hndle=gzOpen(trim(itpath)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0)) 
-  
-!14  hndle=gzOpen('O16_chi2b3bjs_lec04_srg0625_eMax14_lMax10_hwHO020.ham0.me1b.gz'//achar(0),"r"//achar(0)) 
-  
+    print*, trim(itpath)//trim(adjustl(me1bfile))//achar(0)
   sz=200
 
   ! read verion line, and then some integer
@@ -917,8 +916,8 @@ hndle=gzOpen(trim(itpath)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0))
   ! the integer probably has to do with the file size
   buf=gzGets(hndle,buffer,sz) 
  
-  read(buffer(1:4),'(I4)') aMax 
- 
+  read(buffer(1:3),'(I3)') aMax 
+  
   sz = 20
   ! I assume this is the zero body piece right here
   buf=gzGets(hndle,buffer,sz) 

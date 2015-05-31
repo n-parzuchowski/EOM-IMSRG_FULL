@@ -18,6 +18,7 @@ program main_IMSRG
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00
   logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j,me2b
+  logical :: skip_setup,skip_gs
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
   external :: dHds_TDA_shell_w_2op
@@ -34,7 +35,7 @@ program main_IMSRG
   call getarg(1,inputs_from_command) 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,&
-       me2b,hw)
+       me2b,hw,skip_setup,skip_gs)
   
  
   HS%herm = 1
@@ -42,7 +43,19 @@ program main_IMSRG
 
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut)
   call allocate_blocks(jbasis,HS)   
-  call print_header
+  
+  ! check if you can skip some stuff
+  if (skip_gs) then 
+     print*, 'reading ground state decoupled hamiltonian' 
+     goto 20 ! line 223 (subject to change) 
+     ! or search "gs_decoup" 
+  end if 
+  if (skip_setup) then
+     print*, 'reading pre-normal ordered hamiltonian' 
+     goto 15 ! line 129 (subject to change)
+     ! or search "bare" 
+  end if 
+  
   
   ! for calculating COM expectation value
   if (COM_calc) then  
@@ -80,7 +93,7 @@ program main_IMSRG
         ! pre normal ordered interaction with three body included at No2b
         call read_me2b_interaction(HS,jbasis,ham_type,hw) 
         goto 12 ! skip the normal ordering. 
-        ! it's already done
+        ! it's already done.  line 128 or search "bare" 
      else
         call read_interaction(HS,jbasis,ham_type,hw)
      end if
@@ -90,6 +103,7 @@ program main_IMSRG
 !============================================================
 ! BUILD BASIS
 !============================================================
+
   call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
 
   if (hartree_fock) then 
@@ -110,13 +124,11 @@ program main_IMSRG
      call normal_order(HS,jbasis) 
   end if
 
- 
-12  print*, HS%E0
-  
-call  print_matrix( HS%fhh )
-call print_matrix( HS%mat(1)%gam(1)%X(1:10,1:10) ) 
-  stop
-
+!============================================================
+! store hamiltonian in easiest format for quick reading
+!============================================================
+12 call write_binary_operator(HS,'bare') 
+15 if (skip_setup) call read_binary_operator(HS,'bare') 
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
@@ -127,7 +139,7 @@ call print_matrix( HS%mat(1)%gam(1)%X(1:10,1:10) )
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+  call print_header
   select case (method_int) 
   
   case (1) ! magnus 
@@ -204,6 +216,13 @@ call print_matrix( HS%mat(1)%gam(1)%X(1:10,1:10) )
      end if 
 
   end select
+
+call write_binary_operator(HS,'gs_decoup') 
+!============================================================
+! store hamiltonian in easiest format for quick reading
+!============================================================
+call write_binary_operator(HS,'gs_decoup') 
+20 if (skip_gs) call read_binary_operator(HS,'gs_decoup') 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

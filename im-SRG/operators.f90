@@ -82,8 +82,8 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
  !    end do 
  ! end do 
 
-       print*, TDA%blkM(1)%labels(:,1)
-       print*, TDA%blkM(1)%labels(:,2)
+      ! print*, TDA%blkM(1)%labels(:,1)
+      ! print*, TDA%blkM(1)%labels(:,2)
 end subroutine 
 !==========================================
 !==========================================
