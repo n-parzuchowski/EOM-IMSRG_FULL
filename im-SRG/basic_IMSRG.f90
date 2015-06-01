@@ -32,7 +32,7 @@ module basic_IMSRG
   TYPE :: sq_block
      integer :: lam(3) ! specifices J,Par,Tz of the block 
      type(real_mat),dimension(6) :: gam !Vpppp,Vhhhh,Vphph,Vpphh,Vphhh,Vppph
-     integer :: npp, nph , nhh ! dimensions
+     integer :: npp, nph , nhh , ntot! dimensions
      type(int_mat),dimension(3) :: qn !tp to sp map 
   END TYPE sq_block
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1619,6 +1619,7 @@ subroutine write_binary_operator(H,stage)
   character(200) :: spfile,intfile,input,prefix
   common /files/ spfile,intfile,prefix 
   
+  if (prefix(1:8) == 'testcase') return  
   Atot = H%belowEF
   Ntot = H%Nsp
   
@@ -1644,7 +1645,7 @@ subroutine write_binary_operator(H,stage)
   
   do q =1,neq
      write(55) outvec(q) 
-  end do 
+  end do
   close(55) 
   
 end subroutine

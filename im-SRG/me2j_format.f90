@@ -292,7 +292,6 @@ do a = nlj1,nlj1+1
             T = -T/2
             q = block_index(JT,T,Par)
 
-            write(42,*) me_fromfile(1), me_fromfile(3) ,(nlj1+1)/2,(nlj2+1)/2,(nnlj1+1)/2,(nnlj2+1)/2,JT/2
      ! convert to pn matrix element       
      V =  0.125d0*(ta-tb)*(tc-td)*me_fromfile(1)+&   ! 00 clebsch
           kron_del(ta+tb,-2)*kron_del(tc+td,-2)*me_fromfile(2)+& ! 1-1 
@@ -315,9 +314,13 @@ do a = nlj1,nlj1+1
      ! getting rid of weird mass scaling 
      g3 = -2.d0*g3/hbarc2_over_mc2 
 
+     
      ! center of mass subtraction
      V = (V - g3*COM*hw/(H%Aneut+H%Aprot)) *pre2 
-    
+  
+
+     
+     
      g3 = g3*pre2
      g2 = g2*pre2
      
@@ -362,7 +365,6 @@ do a = nlj1,nlj1+1
      ! have two particles in the same sp-shell
         
      ! get the units right. I hope 
-   
      
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
@@ -403,7 +405,7 @@ do a = nlj1,nlj1+1
 
      end if 
      ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
-     
+    
  end do;end do; end do; end do !end sums over isospin  
      
              end do ! end sum over j 
@@ -549,10 +551,10 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype,Lmax
   integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td,bMax
   integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,COM,x,PAR,endsz,aMax
-  integer :: t1,t2,lj1,lj2,n1,n2,Pi,Tz,AA,BB,qq,iq,jq
+  integer :: t1,t2,lj1,lj2,n1,n2,Pi,Tz,AA,BB,qq,iq,jq,a_hh,a_ph,a_pp
   integer,allocatable,dimension(:) :: indx , nMax_lj
   real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
-  real(8) :: V,g1,g2,g3,hw,pre2,pre
+  real(8) :: V,g1,g2,g3,hw,pre2,pre,sm
   type(spd) :: jbas 
   type(sq_op) :: H,stors
   type(sq_op),optional :: pp,rr
@@ -571,8 +573,8 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   rr_calc = .false.
   pp_calc = .false. 
   Ntot = jbas%total_orbits
-  Lmax = 10
-  eMax = 10
+  Lmax = maxval(jbas%ll) 
+  eMax = maxval(jbas%e)
 ! populate lj array
   lj = 0
   do twol = 0, 2 * Lmax , 2
@@ -613,12 +615,14 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   buf=gzGets(hndle,buffer,sz) 
   buf=gzGets(hndle,buffer,sz) 
   
+  read(buffer(6:9),'(I4)',iostat=qq) bMax 
+  if (qq .ne. 0 ) then 
+     read(buffer(6:8),'(I3)',iostat=qq) bMax 
+     if (qq .ne. 0 ) then 
+        read(buffer(6:7),'(I2)',iostat=qq) bMax
+     end if 
+  end if
 
-  read(buffer(6:8),'(I3)') bMax
-!  stop
-!  if (bMax+1 .ne. H%nblocks) print*, 'fuck, diff num of blcks' , bMax, H%nblocks
-  
-sz = 20
  q = 0
 ! heiko's code calls protons 1 and neutrons 0
 
@@ -630,18 +634,6 @@ do Tz = 1 , -1, -1
         if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
         q = q+1
      
-        buf=gzGets(hndle,buffer,sz) 
-     
-  
-        read(buffer(10:16),'(I6)') aMax 
-  
-        stors%mat(q)%npp = aMax + 1 ! don't worry about pp, hh, ph for this
-      
-        ! this is the map from heiko's "a" to my two sp labels
-        
-      !  print*, aMax+1
-        allocate(stors%mat(q)%qn(1)%Y( aMax+1, 2) ) 
-  
         stors%mat(q)%lam(1) = JT
         stors%mat(q)%lam(2) = Pi
         stors%mat(q)%lam(3) = Tz
@@ -651,15 +643,17 @@ do Tz = 1 , -1, -1
               t1 = -1
               t2 = -1
            case ( 0 ) 
-              t1 = -1 
-              t2 = 1
+              t1 = 1 
+              t2 = -1
            case ( 1 ) 
               t1 = 1
               t2 = 1 
         end select
                  
         a = 0
-     
+        a_hh = 0
+        a_ph = 0 
+        a_pp = 0
         do lj1 = 1, ljMax
            do lj2 = 1, ljMax
 
@@ -700,18 +694,127 @@ do Tz = 1 , -1, -1
                   
                     
                     a = a + 1
-                  !  print*, a
-                    stors%mat(q)%qn(1)%Y(a,1) = i
-                    stors%mat(q)%qn(1)%Y(a,2) = j
-
+                    select case(jbas%con(i) + jbas%con(j))
+                       case(0)
+                          a_pp = a_pp + 1
+                       case(1)
+                          a_ph = a_ph + 1
+                       case(2)
+                          a_hh = a_hh + 1
+                    end select
+                      
                  end do
               end do
            end do
         end do
         
     
-        if ( a .ne. aMax+1 ) print*, 'douche',q, a, aMax,JT,Pi,Tz
+        stors%mat(q)%npp = a_pp 
+        stors%mat(q)%nph = a_ph
+        stors%mat(q)%nhh = a_hh
+        stors%mat(q)%ntot = a 
+
     
+     end do
+  end do
+end do
+  
+sz = 20
+ q = 0
+! heiko's code calls protons 1 and neutrons 0
+
+do Tz = 1 , -1, -1  
+  do Pi = 0,1
+     do JT = 0, 2*jbas%Jtotal_max,2 
+        if ((Lmax == eMax) .and. (JT == 2*jbas%Jtotal_max)&
+             .and. (Abs(Tz)==1)) cycle
+        if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
+        q = q+1
+     
+        buf=gzGets(hndle,buffer,sz) 
+  
+        read(buffer(10:16),'(I6)') aMax 
+        
+ 
+        allocate(stors%mat(q)%qn(1)%Y( aMax+1, 2) ) 
+  
+        select case ( Tz)
+           case ( -1 ) 
+              t1 = -1
+              t2 = -1
+           case ( 0 ) 
+              t1 = 1 
+              t2 = -1
+           case ( 1 ) 
+              t1 = 1
+              t2 = 1 
+        end select
+                 
+        a = 0
+        a_hh = 0
+        a_ph = 0 
+        a_pp = 0
+        do lj1 = 1, ljMax
+           do lj2 = 1, ljMax
+
+              j1 = SPBljs(lj1,2) 
+              j2 = SPBljs(lj2,2)
+              l1 = SPBljs(lj1,1)/2
+              l2 = SPBljs(lj2,1)/2
+           
+              if ( ( JT < abs(j1-j2) ) .or. (JT > j1 + j2) ) cycle
+              if ( mod(l1 + l2 ,2 ) .ne.Pi ) cycle 
+
+              
+              do n1 = 0,nMax_lj(lj1)
+                 idx = (lj1-1) * (nMax_lj(1) +1 ) +n1 
+                 do n2 = 0,nMax_lj(lj2) 
+                    idxx = (lj2-1) * (nMax_lj(1) +1 ) +n2                 
+                 
+                    if ( (Tz .ne. 0) .and. (idx > idxx) ) cycle
+                    if ( (mod(JT/2,2) == 1) .and. (lj1==lj2) .and. &
+                         (n1==n2) .and. (Tz .ne. 0) ) cycle
+                  
+                    ! now search for sp labels
+                    do i = 1, jbas%total_orbits 
+                       if ( jbas%jj(i) .ne. j1 ) cycle
+                       if ( jbas%nn(i) .ne. n1 ) cycle
+                       if ( jbas%ll(i) .ne. l1 ) cycle
+                       if ( jbas%itzp(i) .ne. t1 ) cycle                     
+                       exit
+                    end do
+                  
+                    do j = 1, jbas%total_orbits 
+                       if ( jbas%jj(j) .ne. j2 ) cycle
+                       if ( jbas%nn(j) .ne. n2 ) cycle
+                       if ( jbas%ll(j) .ne. l2 ) cycle
+                       if ( jbas%itzp(j) .ne. t2 ) cycle                     
+                       exit
+                    end do
+                  
+                    
+                    select case(jbas%con(i) + jbas%con(j))
+                       case(0)
+                          a_pp = a_pp + 1   
+                          a = stors%mat(q)%nhh + &
+                               stors%mat(q)%nph + a_pp
+                       case(1)
+                          a_ph = a_ph + 1
+                          a = stors%mat(q)%nhh + a_ph
+                       case(2)
+                          a_hh = a_hh + 1
+                          a = a_hh 
+                    end select
+                      
+                    stors%mat(q)%qn(1)%Y(a,1) = i
+                    stors%mat(q)%qn(1)%Y(a,2) = j
+                    
+                      
+                 end do
+              end do
+           end do
+        end do
+            
      end do
   end do
 end do
@@ -730,18 +833,20 @@ do Tz = 1 , -1, -1
              .and. (Abs(Tz)==1)) cycle
         if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
         qq = qq+1 ! heikos block index
-        print*, qq
+      !  print*, qq
         q = block_index(JT,Tz,Pi) ! my block index
         
         ! space then label
-      buf=gzGets(hndle,buffer,sz) 
-      buf=gzGets(hndle,buffer,sz)
+        buf=gzGets(hndle,buffer,sz) 
+        buf=gzGets(hndle,buffer,sz)
+        
         ! ignore
-      sz = 30
+        sz = 30
     
       do 
             
       buf=gzGets(hndle,buffer,sz)
+      
          ! figure out where the spaces are that separate things 
       i = 1
       ! first space
@@ -777,6 +882,7 @@ do Tz = 1 , -1, -1
          read(buffer(i:i+9), '( f10.8 )' )  V 
       end if 
       
+
       ! oTay should have the matrix element now. 
      
       ! indeces     
@@ -785,6 +891,12 @@ do Tz = 1 , -1, -1
       c = stors%mat(qq)%qn(1)%Y(BB,1)
       d = stors%mat(qq)%qn(1)%Y(BB,2)      
       
+      
+     ! if( (a==1).and.(b==1).and.(c==1).and.(d==21)) then 
+      !   print*, AA,BB,V,qq
+        
+       !  stop
+      !end if
       ! i think the scaling and COM subtraction have already been done
       ! I HOpe. 
 
@@ -804,11 +916,11 @@ do Tz = 1 , -1, -1
         x = bosonic_tp_index(b,a,Ntot) 
         j_min = H%xmap(x)%Z(1)  
         i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
-        pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -JT)/2 ) 
+        pre = pre * (-1.)**( 1 + (jbas%jj(a) + jbas%jj(b) -JT)/2 ) 
      
      else
         if (a == b) pre = pre / sqrt( 2.d0 )
-       
+        
         x = bosonic_tp_index(a,b,Ntot) 
         
         j_min = H%xmap(x)%Z(1)  
@@ -821,11 +933,11 @@ do Tz = 1 , -1, -1
         j_min = H%xmap(x)%Z(1)  
         i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
         
-        pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
+        pre = pre * (-1.)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
     
      else 
         if (c == d) pre = pre / sqrt( 2.d0 )
-      
+       
         x = bosonic_tp_index(c,d,Ntot) 
         j_min = H%xmap(x)%Z(1)  
         i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
@@ -883,8 +995,8 @@ do Tz = 1 , -1, -1
      end if 
      ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
 
-            if (AA == stors%mat(qq)%npp) then 
-               if (BB == stors%mat(qq)%npp) then 
+            if (AA == stors%mat(qq)%ntot) then 
+               if (BB == stors%mat(qq)%ntot) then 
                   exit
                end if 
             end if
@@ -908,8 +1020,14 @@ hndle=gzOpen(trim(itpath)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0))
   ! the integer probably has to do with the file size
   buf=gzGets(hndle,buffer,sz) 
  
-  read(buffer(1:3),'(I3)') aMax 
   
+  read(buffer(1:4),'(I4)',iostat=qq) aMax 
+  if (qq .ne. 0 ) then 
+     read(buffer(1:3),'(I3)',iostat=qq) aMax 
+     if (qq .ne. 0 ) then 
+        read(buffer(1:2),'(I2)',iostat=qq) aMax
+     end if 
+  end if
   sz = 20
   ! I assume this is the zero body piece right here
   buf=gzGets(hndle,buffer,sz) 
@@ -967,7 +1085,6 @@ do a= 1, aMax
                      exit
                   end do
                   
-                 
                   ! okay now I have my indeces 
            
                  
@@ -985,7 +1102,7 @@ do a= 1, aMax
                   
                   else if ((jbas%con(i)==0) .and. (jbas%con(j) == 1) ) then 
                      !fph
-                     H%fph( jbas%partsb4(i)+1 , jbas%holesb4(j)+1 ) = V 
+                     H%fph( jbas%partsb4(i)+1 , jbas%holesb4(j)+1 ) = V
                   end if 
                   
            

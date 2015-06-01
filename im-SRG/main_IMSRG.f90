@@ -139,9 +139,7 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- ! call print_matrix(HS%fpp(1:10,1:10)) 
- ! call print_matrix(HS%mat(1)%gam(1)%X(1:10,1:10))
- ! stop
+ 
   call print_header
   select case (method_int) 
   
