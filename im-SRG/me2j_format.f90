@@ -548,11 +548,11 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   
   integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype,Lmax
   integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td,bMax
-  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz,aMax
+  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,COM,x,PAR,endsz,aMax
   integer :: t1,t2,lj1,lj2,n1,n2,Pi,Tz,AA,BB,qq,iq,jq
   integer,allocatable,dimension(:) :: indx , nMax_lj
   real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
-  real(8) :: V,g1,g2,g3,hw,pre2
+  real(8) :: V,g1,g2,g3,hw,pre2,pre
   type(spd) :: jbas 
   type(sq_op) :: H,stors
   type(sq_op),optional :: pp,rr
@@ -601,7 +601,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   read(34,*) itpath 
   itpath = adjustl(itpath) 
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
-!  goto 14
+  !goto 14
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
   hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
   
@@ -740,11 +740,6 @@ do Tz = 1 , -1, -1
       sz = 30
     
       do 
-!      AA = 1 
- !     do while (AA <= stors%mat(qq)%npp )
-         
-  !       BB = AA
-   !      do while (BB <= stors%mat(qq)%npp )
             
       buf=gzGets(hndle,buffer,sz)
          ! figure out where the spaces are that separate things 
@@ -769,19 +764,18 @@ do Tz = 1 , -1, -1
          i = i + 1
       end do
       
+      
       AA = AA + 1
       BB = BB + 1
-   
+
+      
       if ( buffer(i:i) == '-' ) then 
          ! negative number
          read(buffer(i:i+10), '( f11.8 )' )  V 
-         
       else 
          ! positive
          read(buffer(i:i+9), '( f10.8 )' )  V 
       end if 
-      
-      
       
       ! oTay should have the matrix element now. 
      
@@ -790,7 +784,7 @@ do Tz = 1 , -1, -1
       b = stors%mat(qq)%qn(1)%Y(AA,2)      
       c = stors%mat(qq)%qn(1)%Y(BB,1)
       d = stors%mat(qq)%qn(1)%Y(BB,2)      
-       
+      
       ! i think the scaling and COM subtraction have already been done
       ! I HOpe. 
 
@@ -804,13 +798,14 @@ do Tz = 1 , -1, -1
      qx = qx + adjust_index(qx)   !Vpppp nature  
 
      ! get the indeces in the correct order
-     pre = 1
+     pre = 1.d0
      if ( a > b )  then 
         
         x = bosonic_tp_index(b,a,Ntot) 
         j_min = H%xmap(x)%Z(1)  
         i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -JT)/2 ) 
+     
      else
         if (a == b) pre = pre / sqrt( 2.d0 )
        
@@ -827,6 +822,7 @@ do Tz = 1 , -1, -1
         i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
         
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
+    
      else 
         if (c == d) pre = pre / sqrt( 2.d0 )
       
@@ -840,7 +836,7 @@ do Tz = 1 , -1, -1
         
      ! get the units right. I hope 
  
-     
+
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
@@ -887,28 +883,24 @@ do Tz = 1 , -1, -1
      end if 
      ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
 
-        !   BB = BB + 1
-       ! end do ! end loop over BB
-       ! AA = AA + 1
-     !end do  ! end loop over AA
-     
             if (AA == stors%mat(qq)%npp) then 
                if (BB == stors%mat(qq)%npp) then 
                   exit
                end if 
             end if
-           
+
         end do 
       end do   ! end loops over conserved quantities
    end do 
 end do 
-         
+      
+
       
 ! i guess we are done with the two body piece
 
 14 me1bfile = intfile(1:len(trim(intfile))-5)//'1b.gz'
 hndle=gzOpen(trim(itpath)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0)) 
-    print*, trim(itpath)//trim(adjustl(me1bfile))//achar(0)
+!    print*, trim(itpath)//trim(adjustl(me1bfile))//achar(0)
   sz=200
 
   ! read verion line, and then some integer
@@ -956,7 +948,8 @@ do a= 1, aMax
       
           
     read(buffer(15:28),'(f14.10)') V
-            ! V is now the one body matrix element
+    
+    ! V is now the one body matrix element
              ! now search for sp labels
                   do i = 1, jbas%total_orbits 
                      if ( jbas%jj(i) .ne. j1 ) cycle
@@ -998,8 +991,7 @@ do a= 1, aMax
            
    end do 
 
-rx = gzClose(hndle)
-
+   rx = gzClose(hndle)
 
 end subroutine
 !==========================================================
