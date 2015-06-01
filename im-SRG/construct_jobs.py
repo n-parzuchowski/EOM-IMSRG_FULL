@@ -8,9 +8,19 @@ if (nuc == 'He4'):
 elif (nuc == 'O16'): 
     nprot = 8
     nneut = 8
+elif (nuc == 'O22'): 
+    nprot = 8
+    nneut = 14
+elif (nuc == 'O24'): 
+    nprot = 8
+    nneut = 16
 elif (nuc == 'Ca40'): 
     nprot = 20
     nneut = 20
+elif (nuc == 'Ca48'): 
+    nprot = 20
+    nneut = 28
+
 else:
     print 'Invalid Entry'
     sys.exit()
@@ -22,10 +32,13 @@ Rstr = raw_input('Enter eMax values, seperated by commas: (3,5,7,9) ' )
 Rlist = Rstr.strip().split(',') 
 
 lam = raw_input( 'Momentum cutoff in inverse fermi: ') 
-
+if (lam=='me2j'):
+    print 'USING ME2J MATRIX ELEMENTS NOW'
+    me2jlam = raw_input( 'Enter four digit srg cutoff 1/lamda^4: (0625) ')
+ 
 hamtype = raw_input('For CM hamiltonian type: "1" for harmonic trap: "2", full: "3": ') 
 hf = raw_input( 'For HF type: "HF". Otherwise type: "HO": ') 
-mag = raw_input( 'For magnus type: "mag". Otherwise type: "trad": ' ) 
+mag = raw_input( 'For magnus type: "mag". Otherwise type: "trad" or "disc": ' ) 
 tda = raw_input( 'For flowing TDA type: "tda". Otherwise type: "gs": ' )
 
 if tda == 'tda':
@@ -39,10 +52,8 @@ else:
     Jtarg ='0'
     valshell = '1s0d' 
 
-if mag == 'mag':
-    contin = raw_input('For more options type "more", else press enter: ') 
-else:
-    contin = ''
+
+contin = raw_input('For other observable options, type "more", else press enter: ') 
 
 CMint = '0'
 RRMSint = '0'
@@ -52,10 +63,10 @@ if contin.lower() ==  'more':
     if CMint != '1':
         print 'To calculate Point Nucleon RMS radius,' 
         RRMSint = raw_input('enter 1, otherwise enter 0: ') 
-else if contin.lower() == 'COM':
+elif contin.lower() == 'COM':
     print 'Including COM factorization calculation' 
     CMint = 1 
-else if contin.lower() == 'RSQ':
+elif contin.lower() == 'RSQ':
     print 'Including RMS radius calculation' 
     RRMSint = 1
 
@@ -71,6 +82,23 @@ else:
     
 if mag == 'mag':
     magint = '1'
+    quads = raw_input('Do you want to correct for quadrupoles? (Y/N) ')
+    if (quads.lower() == 'y'):
+        trips = raw_input('Do you want to correct for triples? (Y/N) ')
+        if (trips.lower() == 'y'):
+            magint='5'
+            mag = mag+'TQ'
+        else:
+            magint='4'
+            mag = mag+'Q'
+    else:
+        trips = raw_input('Do you want to correct for triples? (Y/N) ')
+        if (trips.lower() == 'y'):
+            magint='6'
+            mag = mag+'T'
+
+elif mag == 'disc':
+    magint = '3'
 else:
     magint = '2'
     
@@ -80,8 +108,8 @@ else:
     tdaint = '0'
     
 mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','18gb','20gb','25gb'] 
-wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','04:00:00',  
-'6:00:00','10:00:00','15:00:00','25:00:00','45:00:00','75:00:00']
+wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','03:00:00',  
+'4:00:00','10:00:00','15:00:00','25:00:00','45:00:00','75:00:00']
 ompnum = ['8','8','8','8','8','8','8','4','2','1','1']
 
 
@@ -94,10 +122,19 @@ for R in Rlist:
         memreq = mem[Rx - 3] 
         timreq = wtime[Rx-3]
         
-        jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw 
-        spfile = 'nl'+R+'.sps'
-        TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int' 
-        initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'.ini'
+        
+        
+
+        if (lam == 'me2j'):
+            TBMEfile = 'chi2b_srg'+me2jlam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
+            spfile = 'hk'+R+'.sps'
+            jobname = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw 
+            initfile = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw+'.ini'
+        else:    
+            TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int' 
+            spfile = 'nl'+R+'.sps'
+            jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw 
+            initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'.ini'
 
         # write pbs file ===========================        
         fx = open('pbs_'+jobname,'w') 
@@ -175,13 +212,25 @@ for R in Rlist:
 
         fx.close()
         
-        if not os.path.isfile('sp_inputs/'+spfile):
-            print 'WARNING!!'
-            print 'file sp_inputs/'+spfile+' not present!\n'
+        
+        if (lam == 'me2j'):
+            if not os.path.isfile('sp_inputs/'+spfile):
+                print 'WARNING!!'
+                print 'file sp_inputs/'+spfile+' not present!\n'
             
-        if not os.path.isfile('TBME_input/'+TBMEfile):
-            print 'WARNING!!'
-            print 'file TBME_input/'+TBMEfile+' not present!\n'
+            if not os.path.isfile('/mnt/research/imsrg/nsuite/me/'+TBMEfile):
+                print 'WARNING!!'
+                print 'file TBME_input/'+TBMEfile+' not present!\n'
+
+            
+        else:
+            if not os.path.isfile('sp_inputs/'+spfile):
+                print 'WARNING!!'
+                print 'file sp_inputs/'+spfile+' not present!\n'
+            
+            if not os.path.isfile('TBME_input/'+TBMEfile):
+                print 'WARNING!!'
+                print 'file TBME_input/'+TBMEfile+' not present!\n'
 
         
         

@@ -84,7 +84,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
  
   write(36,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
   write(*,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
-
+  
   if (present(O1)) then 
      if (present(O2)) then 
         

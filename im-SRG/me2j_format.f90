@@ -558,7 +558,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   type(spd) :: jbas 
   type(sq_op) :: H,stors
   type(sq_op),optional :: pp,rr
-  logical :: pp_calc,rr_calc
+  logical :: pp_calc,rr_calc,file_there
   character(1) :: rem
   character(2) :: eMaxchr
   character(200) :: spfile,intfile,input,prefix
@@ -599,9 +599,16 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   allocate(stors%mat(H%nblocks))
 
 
+  do 
   open(unit=34,file='../../inifiles/interactionpath_me2b')
   read(34,*) itpath 
-  itpath = adjustl(itpath) 
+  itpath = adjustl(itpath)
+  
+  ! check if file is in directory
+  inquire( file=trim(itpath)//trim(adjustl(intfile))//achar(0),exist=file_there )
+  if ( file_there ) exit
+  
+  end do
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   !goto 14
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
