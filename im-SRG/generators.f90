@@ -58,6 +58,9 @@ subroutine build_gs_white(H,ETA,jbas)
   
   ETA%herm = -1 ! anti-hermitian operator
 
+  ETA%fpp = 0.d0 
+  ETA%fhh = 0.d0 
+  
   ! one body part
   do a = 1,H%Nsp - H%belowEF
      ak = jbas%parts(a) 
@@ -97,7 +100,10 @@ subroutine build_gs_white(H,ETA,jbas)
 !  two body part 
   
   do  q = 1, H%nblocks
-         
+  
+     do i = 1,6
+        ETA%mat(q)%gam(i)%X = 0.d0 
+     end do 
      do IX = 1,H%mat(q)%npp 
 
         ! figure out which sp states compose IX
@@ -636,6 +642,7 @@ subroutine build_specific_space(H,ETA,jbas)
   
   ETA%herm = -1 ! anti-hermitian operator
   ETA%fph = 0.d0
+  ETA%fhh = 0.d0
   sz = size(H%exlabels(:,1))
   ! one body part
   do a = 1,H%Nsp - H%belowEF
@@ -717,11 +724,9 @@ subroutine build_specific_space(H,ETA,jbas)
   ! two body part 
   
   do  q = 1, H%nblocks
-         
-     ETA%mat(q)%gam(2)%X = 0.d0
-     ETA%mat(q)%gam(6)%X = 0.d0
-     ETA%mat(q)%gam(4)%X = 0.d0 
-     
+     do i = 1,6    
+        ETA%mat(q)%gam(i)%X = 0.d0
+     end do 
      ! Vppph 
      do IX = 1,H%mat(q)%npp 
 

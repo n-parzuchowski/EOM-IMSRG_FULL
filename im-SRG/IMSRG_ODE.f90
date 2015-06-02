@@ -47,7 +47,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
      
      neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
   end do 
-
+  print*, neq
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   H%neq = neq 
 

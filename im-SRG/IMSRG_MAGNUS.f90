@@ -35,9 +35,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      trip_calc=.true.
   end if 
      
-  call duplicate_sq_op(HS,ETA) !generator
+!  call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian
-  call duplicate_sq_op(HS,H2) !evolved hamiltonian
+!  call duplicate_sq_op(HS,H2) !evolved hamiltonian
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
   call duplicate_sq_op(HS,INT1) !workspace
@@ -45,11 +45,11 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   call duplicate_sq_op(HS,AD) !workspace
   call duplicate_sq_op(HS,G) !magnus operator
   call duplicate_sq_op(HS,DG) !magnus operator
-  call duplicate_sq_op(HS,G0) ! backup copy of G
-  call duplicate_sq_op(HS,ETA0) ! backup copy of G
-  call duplicate_sq_op(HS,H0) ! backup copy of G
-  call duplicate_sq_op(HS,G1b)
-  call duplicate_sq_op(HS,G2b) 
+!  call duplicate_sq_op(HS,G0) ! backup copy of G
+!  call duplicate_sq_op(HS,ETA0) ! backup copy of G
+!  call duplicate_sq_op(HS,H0) ! backup copy of G
+!  call duplicate_sq_op(HS,G1b)
+!  call duplicate_sq_op(HS,G2b) 
   G%herm = -1 
   DG%herm = -1
   G0%herm = -1 
@@ -60,7 +60,8 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
   
   !call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
-  call build_gs_white(HS,ETA,jbas) 
+ ! call build_gs_white(HS,ETA,jbas) 
+  call build_gs_white(HS,DG,jbas) 
   call copy_sq_op(HS,H) 
   
   s = 0.d0 
@@ -77,15 +78,16 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
   write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
 
-  nrm1 = mat_frob_norm(ETA)
+  nrm1 = mat_frob_norm(DG)
   do while (crit > 1e-6) 
      
-     call copy_sq_op(G,G0) 
-     
-     call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+    ! call copy_sq_op(G,G0) 
+    ! call copy_sq_op(DG,ETA0)
+
+     call MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call euler_step(G,DG,s,ds) 
   
-     call copy_sq_op(HS,H0)
+     !call copy_sq_op(HS,H0)
      
      if (qd_calc) then 
         ! calculate quadrupoles correction
@@ -101,20 +103,22 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
         call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      end if
      
-     call copy_sq_op(ETA,ETA0)
+     
  !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
-     call build_gs_white(HS,ETA,jbas) 
-
+    ! call copy_sq_op(ETA,DG)
+  !   call build_gs_white(HS,ETA,jbas)
+     call build_gs_white(HS,DG,jbas)  
+     
      nrm2 = HS%E0 !mat_frob_norm(ETA)
-     nrm2 = mat_frob_norm(ETA)
-     if ( nrm1 < nrm2 )  then
-        s = s-ds
-        call copy_sq_op(G0,G)
-        call copy_sq_op(ETA0,ETA)
-        call copy_sq_op(H0,HS)
-        ds = ds/2.d0 
-        cycle 
-     end if 
+     nrm2 = mat_frob_norm(DG)
+     ! if ( nrm1 < nrm2 )  then
+     !    s = s-ds
+     !    call copy_sq_op(G0,G)
+     !    call copy_sq_op(ETA0,DG)
+     !    call copy_sq_op(H0,HS)
+     !    ds = ds/2.d0 
+     !    cycle 
+     ! end if 
 
      E_mbpt2 = mbpt2(HS,jbas) 
 
@@ -123,7 +127,8 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      steps = steps + 1
      write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-  end do
+
+ end do
 
 !  call split_1b_2b(G,G1b,G2b) 
 !  call BCH_EXPAND(H2,G1b,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
@@ -180,7 +185,7 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
   character(3) :: args
   common /files/ spfile,intfile,prefix
   
-  call duplicate_sq_op(HS,ETA) !generator
+!  call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
@@ -189,9 +194,9 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
   call duplicate_sq_op(HS,AD) !workspace
   call duplicate_sq_op(HS,G) !magnus operator
   call duplicate_sq_op(HS,DG) !magnus operator
-  call duplicate_sq_op(HS,G0) ! backup copy of G
-  call duplicate_sq_op(HS,ETA0) ! backup copy of G
-  call duplicate_sq_op(HS,H0) ! backup copy of G
+!  call duplicate_sq_op(HS,G0) ! backup copy of G
+!  call duplicate_sq_op(HS,ETA0) ! backup copy of G
+!  call duplicate_sq_op(HS,H0) ! backup copy of G
 
   G%herm = -1 
   DG%herm = -1
@@ -220,34 +225,34 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
        trim(adjustl(prefix))//'_excited.dat')
   
   call write_excited_states(steps,s,TDA,HS%E0,37)
-  call build_specific_space(HS,ETA,jbas) 
+  call build_specific_space(HS,DG,jbas) 
   call copy_sq_op(HS,H) 
   
-  nrm1 = mat_frob_norm(ETA) 
+  !nrm1 = mat_frob_norm(DG) 
  
   do while (crit > 1e-5) 
      
-     call copy_sq_op(G,G0) 
-     call MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+   !  call copy_sq_op(G,G0) 
+   !  call copy_sq_op(DG,ETA0)
+     call MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call euler_step(G,DG,s,ds) 
  
-     call copy_sq_op(HS,H0) 
+   !  call copy_sq_op(HS,H0) 
      call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-     
-     call copy_sq_op(ETA,ETA0)
-    
-     call build_specific_space(HS,ETA,jbas)
+         
+     call build_specific_space(HS,DG,jbas)
    
-     nrm2 = mat_frob_norm(ETA)
+ !    nrm2 = mat_frob_norm(DG)
    
-     if ( ( 10*nrm1 < nrm2 ) .and. (ds > 1e-2))  then
-        s = s-ds
-        call copy_sq_op(G0,G)
-        call copy_sq_op(ETA0,ETA)
-        call copy_sq_op(H0,HS)
-        ds = ds/2.d0 
-        cycle 
-     end if 
+     ! if ( ( 10*nrm1 < nrm2 ) .and. (ds > 1e-2))  then
+     !    s = s-ds
+     !    print*, 'damnit'
+     !    call copy_sq_op(G0,G)
+     !    call copy_sq_op(ETA0,DG)
+     !    call copy_sq_op(H0,HS)
+     !    ds = ds/2.d0 
+     !    cycle 
+     ! end if 
     
      call calculate_cross_coupled(HS,HCC,jbas,.true.) 
      call calc_TDA(TDA,HS,HCC,jbas) 
@@ -259,7 +264,7 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
      write(*,'(I6,6(e15.7))') steps,s,TDA%blkM(1)%eigval(1:4),crit
      E_old = TDA%blkM(1)%eigval
 
-     nrm1 = nrm2 
+    ! nrm1 = nrm2 
      steps = steps + 1
      
      
@@ -387,7 +392,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
 end subroutine 
 !===============================================================
 !===============================================================
-subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+subroutine MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   implicit none 
   
   real(8), parameter :: conv = 1e-8
@@ -406,9 +411,9 @@ subroutine MAGNUS_EXPAND(DG,G,ETA,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   
   cof = (/1.d0,-0.5d0,.0833333333d0,0.d0,-0.00138888888d0,0.d0,3.306878d-5/) 
   ! nested derivatives not so important
-    
+     
   !! same deal as BCH expansion, which is explained ad nauseam above. 
-  call copy_sq_op( ETA, DG )  !ME_general
+   
   call copy_sq_op( DG , INT2 )
   advals(1) = mat_frob_norm(INT2)  
   
