@@ -558,7 +558,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson)
   type(spd) :: jbas 
   type(sq_op) :: H,stors
   type(sq_op),optional :: pp,rr
-  logical :: pp_calc,rr_calc,file_there
+  logical :: pp_calc,rr_calc,file_there,noteffedup
   character(1),optional :: Lawson
   character(2) :: eMaxchr
   character(200) :: spfile,intfile,input,prefix
@@ -600,8 +600,9 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson)
 
   
  
-  do 
+
   open(unit=34,file='../../inifiles/interactionpath_me2b')
+  do
   read(34,*) itpath 
   itpath = adjustl(itpath)
   
@@ -611,7 +612,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson)
   if ( file_there ) exit
   
   end do
- 
+  close(34)
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
@@ -852,19 +853,29 @@ do Tz = 1 , -1, -1
         
         ! space then label
         buf=gzGets(hndle,buffer,sz) 
-        buf=gzGets(hndle,buffer,sz)
         
+        if (noteffedup) then  
+           buf=gzGets(hndle,buffer,sz)
+        end if
+        noteffedup=.true. 
         ! ignore
-        sz = 30
+        sz = 200
     
       do 
             
       buf=gzGets(hndle,buffer,sz)
       
+      read(buffer(1:1),'(I1)',iostat=iq) AA
+      if (iq .ne. 0 ) then 
+         ! because it's damned near impossible to 
+         ! figure out where the block ends
+         noteffedup=.false. 
+         exit
+      end if
          ! figure out where the spaces are that separate things 
       i = 1
       ! first space
-      do 
+       do 
          if ( buffer(i:i) == ' ' ) then
             read(buffer(1:i-1),'(I5)')  AA 
             i = i + 2
