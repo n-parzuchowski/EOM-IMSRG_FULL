@@ -138,6 +138,7 @@ subroutine read_sp_basis(jbas,hp,hn)
   
   ! build the jscheme descriptor
   jbas%total_orbits=ix
+
   allocate(jbas%nn(ix)) ! n 
   allocate(jbas%ll(ix)) ! l
   allocate(jbas%jj(ix)) ! j*2
@@ -147,7 +148,7 @@ subroutine read_sp_basis(jbas,hp,hn)
   allocate(jbas%con(ix)) ! hole or particle (1 or 0) 
   allocate(jbas%holesb4(ix)) !number of holes beneath this index
   allocate(jbas%partsb4(ix)) !number of particles beneath this index
-  
+
   ! go back to the start and read them in. 
   rewind(39) 
   
@@ -223,6 +224,7 @@ subroutine find_holes(jbas,pholes,nholes,hk)
   real(8),dimension(jbas%total_orbits) :: temp
   character(2) :: hk
   
+
   temp = jbas%e
   jbas%con = 0 ! zero if particle, one if hole
   
@@ -327,7 +329,7 @@ subroutine find_holes(jbas,pholes,nholes,hk)
      end if 
      
   end do 
- 
+
 end subroutine  
 !==============================================
 !==============================================
@@ -352,6 +354,9 @@ subroutine allocate_blocks(jbas,op)
   allocate(op%fph(N-AX,AX))
   allocate(op%fhh(AX,AX)) 
   
+  op%fpp=0.d0
+  op%fhh=0.d0
+  op%fph=0.d0
   q = 1  ! block index
   
   allocate(op%xmap(N*(N+1)/2)) 
@@ -431,7 +436,7 @@ subroutine allocate_blocks(jbas,op)
      allocate(op%mat(q)%gam(2)%X(npp,nph)) !Vppph
      allocate(op%mat(q)%gam(6)%X(nph,nhh)) !Vphhh
      do i = 1,6
-        op%mat(q)%gam(i)%X = 0.0
+        op%mat(q)%gam(i)%X = 0.d0
      end do 
      
      nph = 0 ; npp = 0 ; nhh = 0
@@ -1644,7 +1649,7 @@ subroutine write_binary_operator(H,stage)
        form='unformatted')
   
   do q =1,neq
-     write(55) outvec(q) 
+     write(55) outvec(q)
   end do
   close(55) 
   
@@ -1683,7 +1688,7 @@ subroutine read_binary_operator(H,stage)
   
   do q =1,neq
      read(55) outvec(q) 
-  end do 
+  end do
   close(55) 
   call repackage(H,outvec) 
 end subroutine
@@ -1824,7 +1829,7 @@ subroutine print_matrix(matrix)
 
     write(y,'(i1)') m
   
-    fmt2= '('//y//'(f12.8))'	
+    fmt2= '('//y//'(f14.8))'	
 	
 	print*
 	do i=1,m

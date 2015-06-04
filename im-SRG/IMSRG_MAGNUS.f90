@@ -168,11 +168,11 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
 end subroutine  
 !===========================================================================
 !===========================================================================
-subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA) 
+subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA,quads) 
   ! runs IMSRG TDA decoupling using magnus expansion method
   implicit none 
   
-  integer :: Atot,Ntot,nh,np,nb,q,steps,i
+  integer :: Atot,Ntot,nh,np,nb,q,steps,i,Jsing
   type(spd) :: jbas
   type(sq_op),optional :: O1,O2
   type(full_sp_block_mat) :: TDA
@@ -183,7 +183,13 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
   real(8),allocatable,dimension(:) :: E_old,wTvec
   character(200) :: spfile,intfile,prefix
   character(3) :: args
+  character(1),optional :: quads 
+  logical :: qd_calc 
+  character(1) :: Jlabel,Plabel
   common /files/ spfile,intfile,prefix
+  
+  qd_calc = .false.
+  if (present(quads)) qd_calc =.true. 
   
 !  call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian
@@ -215,14 +221,22 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
   allocate(E_old(TDA%map(1)))
 
   s = 0.d0 
-  ds = 0.01d0
+  ds = 0.005d0
   crit = 10.
   steps = 0
 
   E_old = TDA%blkM(1)%eigval
-  
+  Jsing = H%Jtarg/2
+
+  write( Jlabel ,'(I1)') Jsing
+
+  if (H%Ptarg == 0 ) then 
+     Plabel ='+'
+  else 
+     Plabel ='-'
+  end if
   open(unit=37,file='../../output/'//&
-       trim(adjustl(prefix))//'_excited.dat')
+       trim(adjustl(prefix))//'_'//Jlabel//Plabel//'_excited.dat')
   
   call write_excited_states(steps,s,TDA,HS%E0,37)
   call build_specific_space(HS,DG,jbas) 
@@ -234,11 +248,17 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA)
      
    !  call copy_sq_op(G,G0) 
    !  call copy_sq_op(DG,ETA0)
+  
      call MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
      call euler_step(G,DG,s,ds) 
  
    !  call copy_sq_op(HS,H0) 
-     call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+     if (qd_calc) then 
+        call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,'y') 
+     else
+        call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+     end if
+    
          
      call build_specific_space(HS,DG,jbas)
    

@@ -1,12 +1,12 @@
-FC = gfortran $(FFLAGS)  
+FC = ifort $(FFLAGS)  
 CXX = g++ $(CXXFLAGS) 
 
 p1 = run_IMSRG
 p2 = get_HO_energies
 p3 = truncate
 
-FFLAGS = -O3 -fopenmp
-TFLAGS = -g -O0 -fbounds-check -fopenmp
+FFLAGS = -O3 -openmp -mkl -lz
+TFLAGS = -g -O0 -check bounds -openmp -mkl
 CXXFLAGS = -std=c++11 -O3
 
 LIBS =  -L/user/local/lib/ -llapack -lblas -lz
@@ -19,7 +19,7 @@ OBJ = $(patsubst %.f90, $(obfiles)/%.o, $(wildcard *.f90))
 OBJ_f = $(patsubst %.f, $(obfiles)/%.o, $(wildcard *.f))  
 
 all: $(OBJ_f) $(OBJ)
-	${FC} $^ -o ${p1} -J$(modfiles) ${LIBS}
+	${FC} $^ -o ${p1} -module $(modfiles) -lz
 
 $(OBJ): | $(obfiles)
 $(OBJ_f): | $(obfiles)
@@ -29,10 +29,10 @@ $(obfiles):
 	@mkdir -p $(modfiles)
 
 $(obfiles)/%.o: %.f
-	${FC} -c -o $@ $< -J$(modfiles) ${LIBS}
+	${FC} -c -o $@ $< -module $(modfiles)
 
 $(obfiles)/%.o: %.f90
-	${FC} -c -o $@ $< -J$(modfiles) ${LIBS}
+	${FC} -c -o $@ $< -module $(modfiles)
 
 # nice gift from FEI to detect dependencies automatically
 dependencies.mk: $(F90SRC)

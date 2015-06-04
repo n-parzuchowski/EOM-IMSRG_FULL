@@ -202,6 +202,8 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
   integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps ,i 
   real(8) :: ds,s,crit,min_crit
   character(200) :: spfile,intfile,prefix
+  character(1) :: Jlabel,Plabel
+  integer :: Jsing
   external :: deriv_calculator 
   common /files/ spfile,intfile,prefix
 
@@ -253,12 +255,24 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
   call calculate_cross_coupled(H,HCC,jbas,.true.) 
   call calc_TDA(TDA,H,HCC,jbas) 
 
+  do i = 1, 6
+     print*, TDA%blkM(1)%matrix(i,:)
+  end do 
+  
   call diagonalize_blocks(TDA)
-    
+  
+  print*, TDA%blkM(1)%Eigval
   E_old = TDA%blkM(1)%eigval
     
+  Jsing = H%Jtarg/2
+  write(Jlabel,'(I1)') Jsing
+  if (H%Ptarg == 0) then 
+     Plabel = '+'
+  else
+     Plabel = '-'
+  end if 
   open(unit=37,file='../../output/'//&
-       trim(adjustl(prefix))//'_excited.dat')
+       trim(adjustl(prefix))//'_'//Jlabel//Plabel//'_excited.dat')
   
   call write_excited_states(steps,s,TDA,H%E0,37) 
   

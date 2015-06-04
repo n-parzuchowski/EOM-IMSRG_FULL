@@ -90,8 +90,9 @@ program main_IMSRG
      if (me2j) then 
         call read_me2j_interaction(HS,jbasis,ham_type,hw) 
      else if (me2b) then
-        ! pre normal ordered interaction with three body included at No2b
+        ! pre normal ordered interaction with three body included at No2b                
         call read_me2b_interaction(HS,jbasis,ham_type,hw) 
+        print*, mat_frob_norm(HS)
         goto 12 ! skip the normal ordering. 
         ! it's already done.  line 128 or search "bare" 
      else
@@ -272,31 +273,31 @@ call write_binary_operator(HS,'gs_decoup')
            call discrete_TDA(HS,TDA,jbasis) 
         end if 
         
-        case(4) !magnus
+        case(4) !magnus(2/3)
     
         if (COM_calc) then 
-           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
+           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA,quads='y') 
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
-           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
+           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA,quads='y')
      !      print*, rrTDA%blkM(1)%eigval
         else 
-           call magnus_TDA(HS,TDA,jbasis) 
+           call magnus_TDA(HS,TDA,jbasis,quads='y') 
         end if
         
-        case(5) !magnus
+        case(5) !magnus(2/3)[T]
     
         if (COM_calc) then 
-           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
+           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA,quads='y') 
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
-           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
+           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA,quads='y')
      !      print*, rrTDA%blkM(1)%eigval
         else 
-           call magnus_TDA(HS,TDA,jbasis) 
+           call magnus_TDA(HS,TDA,jbasis,quads='y') 
         end if
         
-        case(6) !magnus
+        case(6) !magnus(2)[T]
     
         if (COM_calc) then 
            call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 

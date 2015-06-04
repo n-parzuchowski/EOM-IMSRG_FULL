@@ -598,7 +598,8 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   
   allocate(stors%mat(H%nblocks))
 
-
+  
+ 
   do 
   open(unit=34,file='../../inifiles/interactionpath_me2b')
   read(34,*) itpath 
@@ -609,8 +610,10 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   if ( file_there ) exit
   
   end do
+ 
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
-  !goto 14
+  
+ ! goto 14
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
   hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
   
@@ -709,7 +712,7 @@ do Tz = 1 , -1, -1
                        case(2)
                           a_hh = a_hh + 1
                     end select
-                      
+
                  end do
               end do
            end do
@@ -898,12 +901,6 @@ do Tz = 1 , -1, -1
       c = stors%mat(qq)%qn(1)%Y(BB,1)
       d = stors%mat(qq)%qn(1)%Y(BB,2)      
       
-      
-     ! if( (a==1).and.(b==1).and.(c==1).and.(d==21)) then 
-      !   print*, AA,BB,V,qq
-        
-       !  stop
-      !end if
       ! i think the scaling and COM subtraction have already been done
       ! I HOpe. 
 
@@ -1073,7 +1070,8 @@ do a= 1, aMax
       
           
     read(buffer(15:28),'(f14.10)') V
-    
+  
+
     ! V is now the one body matrix element
              ! now search for sp labels
                   do i = 1, jbas%total_orbits 
