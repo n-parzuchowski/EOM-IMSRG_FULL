@@ -544,7 +544,7 @@ subroutine export_to_nushellX(H,jbas)
   
 end subroutine
 
-subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp) 
+subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson) 
   use gzipmod
   implicit none 
   
@@ -559,7 +559,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   type(sq_op) :: H,stors
   type(sq_op),optional :: pp,rr
   logical :: pp_calc,rr_calc,file_there
-  character(1) :: rem
+  character(1),optional :: Lawson
   character(2) :: eMaxchr
   character(200) :: spfile,intfile,input,prefix
   character(200) :: itpath,me1bfile
@@ -606,6 +606,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
   itpath = adjustl(itpath)
   
   ! check if file is in directory
+
   inquire( file=trim(itpath)//trim(adjustl(intfile))//achar(0),exist=file_there )
   if ( file_there ) exit
   
@@ -613,9 +614,12 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp)
  
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   
- ! goto 14
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
-  hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
+  if ( present(Lawson) ) then 
+     hndle=gzOpen(trim(itpath)//"O16_Hcm_eMax10_hwHO020.ham0.me2b.gz"//achar(0),"r"//achar(0)) 
+  else 
+     hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
+  end if 
   
 ! here is where we start dealing with the two body piece
   
@@ -1015,7 +1019,13 @@ end do
 ! i guess we are done with the two body piece
 
 14 me1bfile = intfile(1:len(trim(intfile))-5)//'1b.gz'
-hndle=gzOpen(trim(itpath)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0)) 
+  
+  if ( present(Lawson) ) then 
+     hndle=gzOpen(trim(itpath)//"O16_Hcm_eMax10_hwHO020.ham0.me1b.gz"//achar(0),"r"//achar(0)) 
+  else 
+     hndle=gzOpen(trim(itpath)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0)) 
+  end if 
+
 !    print*, trim(itpath)//trim(adjustl(me1bfile))//achar(0)
   sz=200
 

@@ -65,7 +65,21 @@ program main_IMSRG
      
      if (me2j) then  ! heiko format or scott format? 
         call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj) 
+     else if (me2b) then
+        ! pre normal ordered interaction with three body included at No2b               
+        ! LAWSON HAMILTONIAN 
+        ! just using pipj and rirj because they are available. 
+        ! pipj is Hin and rirj is Hcm 
+        call read_me2b_interaction(pipj,jbasis,ham_type,hw) 
+        call read_me2b_interaction(rirj,jbasis,ham_type,hw,Lawson='y') 
+        
+        ! lawson beta goes after rirj
+        call add_sq_op(pipj,1.d0,rirj,5.d0,HS)
+        
+        goto 12 ! skip the normal ordering. 
+        ! it's already done.  line 128 or search "bare" 
      else
+
         call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
      end if
      
@@ -92,7 +106,6 @@ program main_IMSRG
      else if (me2b) then
         ! pre normal ordered interaction with three body included at No2b                
         call read_me2b_interaction(HS,jbasis,ham_type,hw) 
-        print*, mat_frob_norm(HS)
         goto 12 ! skip the normal ordering. 
         ! it's already done.  line 128 or search "bare" 
      else
