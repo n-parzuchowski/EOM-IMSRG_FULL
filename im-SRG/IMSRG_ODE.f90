@@ -47,7 +47,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
      
      neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
   end do 
-  print*, neq
+  
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   H%neq = neq 
 
@@ -111,7 +111,6 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
      E_mbpt2 = mbpt2(H,jbas) 
      crit = abs(E_mbpt2)
   
-     write(47,'(I6,3(e15.7))') steps,s,O1%E0,O2%E0
      write(36,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
     
@@ -254,14 +253,9 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
   allocate(E_old(TDA%map(1)))
   call calculate_cross_coupled(H,HCC,jbas,.true.) 
   call calc_TDA(TDA,H,HCC,jbas) 
-
-  do i = 1, 6
-     print*, TDA%blkM(1)%matrix(i,:)
-  end do 
-  
+ 
   call diagonalize_blocks(TDA)
   
-  print*, TDA%blkM(1)%Eigval
   E_old = TDA%blkM(1)%eigval
     
   Jsing = H%Jtarg/2
@@ -304,7 +298,7 @@ if (present(O1)) then
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
   
-     write(47,'(I6,3(e15.7))') steps,s,O1%E0,O2%E0
+
      call write_excited_states(steps,s,TDA,H%E0,37) 
      
      ! convergence criteria
