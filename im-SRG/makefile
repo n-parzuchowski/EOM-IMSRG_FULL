@@ -9,7 +9,7 @@ FFLAGS = -O3 -fopenmp
 TFLAGS = -g -O0 -fbounds-check -fopenmp
 CXXFLAGS = -std=c++11 -O3
 
-LIBS =  -L/user/local/lib/ -llapack -lblas -lz
+LIBS =  -L/user/local/lib/ -llapack -lblas -larpack -lz
 
 obfiles = bin
 modfiles = md

@@ -1807,7 +1807,7 @@ end function
 !=====================================================  
 integer function fermionic_tp_index(i,j,n)
   ! n is total number of sp states
-  ! assume i <= j 
+  ! assume i < j 
   implicit none 
   
   integer :: i,j,n
