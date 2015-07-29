@@ -39,8 +39,8 @@ module basic_IMSRG
   TYPE :: sq_op !second quantized operator 
      type(sq_block),allocatable,dimension(:) :: mat
      type(int_vec),allocatable,dimension(:) :: xmap 
-     real(8),allocatable,dimension(:,:) :: fph,fpp,fhh,X1
-     integer,allocatable,dimension(:,:) :: X2,exlabels
+     real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
+     integer,allocatable,dimension(:,:) :: exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      integer :: Jtarg,Ptarg,valcut
@@ -1520,7 +1520,7 @@ subroutine duplicate_sq_op(H,op)
   op%herm = 1 ! default, change it in the calling program
              ! if you want anti-herm (-1) 
   op%Aprot = H%Aprot
-  op%Aneut = H%Aprot
+  op%Aneut = H%Aneut
   op%Nsp = H%Nsp
   op%belowEF = H%belowEF
   op%nblocks = H%nblocks
@@ -1553,8 +1553,15 @@ subroutine duplicate_sq_op(H,op)
      allocate(op%xmap(q)%Z(size(H%xmap(q)%Z)))
      op%xmap(q)%Z = H%xmap(q)%Z
   end do 
-     
-   
+  
+  if ( allocated( H%exlabels ) ) then 
+     allocate(op%exlabels(size(H%exlabels(:,1)),2)) 
+  else 
+     allocate(op%exlabels(1,2),H%exlabels(1,2)) 
+     H%exlabels = 0
+  end if 
+  op%exlabels = H%exlabels
+ 
   do q = 1, op%nblocks
      
      op%mat(q)%lam = H%mat(q)%lam
@@ -1562,9 +1569,11 @@ subroutine duplicate_sq_op(H,op)
      np = H%mat(q)%npp
      nb = H%mat(q)%nph
      
+     
      op%mat(q)%npp = np
      op%mat(q)%nph = nb
      op%mat(q)%nhh = nh
+     op%mat(q)%ntot = H%mat(q)%ntot
      
      allocate(op%mat(q)%qn(1)%Y(np,2)) !qnpp
      allocate(op%mat(q)%qn(2)%Y(nb,2)) !qnph
@@ -2425,7 +2434,7 @@ real(8) function mat_frob_norm(op)
   integer :: q,g
   real(8) :: sm
 
-  sm = sum(op%fhh**2)+  sum(op%fph**2) + sum(op%fpp**2)
+  sm = sum(op%fhh**2) +  sum(op%fph**2) + sum(op%fpp**2)
   do q = 1, op%nblocks
      do g = 1,6
         sm = sm + sum(op%mat(q)%gam(g)%X**2)
@@ -2520,6 +2529,4 @@ subroutine write_tilde_from_Rcm(rr)
   close(53) 
 end subroutine 
 
-end module
-       
-  
+end module       

@@ -622,7 +622,7 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
           R%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(5)%X,nh)
     
      w1%mat(q)%gam(5)%X = w1%mat(q)%gam(5)%X * L%herm 
-     
+
      !L_pphh . R_hhpp = W2_pppp
      call dgemm('N','T',np,np,nh,al,L%mat(q)%gam(3)%X,np,&
           R%mat(q)%gam(3)%X,np,bet,w2%mat(q)%gam(1)%X,np)

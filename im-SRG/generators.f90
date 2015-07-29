@@ -81,7 +81,7 @@ subroutine build_gs_white(H,ETA,jbas)
         if ( ti .ne. ta) cycle 
      
         ! energy denominator has a sum over J  to factor out m dep. 
-        Eden = 0.0 
+        Eden = 0.d0
         
         do JT = 0, 2*ji , 2
            Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
@@ -104,6 +104,7 @@ subroutine build_gs_white(H,ETA,jbas)
      do i = 1,6
         ETA%mat(q)%gam(i)%X = 0.d0 
      end do 
+
      do IX = 1,H%mat(q)%npp 
 
         ! figure out which sp states compose IX

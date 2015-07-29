@@ -35,6 +35,29 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      trip_calc=.true.
   end if 
      
+
+  
+! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!   TYPE :: sq_block
+!      integer :: lam(3) ! specifices J,Par,Tz of the block 
+!      type(real_mat),dimension(6) :: gam !Vpppp,Vhhhh,Vphph,Vpphh,Vphhh,Vppph
+!      integer :: npp, nph , nhh , ntot! dimensions
+!      type(int_mat),dimension(3) :: qn !tp to sp map 
+!   END TYPE sq_block
+! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!   TYPE :: sq_op !second quantized operator 
+!      type(sq_block),allocatable,dimension(:) :: mat
+!      type(int_vec),allocatable,dimension(:) :: xmap 
+!      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
+!      integer,allocatable,dimension(:,:) :: exlabels
+!      integer,allocatable,dimension(:) :: direct_omp 
+!      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
+!      integer :: Jtarg,Ptarg,valcut
+!      real(8) :: E0,hospace
+!   END TYPE sq_op
+
+
+  HS%neq = 1
 !  call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian
 !  call duplicate_sq_op(HS,H2) !evolved hamiltonian
@@ -61,7 +84,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   
   !call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
  ! call build_gs_white(HS,ETA,jbas) 
+  
   call build_gs_white(HS,DG,jbas) 
+  
   call copy_sq_op(HS,H) 
   
   s = 0.d0 
@@ -79,14 +104,15 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
 
   nrm1 = mat_frob_norm(DG)
+  
   do while (crit > 1e-6) 
      
     ! call copy_sq_op(G,G0) 
     ! call copy_sq_op(DG,ETA0)
 
      call MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+     
      call euler_step(G,DG,s,ds) 
-  
      !call copy_sq_op(HS,H0)
      
      if (qd_calc) then 
@@ -107,7 +133,8 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
  !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
     ! call copy_sq_op(ETA,DG)
   !   call build_gs_white(HS,ETA,jbas)
-     call build_gs_white(HS,DG,jbas)  
+   
+     call build_gs_white(HS,DG,jbas)   
      
      nrm2 = HS%E0 !mat_frob_norm(ETA)
      nrm2 = mat_frob_norm(DG)
@@ -360,13 +387,13 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
   !! so here:  H is the current hamiltonian and we 
   !! copy it onto HS.  We copy this onto 
   !! INT2, just to make things easier for everyone.
+  call duplicate_sq_op(H,INT3)
 
   call copy_sq_op( H , HS )  !basic_IMSRG
   call copy_sq_op( HS , INT2 )
  
   advals(1) = abs(H%E0)   
- 
-  call duplicate_sq_op(INT2,INT3)
+
   do iw = 2 ,15
 
      ! current value of HS is renamed INT1 
@@ -399,7 +426,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
      call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2) 
     
      call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
-        
+    
      if (qd_calc) then 
         call restore_quadrupoles(AD,G,w1,w2,INT3,jbas) 
      end if 
@@ -511,15 +538,17 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
   allocate(INT1%fpp(Ntot-Abody,Ntot-Abody),INT1%fhh(Abody,Abody)) 
   INT1%fpp = 0.d0
   INT1%fhh = 0.d0 
-  
+ 
   allocate(INT2%fpp(Ntot-Abody,Ntot-Abody),INT2%fhh(Abody,Abody)) 
-  INT1%fpp = 0.d0
-  INT1%fhh = 0.d0 
+  INT2%fpp = 0.d0
+  INT2%fhh = 0.d0
+ 
   
   pm = X%herm*OM%herm
-  
+
   ! w1=X.OM w2=OM.OM matrices are made 
   call build_intermediates_For_intermediates(X,OM,w1,w2,jbas)
+
 ! fhh
   do i = 1 , Abody
      ik = jbas%holes(i) 
@@ -554,7 +583,7 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
        ! nothing is hermitian or anti-hermitian here
      end do 
   end do       
-           
+
 ! fpp
   do i = 1 , Ntot - Abody
      ik = jbas%parts(i) 
@@ -591,7 +620,7 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
         
      end do 
   end do       
-  
+
   !!! now add the new stuff to RES
   
   do q = 1, RES%nblocks
@@ -650,7 +679,7 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
        end do 
     end do 
  end do 
-          
+
 end subroutine 
 !========================================================================
 !========================================================================

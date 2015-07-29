@@ -508,6 +508,7 @@ call write_binary_operator(HS,'gs_decoup')
   if (tda_calculation) then 
      
      call initialize_TDA(TDA,jbasis,HS%Jtarg,HS%Ptarg,HS%valcut)
+     deallocate(HS%exlabels) 
      allocate(HS%exlabels(TDA%map(1),2))
      HS%exlabels=TDA%blkM(1)%labels
     
