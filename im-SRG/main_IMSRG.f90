@@ -6,15 +6,17 @@ program main_IMSRG
   use IMSRG_CANONICAL
   use operators
   use me2j_format
+  use lanczos_diag
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
   type(spd) :: jbasis
   type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms
+  type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
-  integer :: i,j,T,P,JT,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
+  integer :: i,j,T,Pi,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre
   logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j,me2b
@@ -99,7 +101,7 @@ program main_IMSRG
      end if
      
   end if
- 
+
 !============================================================
 ! BUILD BASIS
 !============================================================
@@ -139,7 +141,7 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- 
+
   call print_header
   select case (method_int) 
   
@@ -218,283 +220,21 @@ program main_IMSRG
 
   end select
 
-!pppp 
-open(unit=42,file='O16_mag_vsrg2.0_emax8_hw24_MEpppp.int')
-  do Tz = -1 , 1  
-     do PAR = 0 , 1
-        
-        do JT = 0, jbasis%Jtotal_max*2 , 2
-           
-           do ix = 1, HS%Nsp - HS%belowEF
-              do jx = ix, HS%Nsp - HS%belowEF
-                 do kx = 1, HS%Nsp - HS%belowEF
-                    do lx = kx, HS%Nsp - HS%belowEF
-                       
-                       
-                       i = jbasis%parts(ix)
-                       j = jbasis%parts(jx)                       
-                       k = jbasis%parts(kx)
-                       l = jbasis%parts(lx)
-                      
-          if ( .not. (triangle(jbasis%jj(i),jbasis%jj(j),JT))) cycle
-          if ( .not. (triangle(jbasis%jj(l),jbasis%jj(k),JT))) cycle
-          if ( mod(jbasis%ll(i) + jbasis%ll(j),2) .ne. PAR ) cycle
-          if ( mod(jbasis%ll(k) + jbasis%ll(l),2) .ne. PAR ) cycle
-          if ( (jbasis%itzp(i) + jbasis%itzp(j))/2 .ne. Tz ) cycle 
-          if ( (jbasis%itzp(k) + jbasis%itzp(l))/2 .ne. Tz ) cycle
+  allocate(ladder_ops(5)) 
+  do i = 1, 5
+     call duplicate_sq_op(HS,ladder_ops(i))
+  end do 
+  
+  call lanczos_diagonalize(jbasis,HS,ladder_ops,5) 
+  print*, ladder_ops%E0
+  
+  do i = 1, HS%nsp-HS%belowEF
+     write(*,'(6(f12.5))') ladder_ops(5)%fph(i,:)
+  end do 
 
-          pre = 1.d0  
-          if ( i == j ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          if ( k == l ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          write( 42, '(7(I5), e19.7)' ) Tz,PAR,JT,i,j,k,l,&
-               v_elem(i,j,k,l,JT,HS,jbasis)* pre
+  stop 
 
-end do; end do; end do; end do; end do; end do; end do
-close(42)
-!hhhh
-open(unit=42,file='O16_mag_vsrg2.0_emax8_hw24_MEhhhh.int')
-  do Tz = -1 , 1  
-     do PAR = 0 , 1
-        
-        do JT = 0, jbasis%Jtotal_max*2 , 2
-           
-           do ix = 1, HS%belowEF
-              do jx = ix, HS%belowEF
-                 do kx = 1, HS%belowEF
-                    do lx = kx, HS%belowEF
-                       
-                       i = jbasis%holes(ix)
-                       j = jbasis%holes(jx)                       
-                       k = jbasis%holes(kx)
-                       l = jbasis%holes(lx)
-                       
-          if ( .not. (triangle(jbasis%jj(i),jbasis%jj(j),JT))) cycle
-          if ( .not. (triangle(jbasis%jj(l),jbasis%jj(k),JT))) cycle
-          if ( mod(jbasis%ll(i) + jbasis%ll(j),2) .ne. PAR ) cycle
-          if ( mod(jbasis%ll(k) + jbasis%ll(l),2) .ne. PAR ) cycle
-          if ( (jbasis%itzp(i) + jbasis%itzp(j))/2 .ne. Tz ) cycle 
-          if ( (jbasis%itzp(k) + jbasis%itzp(l))/2 .ne. Tz ) cycle
 
-          pre = 1.d0  
-          if ( i == j ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          if ( k == l ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          write( 42, '(7(I5), e19.7)' ) Tz,PAR,JT,i,j,k,l,&
-               v_elem(i,j,k,l,JT,HS,jbasis)* pre
-
-end do; end do; end do; end do; end do; end do; end do
-close(42)
-!pphh 
-open(unit=42,file='O16_mag_vsrg2.0_emax8_hw24_MEpphh.int')
-  do Tz = -1 , 1  
-     do PAR = 0 , 1
-        
-        do JT = 0, jbasis%Jtotal_max*2 , 2
-           
-           do ix = 1, HS%Nsp - HS%belowEF
-              do jx = ix, HS%Nsp - HS%belowEF
-                 do kx = 1, HS%belowEF
-                    do lx = kx, HS%belowEF
-                       
-                       i = jbasis%parts(ix)
-                       j = jbasis%parts(jx)                       
-                       k = jbasis%holes(kx)
-                       l = jbasis%holes(lx)
-                       
-          if ( .not. (triangle(jbasis%jj(i),jbasis%jj(j),JT))) cycle
-          if ( .not. (triangle(jbasis%jj(l),jbasis%jj(k),JT))) cycle
-          if ( mod(jbasis%ll(i) + jbasis%ll(j),2) .ne. PAR ) cycle
-          if ( mod(jbasis%ll(k) + jbasis%ll(l),2) .ne. PAR ) cycle
-          if ( (jbasis%itzp(i) + jbasis%itzp(j))/2 .ne. Tz ) cycle 
-          if ( (jbasis%itzp(k) + jbasis%itzp(l))/2 .ne. Tz ) cycle
-
-          pre = 1.d0  
-          if ( i == j ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          if ( k == l ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          write( 42, '(7(I5), e19.7)' ) Tz,PAR,JT,i,j,k,l,&
-               v_elem(i,j,k,l,JT,HS,jbasis)* pre
-
-end do; end do; end do; end do; end do; end do; end do
-close(42)
-!phph 
-open(unit=42,file='O16_mag_vsrg2.0_emax8_hw24_MEphph.int')
-  do Tz = -1 , 1  
-     do PAR = 0 , 1
-        
-        do JT = 0, jbasis%Jtotal_max*2 , 2
-           
-           do ix = 1, HS%Nsp - HS%belowEF
-              do jx = 1,HS%belowEF
-                 do kx = 1, HS%Nsp - HS%belowEF
-                    do lx = 1, HS%belowEF
-                       
-                       i = jbasis%parts(ix)
-                       j = jbasis%holes(jx)                       
-                       k = jbasis%parts(kx)
-                       l = jbasis%holes(lx)
-                       
-          if ( .not. (triangle(jbasis%jj(i),jbasis%jj(j),JT))) cycle
-          if ( .not. (triangle(jbasis%jj(l),jbasis%jj(k),JT))) cycle
-          if ( mod(jbasis%ll(i) + jbasis%ll(j),2) .ne. PAR ) cycle
-          if ( mod(jbasis%ll(k) + jbasis%ll(l),2) .ne. PAR ) cycle
-          if ( (jbasis%itzp(i) + jbasis%itzp(j))/2 .ne. Tz ) cycle 
-          if ( (jbasis%itzp(k) + jbasis%itzp(l))/2 .ne. Tz ) cycle
-
-          pre = 1.d0  
-          if ( i == j ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          if ( k == l ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          write( 42, '(7(I5), e19.7)' ) Tz,PAR,JT,i,j,k,l,&
-               v_elem(i,j,k,l,JT,HS,jbasis)* pre
-
-end do; end do; end do; end do; end do; end do; end do
-close(42)
-!ppph 
-open(unit=42,file='O16_mag_vsrg2.0_emax8_hw24_MEppph.int')
-  do Tz = -1 , 1  
-     do PAR = 0 , 1
-        
-        do JT = 0, jbasis%Jtotal_max*2 , 2
-           
-           do ix = 1, HS%Nsp - HS%belowEF
-              do jx = ix, HS%Nsp - HS%belowEF
-                 do kx = 1, HS%Nsp - HS%belowEF
-                    do lx = 1, HS%belowEF
-                       
-                       i = jbasis%parts(ix)
-                       j = jbasis%parts(jx)                       
-                       k = jbasis%parts(kx)
-                       l = jbasis%holes(lx)
-                       
-          if ( .not. (triangle(jbasis%jj(i),jbasis%jj(j),JT))) cycle
-          if ( .not. (triangle(jbasis%jj(l),jbasis%jj(k),JT))) cycle
-          if ( mod(jbasis%ll(i) + jbasis%ll(j),2) .ne. PAR ) cycle
-          if ( mod(jbasis%ll(k) + jbasis%ll(l),2) .ne. PAR ) cycle
-          if ( (jbasis%itzp(i) + jbasis%itzp(j))/2 .ne. Tz ) cycle 
-          if ( (jbasis%itzp(k) + jbasis%itzp(l))/2 .ne. Tz ) cycle
-
-          pre = 1.d0  
-          if ( i == j ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          if ( k == l ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          write( 42, '(7(I5), e19.7)' ) Tz,PAR,JT,i,j,k,l,&
-               v_elem(i,j,k,l,JT,HS,jbasis)* pre
-
-end do; end do; end do; end do; end do; end do; end do
-close(42)
-!phhh 
-open(unit=42,file='O16_mag_vsrg2.0_emax8_hw24_MEphhh.int')
-  do Tz = -1 , 1  
-     do PAR = 0 , 1
-        
-        do JT = 0, jbasis%Jtotal_max*2 , 2
-           
-           do ix = 1, HS%Nsp - HS%belowEF
-              do jx = 1, HS%belowEF
-                 do kx = 1, HS%belowEF
-                    do lx = kx,  HS%belowEF
-                       
-                       i = jbasis%parts(ix)
-                       j = jbasis%holes(jx)                       
-                       k = jbasis%holes(kx)
-                       l = jbasis%holes(lx)
-                       
-          if ( .not. (triangle(jbasis%jj(i),jbasis%jj(j),JT))) cycle
-          if ( .not. (triangle(jbasis%jj(l),jbasis%jj(k),JT))) cycle
-          if ( mod(jbasis%ll(i) + jbasis%ll(j),2) .ne. PAR ) cycle
-          if ( mod(jbasis%ll(k) + jbasis%ll(l),2) .ne. PAR ) cycle
-          if ( (jbasis%itzp(i) + jbasis%itzp(j))/2 .ne. Tz ) cycle 
-          if ( (jbasis%itzp(k) + jbasis%itzp(l))/2 .ne. Tz ) cycle
-
-          pre = 1.d0  
-          if ( i == j ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          if ( k == l ) then 
-             if ( mod(JT/2,2) == 0 ) then 
-                pre = pre / sqrt(2.d0) 
-             else 
-                cycle
-             end if 
-          end if 
-          
-          write( 42, '(7(I5), e19.7)' ) Tz,PAR,JT,i,j,k,l,&
-               v_elem(i,j,k,l,JT,HS,jbasis)*pre
-
-end do; end do; end do; end do; end do; end do; end do
-close(42)
 
 call write_binary_operator(HS,'gs_decoup') 
 !============================================================

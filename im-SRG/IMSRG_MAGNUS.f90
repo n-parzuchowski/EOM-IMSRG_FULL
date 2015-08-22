@@ -19,7 +19,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   type(sq_op),optional :: O1,O2
   type(sq_op) :: H,H2,G1b,G2b,G,ETA,HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
-  real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00
+  real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   character(200) :: spfile,intfile,prefix
   character(1),optional :: quads,trips
   logical :: qd_calc,trip_calc
@@ -35,27 +35,6 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      trip_calc=.true.
   end if 
      
-
-  
-! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-!   TYPE :: sq_block
-!      integer :: lam(3) ! specifices J,Par,Tz of the block 
-!      type(real_mat),dimension(6) :: gam !Vpppp,Vhhhh,Vphph,Vpphh,Vphhh,Vppph
-!      integer :: npp, nph , nhh , ntot! dimensions
-!      type(int_mat),dimension(3) :: qn !tp to sp map 
-!   END TYPE sq_block
-! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-!   TYPE :: sq_op !second quantized operator 
-!      type(sq_block),allocatable,dimension(:) :: mat
-!      type(int_vec),allocatable,dimension(:) :: xmap 
-!      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
-!      integer,allocatable,dimension(:,:) :: exlabels
-!      integer,allocatable,dimension(:) :: direct_omp 
-!      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
-!      integer :: Jtarg,Ptarg,valcut
-!      real(8) :: E0,hospace
-!   END TYPE sq_op
-
 
   HS%neq = 1
 !  call duplicate_sq_op(HS,ETA) !generator
@@ -128,12 +107,15 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
         !call BCH_EXPAND(HS,G2b,H2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
         call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      end if
+
+     print*,  commutator_223_single(G,HS,1,2,3,1,2,3,1,0,0,jbas)
+     print*,  commutator_223_single(G,HS,1,2,3,2,1,3,1,0,0,jbas)
+     print*,  commutator_223_single(G,HS,1,2,3,1,3,2,1,0,0,jbas)
+     print*,  commutator_223_single(G,HS,1,2,3,3,2,1,1,0,0,jbas)
+     print*,  commutator_223_single(G,HS,3,2,1,1,2,3,1,0,0,jbas)
      
-     
- !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
-    ! call copy_sq_op(ETA,DG)
-  !   call build_gs_white(HS,ETA,jbas)
-   
+     !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
+  
      call build_gs_white(HS,DG,jbas)   
      
      nrm2 = HS%E0 !mat_frob_norm(ETA)
@@ -370,7 +352,6 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
      qd_calc = .true. 
   end if 
   
-  advals = dcgi00()
   advals = 0.d0 
   
   cof = (/1.d0,1.d0,0.5d0,0.166666666666666666d0, &

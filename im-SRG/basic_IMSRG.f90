@@ -1354,6 +1354,8 @@ end subroutine
 !=========================================================
 real(8) function sixj(j1,j2,j3,j4,j5,j6)
   ! twice the angular momentum
+  ! j3 and j6 are INTEGERS, the rest are HALF-INTEGERS
+  ! you should be able to re-write the six-j symbol to look like this.
   ! so you don't have to carry that obnoxious array around
   implicit none 
  
@@ -2237,6 +2239,133 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                     ! store  < h a | v | p b> 
                     CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
                          (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
+                    ! scaled by sqrt(JC + 1) for convience in ph derivative
+                             
+                    CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
+                         (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
+                 
+                 end if
+              end do
+           end do
+        end do
+     end do
+
+  end do 
+!$omp end parallel do
+
+end subroutine 
+!=======================================================  
+!=======================================================          
+subroutine EOM_scalar_cross_coupled(HS,CCME,jbas,phase) 
+  ! currently the only CCME of interest are phab terms    |---<---| 
+  ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
+  !                                                      |---<---|
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: HS
+  type(cross_coupled_31_mat) :: CCME
+  integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
+  integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,Gindx,g,ta,tb,Atot,hg,pg
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x,JTM
+  real(8) :: sm,sm2,pre,horse
+  logical :: phase
+
+  Atot = HS%belowEF
+  Ntot = HS%Nsp
+  JTM = jbas%Jtotal_max 
+  pre = 1.d0 
+
+!$omp parallel do default(firstprivate),shared(CCME,HS,jbas) 
+  do q1 = 1, CCME%nblocks
+      
+     JC = mod(q1-1,JTM+1) * 2 
+     PAR = (q1 - 1) / (2*JTM + 2) 
+     TZ = mod(q1-1,(2*JTM+2))/(JTM+1)  
+     
+     CCME%CCR(q1)%X = 0.d0
+     CCME%CCX(q1)%X = 0.d0
+         
+     ! ab = ph 
+     do hg = 1, Atot
+        do pg = 1, Ntot - Atot 
+           
+           h = jbas%holes(hg) 
+           p = jbas%parts(pg) 
+           
+           jp = jbas%jj(p) 
+           jh = jbas%jj(h)
+           lp = jbas%ll(p) 
+           lh = jbas%ll(h)
+           tp = jbas%itzp(p) 
+           th = jbas%itzp(h)
+        
+           if (.not. triangle(jp,jh,JC) )  cycle
+           if ( mod(lp + lh,2) .ne. PAR ) cycle
+           if (abs(tp - th)/2 .ne. Tz ) cycle 
+           
+           x = CCindex(p,h,HS%Nsp)
+           gnb = 1
+           do while (CCME%qmap(x)%Z(gnb) .ne. q1 )
+              gnb = gnb + 1
+           end do
+              
+           NBindx = CCME%nbmap(x)%Z(gnb) 
+
+           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
+           ! for the ph  channel 2body derivative 
+        
+           do a = 1, HS%nsp
+              if ( jbas%con(a) .ne. 1 )  cycle
+
+              do b = 1, HS%nsp
+                 if (jbas%con(b) .ne. 0) cycle
+
+                 ja = jbas%jj(a) 
+                 jb = jbas%jj(b)
+                 la = jbas%ll(a) 
+                 lb = jbas%ll(b)
+                 ta = jbas%itzp(a) 
+                 tb = jbas%itzp(b)
+                 
+                 if (.not. triangle(ja,jb,JC) )  cycle
+                 if ( mod(la + lb,2) .ne. PAR ) cycle
+                 if (abs(ta - tb)/2 .ne. Tz ) cycle 
+                 
+                 x = CCindex(a,b,HS%Nsp) 
+                 g = 1
+                 do while (CCME%qmap(x)%Z(g) .ne. q1 )
+                    g = g + 1
+                 end do
+              
+                 Rindx = CCME%rmap(x)%Z(g)
+                 
+                 x = CCindex(b,a,HS%Nsp) 
+                 g = 1
+                 do while (CCME%qmap(x)%Z(g) .ne. q1 )
+                    g = g + 1
+                 end do
+              
+                 Gindx = CCME%rmap(x)%Z(g)
+                 
+                 sm = 0.d0 
+               
+!                 horse = 0.d0 
+                 if ( (mod(la + lh,2) == mod(lb + lp,2)) .and. &
+                      ( (ta + th) == (tb + tp) ) ) then  
+               
+                    ! hapb 
+                    Jmin = max(abs(jp - jb),abs(ja - jh)) 
+                    Jmax = min(jp+jb,ja+jh) 
+                    
+                    sm = 0.d0 
+                    do JT = Jmin,Jmax,2
+                       sm = sm + (-1)**(JT/2) * (JT + 1) * &
+                            sixj(jp,jh,JC,ja,jb,JT)  * &
+                            v_elem(h,a,p,b,JT,HS,jbas) 
+                    end do
+                 
+                    ! store  < p b | v | h a> 
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
                              
                     CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
