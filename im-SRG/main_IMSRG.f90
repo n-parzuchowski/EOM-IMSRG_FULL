@@ -142,6 +142,7 @@ program main_IMSRG
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+   
   call print_header
   select case (method_int) 
   
@@ -226,11 +227,7 @@ program main_IMSRG
   end do 
   
   call lanczos_diagonalize(jbasis,HS,ladder_ops,5) 
-  print*, ladder_ops%E0
-  
-  do i = 1, HS%nsp-HS%belowEF
-     write(*,'(6(f12.5))') ladder_ops(5)%fph(i,:)
-  end do 
+  print*, ladder_ops%E0,ladder_ops(5)%mat(1)%lam
 
   stop 
 

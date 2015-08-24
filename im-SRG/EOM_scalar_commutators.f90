@@ -234,8 +234,8 @@ subroutine EOM_scalar_commutator_122(L,R,RES,jbas)
                if (jbas%con(i_sp) == 1) then 
                   sm = sm - f_elem(i_sp,c,L,jbas)*v_elem(a,b,i_sp,d,JT,R,jbas)
                else
-                  sm = sm + f_elem(i_sp,c,R,jbas)*v_elem(a,b,i_sp,d,JT,L,jbas) 
-               end if 
+                  sm = sm + f_elem(i_sp,c,R,jbas)*v_elem(a,b,i_sp,d,JT,L,jbas)
+               end if
                
             end do 
             
@@ -248,8 +248,9 @@ subroutine EOM_scalar_commutator_122(L,R,RES,jbas)
                if (jbas%con(i_sp) == 1) then                
                   sm = sm - f_elem(i_sp,d,L,jbas)*v_elem(a,b,c,i_sp,JT,R,jbas)
                else
-                  sm = sm + f_elem(i_sp,d,R,jbas)*v_elem(a,b,c,i_sp,JT,R,jbas)
-               end if 
+                  sm = sm + f_elem(i_sp,d,R,jbas)*v_elem(a,b,c,i_sp,JT,L,jbas)
+                                  
+             end if 
                
             end do 
           
@@ -417,11 +418,11 @@ subroutine EOM_scalar_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      end if
 
      ! Vphhh
-     RES%mat(q)%gam(6)%X = RES%mat(q)%gam(6)%X + L%herm* w1%mat(q)%gam(6)%X  
+     w1%mat(q)%gam(6)%X  = L%herm* w1%mat(q)%gam(6)%X  
      ! i've multiplied by +1*L%herm here. 
 
      ! Vppph
-     RES%mat(q)%gam(2)%X = RES%mat(q)%gam(2)%X + L%herm* w2%mat(q)%gam(2)%X
+     w2%mat(q)%gam(2)%X = -1* L%herm* w2%mat(q)%gam(2)%X
      ! i've multiplied by -1*L%herm here
   end do
 

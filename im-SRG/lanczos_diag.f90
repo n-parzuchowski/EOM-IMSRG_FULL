@@ -16,8 +16,8 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   type(cross_coupled_31_mat) :: OpCC,QCC,WCC
   real(8),allocatable,dimension(:) :: workl,D,eigs,resid,work,workD
   real(8),allocatable,dimension(:,:) :: V,Z
-  integer :: i,j,lwork,info,ido,ncv,ldv,iparam(11),ipntr(11)
-  integer :: ishift,mxiter,nb,nconv,mode,np,lworkl,ldz,p,h
+  integer :: i,j,ix,jx,lwork,info,ido,ncv,ldv,iparam(11),ipntr(11),q,II,JJ
+  integer :: ishift,mxiter,nb,nconv,mode,np,lworkl,ldz,p,h,sps,tps,jp,jh
   real(8) ::  x,tol,y,sigma,t1,t2
   character(1) :: BMAT,HOWMNY 
   character(2) :: which
@@ -35,8 +35,41 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   
   h = OP%belowEF !holes
   p = OP%Nsp-h  !particles
+ 
+  sps = 0 
+  do ix = 1,p
+     do jx = 1,h
+        
+        i = jbas%parts(ix)
+        j = jbas%holes(jx) 
+        
+        if (jbas%jj(i) .ne. jbas%jj(j) ) cycle
+        if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
+        if (jbas%ll(i) .ne. jbas%ll(j) ) cycle
+        
+        sps = sps+1
+     end do
+  end do
   
-  N = h*p + p*h*(p-1)*(h-1)/4 ! number of ph and pphh SDs 
+  tps = 0 
+  do q = 1, OP%nblocks
+     
+     do II = 1,OP%mat(q)%npp
+        do JJ = 1, OP%mat(q)%nhh 
+           
+           if (mod(OP%mat(q)%lam(1)/2,2) == 1) then 
+              if ( OP%mat(q)%qn(1)%Y(II,1) == &
+                   OP%mat(q)%qn(1)%Y(II,2) ) cycle
+             if ( OP%mat(q)%qn(3)%Y(JJ,1) == &
+                   OP%mat(q)%qn(3)%Y(JJ,2) ) cycle
+          end if
+           
+           tps = tps+ 1
+        end do 
+     end do 
+  end do 
+           
+  N = sps + tps ! number of ph and pphh SDs 
   
   ido = 0  ! status integer is 0 at start
   BMAT = 'I' ! standard eigenvalue problem (N for generalized) 
@@ -92,7 +125,7 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   ! d contains the eigenvalues in the same order. 
   
   do i = 1, nev
-     call unwrap(Z(:,i),Vecs(i),N) 
+     call unwrap(Z(:,i),Vecs(i),N,jbas) 
      Vecs(i)%E0 = d(i)
   end do 
       
@@ -101,12 +134,14 @@ end subroutine
 subroutine matvec_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w) 
   implicit none 
   
-  integer :: N ,q
+  integer :: N ,q,a,b,c,d,i,j,k,l,Jtot
+  real(8) :: sm
   type(sq_op) :: OP, Q_op ,Qout,w1,w2
   type(cross_coupled_31_mat) :: OpCC,QCC,WCC
   
   type(spd) :: jbas
   real(8),dimension(N) :: v,w 
+  real(8) :: coef9,dfact0
 
   ! the name says mat-vec product, but really this
   ! is a commutator. 
@@ -115,32 +150,39 @@ subroutine matvec_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   ! with only connected diagrams retained. 
 
   
-  
   ! FIRST WE NEED TO CONVERT v TO a (SQ_OP) variable
   
-  call unwrap(v,Q_op,N)
+  call unwrap(v,Q_op,N,jbas)
+
   ! now we have two sq_op operators which can be used with my commutator expressions. Noice. 
     
   call calculate_cross_coupled(Op,OpCC,jbas,.true.)
+ 
   call EOM_scalar_cross_coupled(Q_op,QCC,jbas,.false.) 
-  
-  call EOM_scalar_commutator_111(Op,Q_op,Qout,jbas) 
-  call EOM_scalar_commutator_121(Op,Q_op,Qout,jbas)
-  call EOM_scalar_commutator_122(Op,Q_op,Qout,jbas)    
+ 
+  !print*, EOM_scalar_commutator_110(Op,Q_op,jbas) + &
+   !    EOM_scalar_commutator_220(Op,Q_op,jbas) ,sum(v**2)
+
+  call EOM_scalar_commutator_111(Op,Q_op,Qout,jbas) ! verified   
+  call EOM_scalar_commutator_121(Op,Q_op,Qout,jbas) ! verified
+  call EOM_scalar_commutator_122(Op,Q_op,Qout,jbas)  ! verified, damnit.  
   
   call EOM_scalar_commutator_222_pp_hh(Op,Q_op,Qout,w1,w2,jbas)   
-  call EOM_scalar_commutator_221(Op,Q_op,Qout,w1,w2,jbas)     
+  call EOM_scalar_commutator_221(Op,Q_op,Qout,w1,w2,jbas)  ! verified.    
   call EOM_scalar_commutator_222_ph(OpCC,QCC,Qout,WCC,jbas)
   
+  
+
   ! Okay, now we have the "matrix vector product" So lets put it back in vector form:
-  call rewrap(w,Qout,N) 
+  call rewrap(w,Qout,N,jbas) 
 end subroutine
 
 
-subroutine unwrap( v, AX ,N ) 
+subroutine unwrap( v, AX ,N ,jbas) 
   implicit none 
   
-  integer :: N ,i, II,JJ, parts,holes,q
+  type(spd) :: jbas
+  integer :: N ,i, II,JJ, parts,holes,q,IX,JX
   real(8),dimension(N) :: v
   type(sq_op) :: AX 
   
@@ -150,32 +192,50 @@ subroutine unwrap( v, AX ,N )
   parts = AX%Nsp- holes 
   
   ! one body
-  do II = 1, parts
-     do JJ = 1, holes 
+  do IX = 1,parts
+     do JX = 1,holes
         
-        AX%fph(II,JJ) = v( i ) 
+        II = jbas%parts(ix)
+        JJ = jbas%holes(jx) 
+        
+        ! i have to do this because i don't have the 
+        ! one body piece blocked by conserved quantities
+        if (jbas%jj(II) .ne. jbas%jj(JJ) ) cycle
+        if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
+        if (jbas%ll(II) .ne. jbas%ll(JJ) ) cycle
+        
+        AX%fph(IX,JX) = v(i) 
         i = i + 1
      end do
-  end do 
+  end do
+
   
   ! two body 
-  do q = 1, AX%nblocks 
+
+  do q = 1, AX%nblocks
      
-     do II = 1, AX%mat(q)%npp
-        do JJ = 1, AX%mat(q)%nhh           
+     do II = 1,AX%mat(q)%npp
+        do JJ = 1, AX%mat(q)%nhh 
+           
+           if (mod(AX%mat(q)%lam(1)/2,2) == 1) then 
+              if ( AX%mat(q)%qn(1)%Y(II,1) == &
+                   AX%mat(q)%qn(1)%Y(II,2) ) cycle
+             if ( AX%mat(q)%qn(3)%Y(JJ,1) == &
+                   AX%mat(q)%qn(3)%Y(JJ,2) ) cycle
+           end if
            AX%mat(q)%gam(3)%X(II,JJ) = v(i)
            i = i + 1
         end do 
-     end do
-     
-  end do    
+     end do 
+  end do 
 
 end subroutine 
   
-subroutine rewrap( v, AX ,N ) 
+subroutine rewrap( v, AX ,N ,jbas) 
   implicit none 
   
-  integer :: N ,i, II,JJ, parts,holes,q
+  type(spd) :: jbas
+  integer :: N ,i, II,JJ, parts,holes,q,IX,JX
   real(8),dimension(N) :: v
   type(sq_op) :: AX 
   
@@ -185,25 +245,42 @@ subroutine rewrap( v, AX ,N )
   parts = AX%Nsp- holes 
   
   ! one body
-  do II = 1, parts
-     do JJ = 1, holes 
+  do IX = 1,parts
+     do JX = 1,holes
         
-        v(i) = AX%fph(II,JJ) 
+        II = jbas%parts(ix)
+        JJ = jbas%holes(jx) 
+        
+        ! i have to do this because i don't have the 
+        ! one body piece blocked by conserved quantities
+        if (jbas%jj(II) .ne. jbas%jj(JJ) ) cycle
+        if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
+        if (jbas%ll(II) .ne. jbas%ll(JJ) ) cycle
+        
+        v(i) = AX%fph(IX,JX) 
         i = i + 1
      end do
-  end do 
+  end do
   
   ! two body 
-  do q = 1, AX%nblocks 
+
+  do q = 1, AX%nblocks
      
-     do II = 1, AX%mat(q)%npp
-        do JJ = 1, AX%mat(q)%nhh           
+     do II = 1,AX%mat(q)%npp
+        do JJ = 1, AX%mat(q)%nhh 
+           
+           if (mod(AX%mat(q)%lam(1)/2,2) == 1) then 
+              if ( AX%mat(q)%qn(1)%Y(II,1) == &
+                   AX%mat(q)%qn(1)%Y(II,2) ) cycle
+             if ( AX%mat(q)%qn(3)%Y(JJ,1) == &
+                   AX%mat(q)%qn(3)%Y(JJ,2) ) cycle
+           end if
            v(i) = AX%mat(q)%gam(3)%X(II,JJ)
            i = i + 1
         end do 
-     end do
-     
-  end do    
+     end do 
+  end do 
+           
 
 end subroutine 
 
