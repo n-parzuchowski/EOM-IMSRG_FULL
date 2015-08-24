@@ -46,6 +46,11 @@ program main_IMSRG
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut)
   call allocate_blocks(jbasis,HS)   
   
+  ETA%rank = 4
+  call allocate_tensor(jbasis,ETA,HS) 
+  
+  print*, HS%nblocks, ETA%nblocks
+  stop
   ! check if you can skip some stuff
   if (skip_gs) then 
      print*, 'reading ground state decoupled hamiltonian' 
@@ -221,6 +226,7 @@ program main_IMSRG
 
   end select
 
+  stop
   allocate(ladder_ops(5)) 
   do i = 1, 5
      call duplicate_sq_op(HS,ladder_ops(i))

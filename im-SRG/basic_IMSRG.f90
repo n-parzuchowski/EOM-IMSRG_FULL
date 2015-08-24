@@ -30,10 +30,12 @@ module basic_IMSRG
   END TYPE six_index_store
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: sq_block
-     integer :: lam(3) ! specifices J,Par,Tz of the block 
+     integer :: lam(3) ! specifices J,Par,Tz of the block
+     integer :: Jpair(2) ! for tensor operators that have rank > 0  
      type(real_mat),dimension(6) :: gam !Vpppp,Vhhhh,Vphph,Vpphh,Vphhh,Vppph
      integer :: npp, nph , nhh , ntot! dimensions
      type(int_mat),dimension(3) :: qn !tp to sp map 
+     type(int_mat),dimension(6) :: tensor_qn
   END TYPE sq_block
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: sq_op !second quantized operator 
@@ -43,7 +45,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:,:) :: exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
-     integer :: Jtarg,Ptarg,valcut
+     integer :: Jtarg,Ptarg,valcut,Rank
      real(8) :: E0,hospace
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
@@ -486,7 +488,97 @@ subroutine allocate_blocks(jbas,op)
   end do
   
   call divide_work(op) 
-end subroutine      
+end subroutine
+!==================================================================
+!==================================================================
+subroutine allocate_tensor(jbas,op,zerorank) 
+  ! allocate the sq_op arrays
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: op,zerorank 
+  integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x,rank
+  integer :: Jtot1,Jtot2, Tz,Par,nph1,npp1,nhh1,nph2,npp2,nhh2
+  integer :: CX,j_min,j_max,numJ,q1,q2
+  
+  ! rank is multiplied by 2 as well
+  rank = op%rank 
+  
+  if ( mod(rank,2) == 1 ) STOP 'RANK MUST BE MULTIPLIED BY 2'
+
+  AX = sum(jbas%con) !number of shells under eF 
+  op%belowEF = AX
+  op%Nsp = jbas%total_orbits
+  N = op%Nsp  !number of sp shells
+  
+  ! quantum numbers of the last block 
+  Tz = 1 
+  Par = 1
+  Jtot1 = jbas%Jtotal_max*2 
+  Jtot2 = Jtot1 
+  op%nblocks =  tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par)               
+ 
+  allocate(op%mat(op%nblocks)) 
+  allocate(op%fpp(N-AX,N-AX))
+  allocate(op%fph(N-AX,AX))
+  allocate(op%fhh(AX,AX)) 
+ 
+  op%fpp = 0.d0
+  op%fph = 0.d0
+  op%fhh = 0.d0 
+
+  q = 1
+  do Jtot1 = 0,2*jbas%Jtotal_max,2 
+     do Jtot2 = abs(Jtot1 - rank), min(Jtot1+rank,jbas%Jtotal_max*2), 2   
+        op%mat(q)%Jpair(1) = Jtot1
+        op%mat(q)%Jpair(2) = Jtot2
+        
+        do Tz = -1,1
+           do Par = 0,1
+           
+              op%mat(q)%lam(1) = Jtot1
+              op%mat(q)%lam(2) = Par
+              op%mat(q)%lam(3) = Tz
+              
+       !       q = tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par)              
+              q1 = block_index(Jtot1,Tz,Par) 
+              q2 = block_index(Jtot2,Tz,Par) 
+              
+              ! we already figured this stuff out for 
+              ! the rank 0 case, so lets re-use it
+              npp1 = zerorank%mat(q1)%npp
+              nph1 = zerorank%mat(q1)%nph
+              nhh1 = zerorank%mat(q1)%nhh
+              npp2 = zerorank%mat(q2)%npp
+              nph2 = zerorank%mat(q2)%nph
+              nhh2 = zerorank%mat(q2)%nhh
+
+              allocate(op%mat(q)%tensor_qn(1)%Y(npp1,2)) !qnpp1
+              allocate(op%mat(q)%tensor_qn(2)%Y(nph1,2)) !qnph1
+              allocate(op%mat(q)%tensor_qn(3)%Y(nhh1,2)) !qnhh1
+              allocate(op%mat(q)%tensor_qn(4)%Y(npp2,2)) !qnpp2
+              allocate(op%mat(q)%tensor_qn(5)%Y(nph2,2)) !qnph2
+              allocate(op%mat(q)%tensor_qn(6)%Y(nhh2,2)) !qnhh2
+     
+              allocate(op%mat(q)%gam(1)%X(npp1,npp2)) !Vpppp
+              allocate(op%mat(q)%gam(5)%X(nhh1,nhh2)) !Vhhhh
+              allocate(op%mat(q)%gam(3)%X(npp1,nhh2)) !Vpphh
+              allocate(op%mat(q)%gam(4)%X(nph1,nph2)) !Vphph
+              allocate(op%mat(q)%gam(2)%X(npp1,nph2)) !Vppph
+              allocate(op%mat(q)%gam(6)%X(nph1,nhh2)) !Vphhh
+        
+               do i = 1,6
+                  op%mat(q)%gam(i)%X = 0.d0
+               end do
+               
+              q = q + 1
+           end do 
+        end do 
+        
+     end do
+  end do 
+                  
+end subroutine    
 !==================================================================  
 !==================================================================
 subroutine divide_work(r1) 
@@ -686,6 +778,17 @@ integer function block_index(J,T,P)
   
   block_index = 3*J + 2*(T+1) + P + 1
   
+end function 
+!=================================================================     
+!=================================================================
+integer function tensor_block_index(J1,J2,RANK,T,P) 
+  ! input 2*J1 2*J2,rank,Tz,and Parity to get block index
+  integer :: J1,J2,T,P,RANK
+  
+  tensor_block_index = 6*((min(rank - 2 , J1 - 2)/2 + 1)**2 &
+       + max( J1-rank, 0 ) /2  * ( rank + 1) &
+       + (J2 - abs( rank- J1 ))/2) + 2*(T+1) + P + 1 
+
 end function 
 !=================================================================     
 !=================================================================     

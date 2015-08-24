@@ -167,9 +167,9 @@ subroutine matvec_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   call EOM_scalar_commutator_121(Op,Q_op,Qout,jbas) ! verified
   call EOM_scalar_commutator_122(Op,Q_op,Qout,jbas)  ! verified, damnit.  
   
-  call EOM_scalar_commutator_222_pp_hh(Op,Q_op,Qout,w1,w2,jbas)   
+  call EOM_scalar_commutator_222_pp_hh(Op,Q_op,Qout,w1,w2,jbas) ! verified   
   call EOM_scalar_commutator_221(Op,Q_op,Qout,w1,w2,jbas)  ! verified.    
-  call EOM_scalar_commutator_222_ph(OpCC,QCC,Qout,WCC,jbas)
+  call EOM_scalar_commutator_222_ph(OpCC,QCC,Qout,WCC,jbas) 
   
   
 
