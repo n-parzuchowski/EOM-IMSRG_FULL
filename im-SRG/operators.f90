@@ -494,9 +494,132 @@ subroutine calculate_CM_energy_TDA(TDA,rr,pp,ppTDA,rrTDA,hw)
   close(42)
   
 end subroutine
+
+
+real(8) function rsq_ME(n1,l1,n2,l2,hw) 
+  implicit none 
+  
+  integer :: n1,l1,n2,l2
+  real(8) :: bsq,A12
+  
+  bsq = hbarc2_over_mc2/hw
+
+  if ( l1 == l2 )  then 
+     
+     if (n1 == n2) then 
+        
+        rsq_ME = bsq * (2.d0*n1 + l1 + 1.5d0) 
+   
+     else if  ( n1-n2 == 1 ) then 
+        
+        A12 = bsq*sqrt(n1+l1+.5)
+        
+        rsq_ME = -1*n1*A12
+     
+     else if (n2 - n1 == 1) then 
+     
+        A12 = bsq*sqrt(n2+l2+.5)
+        
+        rsq_ME = -1*n2*A12
+    
+     else 
+        
+        rsq_ME = 0.0 
+        
+     end if 
+     
+   else if ( abs( l1 - l2 ) == 2 ) then 
+      
+      if ( l2 - l1 == 2 ) then 
+         
+         if (n1 == n2) then 
+            
+            A12 = bsq * sqrt(4./(2.*(n1+l1)+5.)/(2.*(n1+l1)+3.))
+            
+            rsq_ME = A12* (( n2 + l2 +.5)**2 -( n2 + l2 +.5) ) 
+         
+         else if (n1 == n2+1) then 
+            
+            A12 = bsq
+     
+        
+   
+!=============================================
+! SPECIAL FUNCTIONS      
+!=============================================  
+real(8) function gamma(x)
+  !!! only works for half integers or whole integers
+  implicit none 
+
+  real(8),parameter :: sqpi=1.77245385090551602d0
+  real(8) :: x
+  real(16) :: fac,fac_over_fac
+  integer :: x_c
+  
+  x_c=floor(x)
+  
+  if (abs(float(x_c)-x) < 1d-3) then 
+     
+     gamma=fac(x_c-1)
+     
+  else 
+     
+      x_c=floor(x-0.5)
+  
+      gamma=fac_over_fac(2*x_c,x_c)/4.d0**x_c*sqpi  
+  end if 
+  
+end function
+!===========================================
+real(kind=16) function bin_coef(n,k) 
+  implicit none 
+  
+  integer :: n,k
+  real(kind=16) :: fac,fac_over_fac
+  
+  bin_coef=fac_over_fac(n,k)/fac(n-k)
+end function 
+!==========================================
+real(kind=16) function fac_over_fac(a1,a2)
+  implicit none 
+  
+  integer :: a1,a2,i
+  real(kind=16) :: s1
+ 
+  s1=1.d0
+  if (a1>a2) then 
+  
+  do i=a2+1,a1
+     s1=s1*i
+  end do 
+  fac_over_fac=s1
+  else 
+
+  do i=a1+1,a2
+     s1=s1*i
+  end do 
+  
+  fac_over_fac=1.d0/s1
+  
+  end if
+end function
+!===========================================
+real(kind=16) function fac(n)
+  implicit none 
+  
+  integer :: n,i
+  real(kind=16) :: s1
+  
+  s1=1.d0
+  
+  do i=1,n
+     s1=s1*i
+  end do 
+  
+  fac=s1
+end function
+!===========================================
 end module
-
-
   
   
   

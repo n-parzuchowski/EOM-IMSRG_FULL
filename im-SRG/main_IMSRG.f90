@@ -17,7 +17,7 @@ program main_IMSRG
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
   integer :: i,j,T,Pi,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
-  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb
+  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,x
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre
   logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j,me2b
   logical :: skip_setup,skip_gs
@@ -49,7 +49,8 @@ program main_IMSRG
   ETA%rank = 4
   call allocate_tensor(jbasis,ETA,HS) 
   
-  print*, HS%nblocks, ETA%nblocks
+  print*, tensor_elem(5,13,1,1,4,0,ETA,jbasis) 
+
   stop
   ! check if you can skip some stuff
   if (skip_gs) then 

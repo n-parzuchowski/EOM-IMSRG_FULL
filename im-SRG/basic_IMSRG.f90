@@ -498,7 +498,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
   type(spd) :: jbas
   type(sq_op) :: op,zerorank 
   integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x,rank
-  integer :: Jtot1,Jtot2, Tz,Par,nph1,npp1,nhh1,nph2,npp2,nhh2
+  integer :: Jtot1,Jtot2,Jtot,Tz,Par,nph1,npp1,nhh1,nph2,npp2,nhh2
   integer :: CX,j_min,j_max,numJ,q1,q2
   
   ! rank is multiplied by 2 as well
@@ -510,6 +510,25 @@ subroutine allocate_tensor(jbas,op,zerorank)
   op%belowEF = AX
   op%Nsp = jbas%total_orbits
   N = op%Nsp  !number of sp shells
+
+  ! allocate the map array, which is used by 
+  ! v_elem to find matrix elements
+  allocate(op%xmap(N*(N+1)/2)) 
+  do i = 1,N
+     do j = i,N
+        
+        j_min = abs(jbas%jj(i)-jbas%jj(j))
+        j_max = jbas%jj(i) + jbas%jj(j) 
+  
+        numJ = (j_max - j_min)/2 + 2
+  
+        x = bosonic_tp_index(i,j,N) 
+        allocate(op%xmap(x)%Z(numJ)) 
+        op%xmap(x)%Z = 0
+        op%xmap(x)%Z(1) = j_min
+        
+     end do 
+  end do 
   
   ! quantum numbers of the last block 
   Tz = 1 
@@ -571,12 +590,58 @@ subroutine allocate_tensor(jbas,op,zerorank)
                   op%mat(q)%gam(i)%X = 0.d0
                end do
                
-              q = q + 1
-           end do 
-        end do 
+               q = q + 1
+           
+            end do
+         end do
+         
+      end do
+   end do
+
+   ! i need to fill this last array for tensor_elem
+   do q = 1, zerorank%nblocks
+   nph1 = 0 ; npp1 = 0 ; nhh1 = 0
+   do i = 1,N   !looping over sp states
+      do j = i,N
+
+       Jtot = zerorank%mat(q)%lam(1)
+       Tz = zerorank%mat(q)%lam(3)
+       Par = zerorank%mat(q)%lam(2)
+         ! check if the two sp states can exist in this block 
+         tz1 = jbas%itzp(i)
+         tz2 = jbas%itzp(j) 
+         if ( Tz .ne. (tz1 + tz2)/2 ) cycle
+         
+         l1 = jbas%ll(i) 
+         l2 = jbas%ll(j)
+         if ( Par .ne. (1 - (-1)**(l1 + l2))/2 ) cycle
+         
+         j1 = jbas%jj(i) 
+         j2 = jbas%jj(j) 
+         if (.not. triangle(j1,j2,Jtot) ) cycle
+                                                      
+         cX = jbas%con(i) + jbas%con(j)
+         
+         x = bosonic_tp_index(i,j,N) 
+         j_min = op%xmap(x)%Z(1) 
+       
+      
+         select case (CX)
+         case (0) 
+            npp1 = npp1 + 1
+            op%xmap(x)%Z((Jtot-j_min)/2+2) = npp1 
+         case (1)                      
+            nph1 = nph1 + 1
+            op%xmap(x)%Z((Jtot-j_min)/2+2) = nph1
+         case (2) 
+            nhh1 = nhh1 + 1
+            op%xmap(x)%Z((Jtot-j_min)/2+2) = nhh1
+         end select
         
-     end do
-  end do 
+      end do
+   end do
+   end do 
+              
                   
 end subroutine    
 !==================================================================  
@@ -941,6 +1006,125 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
    ! stored info if we are looking for this same ME next time. 
    c1_c=C1;c2_c=C2;q_c=q;qx_c=qx
    i1_c=i1;i2_c=i2;pre_c=pre;fail_c=.false.   
+end function
+!==============================================================
+!==============================================================
+
+real(8) function tensor_elem(a,b,c,d,J1,J2,op,jbas) 
+  ! grabs the matrix element you are looking for
+  ! right now it's not as versatile as v_elem because 
+  ! it doesn't know ahead of time what the symmetries are
+  implicit none
+  
+  integer :: a,b,c,d,J1,J2,rank,T,P,q,qx,c1,c2,N
+  integer :: int1,int2,i1,i2,j_min,x
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  
+  logical :: fail_c
+  type(sq_op) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c
+  
+  !make sure the matrix element exists first
+ 
+!  print*, 'cockkk'
+  rank = op%rank
+  if ( .not. (triangle ( J1,J2,rank ))) then 
+     tensor_elem = 0.d0 
+     return
+  end if 
+ 
+  fail_c = .true. 
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+  if ( .not. ((triangle(ja,jb,J1)) .and. (triangle (jc,jd,J2))) ) then 
+     tensor_elem = 0.d0
+     return
+  end if
+     
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+     
+  P = mod(la + lb,2) 
+     
+  if ( mod(lc + ld,2) .ne. P ) then
+    tensor_elem = 0.d0 
+    return
+  end if 
+        
+ ! print*, 'ass'
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)
+     
+  T = (ta + tb)/2
+     
+  
+  if ((tc+td) .ne. 2*T) then     
+    tensor_elem = 0.d0
+    return
+  end if 
+
+  q = tensor_block_index(J1,J2,rank,T,P) 
+
+  !! this is a ridiculous but efficient? way of 
+  !! figuring out which Vpppp,Vhhhh,Vphph.... 
+  !! array we are referencing. QX is a number between 
+  !! 1 and 6 which refers to a unique array for the pphh characteristic
+  
+  C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+  C2 = jbas%con(c)+jbas%con(d) + 1
+    
+  qx = C1*C2
+  qx = qx + adjust_index(qx)   !Vpppp nature  
+  
+  ! see subroutine "allocate_blocks" for mapping from qx to each 
+  ! of the 6 storage arrays
+    
+  pre = 1 
+  
+  N = op%Nsp
+  ! get the indeces in the correct order
+  if ( a > b )  then 
+     x = bosonic_tp_index(b,a,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+     pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J1)/2 ) 
+  else
+     if (a == b) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(a,b,N)
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+  end if 
+  
+  if (c > d)  then     
+     x = bosonic_tp_index(d,c,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2) 
+     pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J2)/2 ) 
+  else 
+     if (c == d) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(c,d,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2)  
+  end if 
+ 
+  ! grab the matrix element
+
+   If (C1>C2) then 
+     ! tensor_elem = op%mat(q)%gam(qx)%X(i2,i1) * op%herm * pre  
+      STOP 'FUCK YOU PUT IT IN THE RIGHT ORDER'
+      ! yeah you gotta have it organized so that this doesn't happen...
+   else
+      tensor_elem = op%mat(q)%gam(qx)%X(i1,i2) * pre
+   end if 
+
 end function
 !==============================================================
 !==============================================================
