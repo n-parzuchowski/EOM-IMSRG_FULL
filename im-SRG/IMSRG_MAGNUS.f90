@@ -108,11 +108,11 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
         call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      end if
 
-     print*,  commutator_223_single(G,HS,1,2,3,1,2,3,1,0,0,jbas)
-     print*,  commutator_223_single(G,HS,1,2,3,2,1,3,1,0,0,jbas)
-     print*,  commutator_223_single(G,HS,1,2,3,1,3,2,1,0,0,jbas)
-     print*,  commutator_223_single(G,HS,1,2,3,3,2,1,1,0,0,jbas)
-     print*,  commutator_223_single(G,HS,3,2,1,1,2,3,1,0,0,jbas)
+     ! print*,  commutator_223_single(G,HS,1,2,3,1,2,3,1,0,0,jbas)
+     ! print*,  commutator_223_single(G,HS,1,2,3,2,1,3,1,0,0,jbas)
+     ! print*,  commutator_223_single(G,HS,1,2,3,1,3,2,1,0,0,jbas)
+     ! print*,  commutator_223_single(G,HS,1,2,3,3,2,1,1,0,0,jbas)
+     ! print*,  commutator_223_single(G,HS,3,2,1,1,2,3,1,0,0,jbas)
      
      !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
   

@@ -31,15 +31,22 @@ module basic_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: sq_block
      integer :: lam(3) ! specifices J,Par,Tz of the block
-     integer :: Jpair(2) ! for tensor operators that have rank > 0  
      type(real_mat),dimension(6) :: gam !Vpppp,Vhhhh,Vphph,Vpphh,Vphhh,Vppph
-     integer :: npp, nph , nhh , ntot! dimensions
+     integer :: npp, nph , nhh,ntot! dimensions
      type(int_mat),dimension(3) :: qn !tp to sp map 
-     type(int_mat),dimension(6) :: tensor_qn
   END TYPE sq_block
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  TYPE :: tensor_block
+     integer :: lam(3) ! specifices J,Par,Tz of the block
+     integer :: Jpair(2) ! for tensor operators that have rank > 0  
+     type(real_mat),dimension(9) :: tgam
+     integer :: npp1, nph1 , nhh1 ,npp2,nph2,nhh2,ntot! dimensions
+     type(int_mat),dimension(3,2) :: tensor_qn
+  END TYPE tensor_block
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: sq_op !second quantized operator 
      type(sq_block),allocatable,dimension(:) :: mat
+     type(tensor_block),allocatable,dimension(:) :: tblck
      type(int_vec),allocatable,dimension(:) :: xmap 
      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
      integer,allocatable,dimension(:,:) :: exlabels
@@ -85,10 +92,12 @@ end type cross_coupled_31_mat
    real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
    real(8),public,parameter :: hbarc = 197.326968d0, m_nuc = 938.918725 !2006 values 
    real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
-
+   real(8),public,parameter :: Pi_const = acos(-1.d0) 
+   real(8),allocatable,dimension(:,:) :: phase_pp,phase_hh 
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
+   integer,public,dimension(6) :: tensor_adjust = (/0,6,4,0,0,3/)
    type(six_index_store),public :: store6j   ! holds 6j-symbols
- 
+   
 
   !The following public arrays give info about the 6 different categories
   ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
@@ -96,7 +105,7 @@ end type cross_coupled_31_mat
   ! holds the c values for qn and pn arrays
   integer,public,dimension(6) :: sea1 = (/1,1,1,2,3,2/), sea2 = (/1,2,3,2,3,3/) 
   ! true if square matrix
-  logical,public,dimension(6) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false./)
+  logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
   ! 100000 if square matrix, 1 if not. 
   integer,public,dimension(6) :: jst = (/100000,1,1,100000,100000,1/)
   
@@ -123,6 +132,7 @@ subroutine read_sp_basis(jbas,hp,hn)
   interm= adjustl(spfile)
   open(unit=39,file='../../sp_inputs/'//trim(interm))
   hk=interm(1:2)
+
   ix = 0 
   
   ! count the number of states in the file. 
@@ -347,6 +357,7 @@ subroutine allocate_blocks(jbas,op)
   AX = sum(jbas%con) !number of shells under eF 
   op%belowEF = AX
   op%Nsp = jbas%total_orbits
+  op%rank = 0 !scalar operator
   N = op%Nsp  !number of sp shells
   
   op%nblocks =  (jbas%Jtotal_max + 1) * 6 ! -3  ! 6 possible values of par * Tz  
@@ -360,7 +371,7 @@ subroutine allocate_blocks(jbas,op)
   op%fhh=0.d0
   op%fph=0.d0
   q = 1  ! block index
-  
+
   allocate(op%xmap(N*(N+1)/2)) 
  
   ! allocate the map array, which is used by 
@@ -498,12 +509,12 @@ subroutine allocate_tensor(jbas,op,zerorank)
   type(spd) :: jbas
   type(sq_op) :: op,zerorank 
   integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x,rank
-  integer :: Jtot1,Jtot2,Jtot,Tz,Par,nph1,npp1,nhh1,nph2,npp2,nhh2
+  integer :: Jtot1,Jtot2,Jtot,Tz,Par1,Par2,nph1,npp1,nhh1,nph2,npp2,nhh2
   integer :: CX,j_min,j_max,numJ,q1,q2
   
   ! rank is multiplied by 2 as well
   rank = op%rank 
-  
+  op%hospace = zerorank%hospace
   if ( mod(rank,2) == 1 ) STOP 'RANK MUST BE MULTIPLIED BY 2'
 
   AX = sum(jbas%con) !number of shells under eF 
@@ -532,12 +543,12 @@ subroutine allocate_tensor(jbas,op,zerorank)
   
   ! quantum numbers of the last block 
   Tz = 1 
-  Par = 1
+  Par1 = 1
   Jtot1 = jbas%Jtotal_max*2 
-  Jtot2 = Jtot1 
-  op%nblocks =  tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par)               
+  Jtot2 = Jtot1+ RANK 
+  op%nblocks =  tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par1)               
  
-  allocate(op%mat(op%nblocks)) 
+  allocate(op%tblck(op%nblocks)) 
   allocate(op%fpp(N-AX,N-AX))
   allocate(op%fph(N-AX,AX))
   allocate(op%fhh(AX,AX)) 
@@ -548,65 +559,109 @@ subroutine allocate_tensor(jbas,op,zerorank)
 
   q = 1
   do Jtot1 = 0,2*jbas%Jtotal_max,2 
-     do Jtot2 = abs(Jtot1 - rank), min(Jtot1+rank,jbas%Jtotal_max*2), 2   
-        op%mat(q)%Jpair(1) = Jtot1
-        op%mat(q)%Jpair(2) = Jtot2
-        
+     do Jtot2 = max(abs(Jtot1 - rank),Jtot1), Jtot1+rank, 2   
+       
         do Tz = -1,1
-           do Par = 0,1
-           
-              op%mat(q)%lam(1) = Jtot1
-              op%mat(q)%lam(2) = Par
-              op%mat(q)%lam(3) = Tz
+           do Par1 = 0,1
               
-       !       q = tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par)              
-              q1 = block_index(Jtot1,Tz,Par) 
-              q2 = block_index(Jtot2,Tz,Par) 
+              if (mod(rank/2,2) == 1) then ! this only works for EX transitions
+                 Par2 = abs(Par1-1)  
+              else
+                 Par2 = Par1 
+              end if 
+              
+              op%tblck(q)%Jpair(1) = Jtot1
+              op%tblck(q)%Jpair(2) = Jtot2
+        
+              op%tblck(q)%lam(1) = (-1)**((Jtot1+Jtot2)/2) ! phase instead of J 
+              op%tblck(q)%lam(2) = Par1 !just remember that they change if the operator has odd parity.
+              op%tblck(q)%lam(3) = Tz
+              
+       !       q = tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par1)              
+              q1 = block_index(Jtot1,Tz,Par1) 
+              q2 = block_index(Jtot2,Tz,Par2) 
               
               ! we already figured this stuff out for 
               ! the rank 0 case, so lets re-use it
-              npp1 = zerorank%mat(q1)%npp
-              nph1 = zerorank%mat(q1)%nph
-              nhh1 = zerorank%mat(q1)%nhh
-              npp2 = zerorank%mat(q2)%npp
-              nph2 = zerorank%mat(q2)%nph
-              nhh2 = zerorank%mat(q2)%nhh
+              
+              if ( Jtot2 > Jbas%Jtotal_max*2 ) then 
+                 npp1=0;nph1=0;nhh1=0
+                 npp2=0;nph2=0;nhh2=0
+              else
+                 npp1 = zerorank%mat(q1)%npp
+                 nph1 = zerorank%mat(q1)%nph
+                 nhh1 = zerorank%mat(q1)%nhh
+                 npp2 = zerorank%mat(q2)%npp
+                 nph2 = zerorank%mat(q2)%nph
+                 nhh2 = zerorank%mat(q2)%nhh
+              end if 
+              
+              op%tblck(q)%npp1 = npp1
+              op%tblck(q)%nph1 = nph1
+              op%tblck(q)%nhh1 = nhh1              
+              op%tblck(q)%npp2 = npp2
+              op%tblck(q)%nph2 = nph2
+              op%tblck(q)%nhh2 = nhh2              
+                            
+              allocate(op%tblck(q)%tensor_qn(1,1)%Y(npp1,2)) !qnpp1
+              allocate(op%tblck(q)%tensor_qn(2,1)%Y(nph1,2)) !qnph1
+              allocate(op%tblck(q)%tensor_qn(3,1)%Y(nhh1,2)) !qnhh1
+              
+              allocate(op%tblck(q)%tensor_qn(1,2)%Y(npp2,2)) !qnpp2
+              allocate(op%tblck(q)%tensor_qn(2,2)%Y(nph2,2)) !qnph2
+              allocate(op%tblck(q)%tensor_qn(3,2)%Y(nhh2,2)) !qnhh2
 
-              allocate(op%mat(q)%tensor_qn(1)%Y(npp1,2)) !qnpp1
-              allocate(op%mat(q)%tensor_qn(2)%Y(nph1,2)) !qnph1
-              allocate(op%mat(q)%tensor_qn(3)%Y(nhh1,2)) !qnhh1
-              allocate(op%mat(q)%tensor_qn(4)%Y(npp2,2)) !qnpp2
-              allocate(op%mat(q)%tensor_qn(5)%Y(nph2,2)) !qnph2
-              allocate(op%mat(q)%tensor_qn(6)%Y(nhh2,2)) !qnhh2
-     
-              allocate(op%mat(q)%gam(1)%X(npp1,npp2)) !Vpppp
-              allocate(op%mat(q)%gam(5)%X(nhh1,nhh2)) !Vhhhh
-              allocate(op%mat(q)%gam(3)%X(npp1,nhh2)) !Vpphh
-              allocate(op%mat(q)%gam(4)%X(nph1,nph2)) !Vphph
-              allocate(op%mat(q)%gam(2)%X(npp1,nph2)) !Vppph
-              allocate(op%mat(q)%gam(6)%X(nph1,nhh2)) !Vphhh
+              if ( Jtot2 .le. Jbas%Jtotal_max*2 ) then 
+
+              ! yeah this is a mess but it really facilitates the 
+              ! commutators
+
+              ! blocks such as pphh ALWAYS have pp first then hh
+              ! looks scary but i'm just copying everything from the
+              ! rank zero operators we already have
+              op%tblck(q)%tensor_qn(1,1)%Y = zerorank%mat(q1)%qn(1)%Y
+              op%tblck(q)%tensor_qn(2,1)%Y = zerorank%mat(q1)%qn(2)%Y
+              op%tblck(q)%tensor_qn(3,1)%Y = zerorank%mat(q1)%qn(3)%Y
+         
+              op%tblck(q)%tensor_qn(1,2)%Y = zerorank%mat(q2)%qn(1)%Y
+              op%tblck(q)%tensor_qn(2,2)%Y = zerorank%mat(q2)%qn(2)%Y
+              op%tblck(q)%tensor_qn(3,2)%Y = zerorank%mat(q2)%qn(3)%Y
+              
+              end if 
+              
+              allocate(op%tblck(q)%tgam(1)%X(npp1,npp2)) !Vpppp
+              allocate(op%tblck(q)%tgam(5)%X(nhh1,nhh2)) !Vhhhh
+              allocate(op%tblck(q)%tgam(3)%X(npp1,nhh2)) !Vpphh
+              allocate(op%tblck(q)%tgam(4)%X(nph1,nph2)) !Vphph
+              allocate(op%tblck(q)%tgam(2)%X(npp1,nph2)) !Vppph
+              allocate(op%tblck(q)%tgam(6)%X(nph1,nhh2)) !Vphhh
+             
+              allocate(op%tblck(q)%tgam(7)%X(nhh1,npp2)) !Vhhpp
+              allocate(op%tblck(q)%tgam(8)%X(nph1,npp2)) !Vphpp
+              allocate(op%tblck(q)%tgam(9)%X(nhh1,nph2)) !Vhhph
         
-               do i = 1,6
-                  op%mat(q)%gam(i)%X = 0.d0
+               do i = 1,9
+                  op%tblck(q)%tgam(i)%X = 0.d0
                end do
-               
+  
                q = q + 1
-           
+            
             end do
          end do
          
       end do
    end do
-
+ 
+  
    ! i need to fill this last array for tensor_elem
    do q = 1, zerorank%nblocks
    nph1 = 0 ; npp1 = 0 ; nhh1 = 0
    do i = 1,N   !looping over sp states
       do j = i,N
 
-       Jtot = zerorank%mat(q)%lam(1)
-       Tz = zerorank%mat(q)%lam(3)
-       Par = zerorank%mat(q)%lam(2)
+         Jtot = zerorank%mat(q)%lam(1)
+         Tz = zerorank%mat(q)%lam(3)
+         Par1 = zerorank%mat(q)%lam(2)
          ! check if the two sp states can exist in this block 
          tz1 = jbas%itzp(i)
          tz2 = jbas%itzp(j) 
@@ -614,7 +669,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
          
          l1 = jbas%ll(i) 
          l2 = jbas%ll(j)
-         if ( Par .ne. (1 - (-1)**(l1 + l2))/2 ) cycle
+         if ( Par1 .ne. (1 - (-1)**(l1 + l2))/2 ) cycle
          
          j1 = jbas%jj(i) 
          j2 = jbas%jj(j) 
@@ -642,8 +697,35 @@ subroutine allocate_tensor(jbas,op,zerorank)
    end do
    end do 
               
-                  
-end subroutine    
+   if (allocated( phase_hh) ) return 
+   ! THESE ARE PUBLIC ARRAYS NEEDED FOR THE STORAGE OF 
+   ! THE PHASE OF EACH TENSOR COMPONENT
+   
+   allocate(phase_hh(op%belowEF,op%belowEF))
+   allocate(phase_pp(op%nsp-op%belowEF,op%nsp-op%belowEF))
+
+   do i = 1, op%belowEF
+      do j = i , op%belowEF 
+         
+         j1 = jbas%jj(jbas%holes(i))
+         j2 = jbas%jj(jbas%holes(j))
+         
+         phase_hh(i,j) = (-1)**((j1-j2)/2) 
+         phase_hh(j,i) = phase_hh(i,j) 
+      end do 
+   end do 
+   
+   do i = 1,op%nsp- op%belowEF
+      do j = i ,op%nsp-op%belowEF                   
+         j1 = jbas%jj(jbas%parts(i))
+         j2 = jbas%jj(jbas%parts(j))
+         
+         phase_pp(i,j) = (-1)**((j1-j2)/2) 
+         phase_pp(j,i) = phase_pp(i,j) 
+      end do 
+   end do 
+   
+ end subroutine allocate_tensor
 !==================================================================  
 !==================================================================
 subroutine divide_work(r1) 
@@ -850,9 +932,9 @@ integer function tensor_block_index(J1,J2,RANK,T,P)
   ! input 2*J1 2*J2,rank,Tz,and Parity to get block index
   integer :: J1,J2,T,P,RANK
   
-  tensor_block_index = 6*((min(rank - 2 , J1 - 2)/2 + 1)**2 &
-       + max( J1-rank, 0 ) /2  * ( rank + 1) &
-       + (J2 - abs( rank- J1 ))/2) + 2*(T+1) + P + 1 
+  
+  tensor_block_index = 6*( (J1/2 - 1) * ( rank/2+1) +(J2 - J1)/2 + 1) &
+                   + 2*(T+1) + P + 1 
 
 end function 
 !=================================================================     
@@ -895,6 +977,40 @@ real(8) function f_elem(a,b,op,jbas)
      case(2) 
         ! hh 
         f_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
+  end select
+
+end function
+!==============================================================
+!==============================================================
+!=================================================================     
+!=================================================================
+real(8) function f_tensor_elem(a,b,op,jbas) 
+  implicit none 
+  
+  integer :: a,b,x1,x2,c1,c2
+  type(spd) :: jbas
+  type(sq_op) :: op 
+  
+  ! are they holes or particles
+  c1 = jbas%con(a)
+  c2 = jbas%con(b) 
+  
+  select case(c1+c2) 
+     case(0) 
+        ! pp 
+        f_tensor_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
+  
+     case(1) 
+        ! ph 
+        if (c1 > c2) then 
+           f_tensor_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
+              op%herm * (-1)**( (jbas%jj(a) - jbas%jj(b))/2 ) 
+        else 
+           f_tensor_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+        end if
+     case(2) 
+        ! hh 
+        f_tensor_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
   end select
 
 end function
@@ -1009,31 +1125,49 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
 end function
 !==============================================================
 !==============================================================
-
-real(8) function tensor_elem(a,b,c,d,J1,J2,op,jbas) 
+real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas) 
   ! grabs the matrix element you are looking for
   ! right now it's not as versatile as v_elem because 
   ! it doesn't know ahead of time what the symmetries are
   implicit none
   
-  integer :: a,b,c,d,J1,J2,rank,T,P,q,qx,c1,c2,N
-  integer :: int1,int2,i1,i2,j_min,x
+  integer :: a,b,c,d,J1,J2,rank,T,P,q,qx,c1,c2,N,J1x,J2x
+  integer :: int1,int2,i1,i2,j_min,x,k1,k2,ax,bx,cx,dx
   integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
-  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  ,phase
   logical :: fail_c
   type(sq_op) :: op 
   type(spd) :: jbas
   real(8) :: pre,pre_c
   
+  J1 = min(J1x,J2x) 
+  
+  if (J1 == J1x) then 
+     J2 = J2x 
+     phase = 1
+     a = ax
+     b = bx
+     c = cx
+     d = dx
+  else
+     J2 = J1x 
+     phase = (-1)** ((J1 + J2)/2)*op%herm 
+     a = cx
+     b = dx
+     c = ax
+     d = bx 
+  end if
+  
   !make sure the matrix element exists first
  
-!  print*, 'cockkk'
   rank = op%rank
+
   if ( .not. (triangle ( J1,J2,rank ))) then 
      tensor_elem = 0.d0 
      return
   end if 
  
+  
   fail_c = .true. 
   ja = jbas%jj(a)
   jb = jbas%jj(b)
@@ -1049,15 +1183,14 @@ real(8) function tensor_elem(a,b,c,d,J1,J2,op,jbas)
   lb = jbas%ll(b)
   lc = jbas%ll(c)
   ld = jbas%ll(d)
-     
+
   P = mod(la + lb,2) 
      
-  if ( mod(lc + ld,2) .ne. P ) then
+  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(rank/2+1)+1)/2) ) then
     tensor_elem = 0.d0 
     return
   end if 
         
- ! print*, 'ass'
   ta = jbas%itzp(a)
   tb = jbas%itzp(b)
   tc = jbas%itzp(c)
@@ -1065,7 +1198,6 @@ real(8) function tensor_elem(a,b,c,d,J1,J2,op,jbas)
      
   T = (ta + tb)/2
      
-  
   if ((tc+td) .ne. 2*T) then     
     tensor_elem = 0.d0
     return
@@ -1117,14 +1249,14 @@ real(8) function tensor_elem(a,b,c,d,J1,J2,op,jbas)
  
   ! grab the matrix element
 
-   If (C1>C2) then 
-     ! tensor_elem = op%mat(q)%gam(qx)%X(i2,i1) * op%herm * pre  
-      STOP 'FUCK YOU PUT IT IN THE RIGHT ORDER'
-      ! yeah you gotta have it organized so that this doesn't happen...
-   else
-      tensor_elem = op%mat(q)%gam(qx)%X(i1,i2) * pre
-   end if 
+  ! right now i1 and i2 still refer to where the pair is located
+  ! in the rank zero qn storage
 
+ 
+   If (C1>C2) qx = qx + tensor_adjust(qx)       
+   
+   tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
+    
 end function
 !==============================================================
 !==============================================================
@@ -1804,7 +1936,7 @@ subroutine duplicate_sq_op(H,op)
   implicit none 
   
   type(sq_op) :: H,op
-  integer :: q,i,j,holes,parts,nh,np,nb,N
+  integer :: q,i,j,holes,parts,nh,np,nb,N,nh2,np2,nb2
   
   op%herm = 1 ! default, change it in the calling program
              ! if you want anti-herm (-1) 
@@ -1818,7 +1950,9 @@ subroutine duplicate_sq_op(H,op)
   op%Jtarg = H%Jtarg
   op%Ptarg = H%Ptarg
   op%valcut = H%valcut 
-
+  op%rank = H%rank 
+  
+  
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 
   
@@ -1832,59 +1966,136 @@ subroutine duplicate_sq_op(H,op)
   op%fpp = 0.d0
   op%fph = 0.d0 
   
-  allocate(op%mat(op%nblocks)) 
-  allocate(op%direct_omp(size(H%direct_omp)))
-  op%direct_omp = H%direct_omp
+  if (allocated(H%mat)) then ! scalar operator. 
+     
+     allocate(op%mat(op%nblocks)) 
+     allocate(op%direct_omp(size(H%direct_omp)))
+     op%direct_omp = H%direct_omp
 
-  N = op%nsp
-  allocate(op%xmap(N*(N+1)/2))
-  do q = 1, N*(N+1)/2 
-     allocate(op%xmap(q)%Z(size(H%xmap(q)%Z)))
-     op%xmap(q)%Z = H%xmap(q)%Z
-  end do 
+     N = op%nsp
+     allocate(op%xmap(N*(N+1)/2))
+     do q = 1, N*(N+1)/2 
+        allocate(op%xmap(q)%Z(size(H%xmap(q)%Z)))
+        op%xmap(q)%Z = H%xmap(q)%Z
+     end do
   
-  if ( allocated( H%exlabels ) ) then 
-     allocate(op%exlabels(size(H%exlabels(:,1)),2)) 
-  else 
-     allocate(op%exlabels(1,2),H%exlabels(1,2)) 
-     H%exlabels = 0
-  end if 
-  op%exlabels = H%exlabels
+     if ( allocated( H%exlabels ) ) then 
+        allocate(op%exlabels(size(H%exlabels(:,1)),2)) 
+     else 
+        allocate(op%exlabels(1,2),H%exlabels(1,2)) 
+        H%exlabels = 0
+     end if
+     op%exlabels = H%exlabels
+  
+     do q = 1, op%nblocks
+     
+        op%mat(q)%lam = H%mat(q)%lam
+
+        nh = H%mat(q)%nhh
+        np = H%mat(q)%npp
+        nb = H%mat(q)%nph
+         
+        op%mat(q)%npp = np
+        op%mat(q)%nph = nb
+        op%mat(q)%nhh = nh
+        op%mat(q)%ntot = H%mat(q)%ntot
+
+        allocate(op%mat(q)%qn(1)%Y(np,2)) !qnpp
+        allocate(op%mat(q)%qn(2)%Y(nb,2)) !qnph
+        allocate(op%mat(q)%qn(3)%Y(nh,2)) !qnhh
+     
+        do i = 1,3
+           op%mat(q)%qn(i)%Y = H%mat(q)%qn(i)%Y
+        end do
+    
+        allocate(op%mat(q)%gam(1)%X(np,np)) !Vpppp
+        allocate(op%mat(q)%gam(5)%X(nh,nh)) !Vhhhh
+        allocate(op%mat(q)%gam(3)%X(np,nh)) !Vpphh
+        allocate(op%mat(q)%gam(4)%X(nb,nb)) !Vphph
+        allocate(op%mat(q)%gam(2)%X(np,nb)) !Vppph
+        allocate(op%mat(q)%gam(6)%X(nb,nh)) !Vphhh
+     
+        do i = 1,6
+           op%mat(q)%gam(i)%X = 0.0
+        end do
+    
+     end do
+  
+  else  ! tensor operator
+
+
+     allocate(op%tblck(op%nblocks)) 
+    
+    ! allocate(op%direct_omp(size(H%direct_omp)))
+    ! op%direct_omp = H%direct_omp
+
+     N = op%nsp
+     allocate(op%xmap(N*(N+1)/2))
+     do q = 1, N*(N+1)/2 
+        allocate(op%xmap(q)%Z(size(H%xmap(q)%Z)))
+        op%xmap(q)%Z = H%xmap(q)%Z
+     end do
+  
+     if ( allocated( H%exlabels ) ) then 
+        allocate(op%exlabels(size(H%exlabels(:,1)),2)) 
+     else 
+        allocate(op%exlabels(1,2),H%exlabels(1,2)) 
+        H%exlabels = 0
+     end if
+     op%exlabels = H%exlabels
+  
+     do q = 1, op%nblocks
+     
+        op%tblck(q)%lam = H%tblck(q)%lam
+        op%tblck(q)%Jpair = H%tblck(q)%Jpair
+        nh = H%tblck(q)%nhh1
+        np = H%tblck(q)%npp1
+        nb = H%tblck(q)%nph1
+         
+        op%tblck(q)%npp1 = np
+        op%tblck(q)%nph1 = nb
+        op%tblck(q)%nhh1 = nh
+        op%tblck(q)%ntot = H%tblck(q)%ntot
+        op%tblck(q)%npp2 = H%tblck(q)%npp2
+        op%tblck(q)%nph2 = H%tblck(q)%nph2
+        op%tblck(q)%nhh2 = H%tblck(q)%nhh2
+
  
-  do q = 1, op%nblocks
+        allocate(op%tblck(q)%tensor_qn(1,1)%Y(np,2)) !qnpp
+        allocate(op%tblck(q)%tensor_qn(2,1)%Y(nb,2)) !qnph
+        allocate(op%tblck(q)%tensor_qn(3,1)%Y(nh,2)) !qnhh
+
+        nh2 = H%tblck(q)%nhh2
+        np2 = H%tblck(q)%npp2
+        nb2 = H%tblck(q)%nph2
+        
+        allocate(op%tblck(q)%tensor_qn(1,2)%Y(np2,2)) !qnpp
+        allocate(op%tblck(q)%tensor_qn(2,2)%Y(nb2,2)) !qnph
+        allocate(op%tblck(q)%tensor_qn(3,2)%Y(nh2,2)) !qnhh
      
-     op%mat(q)%lam = H%mat(q)%lam
-     nh = H%mat(q)%nhh
-     np = H%mat(q)%npp
-     nb = H%mat(q)%nph
-     
-     
-     op%mat(q)%npp = np
-     op%mat(q)%nph = nb
-     op%mat(q)%nhh = nh
-     op%mat(q)%ntot = H%mat(q)%ntot
-     
-     allocate(op%mat(q)%qn(1)%Y(np,2)) !qnpp
-     allocate(op%mat(q)%qn(2)%Y(nb,2)) !qnph
-     allocate(op%mat(q)%qn(3)%Y(nh,2)) !qnhh
-     
-     do i = 1,3
-        op%mat(q)%qn(i)%Y = H%mat(q)%qn(i)%Y
-     end do 
-     
-     allocate(op%mat(q)%gam(1)%X(np,np)) !Vpppp
-     allocate(op%mat(q)%gam(5)%X(nh,nh)) !Vhhhh
-     allocate(op%mat(q)%gam(3)%X(np,nh)) !Vpphh
-     allocate(op%mat(q)%gam(4)%X(nb,nb)) !Vphph
-     allocate(op%mat(q)%gam(2)%X(np,nb)) !Vppph
-     allocate(op%mat(q)%gam(6)%X(nb,nh)) !Vphhh
-     
-     do i = 1,6
-        op%mat(q)%gam(i)%X = 0.0
-     end do 
-     
-  end do 
-  
+        do i = 1,2
+           do j = 1, 3
+              op%tblck(q)%tensor_qn(j,i)%Y = H%tblck(q)%tensor_qn(j,i)%Y
+           end do 
+        end do
+    
+        allocate(op%tblck(q)%tgam(1)%X(np,np2)) !Vpppp
+        allocate(op%tblck(q)%tgam(5)%X(nh,nh2)) !Vhhhh
+        allocate(op%tblck(q)%tgam(3)%X(np,nh2)) !Vpphh
+        allocate(op%tblck(q)%tgam(4)%X(nb,nb2)) !Vphph
+        allocate(op%tblck(q)%tgam(2)%X(np,nb2)) !Vppph
+        allocate(op%tblck(q)%tgam(6)%X(nb,nh2)) !Vphhh
+        allocate(op%tblck(q)%tgam(7)%X(nh,np2)) !Vhhpp
+        allocate(op%tblck(q)%tgam(8)%X(nb,np2)) !Vphpp
+        allocate(op%tblck(q)%tgam(9)%X(nh,nb2)) !Vhhph
+        
+        do i = 1,9
+           op%tblck(q)%tgam(i)%X = 0.0
+        end do
+   
+     end do
+
+  end if 
 end subroutine 
 !=====================================================
 !=====================================================

@@ -16,7 +16,7 @@ program main_IMSRG
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
-  integer :: i,j,T,Pi,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
+  integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,x
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre
   logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j,me2b
@@ -25,8 +25,6 @@ program main_IMSRG
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
   external :: dHds_TDA_shell_w_2op
   integer :: heiko(30)
- 
-
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
@@ -39,19 +37,12 @@ program main_IMSRG
        hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,&
        me2b,hw,skip_setup,skip_gs)
   
- 
+  call read_sp_basis(jbasis,HS%Aprot,HS%Aneut)
+  call allocate_blocks(jbasis,HS) 
+  
   HS%herm = 1
   HS%hospace = hw
 
-  call read_sp_basis(jbasis,HS%Aprot,HS%Aneut)
-  call allocate_blocks(jbasis,HS)   
-  
-  ETA%rank = 4
-  call allocate_tensor(jbasis,ETA,HS) 
-  
-  print*, tensor_elem(5,13,1,1,4,0,ETA,jbasis) 
-
-  stop
   ! check if you can skip some stuff
   if (skip_gs) then 
      print*, 'reading ground state decoupled hamiltonian' 
@@ -107,7 +98,7 @@ program main_IMSRG
      end if
      
   end if
-
+    
 !============================================================
 ! BUILD BASIS
 !============================================================
@@ -227,16 +218,15 @@ program main_IMSRG
 
   end select
 
-  stop
-  allocate(ladder_ops(5)) 
-  do i = 1, 5
-     call duplicate_sq_op(HS,ladder_ops(i))
-  end do 
+  ! allocate(ladder_ops(5)) 
+  ! do i = 1, 5
+  !    call duplicate_sq_op(HS,ladder_ops(i))
+  ! end do 
   
-  call lanczos_diagonalize(jbasis,HS,ladder_ops,5) 
-  print*, ladder_ops%E0,ladder_ops(5)%mat(1)%lam
+  ! call lanczos_diagonalize(jbasis,HS,ladder_ops,5) 
+  ! print*, ladder_ops%E0,ladder_ops(5)%mat(1)%lam
 
-  stop 
+  ! stop 
 
 
 

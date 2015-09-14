@@ -495,12 +495,135 @@ subroutine calculate_CM_energy_TDA(TDA,rr,pp,ppTDA,rrTDA,hw)
   
 end subroutine
 
-
-real(8) function rsq_ME(n1,l1,n2,l2,hw) 
+subroutine calculate_EX(op,jbas) 
+  ! calculates electromagnetic transition amplitudes 
   implicit none 
   
-  integer :: n1,l1,n2,l2
-  real(8) :: bsq,A12
+  type(spd) :: jbas
+  type(sq_op) :: op   
+  integer :: a,b,ax,bx,rank,na,nb
+  integer :: ta,tb,tc,td,la,lb,lc,ld,ja,jb,jc,jd
+  real(8) :: pol,charge(2),dcgi,dcgi00,x,dcg,hw
+
+  pol = 0.0d0   ! between -1 and 0 
+  hw = op%hospace
+  x = dcgi00()
+  ! right now the units of this operator are: e fm^(X)
+  ! so the charge is not multiplied by the fundamental charge. 
+  charge(1) = (1+pol) 
+  charge(2) = pol 
+  
+  ! access the correct charge with: 
+  ! charge( (jbas%tz(i) + 1)/2 + 1 )  
+  
+  rank = op%rank
+  
+  do ax = 1, op%belowEF 
+     do bx = 1, op%belowEF 
+ 
+        a = jbas%holes(ax)
+        b = jbas%holes(bx) 
+        
+        ta = jbas%itzp(a) 
+        tb = jbas%itzp(b) 
+       
+        if (ta .ne. tb) cycle
+        
+        la = jbas%ll(a) 
+        lb = jbas%ll(b) 
+
+       
+        if (.not. (triangle(2*la,2*lb,rank))) cycle
+       
+        if ( mod(la+lb+rank/2,2) == 1) cycle 
+        
+        ja = jbas%jj(a) 
+        jb = jbas%jj(b) 
+               
+        if (.not.(triangle(ja,jb,rank))) cycle
+        
+        na = jbas%nn(a)
+        nb = jbas%nn(b) 
+
+        op%fhh(ax,bx) = charge((ta + 1)/2+1)/sqrt(4.d0*Pi_const)* &
+             (-1) **((ja + rank - 1)/2) * &
+             (ja +1.d0) * (jb+1.d0) * dcgi(ja,1,jb,-1,rank,0) *&
+             rsq_ME(na,la,nb,lb,hw) 
+     end do 
+  end do 
+        
+  do ax = 1, op%nsp-op%belowEF 
+     do bx = 1, op%nsp-op%belowEF 
+  
+        a = jbas%parts(ax)
+        b = jbas%parts(bx) 
+        
+        ta = jbas%itzp(a) 
+        tb = jbas%itzp(b) 
+        
+        if (ta .ne. tb) cycle
+        
+        la = jbas%ll(a) 
+        lb = jbas%ll(b) 
+        
+        if (.not. (triangle(2*la,2*lb,rank))) cycle
+        if ( mod(la+lb+rank/2,2) == 1) cycle 
+        
+        ja = jbas%jj(a) 
+        jb = jbas%jj(b) 
+        
+        if (.not.(triangle(ja,jb,rank))) cycle
+        
+        na = jbas%nn(a)
+        nb = jbas%nn(b) 
+        
+        op%fpp(ax,bx) = charge((ta + 1)/2+1)/sqrt(4.d0*Pi_const)* &
+             (-1) **((ja + rank - 1)/2) * &
+             (ja +1.d0) * (jb+1.d0) * dcgi(ja,1,jb,-1,rank,0) *&
+             rsq_ME(na,la,nb,lb,hw) 
+     end do 
+  end do     
+
+  do ax = 1, op%nsp-op%belowEF 
+     do bx = 1, op%belowEF 
+  
+        a = jbas%parts(ax)
+        b = jbas%holes(bx) 
+        
+        ta = jbas%itzp(a) 
+        tb = jbas%itzp(b) 
+        
+        if (ta .ne. tb) cycle
+        
+        la = jbas%ll(a) 
+        lb = jbas%ll(b) 
+        
+        if (.not. (triangle(2*la,2*lb,rank))) cycle
+        if ( mod(la+lb+rank/2,2) == 1) cycle 
+        
+        ja = jbas%jj(a) 
+        jb = jbas%jj(b) 
+        
+        if (.not.(triangle(ja,jb,rank))) cycle
+        
+        na = jbas%nn(a)
+        nb = jbas%nn(b) 
+        
+        op%fph(ax,bx) = charge((ta + 1)/2+1)/sqrt(4.d0*Pi_const)* &
+             (-1) **((ja + rank - 1)/2) * &
+             (ja +1.d0) * (jb+1.d0) * dcgi(ja,1,jb,-1,rank,0) *&
+             rsq_ME(na,la,nb,lb,hw) 
+     end do 
+  end do     
+        
+end subroutine        
+  
+real(8) function rsq_ME(n1,l1,n2,l2,hw) 
+  ! only for monopole and quadrupole. 
+  implicit none 
+  
+  integer :: n1,l1,n2,l2, lx, ly,nx,ny
+  real(8) :: bsq,A12,hw
   
   bsq = hbarc2_over_mc2/hw
 
@@ -508,17 +631,17 @@ real(8) function rsq_ME(n1,l1,n2,l2,hw)
      
      if (n1 == n2) then 
         
-        rsq_ME = bsq * (2.d0*n1 + l1 + 1.5d0) 
+        rsq_ME =  (2.d0*n1 + l1 + 1.5d0)*bsq
    
      else if  ( n1-n2 == 1 ) then 
         
-        A12 = bsq*sqrt(n1+l1+.5)
+        A12 = bsq*sqrt((n1+l1+.5)/n1)
         
         rsq_ME = -1*n1*A12
      
      else if (n2 - n1 == 1) then 
      
-        A12 = bsq*sqrt(n2+l2+.5)
+        A12 = bsq*sqrt((n2+l2+.5)/n2)
         
         rsq_ME = -1*n2*A12
     
@@ -530,95 +653,52 @@ real(8) function rsq_ME(n1,l1,n2,l2,hw)
      
    else if ( abs( l1 - l2 ) == 2 ) then 
       
-      if ( l2 - l1 == 2 ) then 
+      lx = max(l1,l2)
+      ly = min(l1,l2) 
+          
+      if ( lx == l1) then 
+         nx = n1 
+         ny = n2
+      else 
+         nx = n2
+         ny = n1
+      end if 
+      
+      
+      if (ny == nx) then 
+            
+         A12 = bsq * sqrt(4./(2.*(ny+ly)+5.)/(2.*(ny+ly)+3.))
          
-         if (n1 == n2) then 
-            
-            A12 = bsq * sqrt(4./(2.*(n1+l1)+5.)/(2.*(n1+l1)+3.))
-            
-            rsq_ME = A12* (( n2 + l2 +.5)**2 -( n2 + l2 +.5) ) 
+         rsq_ME = A12* (( nx + lx +.5)**2 -( nx + lx +.5) ) 
          
-         else if (n1 == n2+1) then 
+      else if (ny == nx+1) then 
             
-            A12 = bsq
-     
-        
+         A12 = bsq * sqrt( 2. /( 2* (ny+ly) +3.)/ny) 
+            
+         rsq_ME = -2* A12 * (nx+1) * (nx+lx +.5) 
+         
+      else if (ny == nx + 2) then 
+            
+         A12 = bsq/(sqrt(ny*(ny-1.0)))
+            
+         rsq_ME = A12*(nx+1.)*(nx+2.) 
+         
+      else 
    
-!=============================================
-! SPECIAL FUNCTIONS      
-!=============================================  
-real(8) function gamma(x)
-  !!! only works for half integers or whole integers
-  implicit none 
-
-  real(8),parameter :: sqpi=1.77245385090551602d0
-  real(8) :: x
-  real(16) :: fac,fac_over_fac
-  integer :: x_c
-  
-  x_c=floor(x)
-  
-  if (abs(float(x_c)-x) < 1d-3) then 
-     
-     gamma=fac(x_c-1)
-     
+         rsq_ME = 0.d0 
+         
+      end if
+         
   else 
      
-      x_c=floor(x-0.5)
-  
-      gamma=fac_over_fac(2*x_c,x_c)/4.d0**x_c*sqpi  
+     rsq_ME = 0.d0 
+     ! this isn't really true, but this function should
+     ! only be called for monopole and quadrupole 
+     ! matrix elements. 
+
   end if 
-  
-end function
-!===========================================
-real(kind=16) function bin_coef(n,k) 
-  implicit none 
-  
-  integer :: n,k
-  real(kind=16) :: fac,fac_over_fac
-  
-  bin_coef=fac_over_fac(n,k)/fac(n-k)
-end function 
-!==========================================
-real(kind=16) function fac_over_fac(a1,a2)
-  implicit none 
-  
-  integer :: a1,a2,i
-  real(kind=16) :: s1
- 
-  s1=1.d0
-  if (a1>a2) then 
-  
-  do i=a2+1,a1
-     s1=s1*i
-  end do 
-  fac_over_fac=s1
-  else 
-
-  do i=a1+1,a2
-     s1=s1*i
-  end do 
-  
-  fac_over_fac=1.d0/s1
-  
-  end if
-end function
-!===========================================
-real(kind=16) function fac(n)
-  implicit none 
-  
-  integer :: n,i
-  real(kind=16) :: s1
-  
-  s1=1.d0
-  
-  do i=1,n
-     s1=s1*i
-  end do 
-  
-  fac=s1
-end function
-!===========================================
+         
+end function    
 end module
   
   
