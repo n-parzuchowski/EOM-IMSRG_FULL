@@ -20,6 +20,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   type(sq_op) :: H,H2,G1b,G2b,G,ETA,HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
+  real(8) :: omp_get_wtime,t1,t2
   character(200) :: spfile,intfile,prefix
   character(1),optional :: quads,trips
   logical :: qd_calc,trip_calc
@@ -107,12 +108,6 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
         !call BCH_EXPAND(HS,G2b,H2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
         call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
      end if
-
-     ! print*,  commutator_223_single(G,HS,1,2,3,1,2,3,1,0,0,jbas)
-     ! print*,  commutator_223_single(G,HS,1,2,3,2,1,3,1,0,0,jbas)
-     ! print*,  commutator_223_single(G,HS,1,2,3,1,3,2,1,0,0,jbas)
-     ! print*,  commutator_223_single(G,HS,1,2,3,3,2,1,1,0,0,jbas)
-     ! print*,  commutator_223_single(G,HS,3,2,1,1,2,3,1,0,0,jbas)
      
      !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
   
@@ -151,7 +146,15 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      call allocate_3body_storage(threebd,jbas)
      corr =  fourth_order_restore(G,H,threebd,jbas) 
      print*, 'FINAL ENERGY:', corr + HS%E0
-  end if 
+     t1 = omp_get_wtime()
+     corr =  restore_triples(H,G,jbas) 
+     t2 = omp_get_wtime()
+     print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
+     t1 = omp_get_wtime()
+     corr = slow_triples_restore(G,H,threebd,jbas) 
+     t2 = omp_get_wtime()
+     print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
+  end if
   
   if (present(O1)) then 
      call duplicate_sq_op(O1,Oevolv)
@@ -496,6 +499,85 @@ subroutine euler_step(G,DG,s,stp)
   s = s + stp 
 
 end subroutine 
+!=====================================================
+!=====================================================
+real(8) function restore_triples(H,OM,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H,OM
+  integer :: a,b,c,i,j,k,Jtot,Jab,Jij
+  integer :: ja,jb,jc,ji,jj,jk 
+  integer :: ax,bx,cx,ix,jx,kx
+  integer :: jab_min,jab_max,jij_min,jij_max
+  integer :: J_min, J_max,x
+  real(8) :: sm,denom
+  
+  sm = 0.d0   
+  do ax = 1,H%Nsp- H%belowEF
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+     
+     do bx = 1,H%Nsp- H%belowEF
+        b = jbas%parts(bx)
+        jb = jbas%jj(b) 
+        
+        jab_min = abs(ja-jb) 
+        jab_max = ja+jb
+     
+        do cx = 1,H%Nsp- H%belowEF
+           c = jbas%parts(cx)
+           jc = jbas%jj(c) 
+   
+   do ix = 1, H%belowEF
+      i = jbas%holes(ix)
+      ji = jbas%jj(i) 
+      
+      do jx = 1 , H%belowEF
+         j = jbas%holes(jx)
+         jj = jbas%jj(j) 
+     
+         jij_min = abs(ji-jj) 
+         jij_max = ji+jj
+     
+         do kx = 1, H%belowEF
+            k = jbas%holes(kx)
+            jk = jbas%jj(k)  
+            
+            denom = H%fhh(ix,ix) + H%fhh(jx,jx) + H%fhh(kx,kx) - &
+           ( H%fpp(ax,ax) + H%fpp(bx,bx) + H%fpp(cx,cx))
+          
+            do jab = jab_min,jab_max,2
+               do jij = jij_min, jij_max,2
+                  
+                  J_min = max(abs(jc - jab), abs(jk - jij) )
+                  J_max = min(jc+jab, jk + jij ) 
+                  
+                  do Jtot = J_min,J_max,2
+                        
+                     sm = sm + &
+                          commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2 &
+                     /denom*(Jtot+1.d0)/36.d0
+           
+                  end do
+
+
+               end do 
+            end do
+
+         end do
+      end do
+   end do
+
+         end do 
+      end do 
+   end do 
+   
+   restore_triples = sm 
+
+end function
+!================================================
+!================================================
 end module
 !================================================
 !================================================
