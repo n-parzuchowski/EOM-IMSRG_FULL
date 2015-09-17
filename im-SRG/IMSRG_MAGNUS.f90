@@ -15,6 +15,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   
   integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
   type(spd) :: jbas
+  type(tpd),allocatable,dimension(:) :: threebas
   type(mscheme_3body) :: threebd
   type(sq_op),optional :: O1,O2
   type(sq_op) :: H,H2,G1b,G2b,G,ETA,HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
@@ -142,16 +143,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
 
   ! triples correction
   if (trip_calc) then 
-     corr = dcgi00()
-     call allocate_3body_storage(threebd,jbas)
-     corr =  fourth_order_restore(G,H,threebd,jbas) 
-     print*, 'FINAL ENERGY:', corr + HS%E0
+     call enumerate_three_body(threebas,jbas)
      t1 = omp_get_wtime()
-     corr =  restore_triples(H,G,jbas) 
-     t2 = omp_get_wtime()
-     print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
-     t1 = omp_get_wtime()
-     corr = slow_triples_restore(G,H,threebd,jbas) 
+     corr =  restore_triples(H,G,threebas,jbas) 
      t2 = omp_get_wtime()
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
   end if
@@ -501,79 +495,82 @@ subroutine euler_step(G,DG,s,stp)
 end subroutine 
 !=====================================================
 !=====================================================
-real(8) function restore_triples(H,OM,jbas) 
+real(8) function restore_triples(H,OM,threebas,jbas) 
   implicit none 
   
   type(spd) :: jbas
+  type(tpd),dimension(:) :: threebas
   type(sq_op) :: H,OM
-  integer :: a,b,c,i,j,k,Jtot,Jab,Jij
-  integer :: ja,jb,jc,ji,jj,jk 
-  integer :: ax,bx,cx,ix,jx,kx
+  integer :: a,b,c,i,j,k,Jtot,Jab,Jij,g1
+  integer :: ja,jb,jc,ji,jj,jk,AAA,q
+  integer :: ax,bx,cx,ix,jx,kx,III
   integer :: jab_min,jab_max,jij_min,jij_max
-  integer :: J_min, J_max,x
-  real(8) :: sm,denom
+  integer :: J_min, J_max,x,total_threads,thread
+  real(8) :: sm,denom,dlow
   
   sm = 0.d0   
-  do ax = 1,H%Nsp- H%belowEF
-     a = jbas%parts(ax)
-     ja = jbas%jj(a) 
-     
-     do bx = 1,H%Nsp- H%belowEF
-        b = jbas%parts(bx)
+  total_threads = size(threebas(1)%direct_omp) - 1
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,OM) & 
+!$OMP& REDUCTION(+:sm)  
+  
+  do thread = 1, total_threads
+  do q = 1+threebas(1)%direct_omp(thread),&
+       threebas(1)%direct_omp(thread+1)
+  
+     Jtot = threebas(q)%chan(1) 
+     do AAA = 1, size(threebas(q)%ppp(:,1)) 
+        
+        a = threebas(q)%ppp(AAA,1)
+        b = threebas(q)%ppp(AAA,2)
+        c = threebas(q)%ppp(AAA,3)
+
+        ja = jbas%jj(a)      
         jb = jbas%jj(b) 
+        jc = jbas%jj(c) 
         
         jab_min = abs(ja-jb) 
         jab_max = ja+jb
-     
-        do cx = 1,H%Nsp- H%belowEF
-           c = jbas%parts(cx)
-           jc = jbas%jj(c) 
    
-   do ix = 1, H%belowEF
-      i = jbas%holes(ix)
-      ji = jbas%jj(i) 
-      
-      do jx = 1 , H%belowEF
-         j = jbas%holes(jx)
-         jj = jbas%jj(j) 
+        dlow = f_elem(a,a,H,jbas)&
+                +f_elem(b,b,H,jbas)+f_elem(c,c,H,jbas)
+        
+        do III = 1, size(threebas(q)%hhh(:,1)) 
+             
+           i = threebas(q)%hhh(III,1)
+           j = threebas(q)%hhh(III,2)
+           k = threebas(q)%hhh(III,3)
+
+           ji = jbas%jj(i)       
+           jj = jbas%jj(j) 
+           jk = jbas%jj(k)  
      
-         jij_min = abs(ji-jj) 
-         jij_max = ji+jj
-     
-         do kx = 1, H%belowEF
-            k = jbas%holes(kx)
-            jk = jbas%jj(k)  
-            
-            denom = H%fhh(ix,ix) + H%fhh(jx,jx) + H%fhh(kx,kx) - &
-           ( H%fpp(ax,ax) + H%fpp(bx,bx) + H%fpp(cx,cx))
-          
-            do jab = jab_min,jab_max,2
-               do jij = jij_min, jij_max,2
+           jij_min = abs(ji-jj) 
+           jij_max = ji+jj
+               
+           denom = f_elem(i,i,H,jbas)+f_elem(j,j,H,jbas)&
+                +f_elem(k,k,H,jbas)-dlow
+                
+           do jab = jab_min,jab_max,2
+               
+              if ( .not. (triangle(Jtot,jc,jab))) cycle
+               
+              do jij = jij_min, jij_max,2
                   
-                  J_min = max(abs(jc - jab), abs(jk - jij) )
-                  J_max = min(jc+jab, jk + jij ) 
-                  
-                  do Jtot = J_min,J_max,2
-                        
-                     sm = sm + &
-                          commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2 &
-                     /denom*(Jtot+1.d0)/36.d0
+                 if ( .not. (triangle(Jtot,jk,jij))) cycle
+                      
+                 sm = sm + &
+                      commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2 &
+                      /denom*(Jtot+1.d0)
            
-                  end do
+              end do
+           end do
 
-
-               end do 
-            end do
-
-         end do
-      end do
-   end do
-
-         end do 
-      end do 
-   end do 
-   
-   restore_triples = sm 
+        end do
+     end do
+  end do
+  end do 
+ !$OMP END PARALLEL DO 
+   restore_triples = sm / 36.d0 
 
 end function
 !================================================

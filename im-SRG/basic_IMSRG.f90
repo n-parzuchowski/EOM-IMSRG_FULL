@@ -23,7 +23,13 @@ module basic_IMSRG
      ! likewise itzp is 2*tz  
      REAL(8), ALLOCATABLE,DIMENSION(:) :: e
   END TYPE spd
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  TYPE :: TPD 
+     integer,allocatable,dimension(:) :: direct_omp
+     integer,dimension(3) :: chan
+     integer,allocatable,dimension(:,:) :: ppp,hhh 
+  END TYPE TPD
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE ::  six_index_store
      type(real_mat),allocatable,dimension(:,:) :: tp_mat
      integer :: nf,nb,nhalf
@@ -108,13 +114,11 @@ end type cross_coupled_31_mat
   logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
   ! 100000 if square matrix, 1 if not. 
   integer,public,dimension(6) :: jst = (/100000,1,1,100000,100000,1/)
-  
-
-
-contains 
+ 
+contains
 !====================================================
 !====================================================
-subroutine read_sp_basis(jbas,hp,hn)
+subroutine read_sp_basis(jbas,hp,hn,method)
   ! fills jscheme_basis array with single particle data from file
   ! file format must be: 5 integers and one real 
   ! for each state we have:   | label |  n  | l | 2 * j | 2*tz | E_sp |  
@@ -125,7 +129,7 @@ subroutine read_sp_basis(jbas,hp,hn)
   character(2) :: hk
   character(200) :: interm
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
-  integer :: q,r,Jtarget,PARtarget
+  integer :: q,r,Jtarget,PARtarget,method
   real(8) :: e
   common /files/ spfile,intfile,prefix
   
@@ -182,7 +186,7 @@ subroutine read_sp_basis(jbas,hp,hn)
   jbas%Jtotal_max = maxval(jbas%jj) 
   jbas%lmax = maxval(jbas%ll) 
   ! this is the maximum value of J, this code always uses 2*J 
-  call store_6j(jbas) ! save six-j symbols to an array
+  call store_6j(jbas,method) ! save six-j symbols to an array
   close(39) 
   
   jbas%spblocks =  (jbas%Jtotal_max + 1) * (jbas%lmax + 1)
@@ -768,6 +772,52 @@ subroutine divide_work(r1)
   end do 
   r1%direct_omp(threads+1) = r1%nblocks
   r1%direct_omp(1) = 0 
+
+end subroutine     
+!==================================================================  
+!==================================================================
+subroutine divide_work_tpd(threebas) 
+  implicit none 
+  
+  type(tpd),dimension(:) :: threebas
+  integer :: A,N,threads,omp_get_num_threads
+  integer :: i ,g,q,k,b,j,blocks
+  
+!$omp parallel
+  threads=omp_get_num_threads() 
+!$omp end parallel
+!threads = 1
+
+  blocks =size(threebas) 
+  b = 0.d0
+  do q = 1,blocks 
+     b = b + size(threebas(q)%hhh(:,1))*size(threebas(q)%ppp(:,1)) 
+  end do
+  
+  allocate( threebas(1)%direct_omp(threads+1) )
+  
+  g = 0
+  k = 0
+  q = 1
+  do i = 1,threads
+     
+     g = g+k 
+     j = (b-g)/(threads-i+1) 
+     
+     k = 0
+     
+     do while ( q .le. blocks) 
+        k = k + size(threebas(q)%hhh(:,1))*size(threebas(q)%ppp(:,1)) 
+        q = q + 1
+        
+        if (k .ge. j) then 
+           threebas(1)%direct_omp(i+1) = q-1
+           exit
+        end if
+     end do 
+  end do 
+  threebas(1)%direct_omp(threads+1) = blocks
+  threebas(1)%direct_omp(1) = 0 
 
 end subroutine     
 !==================================================================  
@@ -1536,7 +1586,7 @@ subroutine diagonalize_blocks(R)
 end subroutine
 !======================================================
 !======================================================
-subroutine store_6j(jbas) 
+subroutine store_6j(jbas,method) 
   ! run this once. use sixj in code to call elements 
   ! kind of complicated, but if fills a public array (store6j) 
   ! which theoretically doesn't need to be touched when 
@@ -1546,12 +1596,19 @@ subroutine store_6j(jbas)
   
   type(spd) :: jbas
   integer :: j1,j2,j3,j4,j5,j6,num_half,num_whole,r1,r2
-  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max
+  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max,method
   real(8) :: d6ji
   
   call dfact0() ! prime the anglib 6j calculator 
   
-  num_half = (jbas%Jtotal_max + 1)/2
+  if (method == 5) then  
+     ! this is necessary for three-body calculations
+     num_half = (3*jbas%Jtotal_max + 1)/2
+     ! however, it clearly increases the memory requirements
+  else
+     num_half = (jbas%Jtotal_max + 1)/2
+  end if
+  
   store6j%nhalf = num_half
   nbos = num_half*(num_half+1)/2
   nferm = num_half*(num_half-1)/2
@@ -3155,5 +3212,216 @@ subroutine write_tilde_from_Rcm(rr)
        hbarc2_over_mc2*1.5d0/float(rr%Aprot+rr%Aneut)/rr%E0 
   close(53) 
 end subroutine 
+!===================================================================
+!===================================================================  
+subroutine enumerate_three_body(threebas,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(tpd),allocatable,dimension(:) :: threebas
+  integer :: a,b,c,i,j,k,JTot, PAR, Tz,q
+  integer :: Jmaxx,blocks,holes,parts
+  integer :: ix,jx,kx,ax,bx,cx,Jab_max,Jab_min
+  integer :: ja,jb,jc,ji,jj,jk,Jij_max,Jij_min 
+  integer :: ta,tb,tc,ti,tj,tk,num_hhh,Jab
+  integer :: la,lb,lc,li,lj,lk,num_ppp,Jij
+  
+  holes = sum(jbas%con) 
+  parts = size(jbas%con) - holes
+  
+  Jmaxx = maxval(jbas%jj)*3
+  
+  blocks= (Jmaxx + 1)/2 * 8 
+  allocate(threebas(blocks))
+  q = 1
+  do Jtot = 1,Jmaxx,2 ! Jtot is odd 
+     
+     do Tz = -3,3,2 
+        
+        do PAR = 0, 1
+       
+        threebas(q)%chan(1) = Jtot
+        threebas(q)%chan(2) = Tz
+        threebas(q)%chan(3) = PAR 
+        
+   num_hhh = 0
+! sum over all possible un-symmetrized hhh combinations 
+   do ix = 1,holes
+      i =jbas%holes(ix)
+      ji = jbas%jj(i)
+      li = jbas%ll(i)      
+      ti = jbas%itzp(i)
+      
+      do jx = 1,holes
+         j =jbas%holes(jx)
+         jj = jbas%jj(j)
+         lj = jbas%ll(j)      
+         tj = jbas%itzp(j)
+                  
+         Jij_min = abs(ji - jj) 
+         Jij_max = ji + jj 
+         
+         do kx= 1,holes
+            
+            k =jbas%holes(kx)
+            jk = jbas%jj(k)
+            lk = jbas%ll(k)      
+            tk = jbas%itzp(k)
+            
+            if (ti + tj + tk .ne. Tz) cycle
+            if (mod(li + lj + lk,2) .ne. PAR)  cycle
+            do Jij = Jij_min, Jij_max 
+               if (triangle(Jk,Jtot,Jij)) then 
+                  exit
+               end if
+            end do 
+            
+            if (Jij > Jij_max) cycle 
+            
+            num_hhh = num_hhh + 1 
+        end do 
+     end do 
+   end do 
+           
+   allocate( threebas(q)%hhh(num_hhh,3)) 
+   
+   num_hhh = 0
+! sum over all possible un-symmetrized hhh combinations 
+   do ix = 1,holes
+      i =jbas%holes(ix)
+      ji = jbas%jj(i)
+      li = jbas%ll(i)      
+      ti = jbas%itzp(i)
+      
+      do jx = 1,holes
+         j =jbas%holes(jx)
+         jj = jbas%jj(j)
+         lj = jbas%ll(j)      
+         tj = jbas%itzp(j)
+                  
+         Jij_min = abs(ji - jj) 
+         Jij_max = ji + jj 
+         
+         do kx= 1,holes
+            
+            k =jbas%holes(kx)
+            jk = jbas%jj(k)
+            lk = jbas%ll(k)      
+            tk = jbas%itzp(k)
+           
+            if (ti + tj + tk .ne. Tz) cycle
+            if (mod(li + lj + lk,2) .ne. PAR)  cycle
+           
+            do Jij = Jij_min, Jij_max 
+               if (triangle(Jk,Jtot,Jij)) then 
+                  exit
+               end if
+            end do 
+            
+            if (Jij > Jij_max) cycle 
+           
+            num_hhh = num_hhh + 1
+            threebas(q)%hhh(num_hhh,1) = i 
+            threebas(q)%hhh(num_hhh,2) = j 
+            threebas(q)%hhh(num_hhh,3) = k 
 
+        end do 
+     end do 
+   end do      
+
+  
+   num_ppp = 0
+! run over all possible un-symmetrized ppp combinations 
+   do ax = 1,parts
+      a =jbas%parts(ax)
+      ja = jbas%jj(a)
+      la = jbas%ll(a)      
+      ta = jbas%itzp(a)
+      
+      do bx = 1,parts
+         b =jbas%parts(bx)
+         jb = jbas%jj(b)
+         lb = jbas%ll(b)      
+         tb = jbas%itzp(b)
+                  
+         Jab_min = abs(ja - jb) 
+         Jab_max = ja + jb 
+         
+         do cx= 1,parts
+            
+            c =jbas%parts(cx)
+            jc = jbas%jj(c)
+            lc = jbas%ll(c)      
+            tc = jbas%itzp(c)
+            
+            
+            if (ta + tb + tc .ne. Tz) cycle
+            if (mod(la + lb + lc,2) .ne. PAR)  cycle
+            do Jab = Jab_min, Jab_max 
+               if (triangle(Jc,Jtot,Jab)) then 
+                  exit
+               end if
+            end do 
+            
+            if (Jab > Jab_max) cycle 
+            
+            num_ppp = num_ppp + 1 
+        end do 
+     end do 
+   end do 
+
+   allocate( threebas(q)%ppp(num_ppp,3)) 
+  
+   num_ppp = 0
+! run over all possible un-symmetrized ppp combinations 
+   do ax = 1,parts
+      a =jbas%parts(ax)
+      ja = jbas%jj(a)
+      la = jbas%ll(a)      
+      ta = jbas%itzp(a)
+      
+      do bx = 1,parts
+         b =jbas%parts(bx)
+         jb = jbas%jj(b)
+         lb = jbas%ll(b)      
+         tb = jbas%itzp(b)
+                  
+         Jab_min = abs(ja - jb) 
+         Jab_max = ja + jb 
+         
+         do cx= 1,parts
+            
+            c =jbas%parts(cx)
+            jc = jbas%jj(c)
+            lc = jbas%ll(c)      
+            tc = jbas%itzp(c)
+            
+            if (ta + tb + tc .ne. Tz) cycle
+            if (mod(la + lb + lc,2) .ne. PAR)  cycle
+              
+            do Jab = Jab_min, Jab_max 
+               if (triangle(Jc,Jtot,Jab)) then 
+                  exit
+               end if
+            end do 
+            
+            if (Jab > Jab_max) cycle 
+            
+            num_ppp = num_ppp + 1 
+            threebas(q)%ppp(num_ppp,1) = a 
+            threebas(q)%ppp(num_ppp,2) = b 
+            threebas(q)%ppp(num_ppp,3) = c
+ 
+        end do 
+     end do 
+   end do 
+   
+            q = q + 1 
+        end do
+     end do
+   end do 
+
+   call divide_work_tpd(threebas) 
+end subroutine   
+  
 end module       

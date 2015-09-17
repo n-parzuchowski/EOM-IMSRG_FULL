@@ -37,7 +37,7 @@ program main_IMSRG
        hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,&
        me2b,hw,skip_setup,skip_gs)
   
-  call read_sp_basis(jbasis,HS%Aprot,HS%Aneut)
+  call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
   call allocate_blocks(jbasis,HS) 
   
   HS%herm = 1

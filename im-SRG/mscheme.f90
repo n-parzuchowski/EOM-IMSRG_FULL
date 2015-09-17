@@ -257,9 +257,9 @@ subroutine divide_work_threebody(XR)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+!  threads=omp_get_num_threads() 
 !$omp end parallel
-!threads = 1
+threads = 1
   b = 0.d0
   do q = 1, XR%nblocks
      b = b + size(XR%qn_p(q)%Y(:,1))*size(XR%qn_h(q)%Y(:,1))
@@ -754,74 +754,3 @@ real(8) function slow_triples_restore(OMEGA,H,XR,jbas)
 end function
 
 end module
-
-! TYPE :: TPD 
-!    integer,allocatable,dimension(:,:) ppp,hhh 
-! END TYPE TPD
-
-
-! subroutine enumerate_three_body(threebas,jbas) 
-!   implicit none 
-  
-!   type(spd) :: jbas
-!   type(tpd),allocatable,dimension(:) :: threebas
-!   integer :: a,b,c,i,j,k,JTot, PAR, Tz,q
-!   integer :: Jmaxx,blocks,q,holes,parts
-!   integer :: ix,jx,kx,ax,bx,cx
-!   integer :: ja,jb,jc,ji,jj,jk 
-!   integer :: ta,tb,tc,ti,tj,tk 
-!   integer :: la,lb,lc,li,lj,lk 
-  
-!   holes = sum(jbas%con) 
-!   parts = size(jbas%con) - holes
-  
-!   Jmaxx = maxval(jbas%jj)*3
-  
-!   blocks= (Jmaxx + 1)/2 * 8 
-!   allocate(threebas(blocks))
-  
-!   q = 1
-!   do Jtot = 1,Jmaxx,2 ! Jtot is odd 
-     
-!      do Tz = -3,3,2 
-        
-!         do PAR = 0, 1
-       
-           
-           
-! ! sum over all possible un-symmetrized hhh combinations 
-!    do ix = 1,holes
-!       i =jbas%holes(ix)
-!       ji = jbas%jj(i)
-!       li = jbas%ll(i)      
-!       ti = jbas%itzp(i)
-      
-!       do jx = 1,holes
-!          j =jbas%holes(jx)
-!          jj = jbas%jj(j)
-!          lj = jbas%ll(j)      
-!          tj = jbas%itzp(j)
-                  
-!          Jij_min = abs(ji - jj) 
-!          Jij_max = ji + jj 
-         
-!          do kx= 1,holes
-            
-!             k =jbas%holes(kx)
-!             jk = jbas%jj(k)
-!             lk = jbas%ll(k)      
-!             tk = jbas%itzp(k)
-            
-!             if ( .not. triangle(J_
-           
-              
-         
-        
-
-  
-  
-  
-  
-  
-  
-  
