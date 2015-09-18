@@ -674,30 +674,29 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
   
   Abody = w1%belowEF
   Ntot = w1%Nsp
-   
+
   ! fpp
-  do i = 1 , Ntot - Abody
-     ik = jbas%parts(i) 
-     ji = jbas%jj(ik) 
-     li = jbas%ll(ik) 
-     ti = jbas%itzp(ik) 
+  do ik = 1 , Ntot - Abody
+     i = jbas%parts(ik) 
+     ji = jbas%jj(i) 
+     li = jbas%ll(i) 
+     ti = jbas%itzp(i) 
      
-     do j = i , Ntot - Abody
+     do jk = ik , Ntot - Abody
         
-        jk = jbas%parts(j) 
-        jj = jbas%jj(jk) 
-        if (ji .ne. jj)  cycle
-        lj = jbas%ll(jk) 
-        if (li .ne. lj)  cycle
-        tj = jbas%itzp(jk)
+        j = jbas%parts(jk) 
+        jj = jbas%jj(j) 
+        if (.not. (triangle(jj,ji,w1%rank))) cycle
+        lj = jbas%ll(j) 
+        if (mod(li,2) .ne. mod(lj,2))  cycle
+        tj = jbas%itzp(j)
         if (tj .ne. ti) cycle 
                 
         sm = 0.d0 
-
-        
-        do c = 1, Abody
-           ck = jbas%holes(c) 
-           jc = jbas%jj(ck)
+      
+        do ck = 1, Abody
+           c = jbas%holes(ck) 
+           jc = jbas%jj(c)
            ! w1 matrix results from multiplying the pp channel
            sm1 = 0.d0 
            do J1 = abs(jc - ji),jc+ji,2
@@ -708,8 +707,8 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,ji,jj,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J1/2) * pm 
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
           
@@ -725,21 +724,22 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
           sm = sm + sm1*(-1)**((jc+jj)/2)
         end do 
         
-        sm2 = 0.d0 
-        do c = 1, Ntot - Abody
-           ck = jbas%parts(c) 
-           jc = jbas%jj(ck)
+
+        do ck = 1, Ntot - Abody
+           c = jbas%parts(ck) 
+           jc = jbas%jj(c)
+           sm2 = 0.d0
            do J1 = abs(jc - ji),jc+ji,2
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,ji,jj,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J1/2) * pm 
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
           
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
-             
+           
                 ! use w1, because it sums over the pp indices
                 sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
@@ -750,11 +750,172 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
            sm = sm + sm2 *  (-1)**((jc+jj)/2)
         end do 
      
-        RES%fpp(i,j) = RES%fpp(i,j) + sm * (-1)**(w1%rank/2)  
-        RES%fpp(j,i) = RES%fpp(i,j) * RES%herm * (-1)**((ji-jj)/2) 
+        RES%fpp(ik,jk) = RES%fpp(ik,jk) + sm * (-1)**(w1%rank/2)  
+        RES%fpp(jk,ik) = RES%fpp(ik,jk) * RES%herm * (-1)**((ji-jj)/2) 
+     end do 
+  end do       
+
+
+  ! fhh
+  do ik = 1 , Abody
+     i = jbas%holes(ik) 
+     ji = jbas%jj(i) 
+     li = jbas%ll(i) 
+     ti = jbas%itzp(i) 
+     
+     do jk = ik , Abody
+        
+        j = jbas%holes(jk) 
+        jj = jbas%jj(j) 
+        if (.not. (triangle(jj,ji,w1%rank))) cycle
+        lj = jbas%ll(j) 
+        if (mod(li,2) .ne. mod(lj,2))  cycle
+        tj = jbas%itzp(j)
+        if (tj .ne. ti) cycle 
+                
+        sm = 0.d0 
+      
+        do ck = 1, Abody
+           c = jbas%holes(ck) 
+           jc = jbas%jj(c)
+           ! w1 matrix results from multiplying the pp channel
+           sm1 = 0.d0 
+           do J1 = abs(jc - ji),jc+ji,2
+            
+              ! NOTE: 
+              ! THESE SUMS HAVE TO BE BROKEN UP SO the J on the left side is 
+              ! smaller. I don't have the other matrix multiplication.
+              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
+
+                ! use w1, because it sums over the pp indices
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
+                
+             end do              
+          
+             do J2 = max(J1,abs(jc - jj)),jc+jj,2
+             
+                ! use w1, because it sums over the pp indices
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                     *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
+                
+             end do
+
+          end do
+          sm = sm + sm1*(-1)**((jc+jj)/2)
+        end do 
+        
+
+        do ck = 1, Ntot - Abody
+           c = jbas%parts(ck) 
+           jc = jbas%jj(c)
+           sm2 = 0.d0
+           do J1 = abs(jc - ji),jc+ji,2
+             do J2 = abs(jc - jj),min(J1-2,jc+jj),2
+
+                ! use w1, because it sums over the pp indices
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
+                
+             end do              
+          
+             do J2 = max(J1,abs(jc - jj)),jc+jj,2
+           
+                ! use w1, because it sums over the pp indices
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                     *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
+                
+             end do
+            
+           end do 
+           sm = sm + sm2 *  (-1)**((jc+jj)/2)
+        end do 
+     
+        RES%fhh(ik,jk) = RES%fhh(ik,jk) + sm * (-1)**(w1%rank/2)  
+        RES%fhh(jk,ik) = RES%fhh(ik,jk) * RES%herm * (-1)**((ji-jj)/2) 
      end do 
   end do       
   
+  ! fph
+  do ik = 1 , Ntot-Abody
+     i = jbas%parts(ik) 
+     ji = jbas%jj(i) 
+     li = jbas%ll(i) 
+     ti = jbas%itzp(i) 
+    
+     do jk = 1 , Abody
+        
+        j = jbas%holes(jk) 
+        jj = jbas%jj(j) 
+        if (.not. (triangle(jj,ji,w1%rank))) cycle
+        lj = jbas%ll(j) 
+        if (mod(li,2) .ne. mod(lj,2))  cycle
+        tj = jbas%itzp(j)
+        if (tj .ne. ti) cycle 
+      
+    
+        sm = 0.d0 
+      
+        do ck = 1, Abody
+           c = jbas%holes(ck) 
+           jc = jbas%jj(c)
+           ! w1 matrix results from multiplying the pp channel
+           sm1 = 0.d0 
+           do J1 = abs(jc - ji),jc+ji,2
+            
+              ! NOTE: 
+              ! THESE SUMS HAVE TO BE BROKEN UP SO the J on the left side is 
+              ! smaller. I don't have the other matrix multiplication.
+              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
+
+                ! use w1, because it sums over the pp indices
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
+                
+             end do              
+          
+             do J2 = max(J1,abs(jc - jj)),jc+jj,2
+             
+                ! use w1, because it sums over the pp indices
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                     *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
+                
+             end do
+
+          end do
+          sm = sm + sm1*(-1)**((jc+jj)/2)
+        end do 
+        
+
+        do ck = 1, Ntot - Abody
+           c = jbas%parts(ck) 
+           jc = jbas%jj(c)
+           sm2 = 0.d0
+           do J1 = abs(jc - ji),jc+ji,2
+             do J2 = abs(jc - jj),min(J1-2,jc+jj),2
+
+                ! use w1, because it sums over the pp indices
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
+                
+             end do              
+          
+             do J2 = max(J1,abs(jc - jj)),jc+jj,2
+           
+                ! use w1, because it sums over the pp indices
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                     *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
+                
+             end do
+            
+           end do 
+           sm = sm + sm2 *  (-1)**((jc+jj)/2)
+        end do 
+     
+        RES%fph(ik,jk) = RES%fph(ik,jk) + sm * (-1)**(w1%rank/2)  
+
+     end do 
+  end do       
 
 end subroutine
 !===================================================================
@@ -809,9 +970,9 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
 
         if (nh2 .ne. 0) then 
         
-           !w2pppp = Bpphh.Ahhpp  
-
-           al_off = L%herm   ! I don't have the a/h.c. of L so I need
+           !w2pppp = -Bpphh.Ahhpp  
+           
+           al_off = -1*L%herm   ! I don't have the a/h.c. of L so I need
            ! to multiply by L%herm, and transpose in dgemm. 
            call dgemm('N','T',np1,np2,nh2,al_off,R%tblck(q)%tgam(3)%X,np1,&
                 L%mat(q2)%gam(3)%X,np2,bet,w2%tblck(q)%tgam(1)%X,np1)
@@ -823,8 +984,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
            ! for the J1,J2 orientation. flipping across the aisle 
            ! gives them for the J2,J1 orientation. It's a pain.  
         
-           !w2pppp = Apphh.Bhhpp - Bpphh.Ahhpp
-           bet_off = -1.d0                  
+           !w2pppp = Apphh.Bhhpp - Bpphh.Ahhpp  
+           bet_off = 1
            call dgemm('N','N',np1,np2,nh1,al,L%mat(q1)%gam(3)%X,np1,&
                 R%tblck(q)%tgam(7)%X,nh1,bet_off,w2%tblck(q)%tgam(1)%X,np1)
         end if 
@@ -841,28 +1002,29 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      if (nb1*nb2 .ne. 0)  then 
         
         if (np2 .ne. 0) then
-           !w1pppp = Bphpp.Apphp 
-           call dgemm('N','N',nb1,nb2,np2,al,R%tblck(q)%tgam(8)%X,nb1,&
+           !w1phph = -Bphpp.Appph 
+           al_off = -1
+           call dgemm('N','N',nb1,nb2,np2,al_off,R%tblck(q)%tgam(8)%X,nb1,&
                 L%mat(q2)%gam(2)%X,np2,bet,w1%tblck(q)%tgam(4)%X,nb1)
         
         end if
         
         if (np1 .ne. 0 ) then 
-           !w1pppp = Apppp.Bpppp - Bpppp.Apppp
+           !w1phph = Aphpp.Bppph - Bphpp.Appph
            al_off = L%herm
-           bet_off = -1
+           bet_off = 1
            call dgemm('T','N',nb1,nb2,np1,al_off,L%mat(q1)%gam(2)%X,np1,&
                 R%tblck(q)%tgam(2)%X,np1,bet_off,w1%tblck(q)%tgam(4)%X,nb1)
         end if 
              
          if (nh1 .ne. 0)  then      
-            !w1pppp = Aphhh.Bhhph 
+            !w2phph = Aphhh.Bhhph
             call dgemm('N','N',nb1,nb2,nh1,al,L%mat(q1)%gam(6)%X,nb1,&
                  R%tblck(q)%tgam(9)%X,nh1,bet,w2%tblck(q)%tgam(4)%X,nb1)        
          end if 
         
         if (nh2 .ne. 0) then
-           !w1pppp = Bphhh.Ahhph - Aphhh.Bhhph
+           !w2phph = Aphhh.Bhhph - Bphhh.Ahhph 
            al_off = -1*L%herm
            bet_off = 1
            call dgemm('N','T',nb1,nb2,nh2,al_off,R%tblck(q)%tgam(6)%X,nb1,&
@@ -870,20 +1032,267 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
 
         end if
 
-        ! this is not consistent with above... 
-         RES%tblck(q)%tgam(4)%X = w1%tblck(q)%tgam(4)%X - w2%tblck(q)%tgam(4)%X
+        RES%tblck(q)%tgam(4)%X = w1%tblck(q)%tgam(4)%X - w2%tblck(q)%tgam(4)%X
          
     end if 
- 
 
+
+!----------------------------------------------------------------------------
+!         Zhhhh 
+!----------------------------------------------------------------------------
+     if (nh1*nh2 .ne. 0)  then 
      
-  end do
-  
-  
-  
-  
-  
+        if (np2 .ne. 0) then 
+           !w1hhhh = -Bhhpp.Apphh 
+           al_off = -1
+           call dgemm('N','N',nh1,nh2,np2,al_off,R%tblck(q)%tgam(7)%X,nh1,&
+                L%mat(q2)%gam(3)%X,np2,bet,w1%tblck(q)%tgam(5)%X,nh1)
+        end if 
+        
+        if (np1 .ne. 0) then 
+           !w1hhhh = Ahhpp.Bpphh - Bhhpp.Apphh
+           al_off = L%herm 
+           bet_off = 1
+           call dgemm('T','N',nh1,nh2,np1,al_off,L%mat(q1)%gam(3)%X,np1,&
+                R%tblck(q)%tgam(3)%X,np1,bet_off,w1%tblck(q)%tgam(5)%X,nh1)
+        end if 
+        
+        !w1hhhh = Bhhhh.Ahhhh 
+        call dgemm('N','N',nh1,nh2,nh2,al,R%tblck(q)%tgam(5)%X,nh1,&
+             L%mat(q2)%gam(5)%X,nh2,bet,w2%tblck(q)%tgam(5)%X,nh1)
 
+        bet_off = -1 
+        !w1hhhh = Ahhhh.Bhhhh - Bhhhh.Ahhhh 
+        call dgemm('N','N',nh1,nh2,nh1,al,L%mat(q1)%gam(5)%X,nh1,&
+             R%tblck(q)%tgam(5)%X,nh1,bet_off,w2%tblck(q)%tgam(5)%X,nh1)
+     end if
+        
+     RES%tblck(q)%tgam(5)%X = w1%tblck(q)%tgam(5)%X - w2%tblck(q)%tgam(5)%X
+     
+
+!----------------------------------------------------------------------------
+!         Zpphh 
+!----------------------------------------------------------------------------
+     if (np1*nh2 .ne. 0)  then 
+     
+        if (np2 .ne. 0) then 
+           !w1pphh = Bpppp.Apphh 
+           call dgemm('N','N',np1,nh2,np2,al,R%tblck(q)%tgam(1)%X,np1,&
+                L%mat(q2)%gam(3)%X,np2,bet,w1%tblck(q)%tgam(3)%X,np1)
+        end if 
+
+        
+        !w1pphh = Apppp.Bpphh - Bpppp.Apphh
+        bet_off = -1
+        call dgemm('N','N',np1,nh2,np1,al,L%mat(q1)%gam(1)%X,np1,&
+             R%tblck(q)%tgam(3)%X,np1,bet_off,w1%tblck(q)%tgam(3)%X,np1)
+        
+
+        
+        !w1pphh = -Bpphh.Ahhhh 
+        al_off = -1 
+        call dgemm('N','N',np1,nh2,nh2,al_off,R%tblck(q)%tgam(3)%X,np1,&
+             L%mat(q2)%gam(5)%X,nh2,bet,w2%tblck(q)%tgam(3)%X,np1)
+         
+        
+        if (nh1 .ne. 0 ) then 
+           !w1pphh = Apphh.Bhhhh - Bpphh.Ahhhh 
+           bet_off = 1
+           call dgemm('N','N',np1,nh2,nh1,al,L%mat(q1)%gam(3)%X,np1,&
+                R%tblck(q)%tgam(5)%X,nh1,bet_off,w2%tblck(q)%tgam(3)%X,np1)
+        end if 
+     end if 
+       
+     RES%tblck(q)%tgam(3)%X = w1%tblck(q)%tgam(3)%X - w2%tblck(q)%tgam(3)%X
+
+!----------------------------------------------------------------------------
+!         Zhhpp 
+!----------------------------------------------------------------------------
+     if (np2*nh1 .ne. 0)  then 
+     
+        al_off = -1
+        !w1hhpp = -Bhhpp.Apppp 
+        call dgemm('N','N',nh1,np2,np2,al_off,R%tblck(q)%tgam(7)%X,nh1,&
+             L%mat(q2)%gam(1)%X,np2,bet,w1%tblck(q)%tgam(7)%X,nh1)
+        
+
+        if (np1 .ne. 0 ) then
+           !w1hhpp = Ahhpp.Bpppp - Bhhpp.Apppp
+           al_off = L%herm
+           bet_off = 1
+           call dgemm('T','N',nh1,np2,np1,al_off,L%mat(q1)%gam(3)%X,np1,&
+                R%tblck(q)%tgam(1)%X,np1,bet_off,w1%tblck(q)%tgam(7)%X,nh1)
+        end if 
+
+        if (nh2 .ne. 0) then 
+           !w1hhpp = Bhhhh.Ahhpp
+           al_off = L%herm
+           call dgemm('N','T',nh1,np2,nh2,al_off,R%tblck(q)%tgam(5)%X,nh1,&
+                L%mat(q2)%gam(3)%X,np2,bet,w2%tblck(q)%tgam(7)%X,nh1)
+        end if 
+        
+        bet_off = -1 
+        !w1pphh = Ahhhh.Bhhpp - Bhhhh.Ahhpp 
+        call dgemm('N','N',nh1,np2,nh1,al,L%mat(q1)%gam(5)%X,nh1,&
+             R%tblck(q)%tgam(7)%X,nh1,bet_off,w2%tblck(q)%tgam(7)%X,nh1)
+
+     end if 
+       
+     RES%tblck(q)%tgam(7)%X = w1%tblck(q)%tgam(7)%X - w2%tblck(q)%tgam(7)%X
+
+!----------------------------------------------------------------------------
+!         Zppph 
+!----------------------------------------------------------------------------
+     if (np1*nb2 .ne. 0)  then 
+     
+        if (np2 .ne. 0)  then 
+           al_off = -1
+           !w1ppph = -Bpppp.Appph 
+           call dgemm('N','N',np1,nb2,np2,al_off,R%tblck(q)%tgam(1)%X,np1,&
+                L%mat(q2)%gam(2)%X,np2,bet,w1%tblck(q)%tgam(2)%X,np1)
+        end if
+
+
+        !w1ppph = Apppp.Bppph - Bpppp.Appph
+        bet_off = 1
+        call dgemm('N','N',np1,nb2,np1,al,L%mat(q1)%gam(1)%X,np1,&
+             R%tblck(q)%tgam(2)%X,np1,bet_off,w1%tblck(q)%tgam(2)%X,np1)
+
+
+        if (nh2 .ne. 0) then 
+           !w2ppph = -Bpphh.Ahhph
+           al_off = -1*L%herm
+           call dgemm('N','T',np1,nb2,nh2,al_off,R%tblck(q)%tgam(3)%X,np1,&
+                L%mat(q2)%gam(6)%X,nb2,bet,w2%tblck(q)%tgam(2)%X,np1)
+        end if 
+        
+        if (nh1 .ne. 0) then 
+           bet_off = 1 
+           !w2ppph = Apphh.Bhhph - Bpphh.Ahhph 
+           call dgemm('N','N',np1,nb2,nh1,al,L%mat(q1)%gam(3)%X,np1,&
+                R%tblck(q)%tgam(9)%X,nh1,bet_off,w2%tblck(q)%tgam(2)%X,np1)
+        end if 
+        
+     end if 
+       
+     RES%tblck(q)%tgam(2)%X = w1%tblck(q)%tgam(2)%X - w2%tblck(q)%tgam(2)%X
+
+!----------------------------------------------------------------------------
+!         Zphpp 
+!----------------------------------------------------------------------------
+     if (nb1*np2 .ne. 0)  then 
+     
+       
+        al_off = -1
+        !w1phpp = -Bphpp.Apppp 
+        call dgemm('N','N',nb1,np2,np2,al_off,R%tblck(q)%tgam(8)%X,nb1,&
+             L%mat(q2)%gam(1)%X,np2,bet,w1%tblck(q)%tgam(8)%X,nb1)
+        
+
+        if (np1 .ne. 0) then 
+           !w1phpp = Aphpp.Bpppp - Bphpp.Apppp
+           bet_off = 1
+           al_off = L%herm
+           call dgemm('T','N',nb1,np2,np1,al_off,L%mat(q1)%gam(2)%X,np1,&
+                R%tblck(q)%tgam(1)%X,np1,bet_off,w1%tblck(q)%tgam(8)%X,nb1)
+        end if 
+
+        if (nh2 .ne. 0) then 
+           !w2phpp = -Bphhh.Ahhpp
+           al_off = -1*L%herm
+           call dgemm('N','T',nb1,np2,nh2,al_off,R%tblck(q)%tgam(6)%X,nb1,&
+                L%mat(q2)%gam(3)%X,np2,bet,w2%tblck(q)%tgam(8)%X,nb1)
+        end if 
+        
+        if (nh1 .ne. 0) then 
+           bet_off = 1 
+           !w2phpp = Aphhh.Bhhpp - Bphhh.Ahhpp 
+           call dgemm('N','N',nb1,np2,nh1,al,L%mat(q1)%gam(6)%X,nb1,&
+                R%tblck(q)%tgam(7)%X,nh1,bet_off,w2%tblck(q)%tgam(8)%X,nb1)
+        end if 
+        
+     end if 
+       
+     RES%tblck(q)%tgam(8)%X = w1%tblck(q)%tgam(8)%X - w2%tblck(q)%tgam(8)%X
+
+
+!----------------------------------------------------------------------------
+!         Zphhh 
+!----------------------------------------------------------------------------
+     if (nb1*nh2 .ne. 0)  then 
+     
+        if ( np2 .ne. 0 ) then 
+           al_off = -1
+           !w1phhh = -Bphpp.Apphh 
+           call dgemm('N','N',nb1,nh2,np2,al_off,R%tblck(q)%tgam(8)%X,nb1,&
+                L%mat(q2)%gam(3)%X,np2,bet,w1%tblck(q)%tgam(6)%X,nb1)
+        end if 
+
+        if (np1 .ne. 0) then 
+           !w1phhh = Aphpp.Bpphh - Bphpp.Apphh
+           bet_off = 1
+           al_off = L%herm
+           call dgemm('T','N',nb1,nh2,np1,al_off,L%mat(q1)%gam(2)%X,np1,&
+                R%tblck(q)%tgam(3)%X,np1,bet_off,w1%tblck(q)%tgam(6)%X,nb1)
+        end if 
+
+       
+        !w2phhh = -Bphhh.Ahhhh
+        al_off = -1
+        call dgemm('N','N',nb1,nh2,nh2,al_off,R%tblck(q)%tgam(6)%X,nb1,&
+             L%mat(q2)%gam(5)%X,nh2,bet,w2%tblck(q)%tgam(6)%X,nb1)
+       
+        
+        if (nh1 .ne. 0) then 
+           bet_off = 1 
+           !w2phhh = Aphhh.Bhhhh - Bphhh.Ahhhh 
+           call dgemm('N','N',nb1,nh2,nh1,al,L%mat(q1)%gam(6)%X,nb1,&
+                R%tblck(q)%tgam(5)%X,nh1,bet_off,w2%tblck(q)%tgam(6)%X,nb1)
+        end if 
+        
+     end if 
+       
+     RES%tblck(q)%tgam(6)%X = w1%tblck(q)%tgam(6)%X - w2%tblck(q)%tgam(6)%X
+
+!----------------------------------------------------------------------------
+!         Zhhph 
+!----------------------------------------------------------------------------
+     if (nh1*nb2 .ne. 0)  then 
+     
+        if (np2 .ne. 0)  then 
+           al_off = -1
+           !w1hhph = -Bhhpp.Appph 
+           call dgemm('N','N',nh1,nb2,np2,al_off,R%tblck(q)%tgam(7)%X,nh1,&
+                L%mat(q2)%gam(2)%X,np2,bet,w1%tblck(q)%tgam(9)%X,nh1)
+        end if
+
+        if (np1 .ne. 0) then
+           !w1hhph = Ahhpp.Bppph - Bhhpp.Appph
+           bet_off = 1
+           al_off = L%herm
+           call dgemm('T','N',nh1,nb2,np1,al_off,L%mat(q1)%gam(3)%X,np1,&
+                R%tblck(q)%tgam(2)%X,np1,bet_off,w1%tblck(q)%tgam(9)%X,nh1)
+        end if 
+
+        if (nh2 .ne. 0) then 
+           !w2hhph = -Bhhhh.Ahhph
+           al_off = -1*L%herm
+           call dgemm('N','T',nh1,nb2,nh2,al_off,R%tblck(q)%tgam(5)%X,nh1,&
+                L%mat(q2)%gam(6)%X,nb2,bet,w2%tblck(q)%tgam(9)%X,nh1)
+        end if 
+        
+        if (nh1 .ne. 0) then 
+           bet_off = 1 
+           !w2hhph = Ahhhh.Bhhph - Bhhhh.Ahhph 
+           call dgemm('N','N',nh1,nb2,nh1,al,L%mat(q1)%gam(5)%X,nh1,&
+                R%tblck(q)%tgam(9)%X,nh1,bet_off,w2%tblck(q)%tgam(9)%X,nh1)
+        end if 
+        
+     end if 
+       
+     RES%tblck(q)%tgam(9)%X = w1%tblck(q)%tgam(9)%X - w2%tblck(q)%tgam(9)%X
+  
+  end do
   
 end subroutine 
 !=================================================================
