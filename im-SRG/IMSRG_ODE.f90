@@ -623,96 +623,45 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
  
  !  !call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
   
+  call TS_commutator_122(ETA,w1,w2,jbas) 
   
   
-  call TS_commutator_222_pp_hh(ETA,w1,w2,w3,w4,jbas) 
-  call TS_commutator_221(w3,w4,w1%herm*ETA%herm,w2,jbas) 
- 
- !call print_matrix(w2%fhh)
-  !call print_matrix(w2%fpp(1:10,1:10)) 
-  !call print_matrix(w2%fph)
 
-  ! print*, w2%tblck(1)%Jpair
-  ! print*
-  ! print*, w2%tblck(1)%tensor_qn(3,1)%Y(:,1)
-  ! print*, w2%tblck(1)%tensor_qn(3,1)%Y(:,2)
-  ! print*
-  ! print*, w2%tblck(1)%tensor_qn(2,2)%Y(:,1)
-  ! print*, w2%tblck(1)%tensor_qn(2,2)%Y(:,2)
+   print*, w2%tblck(1)%Jpair
+   print*
+   print*, w2%tblck(1)%tensor_qn(3,1)%Y(:,1)
+   print*, w2%tblck(1)%tensor_qn(3,1)%Y(:,2)
+   print*
+   print*, w2%tblck(1)%tensor_qn(2,2)%Y(:,1)
+   print*, w2%tblck(1)%tensor_qn(2,2)%Y(:,2)
   
-  !call print_matrix(w2%tblck(1)%tgam(5)%X) 
-  ! print*
-  ! do i = 1, 5
-  !    print*, w2%tblck(1)%tgam(7)%X(:,i)
-  ! end do 
-  !  print*                       
+   print*
+   print*, w2%tblck(8)%Jpair
+   print*
+   print*, w2%tblck(8)%tensor_qn(3,1)%Y(:,1)
+   print*, w2%tblck(8)%tensor_qn(3,1)%Y(:,2)
+   print*
+   print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,1)
+   print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,2)
 
-  ! print*, w2%tblck(8)%Jpair
-  ! print*
-  ! print*, w2%tblck(8)%tensor_qn(3,1)%Y(:,1)
-  ! print*, w2%tblck(8)%tensor_qn(3,1)%Y(:,2)
-  ! print*
-  ! print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,1)
-  ! print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,2)
-  !call print_matrix(w2%tblck(8)%tgam(5)%X)
-  ! print*
-  ! do i = 1, 5
-  !    print*, w2%tblck(8)%tgam(7)%X(:,i)
-  ! end do 
-  ! print*                       
-  print*
-  do i = 1, 10
-     write(*,'(6f12.7)') w2%fph(i,:)
-  end do 
-  print*
-  print*
-  do i = 1, 10
-     write(*,'(6f12.7)') w1%fph(i,:)
-  end do 
-  print*
   do 
-     read*, i,j!,k,l, J1,J2
+     read*, i,j,k,l, J1,J2
      ji=jbas%jj(i)
      jj=jbas%jj(j)
-   !  jk=jbas%jj(k)
-   !  jl=jbas%jj(l)
+     jk=jbas%jj(k)
+     jl=jbas%jj(l)
      
-     
-     ! sm = 0.d0 
-     ! do a = 1,30
-     !    ja = jbas%jj(a)
-     !    do b = 1,30   
-     !       jb = jbas%jj(b) 
-                       
-     !       sm = sm + 0.5*(1-jbas%con(a)-jbas%con(b))&
-     !   *(v_elem(i,j,a,b,J1,ETA,jbas)*tensor_elem(a,b,k,l,J1,J2,w1,jbas) &
-     !  - tensor_elem(i,j,a,b,J1,J2,w1,jbas)*v_elem(a,b,k,l,J2,ETA,jbas) )
-     
-     !    end do
-     ! end do
-
      sm = 0.d0 
-     do a = 1, 30
-        do b = 1, 30
-           do c = 1, 30
-              jc = jbas%jj(c)
-              do J1=0,18,2
-                 do J2=0,18,2
-                    sm = sm +0.5*(jbas%con(a)*jbas%con(b)*(1-jbas%con(c)) + &
-                     (1-jbas%con(a))*(1-jbas%con(b))*jbas%con(c))*&
-                     sqrt((J1+1.d0)*(J2+1.d0))*(-1)**((jj+jc+J1+w1%rank)/2)* &
-                     d6ji(J1,J2,w1%rank,jj,ji,jc)*&
-                     (v_elem(c,i,a,b,J1,ETA,jbas)*tensor_elem(a,b,c,j,J1,J2,w1,jbas) &
-                     - tensor_elem(c,i,a,b,J1,J2,w1,jbas)*v_elem(a,b,c,j,J2,ETA,jbas))
-              
-                    end do 
-                    end do 
-                    end do
-                    end do 
-                    end do 
-    
-!     print*, tensor_elem(i,j,k,l,J1,J2,w2,jbas),sm
-    print*, f_elem(i,j,w2,jbas),sm
+     do a = 1, 30 
+        sm = sm + f_elem(i,a,ETA,jbas)*tensor_elem(a,j,k,l,J1,J2,w1,jbas) &
+                + f_elem(j,a,ETA,jbas)*tensor_elem(i,a,k,l,J1,J2,w1,jbas) &
+                - f_elem(a,k,ETA,jbas)*tensor_elem(i,j,a,l,J1,J2,w1,jbas) &
+                - f_elem(a,l,ETA,jbas)*tensor_elem(i,j,k,a,J1,J2,w1,jbas)
+
+     end do 
+     
+     print*, tensor_elem(i,j,k,l,J1,J2,w2,jbas),sm
+!    print*, f_elem(i,j,w2,jbas),sm
   end do
    stop
   

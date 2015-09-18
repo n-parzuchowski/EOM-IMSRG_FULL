@@ -548,29 +548,27 @@ subroutine TS_commutator_122(L,R,RES,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: L,R,RES
-  integer :: q,IX,JX,nh,np,nb,i,JT
+  integer :: q,IX,JX,nh,np,nb,i,J1,J2
   integer :: a,b,c,d,ja,jb,jc,jd,ji,g_ix,q_sp,i_sp
   integer :: ta,tb,tc,td,ti,la,lb,lc,ld,li,spec
   integer :: jxstart,jxend,ixend,c1,c2,n1,n2
   logical :: square
   real(8) ::  sm
   
-  do q = 1, L%nblocks
-     
-     JT = L%mat(q)%lam(1)
-     
-     nh = L%mat(q)%nhh
-     np = L%mat(q)%npp
-     nb = L%mat(q)%nph
   
-     do g_ix = 1,6 
+  do q = 1, R%nblocks
+     
+     J1 = R%tblck(q)%Jpair(1)
+     J2 = R%tblck(q)%Jpair(2) 
+    
+     do g_ix = 1,9 
    
         ! figure out how big the array is
-        n1 = size(L%mat(q)%gam(g_ix)%X(:,1))
-        n2 = size(L%mat(q)%gam(g_ix)%X(1,:))
+        n1 = size(R%tblck(q)%tgam(g_ix)%X(:,1))
+        n2 = size(R%tblck(q)%tgam(g_ix)%X(1,:))
         if ((n1*n2) == 0) cycle 
         
-         ! read in information about which 
+        ! read in information about which 
         ! array we are using from public arrays
         c1 = sea1(g_ix) 
         c2 = sea2(g_ix) 
@@ -581,24 +579,24 @@ subroutine TS_commutator_122(L,R,RES,jbas)
      ! main calculation
    
      do IX = 1,n1
-        a = L%mat(q)%qn(c1)%Y(IX,1)
+        a = R%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
         ja = jbas%jj(a)
         la = jbas%ll(a)
         ta = jbas%itzp(a) 
              
-        b = L%mat(q)%qn(c1)%Y(IX,2)
+        b = R%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
         jb = jbas%jj(b)
         lb = jbas%ll(b)
         tb = jbas%itzp(b)
  
-        do JX = min(jxstart,IX),n2
+        do JX = 1,n2
            
-           c = L%mat(q)%qn(c2)%Y(JX,1)
+           c = R%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
            jc = jbas%jj(c)
            lc = jbas%ll(c)
            tc = jbas%itzp(c)
 
-           d = L%mat(q)%qn(c2)%Y(JX,2)
+           d = R%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
            jd = jbas%jj(d)
            ld = jbas%ll(d)
            td = jbas%itzp(d)
@@ -611,8 +609,8 @@ subroutine TS_commutator_122(L,R,RES,jbas)
               
                i_sp = jbas%states(q_sp)%Z(i) 
                
-               sm = sm + f_elem(a,i_sp,L,jbas)*v_elem(i_sp,b,c,d,JT,R,jbas)&
-                    - f_elem(a,i_sp,R,jbas)*v_same(L) 
+               sm = sm + f_elem(a,i_sp,L,jbas)*tensor_elem(i_sp,b,c,d,J1,J2,R,jbas)
+
             end do 
               
             ! b is replaced
@@ -621,8 +619,7 @@ subroutine TS_commutator_122(L,R,RES,jbas)
               
                i_sp = jbas%states(q_sp)%Z(i) 
                
-               sm = sm + f_elem(b,i_sp,L,jbas)*v_elem(a,i_sp,c,d,JT,R,jbas)&
-                    - f_elem(b,i_sp,R,jbas)*v_same(L) 
+               sm = sm + f_elem(b,i_sp,L,jbas)*tensor_elem(a,i_sp,c,d,J1,J2,R,jbas) 
             end do 
             
             ! c is replaced
@@ -631,8 +628,7 @@ subroutine TS_commutator_122(L,R,RES,jbas)
               
                i_sp = jbas%states(q_sp)%Z(i) 
                
-               sm = sm - f_elem(i_sp,c,L,jbas)*v_elem(a,b,i_sp,d,JT,R,jbas)&
-                    + f_elem(i_sp,c,R,jbas)*v_same(L) 
+               sm = sm - f_elem(i_sp,c,L,jbas)*tensor_elem(a,b,i_sp,d,J1,J2,R,jbas)
             end do 
             
             ! d is replaced
@@ -641,14 +637,12 @@ subroutine TS_commutator_122(L,R,RES,jbas)
               
                i_sp = jbas%states(q_sp)%Z(i) 
                
-               sm = sm - f_elem(i_sp,d,L,jbas)*v_elem(a,b,c,i_sp,JT,R,jbas)&
-                    + f_elem(i_sp,d,R,jbas)*v_same(L) 
+               sm = sm - f_elem(i_sp,d,L,jbas)*tensor_elem(a,b,c,i_sp,J1,J2,R,jbas)
             end do 
           
-              sm = sm / sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(c,d)) 
+            sm = sm / sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(c,d)) 
 
-           RES%mat(q)%gam(g_ix)%X(IX,JX) = sm 
-           if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) = sm * RES%herm
+           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = sm 
 
         end do
      end do

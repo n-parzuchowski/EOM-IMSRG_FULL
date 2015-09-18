@@ -109,11 +109,11 @@ end type cross_coupled_31_mat
   ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
   
   ! holds the c values for qn and pn arrays
-  integer,public,dimension(6) :: sea1 = (/1,1,1,2,3,2/), sea2 = (/1,2,3,2,3,3/) 
+  integer,public,dimension(9) :: sea1 = (/1,1,1,2,3,2,3,2,3/), sea2 = (/1,2,3,2,3,3,1,1,2/) 
   ! true if square matrix
   logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
   ! 100000 if square matrix, 1 if not. 
-  integer,public,dimension(6) :: jst = (/100000,1,1,100000,100000,1/)
+  integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
  
 contains
 !====================================================
