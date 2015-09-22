@@ -84,7 +84,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
         lq = jbas%ll(qk)
       
         ! check if this state is allowed
-        if ( mod(lq,2) .ne. mod(lp,2)) cycle
+        if ( mod(lq,2) .ne. mod(lp+rank/2,2)) cycle
         if (tq .ne. tp) cycle 
         if (.not. (triangle(jq,jp,rank))) cycle
         
@@ -160,7 +160,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
         lq = jbas%ll(qk)
       
         ! check if this state is allowed
-        if ( mod(lq,2) .ne. mod(lp,2)) cycle
+        if ( mod(lq,2) .ne. mod(lp+rank/2,2)) cycle
         if (tq .ne. tp) cycle 
         if (.not. (triangle(jq,jp,rank))) cycle
         
@@ -239,7 +239,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
        
         ! check if this state is allowed
         
-        if ( mod(lq,2) .ne. mod(lp,2)) cycle
+        if ( mod(lq,2) .ne. mod(lp+rank/2,2)) cycle
         if (tq .ne. tp) cycle 
         if (.not. (triangle(jq,jp,rank))) cycle
    
@@ -335,7 +335,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
         lq = jbas%ll(qk)
       
         ! check if this state is allowed
-        if ( mod(lq,2) .ne. mod(lp,2)) cycle
+        if ( mod(lq,2) .ne. mod(lp+rank/2,2)) cycle
         if (tq .ne. tp) cycle 
         if (.not. (triangle(jq,jp,rank))) cycle
         
@@ -356,7 +356,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
               li = jbas%ll(ik)
               
               ! check if this intermediate exists
-              if ( mod(li,2) .ne. mod(la,2)) cycle
+              if ( mod(li,2) .ne. mod(la+rank/2,2)) cycle
               if (ti .ne. ta) cycle 
               if (.not. (triangle(ja,ji,rank))) cycle
                
@@ -368,7 +368,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
               Tz = abs(ta -ti)/2 
               if (abs(tp - tq) .ne. Tz*2)  cycle 
               PAR = mod(la+li,2) 
-              if (mod(lp+lq,2) .ne. PAR) cycle                                 
+              if (mod(lp+lq+rank/2,2) .ne. PAR) cycle                                 
 
               qx = rank/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                 
@@ -409,7 +409,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
         lq = jbas%ll(qk)
       
         ! check if this state is allowed
-        if ( mod(lq,2) .ne. mod(lp,2)) cycle
+        if ( mod(lq,2) .ne. mod(lp+rank/2,2)) cycle
         if (tq .ne. tp) cycle 
         if (.not. (triangle(jq,jp,rank))) cycle
         
@@ -430,7 +430,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
               li = jbas%ll(ik)
               
               ! check if this intermediate exists
-              if ( mod(li,2) .ne. mod(la,2)) cycle
+              if ( mod(li,2) .ne. mod(la+rank/2,2)) cycle
               if (ti .ne. ta) cycle 
               if (.not. (triangle(ja,ji,rank))) cycle
                
@@ -442,7 +442,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
               Tz = abs(ta -ti)/2 
               if (abs(tp - tq) .ne. Tz*2)  cycle 
               PAR = mod(la+li,2) 
-              if (mod(lp+lq,2) .ne. PAR) cycle                                 
+              if (mod(lp+lq+rank/2,2) .ne. PAR) cycle                                 
 
 
               qx = rank/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
@@ -483,7 +483,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
         lq = jbas%ll(qk)
       
         ! check if this state is allowed
-        if ( mod(lq,2) .ne. mod(lp,2)) cycle
+        if ( mod(lq,2) .ne. mod(lp+rank/2,2)) cycle
         if (tq .ne. tp) cycle 
         if (.not. (triangle(jq,jp,rank))) cycle
         
@@ -504,7 +504,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
               li = jbas%ll(ik)
               
               ! check if this intermediate exists
-              if ( mod(li,2) .ne. mod(la,2)) cycle
+              if ( mod(li,2) .ne. mod(la+rank/2,2)) cycle
               if (ti .ne. ta) cycle 
               if (.not. (triangle(ja,ji,rank))) cycle
                
@@ -516,7 +516,7 @@ subroutine TS_commutator_211(LCC,R,RES,jbas)
               Tz = abs(ta -ti)/2 
               if (abs(tp - tq) .ne. Tz*2)  cycle 
               PAR = mod(la+li,2) 
-              if (mod(lp+lq,2) .ne. PAR) cycle                                 
+              if (mod(lp+lq+rank/2,2) .ne. PAR) cycle                                 
 
               qx = rank/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                 
@@ -651,6 +651,145 @@ subroutine TS_commutator_122(L,R,RES,jbas)
   end do 
 
 end subroutine           
+!==================================================
+!==================================================             
+subroutine TS_commutator_212(L,R,RES,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: L,R,RES
+  integer :: q,IX,JX,nh,np,nb,i,J1,J2
+  integer :: a,b,c,d,ja,jb,jc,jd,ji,g_ix,q_sp,i_sp
+  integer :: ta,tb,tc,td,ti,modla,modlb,modlc,modld,modli,spec,rank
+  integer :: jxstart,jxend,ixend,c1,c2,n1,n2
+  logical :: square
+  real(8) ::  sm,sm1,sm2,sm3,sm4,d6ji
+  
+  rank = R%rank
+  
+  do q = 1, R%nblocks
+     
+     J1 = R%tblck(q)%Jpair(1)
+     J2 = R%tblck(q)%Jpair(2) 
+    
+     do g_ix = 1,9 
+   
+        ! figure out how big the array is
+        n1 = size(R%tblck(q)%tgam(g_ix)%X(:,1))
+        n2 = size(R%tblck(q)%tgam(g_ix)%X(1,:))
+        if ((n1*n2) == 0) cycle 
+        
+        ! read in information about which 
+        ! array we are using from public arrays
+        c1 = sea1(g_ix) 
+        c2 = sea2(g_ix) 
+        square = sqs(g_ix) 
+        jxstart = jst(g_ix) 
+        
+                
+     ! main calculation
+   
+     do IX = 1,n1
+        a = R%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
+        ja = jbas%jj(a)
+        modla = mod(jbas%ll(a),2)
+        ta = jbas%itzp(a) 
+             
+        b = R%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
+        jb = jbas%jj(b)
+        modlb = mod(jbas%ll(b),2)
+        tb = jbas%itzp(b)
+ 
+        do JX = 1,n2
+           
+           c = R%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
+           jc = jbas%jj(c)
+           modlc = mod(jbas%ll(c),2)
+           tc = jbas%itzp(c)
+
+           d = R%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
+           jd = jbas%jj(d)
+           modld = mod(jbas%ll(d),2)
+           td = jbas%itzp(d)
+                   
+           sm = 0.d0 
+
+           do i = 1,jbas%total_orbits
+               
+              ji = jbas%jj(i) 
+              ti = jbas%itzp(i)
+              modli = mod(jbas%ll(i)+rank/2,2) 
+              
+              sm1 = 0.d0 
+              if (ti == ta) then
+                 if (modli == modla ) then 
+                    if (triangle(ji,ja,rank)) then  
+                       
+                       sm1 = sm1 - d6ji(ji,jb,J2,J1,rank,ja)*f_tensor_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
+                     
+                    end if
+                 end if
+              end if
+               
+              sm1 = sm1*(-1)**((ja + jb-J2)/2) 
+               
+              
+              sm2 = 0.d0 
+              if (ti == tb) then
+                 if (modli == modlb ) then 
+                    if (triangle(ji,jb,rank)) then  
+                       
+                       sm2 = sm2 + d6ji(ji,ja,J2,J1,rank,jb)*f_tensor_elem(b,i,R,jbas)*v_elem(i,a,c,d,J2,L,jbas)
+                       
+                    end if
+                 end if
+              end if
+               
+              sm2 = sm2*(-1)**((J1+J2)/2) 
+              
+
+              sm3 = 0.d0 
+              if (ti == td) then
+                 if (modli == modld ) then 
+                    if (triangle(ji,jd,rank)) then  
+                       
+                       sm3 = sm3 + d6ji(ji,jd,rank,J2,J1,jc)*f_tensor_elem(i,d,R,jbas)*v_elem(a,b,c,i,J1,L,jbas)
+                       
+                    end if
+                 end if
+              end if
+               
+              sm3 = sm3*(-1)**((jc+jd-J1)/2) 
+              
+
+              sm4 = 0.d0 
+              if (ti == tc) then
+                 if (modli == modlc ) then 
+                    if (triangle(ji,jc,rank)) then  
+                       
+                       sm4 = sm4 - d6ji(ji,jc,rank,J2,J1,jd)*f_tensor_elem(i,c,R,jbas)*v_elem(a,b,d,i,J1,L,jbas)
+                       
+                    end if
+                 end if
+              end if
+               
+              sm4 = sm4*(-1)**((J2+J1)/2)
+              
+              sm =  sm + (sm1+sm2+sm3+sm4) 
+           end do 
+           
+           sm = sm * sqrt((J1+1.d0)*(J2+1.d0) / &
+              (1.d0 + kron_del(a,b)) /(1.d0 + kron_del(c,d))) * (-1)**(rank/2) 
+ 
+           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = sm 
+           
+        end do
+     end do
+   
+     end do 
+  end do 
+
+end subroutine           
 !===================================================================
 !===================================================================
 subroutine TS_commutator_221(w1,w2,pm,RES,jbas) 
@@ -682,7 +821,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
         jj = jbas%jj(j) 
         if (.not. (triangle(jj,ji,w1%rank))) cycle
         lj = jbas%ll(j) 
-        if (mod(li,2) .ne. mod(lj,2))  cycle
+        if (mod(li,2) .ne. mod(lj+w1%rank/2,2))  cycle
         tj = jbas%itzp(j)
         if (tj .ne. ti) cycle 
                 
@@ -763,7 +902,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
         jj = jbas%jj(j) 
         if (.not. (triangle(jj,ji,w1%rank))) cycle
         lj = jbas%ll(j) 
-        if (mod(li,2) .ne. mod(lj,2))  cycle
+        if (mod(li,2) .ne. mod(lj+w1%rank/2,2))  cycle
         tj = jbas%itzp(j)
         if (tj .ne. ti) cycle 
                 
@@ -843,7 +982,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
         jj = jbas%jj(j) 
         if (.not. (triangle(jj,ji,w1%rank))) cycle
         lj = jbas%ll(j) 
-        if (mod(li,2) .ne. mod(lj,2))  cycle
+        if (mod(li,2) .ne. mod(lj+w1%rank/2,2))  cycle
         tj = jbas%itzp(j)
         if (tj .ne. ti) cycle 
       
@@ -1470,8 +1609,8 @@ integer function ph_rval(i,l,Ntot,q,LCC)
   
   x = CCindex(i,l,Ntot)
   g = 1
+
   do while (LCC%qmap(x)%Z(g) .ne. q )
-  
      g = g + 1
   end do
   

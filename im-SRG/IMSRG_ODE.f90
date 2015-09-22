@@ -432,11 +432,11 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   
   real(8) :: t,ex,ex2
   integer :: i,j,k,l,neq,bytes,n,m,p,q,r,s,px,qx,rx,sx,IX,JX,a,b,c,d
-  integer :: ji,jj,jk,jl,ja,jb,jc,jd,J1,J2
-  real(8) :: yp(*),yy(*),sm,x,d6ji
+  integer :: ji,jj,jk,jl,ja,jb,jc,jd,J1,J2,q1,q2,ril,rkj,J3,J4
+  real(8) :: yp(*),yy(*),sm,x,d6ji,coef9
   type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,w3,w4
-  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC 
+  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC,KCC 
 
 !!! we need the sq_op structure to compute the derivatives at max speed
 !!! so we allocate a bunch of those to work in 
@@ -458,12 +458,15 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   ETA%herm = -1
   w1%herm = 1
   w1%rank =4 
+  
   call allocate_tensor(jbas,w1,HS) 
+  call allocate_tensor_CCMAT(w1,KCC,jbas) 
   call calculate_EX(w1,jbas)
   
   call duplicate_sq_op(w1,w2) 
   call duplicate_sq_op(w1,w3) 
   call duplicate_sq_op(w1,w4) 
+ 
   w2%herm = -1*ETA%herm
   
   
@@ -621,28 +624,27 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   end if 
   end do 
  
- !  !call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
+  call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
+  call calculate_generalized_pandya(ETA,w1,KCC,jbas,.false.) 
   
-  call TS_commutator_122(ETA,w1,w2,jbas) 
+  !  call TS_commutator_212(ETA,w1,w2,jbas) 
   
+  print*, w2%tblck(1)%Jpair
+  print*
+  print*, w2%tblck(1)%tensor_qn(3,1)%Y(:,1)
+  print*, w2%tblck(1)%tensor_qn(3,1)%Y(:,2)
+  print*
+  print*, w2%tblck(1)%tensor_qn(2,2)%Y(:,1)
+  print*, w2%tblck(1)%tensor_qn(2,2)%Y(:,2)
   
-
-   print*, w2%tblck(1)%Jpair
-   print*
-   print*, w2%tblck(1)%tensor_qn(3,1)%Y(:,1)
-   print*, w2%tblck(1)%tensor_qn(3,1)%Y(:,2)
-   print*
-   print*, w2%tblck(1)%tensor_qn(2,2)%Y(:,1)
-   print*, w2%tblck(1)%tensor_qn(2,2)%Y(:,2)
-  
-   print*
-   print*, w2%tblck(8)%Jpair
-   print*
-   print*, w2%tblck(8)%tensor_qn(3,1)%Y(:,1)
-   print*, w2%tblck(8)%tensor_qn(3,1)%Y(:,2)
-   print*
-   print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,1)
-   print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,2)
+  print*
+  print*, w2%tblck(8)%Jpair
+  print*
+  print*, w2%tblck(8)%tensor_qn(3,1)%Y(:,1)
+  print*, w2%tblck(8)%tensor_qn(3,1)%Y(:,2)
+  print*
+  print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,1)
+  print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,2)
 
   do 
      read*, i,j,k,l, J1,J2
@@ -651,19 +653,51 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
      jk=jbas%jj(k)
      jl=jbas%jj(l)
      
+     q1 = block_index(J1,abs(jbas%itzp(i)-jbas%itzp(l))/2,mod(jbas%ll(i)+jbas%ll(l),2))
+     q2 = block_index(J2,abs(jbas%itzp(k)-jbas%itzp(j))/2,mod(jbas%ll(k)+jbas%ll(j),2))
+     q = CCtensor_block_index(J1,J2,w1%rank,abs(jbas%itzp(i)-jbas%itzp(l))/2,mod(jbas%ll(i)+jbas%ll(l),2))
+     
      sm = 0.d0 
-     do a = 1, 30 
-        sm = sm + f_elem(i,a,ETA,jbas)*tensor_elem(a,j,k,l,J1,J2,w1,jbas) &
-                + f_elem(j,a,ETA,jbas)*tensor_elem(i,a,k,l,J1,J2,w1,jbas) &
-                - f_elem(a,k,ETA,jbas)*tensor_elem(i,j,a,l,J1,J2,w1,jbas) &
-                - f_elem(a,l,ETA,jbas)*tensor_elem(i,j,k,a,J1,J2,w1,jbas)
-
+     do J3 = abs(ji-jj),ji+jj,2
+        do J4 = abs(jk-jl),jk+jl,2
+           
+           sm = sm - sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0)) * &
+                (-1)**((jj+jl+J2+J4)/2) * coef9(ji,jl,J1,jj,jk,J2,J3,J4,w1%rank) * &
+                tensor_elem(i,j,k,l,J3,J4,w1,jbas) 
+        end do 
      end do 
      
-     print*, tensor_elem(i,j,k,l,J1,J2,w2,jbas),sm
-!    print*, f_elem(i,j,w2,jbas),sm
+     print*, sm    
+    
+    
+     ril = TS_rval(i,l,30,q1,KCC)
+     rkj = ph_rval(k,j,30,q2,KCC)
+
+     
+     print*, KCC%CCX(q)%X(ril,rkj) 
+     
+  
+     
+     
+
+     ! do a = 1, 30 
+     !    ja = jbas%jj(a) 
+     !    sm = sm - (-1)**w1%rank*sqrt((J1+1.d0)*(J2+1.d0))*(&
+     !      (-1)**((ji+jj+J2)/2)*d6ji(J2,J1,w1%rank,ji,ja,jj)* &
+     !      f_tensor_elem(i,a,w1,jbas)*v_elem(a,j,k,l,J2,ETA,jbas) &
+     !      + (-1)**((ji+ja-J1)/2)*d6ji(J2,J1,w1%rank,jj,ja,ji)* &
+     !      f_tensor_elem(j,a,w1,jbas)*v_elem(i,a,k,l,J2,ETA,jbas) &
+     !      - (-1)**((ja+jl+J2)/2)*d6ji(J1,J2,w1%rank,jk,ja,jl)* &
+     !      f_tensor_elem(a,k,w1,jbas)*v_elem(i,j,a,l,J1,ETA,jbas) &
+     !      - (-1)**((jk+jl-J1)/2)*d6ji(J1,J2,w1%rank,jl,ja,jk)* &
+     !     f_tensor_elem(a,l,w1,jbas)*v_elem(i,j,k,a,J1,ETA,jbas) )
+
+     ! end do
+     
+     !print*, tensor_elem(i,j,k,l,J1,J2,w2,jbas),sm
+
   end do
-   stop
+  stop
   
 
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)
