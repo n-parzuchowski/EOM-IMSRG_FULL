@@ -91,7 +91,7 @@ type cross_coupled_31_mat
    type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
    type(real_mat),allocatable,dimension(:) :: CCX,CCR
    integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
-   integer :: nblocks,Nsp,rank
+   integer :: nblocks,Nsp,rank,herm
 end type cross_coupled_31_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
@@ -2544,6 +2544,7 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
   NX = HS%Nsp
   CCME%Nsp = NX
   CCME%rank = 0
+  CCME%herm = HS%herm
   JTM = jbas%Jtotal_max
   CCME%nblocks = (JTM + 1) * 2 * 2
   ! 2 dof for parity, 2 for Tz (i'm only worried about abs(Tz) ) 
@@ -2663,6 +2664,7 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
   RANK = OP%rank
   CCME%rank = OP%rank 
   CCME%Nsp = NX
+  CCME%herm = OP%herm  
   JTM = jbas%Jtotal_max
   Jold = 1
 ! quantum numbers of the last block 
@@ -2826,6 +2828,7 @@ subroutine duplicate_CCMAT(C1,CCME)
   CCME%Nsp = NX
   CCME%rank = C1%rank
   CCME%nblocks = C1%nblocks
+  CCME%herm = C1%herm
   allocate(CCME%CCX(C1%nblocks))
   allocate(CCME%CCR(C1%nblocks))
   allocate(CCME%nph(C1%nblocks))
@@ -2890,7 +2893,8 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
   Ntot = HS%Nsp
   JTM = jbas%Jtotal_max 
   pre = 1.d0 
-
+  CCME%herm = HS%Herm
+  
 !$omp parallel do default(firstprivate),shared(CCME,HS,jbas) 
   do q1 = 1, CCME%nblocks
       
@@ -3020,7 +3024,7 @@ subroutine calculate_generalized_pandya(HS,OP,CCME,jbas,phase)
   JTM = jbas%Jtotal_max 
   pre = 1.d0 
   rank = OP%rank
-
+  CCME%herm = OP%Herm
 !$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
   do q1 = 1, CCME%nblocks
       
@@ -3354,6 +3358,29 @@ subroutine allocate_CC_wkspc(CCHS,WCC)
      
      allocate(WCC%CCX(q)%X(r,r)) 
      allocate(WCC%CCR(q)%X(r,r)) 
+     WCC%CCX(q)%X = 0.d0
+     WCC%CCR(q)%X = 0.d0
+     
+  end do
+end subroutine 
+!===========================================================
+!===========================================================  
+subroutine allocate_CCtensor_wkspc(CCOP,WCC)
+  implicit none 
+  
+  type(cross_coupled_31_mat) :: CCOP,WCC 
+  integer :: q,r1,r2
+  
+  allocate(WCC%CCX(CCOP%nblocks))
+  allocate(WCC%CCR(CCOP%nblocks))
+  
+  do q = 1,CCOP%nblocks
+     
+     r1 = size(CCOP%CCX(q)%X(:,1)) 
+     r2 = size(CCOP%CCR(q)%X(1,:))
+     
+     allocate(WCC%CCX(q)%X(r1,r2)) 
+     allocate(WCC%CCR(q)%X(r1,r2)) 
      WCC%CCX(q)%X = 0.d0
      WCC%CCR(q)%X = 0.d0
      

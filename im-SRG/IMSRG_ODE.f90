@@ -432,8 +432,8 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   
   real(8) :: t,ex,ex2
   integer :: i,j,k,l,neq,bytes,n,m,p,q,r,s,px,qx,rx,sx,IX,JX,a,b,c,d
-  integer :: ji,jj,jk,jl,ja,jb,jc,jd,J1,J2,q1,q2,ril,rkj,J3,J4
-  real(8) :: yp(*),yy(*),sm,x,d6ji,coef9
+  integer :: ji,jj,jk,jl,ja,jb,jc,jd,J1,J2,q1,q2,ril,rkj,J3,J4,J5,J6,J7
+  real(8) :: yp(*),yy(*),sm,x,d6ji,coef9,smr1,smr2,smr3,smr4
   type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,w3,w4
   type(cross_coupled_31_mat) :: WCC,ETACC,HSCC,KCC 
@@ -448,7 +448,7 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
 !  call duplicate_sq_op(HS,w2) !workspace
   call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
-  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
+!  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
 
  ! call build_gs_wegner(HS,ETA,jbas,HSCC,ETACC,WCC,w1,w2) 
   call build_gs_white(HS,ETA,jbas) ! constructs generator
@@ -460,7 +460,8 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   w1%rank =4 
   
   call allocate_tensor(jbas,w1,HS) 
-  call allocate_tensor_CCMAT(w1,KCC,jbas) 
+  call allocate_tensor_CCMAT(w1,KCC,jbas)
+  call allocate_CCtensor_wkspc(KCC,WCC) 
   call calculate_EX(w1,jbas)
   
   call duplicate_sq_op(w1,w2) 
@@ -534,6 +535,14 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
               
               call random_number(x) 
               x = 10.*x-5.
+
+              if ( ETA%mat(q)%qn(sea1(i))%Y(IX,1) == ETA%mat(q)%qn(sea1(i))%Y(IX,2) ) then 
+                 if ( mod( ETA%mat(q)%lam(1)/2, 2) == 1) x = 0.d0 
+              end if 
+
+              if ( ETA%mat(q)%qn(sea2(i))%Y(JX,1) == ETA%mat(q)%qn(sea2(i))%Y(JX,2) ) then 
+                 if ( mod( ETA%mat(q)%lam(1)/2, 2) == 1) x = 0.d0 
+              end if 
               
               ETA%mat(q)%gam(i)%X(IX,JX) =  x * (1 + ETA%herm *kron_del(IX,JX) ) 
               if (sqs(i)) ETA%mat(q)%gam(i)%X(JX,IX) = ETA%herm*x*  (1 + ETA%herm *kron_del(IX,JX) )  
@@ -543,6 +552,7 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
         end do 
     end do 
   end do 
+
   
    do i = 1, w1%belowEF
      do j = i, w1%belowEF
@@ -601,8 +611,16 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
            do JX = 1, size(w1%tblck(q)%tgam(i)%X(1,:) )
               
               call random_number(x)
+
+              x = 10.*x-5.              
+              if ( w1%tblck(q)%tensor_qn(sea1(i),1)%Y(IX,1) == w1%tblck(q)%tensor_qn(sea1(i),1)%Y(IX,2) ) then 
+                 if ( mod( w1%tblck(q)%Jpair(1)/2, 2) == 1) x = 0.d0 
+              end if 
+
+              if ( w1%tblck(q)%tensor_qn(sea2(i),2)%Y(JX,1) == w1%tblck(q)%tensor_qn(sea2(i),2)%Y(JX,2) ) then 
+                 if ( mod( w1%tblck(q)%Jpair(2)/2, 2) == 1) x = 0.d0 
+              end if 
               
-              x = 10.*x-5.
               w1%tblck(q)%tgam(i)%X(IX,JX) = x
               
            end do 
@@ -623,10 +641,14 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
      w1%tblck(q)%tgam(9)%X = Transpose(w1%tblck(q)%tgam(6)%X)
   end if 
   end do 
- 
+
+  
   call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
   call calculate_generalized_pandya(ETA,w1,KCC,jbas,.false.) 
   
+  print*, ETACC%herm, KCC%herm
+  print*, ETA%herm , w1%herm , 'dork'
+  call TS_commutator_222_ph(ETACC,KCC,w2,WCC,jbas) 
   !  call TS_commutator_212(ETA,w1,w2,jbas) 
   
   print*, w2%tblck(1)%Jpair
@@ -646,56 +668,164 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,1)
   print*, w2%tblck(8)%tensor_qn(2,2)%Y(:,2)
 
+  smr1 = 0.d0 
+  smr2 = 0.d0 
+  smr4 = 0.d0 
+  smr3 = 0.d0 
   do 
-     read*, i,j,k,l, J1,J2
-     ji=jbas%jj(i)
-     jj=jbas%jj(j)
-     jk=jbas%jj(k)
-     jl=jbas%jj(l)
+     read*, a,b,c,d,J1,J2
+  
+     ! a = 7
+     ! c = 7 
+     ! b = 7
+     ! d = 9
      
-     q1 = block_index(J1,abs(jbas%itzp(i)-jbas%itzp(l))/2,mod(jbas%ll(i)+jbas%ll(l),2))
-     q2 = block_index(J2,abs(jbas%itzp(k)-jbas%itzp(j))/2,mod(jbas%ll(k)+jbas%ll(j),2))
-     q = CCtensor_block_index(J1,J2,w1%rank,abs(jbas%itzp(i)-jbas%itzp(l))/2,mod(jbas%ll(i)+jbas%ll(l),2))
+     ! J1 = 2
+     ! J2 = 2
+       
+    ! ji=jbas%jj(i)
+    ! jj=jbas%jj(j)
+     
+     jc=jbas%jj(c)
+     jd=jbas%jj(d)
+     ja=jbas%jj(a)
+     jb=jbas%jj(b)
+
+     
+     ! GPME
+     ! print*, 'GPME'
+     
+     !  q1 = block_index(J1,abs(jbas%itzp(i)-jbas%itzp(j))/2,mod(jbas%ll(i)+jbas%ll(j),2))
+     !  q2 = block_index(J2,abs(jbas%itzp(c)-jbas%itzp(b))/2,mod(jbas%ll(c)+jbas%ll(b),2))
+     !  q = CCtensor_block_index(J1,J2,w1%rank,abs(jbas%itzp(i)-jbas%itzp(j))/2,mod(jbas%ll(i)+jbas%ll(j),2))
+     
+     !  sm = 0.d0 
+     !  do J3 = abs(ji-jb),ji+jb,2
+     !     do J4 = abs(jj-jc),jj+jc,2
+           
+     !        sm = sm - sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0)) * &
+     !             (-1)**((jb+jj+J2+J4)/2) * coef9(ji,jj,J1,jb,jc,J2,J3,J4,w1%rank) * &
+     !             tensor_elem(i,b,c,j,J3,J4,w1,jbas) 
+            
+     !     end do 
+     !  end do 
+     
+     !  print*, sm , sm*( -1)**(( jc + jb + ji + jj + J1 + J2 + w1%rank ) /2)    
+  
+     !  smr3 = sm 
+      
+     ! ril = ph_rval(j,i,30,q1,KCC)
+     ! rkj = TS_rval(c,b,30,q2,KCC)
+
+     
+     !  print*, KCC%CCR(q)%X(ril,rkj) 
+     ! smr4  = KCC%CCR(q)%X(ril,rkj) 
+ 
+    ! 222ph 
      
      sm = 0.d0 
-     do J3 = abs(ji-jj),ji+jj,2
-        do J4 = abs(jk-jl),jk+jl,2
+     
+     do i = 1,30
+        ji = jbas%jj(i) 
+        do j = 1,30
+           jj = jbas%jj(j)
+           do J3 = 0,18,2
+              do J4 = 0,18,2
+                 do J5 = 0,18,2
+                    do jx = 1,15,2
+                       
+                       sm = sm + (jbas%con(i) - jbas%con(j)) * (jx+1.d0) * (J3+1.d0) *&
+                            sqrt( (J1+1.d0)*(J2+1.d0)*(J4+1.d0)*(J5+1.d0) ) *(-1)** ( (J2 + J3 + jc -ji)/2) * &
+                            coef9(jj,J3,ja,J4,ji,jb,jx,jd,J1) * d6ji(jj,J4,jx,w1%rank,jc,J5) &
+                            * d6ji(J1,jx,jd,jc,J2,w1%rank) * v_elem(a,j,d,i,J3,ETA,jbas) * &
+                            tensor_elem(i,b,j,c,J4,J5,w1,jbas) 
+                       
+                     end do 
+                  end do; end do; end do ; end do; end do
+   
+                  smr1 = sm 
+                  sm = 0.d0 
+     do i = 1,30
+        ji = jbas%jj(i) 
+        do j = 1,30
+           jj = jbas%jj(j)
            
-           sm = sm - sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0)) * &
-                (-1)**((jj+jl+J2+J4)/2) * coef9(ji,jl,J1,jj,jk,J2,J3,J4,w1%rank) * &
-                tensor_elem(i,j,k,l,J3,J4,w1,jbas) 
-        end do 
-     end do 
+           do J3= 0,18,2
+              do J4 = 0,18,2
+                 
+           do J5 = 0,18,2
+              do J6 = 0,18,2
+                 do J7 = 0,18,2
+                    
+                    sm  = sm - (jbas%con(i) - jbas%con(j)) * (-1)**((jb+jd+J2+J4)/2) * &
+                         (-1)**((jj + jb+ J4 + J7)/2) * sqrt((J1+1.d0)*(J2+1.d0)*(J6+1.d0)*(J7+1.d0)) &
+                         * (J3+1.d0) * (J4+1.d0) * (J5 + 1.d0)  *coef9( ja, jd ,J3, jb,jc ,J4 , J1,J2,w1%rank) &
+                    * coef9(ji,jj,J3,jb,jc,J4,J6,J7,w1%rank) * (-1)**((ja-jd+J3)/2) * (-1)**((ja+ji+J5+J3)/2) * &
+                    d6ji(jd,ja,J3,jj,ji,J5) * v_elem(a,j,d,i,J5,ETA,jbas) * tensor_elem(i,b,c,j,J6,J7,w1,jbas) 
+                end do 
+                   end do; end do; end do ; end do; end do;end do 
+                  
      
-     print*, sm    
-    
-    
-     ril = TS_rval(i,l,30,q1,KCC)
-     rkj = ph_rval(k,j,30,q2,KCC)
 
      
-     print*, KCC%CCX(q)%X(ril,rkj) 
+     print*, tensor_elem(a,b,c,d,J1,J2,w2,jbas),sm,smr1
+
      
+     ! matmul
+     
+     ! sm = 0.d0 
+     
+     ! do i = 1,6
+     !    ji = jbas%jj(i)
+     !    do j = 7,30
+     !       jj = jbas%jj(j) 
+
+     ! do J5 = 0,18,2
+     !    do J6 = 0,18,2
+     !       do J7= 0,18,2
+              
+     !          sm = sm - (J7+1.d0) * sqrt((J5+1.d0)*(J6+1.d0)*(J3+1.d0)*(J4+1.d0)) *&
+     !               (-1)**( ( ja+ji+J3+J7 + jb + jj + J4 + J6 )/2) *d6ji(jd,ja,J3,jj,ji,J7) * &
+     !               coef9(ji,jj,J3,jb,jc,J4,J5,J6,w1%rank) *v_elem(a,j,d,i,J7,ETA,jbas) * &
+     !               tensor_elem(i,b,c,j,J5,J6,w1,jbas) 
+            
+     !        end do 
+     !     end do 
+     !    end do 
+     !   end do 
+     !   end do
+      
+     !   print*, sm
+     
+     
+     ! CC 
+    
+
+    !   print*, 'cross-coupled' 
+    !   sm = 0.d0 
+    !   do J3 = 0 ,18,2
+        
+    !      sm = sm + sqrt(J1+1.d0)*(J3+1.d0) *(-1)**((ja + ji + J1+J3)/2) * &
+    !           d6ji(jd,ja,J1,jj,ji,J3) * v_elem(a,j,d,i,J3,ETA,jbas) 
+        
+    !   end do 
+     
+    !   print*, sm 
+    !  ! stop 
+    !   smr1 = smr1 + sm*smr3/sqrt(3.d0)
+    !   q = J1/2+1! + 0*(JTM+1) + 2*0*(JTM+1)
   
-     
-     
 
-     ! do a = 1, 30 
-     !    ja = jbas%jj(a) 
-     !    sm = sm - (-1)**w1%rank*sqrt((J1+1.d0)*(J2+1.d0))*(&
-     !      (-1)**((ji+jj+J2)/2)*d6ji(J2,J1,w1%rank,ji,ja,jj)* &
-     !      f_tensor_elem(i,a,w1,jbas)*v_elem(a,j,k,l,J2,ETA,jbas) &
-     !      + (-1)**((ji+ja-J1)/2)*d6ji(J2,J1,w1%rank,jj,ja,ji)* &
-     !      f_tensor_elem(j,a,w1,jbas)*v_elem(i,a,k,l,J2,ETA,jbas) &
-     !      - (-1)**((ja+jl+J2)/2)*d6ji(J1,J2,w1%rank,jk,ja,jl)* &
-     !      f_tensor_elem(a,k,w1,jbas)*v_elem(i,j,a,l,J1,ETA,jbas) &
-     !      - (-1)**((jk+jl-J1)/2)*d6ji(J1,J2,w1%rank,jl,ja,jk)* &
-     !     f_tensor_elem(a,l,w1,jbas)*v_elem(i,j,k,a,J1,ETA,jbas) )
 
-     ! end do
+    !   ril = TS_rval(a,d,30,q,ETACC)
+    !   rkj = ph_rval(j,i,30,q,ETACC)
      
-     !print*, tensor_elem(i,j,k,l,J1,J2,w2,jbas),sm
-
+    ! !  print*, q, ril,rkj
+     
+    !   print*, ETACC%CCR(q)%X(rkj,ril)
+    !   smr2 = smr2 + smr4*ETACC%CCR(q)%X(rkj,ril)/sqrt(3.d0)     
+    !   print*, 'ass'
+    !   print*, smr1,smr2
   end do
   stop
   

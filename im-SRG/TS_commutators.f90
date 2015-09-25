@@ -1437,53 +1437,74 @@ end subroutine
    type(spd) :: jbas
    type(sq_op) :: RES
    type(cross_coupled_31_mat) :: LCC,RCC,WCC
-   integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM
-   integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
-   integer :: JP, Jtot,Ntot,qx,jmin,jmax,rik,rjl,ril,rjk,g_ix,thread,total_threads
-   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2
+   integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank
+   integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max
+   integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
+   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor
    logical :: square
    
-
+  rank = RES%rank
   Ntot = RES%Nsp
   JTM = jbas%Jtotal_max
   total_threads = size(RES%direct_omp) - 1
    ! construct intermediate matrices
  
-   do q = 1,LCC%nblocks
+   do q = 1,RCC%nblocks
       
-      nb = LCC%nph(q)
+      nb2 = size(RCC%CCX(q)%X(1,:))
+      nb1 = size(RCC%CCR(q)%X(:,1))
+      r1 = size(RCC%CCX(q)%X(:,1))
+      r2 = size(RCC%CCR(q)%X(1,:))      
       
-      rinx = LCC%rlen(q)  
+      if (r1 * r2 == 0) cycle
       
-      if (nb * rinx == 0) cycle
-      
-      call dgemm('N','N',rinx,rinx,nb,al,LCC%CCX(q)%X,rinx,&
-           RCC%CCR(q)%X,nb,bet,WCC%CCX(q)%X,rinx) 
-     
-      call dgemm('N','N',rinx,rinx,nb,al,RCC%CCX(q)%X,rinx,&
-           LCC%CCR(q)%X,nb,bet,WCC%CCR(q)%X,rinx) 
-   
+         PAR = mod(q-1,2)
+         Tz = mod((q-1)/2,2) 
+         
+         if (nb1 .ne. 0 ) then 
+            J1 = RCC%Jval(q) 
+            factor = 1.d0/sqrt(J1+1.d0)
+            q1 = J1/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
+
+            call dgemm('T','N',r1,r2,nb1,factor,LCC%CCR(q1)%X,nb1,&
+                 RCC%CCR(q)%X,nb1,bet,WCC%CCX(q)%X,r1) 
+         end if 
+         
+         if (nb2 .ne. 0 ) then 
+            
+            J2 = RCC%Jval2(q) 
+            q2 = J2/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
+            factor = 1.d0/sqrt(J2+1.d0)
+            
+            call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(q)%X,r1,&
+                 LCC%CCX(q2)%X,r2,bet,WCC%CCR(q)%X,r1) 
+         end if 
+
    end do 
 
-!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
-   do thread = 1, total_threads
-   do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
-     
-     Jtot = RES%mat(q)%lam(1)
-     
-     nh = RES%mat(q)%nhh
-     np = RES%mat(q)%npp
-     nb = RES%mat(q)%nph
+   print*, WCC%CCX(5)%X(31,30) , 'TITS'
+
+!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
+    !do thread = 1, total_threads
+!    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
+ 
+   do q = 1,RES%nblocks
+      J1 = RES%tblck(q)%jpair(1)
+      J2 = RES%tblck(q)%jpair(2)
+
+      ! nh = RES%tblck(q)%nhh
+      ! np = RES%tblck(q)%npp
+      ! nb = RES%tblck(q)%nph
           
-     do g_ix = 1,6 
+      do g_ix = 1,9 
    
-        ! figure out how big the array is
-        n1 = size(RES%mat(q)%gam(g_ix)%X(:,1))
-        n2 = size(RES%mat(q)%gam(g_ix)%X(1,:))
-        if ((n1*n2) == 0) cycle 
+         ! figure out how big the array is
+         n1 = size(RES%tblck(q)%tgam(g_ix)%X(:,1))
+         n2 = size(RES%tblck(q)%tgam(g_ix)%X(1,:))
+         if ((n1*n2) == 0) cycle 
         
-        ! read in information about which 
-        ! array we are using from public arrays
+         ! read in information about which 
+         ! array we are using from public arrays
         c1 = sea1(g_ix) 
         c2 = sea2(g_ix) 
         square = sqs(g_ix) 
@@ -1492,8 +1513,8 @@ end subroutine
       do  IX =  1, n1 
          pre = 1.d0 
 
-         i = RES%mat(q)%qn(c1)%Y(IX,1)
-         j = RES%mat(q)%qn(c1)%Y(IX,2)
+         i = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
+         j = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
  
          if (i == j )  pre  = .70710678118d0
          ji = jbas%jj(i) 
@@ -1503,10 +1524,10 @@ end subroutine
          ti = jbas%itzp(i) 
          tj = jbas%itzp(j)
          
-         do JX =min(jxstart,IX),n2
+         do JX =1,n2
             pre2 = 1.d0 
-            k = RES%mat(q)%qn(c2)%Y(JX,1)
-            l = RES%mat(q)%qn(c2)%Y(JX,2)
+            k = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
+            l = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
             
             if (k == l )  pre2 = .70710678118d0
             jk = jbas%jj(k) 
@@ -1518,68 +1539,72 @@ end subroutine
             
             sm = 0.d0 
                        
-            jmin = max( abs(jj - jl) , abs(ji - jk )) 
-            jmax = min( jj + jl , ji + jk ) 
+            J3min = abs(ji - jl) 
+            J3max = ji + jl
+            
+            J4min = abs(jj - jk)
+            J4max = jj + jk 
             
             
-            Tz = abs(ti -tk)/2 
-            if (abs(tl - tj) .ne. Tz*2)  cycle 
-            PAR = mod(li+lk,2) 
-            if (mod(ll+lj,2) .ne. PAR) cycle 
-            
-            
-            do JP = jmin,jmax,2
-                 
-                  qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
-                  rjl = TS_rval(j,l,Ntot,qx,LCC)
-                  rik = TS_rval(i,k,Ntot,qx,LCC)
-                  
-                  sm = sm - (1.d0*WCC%CCX(qx)%X(rjl,rik) - &
-                       WCC%CCR(qx)%X(rjl,rik) - &
-                       1.d0*WCC%CCR(qx)%X(rik,rjl) + &
-                       WCC%CCX(qx)%X(rik,rjl) ) * &
-                       sixj(jk,jl,Jtot,jj,ji,JP) * &
-                       (-1)**((ji + jl + Jtot)/2) 
-            
-            end do 
-
             Tz = abs(ti -tl)/2 
-            if (abs(tk - tj) .ne. Tz*2) cycle 
+            if (abs(tk - tj) .ne. Tz*2)  cycle 
             PAR = mod(li+ll,2) 
             if (mod(lk+lj,2) .ne. PAR) cycle 
             
-               jmin = max( abs(ji - jl) , abs(jj - jk )) 
-               jmax = min( ji + jl , jj + jk ) 
-               
-               do JP = jmin,jmax,2
-                  
-                  !qx = JP/2 + 1
-                  qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
-                
-                  ril = TS_rval(i,l,Ntot,qx,LCC)
-                  rjk = TS_rval(j,k,Ntot,qx,LCC)
-                  
-                  sm = sm + ( WCC%CCR(qx)%X(ril,rjk) - &
-                       1.d0*WCC%CCX(qx)%X(ril,rjk) - &
-                       WCC%CCX(qx)%X(rjk,ril) + &
-                       1.d0*WCC%CCR(qx)%X(rjk,ril) ) * &
-                       sixj(jk,jl,Jtot,ji,jj,JP) * &
-                       (-1)**((ji + jl)/2)
             
-               end do 
+            do J3 = J3min,J3max,2
+               q1 = block_index(J3,Tz,PAR)
+              
+               ril = TS_rval(i,l,Ntot,q1,RCC)
+               rli = TS_rval(l,i,Ntot,q1,RCC)
+               
+               do J4 = max( J3 , J4min ) , J4max,2 
+                  if (.not. (triangle(J3,J4,rank))) cycle
+                  q2 = block_index(J4,Tz,PAR)
+             
+                  rjk = TS_rval(j,k,Ntot,q2,RCC)
+                  rkj = TS_rval(k,j,Ntot,q2,RCC)
+                                
+                  qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
+                  sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
+                       coef9(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
+                       WCC%CCX(qx)%X(ril,rkj)*(-1)**((J3+J4)/2) &
+                      - (-1)**((ji+jj+jk+jl+rank)/2)*RCC%herm*LCC%herm * &
+                      WCC%CCX(qx)%X(rli,rjk) )
+                 
+                end do 
+               
+                do J4 = J4min , min(J4max,J3-2),2 
+                  if (.not. (triangle(J3,J4,rank))) cycle               
+                  q2 = block_index(J4,Tz,PAR)
+     
+                  rjk = TS_rval(j,k,Ntot,q2,RCC)     
+                  rkj = TS_rval(k,j,Ntot,q2,RCC)
 
-           RES%mat(q)%gam(g_ix)%X(IX,JX) = &
-                RES%mat(q)%gam(g_ix)%X(IX,JX) + sm * pre * pre2 
-           if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) =  &
-                RES%mat(q)%gam(g_ix)%X(IX,JX) * RES%herm
+                  qx = CCtensor_block_index(J4,J3,rank,Tz,PAR)
+                  sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
+                       coef9(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
+                       WCC%CCR(qx)%X(rjk,rli)* (-1)**((ji+jj+jk+jl+rank+J3+J4)/2)*LCC%herm &
+                        - RCC%herm * WCC%CCR(qx)%X(rkj,ril) )
+                end do 
+               
+            
+            end do 
+
+           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX) + sm * &
+                pre * pre2 * (-1) ** ((ji+jj+J2)/2) *  sqrt((J1+1.d0)*(J2+1.d0))
+           
+           
+           !if (square) RES%tblck(q)%gam(g_ix)%X(JX,IX) =  &
+            !    RES%tblck(q)%gam(g_ix)%X(IX,JX) * RES%herm
            
          end do 
       end do
       end do 
    end do
-   end do 
- 
-!$OMP END PARALLEL DO 
+!   end do 
+ print*, RCC%herm * LCC%herm ,'cock'
+!!$OMP END PARALLEL DO 
    
 end subroutine 
 !=====================================================
