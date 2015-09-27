@@ -1440,7 +1440,8 @@ end subroutine
    integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
-   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor
+   integer :: phase1,phase2,phase3,rik,rki,rjl,rlj
+   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex
    logical :: square
    
   rank = RES%rank
@@ -1536,8 +1537,11 @@ end subroutine
             ll = jbas%ll(l)
             tk = jbas%itzp(k) 
             tl = jbas%itzp(l)
+           
+            phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
             
             sm = 0.d0 
+            sm_ex = 0.d0 
                        
             J3min = abs(ji - jl) 
             J3max = ji + jl
@@ -1550,28 +1554,29 @@ end subroutine
             if (abs(tk - tj) .ne. Tz*2)  cycle 
             PAR = mod(li+ll,2) 
             if (mod(lk+lj,2) .ne. PAR) cycle 
-            
-            
+           
             do J3 = J3min,J3max,2
                q1 = block_index(J3,Tz,PAR)
               
                ril = TS_rval(i,l,Ntot,q1,RCC)
                rli = TS_rval(l,i,Ntot,q1,RCC)
-               
+
                do J4 = max( J3 , J4min ) , J4max,2 
                   if (.not. (triangle(J3,J4,rank))) cycle
                   q2 = block_index(J4,Tz,PAR)
              
                   rjk = TS_rval(j,k,Ntot,q2,RCC)
                   rkj = TS_rval(k,j,Ntot,q2,RCC)
-                                
+              
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                        coef9(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-                       WCC%CCX(qx)%X(ril,rkj)*(-1)**((J3+J4)/2) &
-                      - (-1)**((ji+jj+jk+jl+rank)/2)*RCC%herm*LCC%herm * &
-                      WCC%CCX(qx)%X(rli,rjk) )
-                 
+                       WCC%CCX(qx)%X(ril,rkj)*(-1)**((J3+J4)/2)  &
+                       + WCC%CCR(qx)%X(ril,rkj) * phase1 * LCC%herm &
+                      - (-1)**(rank/2)*phase1*RCC%herm*LCC%herm * &
+                      WCC%CCX(qx)%X(rli,rjk) - (-1)**(( J3+J4+rank)/2) &
+                      * RCC%herm * WCC%CCR(qx)%X(rli,rjk) )
+
                 end do 
                
                 do J4 = J4min , min(J4max,J3-2),2 
@@ -1580,19 +1585,85 @@ end subroutine
      
                   rjk = TS_rval(j,k,Ntot,q2,RCC)     
                   rkj = TS_rval(k,j,Ntot,q2,RCC)
-
+                  
                   qx = CCtensor_block_index(J4,J3,rank,Tz,PAR)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                        coef9(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-                       WCC%CCR(qx)%X(rjk,rli)* (-1)**((ji+jj+jk+jl+rank+J3+J4)/2)*LCC%herm &
-                        - RCC%herm * WCC%CCR(qx)%X(rkj,ril) )
-                end do 
+                       WCC%CCR(qx)%X(rjk,rli)*phase1*(-1)**((rank+J3+J4)/2)*LCC%herm &
+                       + WCC%CCX(qx)%X(rjk,rli) * (-1)**(rank/2) &
+                        - RCC%herm * WCC%CCR(qx)%X(rkj,ril) &
+                     - phase1*(-1)**((J3+J4)/2) * RCC%herm *LCC%herm * &
+                          WCC%CCX(qx)%X(rkj,ril) )
+                  
+               end do
                
             
             end do 
 
-           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX) + sm * &
-                pre * pre2 * (-1) ** ((ji+jj+J2)/2) *  sqrt((J1+1.d0)*(J2+1.d0))
+            ! exchange of 1 set of indeces
+            J3min = abs(jj - jl) 
+            J3max = jj + jl
+            
+            J4min = abs(ji - jk)
+            J4max = ji + jk 
+            
+            Tz = abs(ti -tk)/2 
+            if (abs(tj - tl) .ne. Tz*2)  cycle 
+            PAR = mod(li+lk,2) 
+            if (mod(ll+lj,2) .ne. PAR) cycle 
+                        
+            do J3 = J3min,J3max,2
+               q1 = block_index(J3,Tz,PAR)
+            
+               rjl = TS_rval(j,l,Ntot,q1,RCC)
+               rlj = TS_rval(l,j,Ntot,q1,RCC)
+
+               do J4 = max( J3 , J4min ) , J4max,2 
+                  if (.not. (triangle(J3,J4,rank))) cycle
+                  q2 = block_index(J4,Tz,PAR)
+             
+                  rki = TS_rval(k,i,Ntot,q2,RCC)
+                  rik = TS_rval(i,k,Ntot,q2,RCC)
+              
+                  qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
+               
+                  sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
+                       coef9(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
+                       (-1)**((J3+J4)/2) * WCC%CCX(qx)%X(rjl,rki)  & 
+                       - phase1*RCC%herm*LCC%herm*(-1)**(rank/2)* &
+                       WCC%CCX(qx)%X(rlj,rik) + phase1*LCC%herm * &
+                       WCC%CCR(qx)%X(rjl,rki) - (-1)**((J3+J4)/2)* &
+                       RCC%herm * WCC%CCR(qx)%X(rlj,rik) )
+                  
+                end do 
+               
+                do J4 = J4min , min(J4max,J3-2),2 
+                  if (.not. (triangle(J3,J4,rank))) cycle               
+                  q2 = block_index(J4,Tz,PAR)
+     
+                  rki = TS_rval(k,i,Ntot,q2,RCC)
+                  rik = TS_rval(i,k,Ntot,q2,RCC)
+
+                  qx = CCtensor_block_index(J4,J3,rank,Tz,PAR)
+                  
+                  sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
+                       coef9(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
+                       (-1)**((J3+J4+rank)/2) *phase1*LCC%herm &
+                       * WCC%CCR(qx)%X(rik,rlj)  & 
+                       - RCC%herm*WCC%CCR(qx)%X(rki,rjl) &
+                       + (-1)**(rank/2) * WCC%CCX(qx)%X(rik,rlj) &
+                       - phase1*(-1)**((J3+J4)/2) * LCC%herm * RCC%herm * &
+                       WCC%CCX(qx)%X(rki,rjl) )
+               
+               end do
+               
+            
+            end do 
+
+
+           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX) + ( sm * &
+               (-1) ** ((ji+jj+J2)/2) + sm_ex * (-1)**((J1+J2)/2) )&
+               *   pre * pre2 *   sqrt((J1+1.d0)*(J2+1.d0))
            
            
            !if (square) RES%tblck(q)%gam(g_ix)%X(JX,IX) =  &

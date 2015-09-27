@@ -673,7 +673,7 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   smr4 = 0.d0 
   smr3 = 0.d0 
   do 
-     read*, a,b,c,d,J1,J2
+     read*, i,j,k,l,J1,J2
   
      ! a = 7
      ! c = 7 
@@ -686,10 +686,10 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
     ! ji=jbas%jj(i)
     ! jj=jbas%jj(j)
      
-     jc=jbas%jj(c)
-     jd=jbas%jj(d)
-     ja=jbas%jj(a)
-     jb=jbas%jj(b)
+     ji=jbas%jj(i)
+     jj=jbas%jj(j)
+     jk=jbas%jj(k)
+     jl=jbas%jj(l)
 
      
      ! GPME
@@ -725,30 +725,31 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
      
      sm = 0.d0 
      
-     do i = 1,30
-        ji = jbas%jj(i) 
-        do j = 1,30
-           jj = jbas%jj(j)
-           do J3 = 0,18,2
-              do J4 = 0,18,2
-                 do J5 = 0,18,2
-                    do jx = 1,15,2
+     ! do i = 1,30
+     !    ji = jbas%jj(i) 
+     !    do j = 1,30
+     !       jj = jbas%jj(j)
+     !       do J3 = 0,18,2
+     !          do J4 = 0,18,2
+     !             do J5 = 0,18,2
+     !                do jx = 1,15,2
                        
-                       sm = sm + (jbas%con(i) - jbas%con(j)) * (jx+1.d0) * (J3+1.d0) *&
-                            sqrt( (J1+1.d0)*(J2+1.d0)*(J4+1.d0)*(J5+1.d0) ) *(-1)** ( (J2 + J3 + jc -ji)/2) * &
-                            coef9(jj,J3,ja,J4,ji,jb,jx,jd,J1) * d6ji(jj,J4,jx,w1%rank,jc,J5) &
-                            * d6ji(J1,jx,jd,jc,J2,w1%rank) * v_elem(a,j,d,i,J3,ETA,jbas) * &
-                            tensor_elem(i,b,j,c,J4,J5,w1,jbas) 
+     !                   sm = sm + (jbas%con(i) - jbas%con(j)) * (jx+1.d0) * (J3+1.d0) *&
+     !                        sqrt( (J1+1.d0)*(J2+1.d0)*(J4+1.d0)*(J5+1.d0) ) *(-1)** ( (J2 + J3 + jc -ji)/2) * &
+     !                        coef9(jj,J3,ja,J4,ji,jb,jx,jd,J1) * d6ji(jj,J4,jx,w1%rank,jc,J5) &
+     !                        * d6ji(J1,jx,jd,jc,J2,w1%rank) * v_elem(a,j,d,i,J3,ETA,jbas) * &
+     !                        tensor_elem(i,b,j,c,J4,J5,w1,jbas) 
                        
-                     end do 
-                  end do; end do; end do ; end do; end do
+     !                 end do 
+     !              end do; end do; end do ; end do; end do
    
-                  smr1 = sm 
-                  sm = 0.d0 
-     do i = 1,30
-        ji = jbas%jj(i) 
-        do j = 1,30
-           jj = jbas%jj(j)
+     !              smr1 = sm 
+     
+     sm = 0.d0 
+     do a = 1,30
+        ja = jbas%jj(a) 
+        do b = 1,30
+           jb = jbas%jj(b)
            
            do J3= 0,18,2
               do J4 = 0,18,2
@@ -756,19 +757,32 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
            do J5 = 0,18,2
               do J6 = 0,18,2
                  do J7 = 0,18,2
+                  !  print*, a,j,k,b                    
+                    sm  = sm + (jbas%con(a) - jbas%con(b)) * (-1)**((jj+jl+J2+J4)/2)  &
+                          * sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0)) *coef9( ji, jl ,J3, jj,jk ,J4 , J1,J2,w1%rank) &
+                          *  ( sqrt((J6+1.d0)*(J7+1.d0)*(J3+1.d0)*(J4+1.d0)) * (-1)**( (jj + jb + J4 + J7)/2 )* &  
+                            coef9( ja,jb,J3,jj,jk,J4,J6,J7,w1%rank)* tensor_elem(a,j,k,b,J6,J7,w1,jbas) * (J5+1.d0) &
+                            * d6ji( ji , jl ,J3 , ja, jb, J5 ) * v_elem(i,b,a,l,J5,ETA,jbaS)  &
+                            -  sqrt((J6+1.d0)*(J7+1.d0)*(J3+1.d0)*(J4+1.d0)) * (-1)**( (jl + jb + J4 + J7)/2 )* &  
+                            coef9( ji,jl,J3,jb,ja,J4,J6,J7,w1%rank)* tensor_elem(i,b,a,l,J6,J7,w1,jbas) * (J5+1.d0) &
+                            * d6ji( ja , jb ,J4 , jk, jj, J5 ) * v_elem(a,j,k,b,J5,ETA,jbaS) )
                     
-                    sm  = sm - (jbas%con(i) - jbas%con(j)) * (-1)**((jb+jd+J2+J4)/2) * &
-                         (-1)**((jj + jb+ J4 + J7)/2) * sqrt((J1+1.d0)*(J2+1.d0)*(J6+1.d0)*(J7+1.d0)) &
-                         * (J3+1.d0) * (J4+1.d0) * (J5 + 1.d0)  *coef9( ja, jd ,J3, jb,jc ,J4 , J1,J2,w1%rank) &
-                    * coef9(ji,jj,J3,jb,jc,J4,J6,J7,w1%rank) * (-1)**((ja-jd+J3)/2) * (-1)**((ja+ji+J5+J3)/2) * &
-                    d6ji(jd,ja,J3,jj,ji,J5) * v_elem(a,j,d,i,J5,ETA,jbas) * tensor_elem(i,b,c,j,J6,J7,w1,jbas) 
-                end do 
+                    sm = sm -  (jbas%con(a) - jbas%con(b))  * ( -1) ** (( ji + jj -J1)/2) &
+                         * (-1) ** ((ji + jl +J2 + J4)/2) * coef9(jj,jl,J3,ji,jk,J4,J1,J2,w1%rank) &
+                         * sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0)) * &
+                         ( sqrt((J6+1.d0)*(J7+1.d0)*(J3+1.d0)*(J4+1.d0)) *(J5+1.d0) * &
+                         d6ji( jj,jl, J3 , ja,jb, J5) * coef9( ja, jb, J3, ji,jk,J4, J6,J7,w1%rank) * &
+                         (-1)**( (ji + jb + J4 + J7)/2) * v_elem(j,b,a,l,J5,ETA,jbas) * tensor_elem(a,i,k,b,J6,J7,w1,jbas) &
+                         - sqrt((J6+1.d0)*(J7+1.d0)*(J3+1.d0)*(J4+1.d0)) *(J5+1.d0) * &
+                         d6ji(ja,jb,J4, jk,ji, J5) * coef9( jj, jl, J3, jb,ja,J4, J6,J7,w1%rank) * &
+                         (-1)**( (jl + jb + J4 + J7)/2) * v_elem(a,i,k,b,J5,ETA,jbas) * tensor_elem(j,b,a,l,J6,J7,w1,jbas))
+               
+
+                 end do
                    end do; end do; end do ; end do; end do;end do 
                   
      
-
-     
-     print*, tensor_elem(a,b,c,d,J1,J2,w2,jbas),sm,smr1
+     print*, tensor_elem(i,j,k,l,J1,J2,w2,jbas),sm!,smr1
 
      
      ! matmul
