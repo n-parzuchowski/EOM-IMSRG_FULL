@@ -3004,14 +3004,14 @@ end subroutine
 !=======================================================          
 !=======================================================  
 !=======================================================          
-subroutine calculate_generalized_pandya(HS,OP,CCME,jbas,phase) 
+subroutine calculate_generalized_pandya(OP,CCME,jbas,phase) 
   ! currently the only CCME of interest are phab terms    |---<--|  J1 
   ! coupling in the 3-1 channel                        <(pa)|V|(hb)> rank
   !                                                      |---<--| J2 
   implicit none 
   
   type(spd) :: jbas
-  type(sq_op) :: OP,HS
+  type(sq_op) :: OP 
   type(cross_coupled_31_mat) :: CCME
   integer :: Jtot1,Jtot2,ja,jp,jb,jh,JC,q1,q2,q,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin1,Jmax1,Rindx,Gindx,g,ta,tb,Atot,hg,pg,J3,J4,NBindx2,qONE,qTWO

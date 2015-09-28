@@ -302,7 +302,7 @@ end subroutine
 
 !====================================================================
 !====================================================================
-subroutine TS_commutator_211(LCC,R,RES,jbas) 
+subroutine  TS_commutator_211(LCC,R,RES,jbas) 
   ! onebody part of  - [R1,L2] 
   ! this one is brute force. 
   ! not sure of a faster way to do this
@@ -781,7 +781,7 @@ subroutine TS_commutator_212(L,R,RES,jbas)
            sm = sm * sqrt((J1+1.d0)*(J2+1.d0) / &
               (1.d0 + kron_del(a,b)) /(1.d0 + kron_del(c,d))) * (-1)**(rank/2) 
  
-           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = sm 
+           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX)  +sm 
            
         end do
      end do
@@ -1125,7 +1125,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
         
      end if
      
-     RES%tblck(q)%tgam(1)%X = w1%tblck(q)%tgam(1)%X - w2%tblck(q)%tgam(1)%X
+     RES%tblck(q)%tgam(1)%X = RES%tblck(q)%tgam(1)%X + &
+          w1%tblck(q)%tgam(1)%X - w2%tblck(q)%tgam(1)%X
 
 
 !----------------------------------------------------------------------------
@@ -1165,7 +1166,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
 
         end if
 
-        RES%tblck(q)%tgam(4)%X = w1%tblck(q)%tgam(4)%X - w2%tblck(q)%tgam(4)%X
+        RES%tblck(q)%tgam(4)%X = RES%tblck(q)%tgam(4)%X + &
+             w1%tblck(q)%tgam(4)%X - w2%tblck(q)%tgam(4)%X
          
     end if 
 
@@ -1200,7 +1202,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
              R%tblck(q)%tgam(5)%X,nh1,bet_off,w2%tblck(q)%tgam(5)%X,nh1)
      end if
         
-     RES%tblck(q)%tgam(5)%X = w1%tblck(q)%tgam(5)%X - w2%tblck(q)%tgam(5)%X
+     RES%tblck(q)%tgam(5)%X = RES%tblck(q)%tgam(5)%X + &
+          w1%tblck(q)%tgam(5)%X - w2%tblck(q)%tgam(5)%X
      
 
 !----------------------------------------------------------------------------
@@ -1236,7 +1239,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
         end if 
      end if 
        
-     RES%tblck(q)%tgam(3)%X = w1%tblck(q)%tgam(3)%X - w2%tblck(q)%tgam(3)%X
+     RES%tblck(q)%tgam(3)%X = RES%tblck(q)%tgam(3)%X + &
+          w1%tblck(q)%tgam(3)%X - w2%tblck(q)%tgam(3)%X
 
 !----------------------------------------------------------------------------
 !         Zhhpp 
@@ -1271,7 +1275,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
 
      end if 
        
-     RES%tblck(q)%tgam(7)%X = w1%tblck(q)%tgam(7)%X - w2%tblck(q)%tgam(7)%X
+     RES%tblck(q)%tgam(7)%X = RES%tblck(q)%tgam(7)%X + &
+          w1%tblck(q)%tgam(7)%X - w2%tblck(q)%tgam(7)%X
 
 !----------------------------------------------------------------------------
 !         Zppph 
@@ -1308,7 +1313,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
         
      end if 
        
-     RES%tblck(q)%tgam(2)%X = w1%tblck(q)%tgam(2)%X - w2%tblck(q)%tgam(2)%X
+     RES%tblck(q)%tgam(2)%X = RES%tblck(q)%tgam(2)%X + &
+          w1%tblck(q)%tgam(2)%X - w2%tblck(q)%tgam(2)%X
 
 !----------------------------------------------------------------------------
 !         Zphpp 
@@ -1346,7 +1352,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
         
      end if 
        
-     RES%tblck(q)%tgam(8)%X = w1%tblck(q)%tgam(8)%X - w2%tblck(q)%tgam(8)%X
+     RES%tblck(q)%tgam(8)%X = RES%tblck(q)%tgam(8)%X +&
+          w1%tblck(q)%tgam(8)%X - w2%tblck(q)%tgam(8)%X
 
 
 !----------------------------------------------------------------------------
@@ -1385,7 +1392,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
         
      end if 
        
-     RES%tblck(q)%tgam(6)%X = w1%tblck(q)%tgam(6)%X - w2%tblck(q)%tgam(6)%X
+     RES%tblck(q)%tgam(6)%X = RES%tblck(q)%tgam(6)%X + &
+          w1%tblck(q)%tgam(6)%X - w2%tblck(q)%tgam(6)%X
 
 !----------------------------------------------------------------------------
 !         Zhhph 
@@ -1423,7 +1431,8 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
         
      end if 
        
-     RES%tblck(q)%tgam(9)%X = w1%tblck(q)%tgam(9)%X - w2%tblck(q)%tgam(9)%X
+     RES%tblck(q)%tgam(9)%X = RES%tblck(q)%tgam(9)%X + &
+          w1%tblck(q)%tgam(9)%X - w2%tblck(q)%tgam(9)%X
   
   end do
   
@@ -1451,12 +1460,13 @@ end subroutine
    ! construct intermediate matrices
  
    do q = 1,RCC%nblocks
-      
+      if (RCC%jval2(q) > jbas%jtotal_max*2) cycle
+
       nb2 = size(RCC%CCX(q)%X(1,:))
       nb1 = size(RCC%CCR(q)%X(:,1))
       r1 = size(RCC%CCX(q)%X(:,1))
       r2 = size(RCC%CCR(q)%X(1,:))      
-      
+
       if (r1 * r2 == 0) cycle
       
          PAR = mod(q-1,2)
@@ -1483,8 +1493,6 @@ end subroutine
 
    end do 
 
-   print*, WCC%CCX(5)%X(31,30) , 'TITS'
-
 !!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
     !do thread = 1, total_threads
 !    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
@@ -1492,11 +1500,7 @@ end subroutine
    do q = 1,RES%nblocks
       J1 = RES%tblck(q)%jpair(1)
       J2 = RES%tblck(q)%jpair(2)
-
-      ! nh = RES%tblck(q)%nhh
-      ! np = RES%tblck(q)%npp
-      ! nb = RES%tblck(q)%nph
-          
+               
       do g_ix = 1,9 
    
          ! figure out how big the array is
@@ -1674,7 +1678,7 @@ end subroutine
       end do 
    end do
 !   end do 
- print*, RCC%herm * LCC%herm ,'cock'
+
 !!$OMP END PARALLEL DO 
    
 end subroutine 

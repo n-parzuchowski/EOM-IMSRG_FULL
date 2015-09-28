@@ -39,7 +39,7 @@ program main_IMSRG
        me2b,hw,skip_setup,skip_gs)
   
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
-!  call test_scalar_scalar_commutator(jbasis,-1,-1) 
+  call test_scalar_tensor_commutator(jbasis,-1,1,4) 
   call allocate_blocks(jbasis,HS) 
   
   HS%herm = 1
