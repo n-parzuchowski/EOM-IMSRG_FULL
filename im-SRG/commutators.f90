@@ -591,18 +591,14 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
   real(8) :: bet_off,al_off
   
   pm = R%herm*L%herm
-   !construct temporary matrices
+
+  !construct temporary matrices
   do q = 1, L%nblocks
      
      nh = L%mat(q)%nhh
      np = L%mat(q)%npp
      nb = L%mat(q)%nph
-        
-     if (nh + np == 0 ) cycle 
-     if (np + nb == 0 ) cycle 
-     if (nh + nb == 0 ) cycle
-     
-  
+          
      if (np .ne. 0)  then 
        
      !L_pppp . R_pppp = W1_pppp   
@@ -701,14 +697,16 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      call dgemm('N','N',nb,nh,nh,al,L%mat(q)%gam(6)%X,nb,&
           R%mat(q)%gam(5)%X,nh,bet_off,w2%mat(q)%gam(6)%X,nb) 
      end if 
-     
+
+   
      if (nb*np .ne. 0) then 
      bet_off = -1 
      !R_pppp . L_ppph = W1_ppph
-     call dgemm('N','N',np,nb,np,al,L%mat(q)%gam(1)%X,np,&
-          R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(2)%X,np) 
-          
-     !L_pppp . R_ppph + R_pppp . L_ppph = W1_ppph 
+     call dgemm('N','N',np,nb,np,al,R%mat(q)%gam(1)%X,np,&
+          L%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(2)%X,np)  
+          ! HOLY LORD GRIEVOUS ERROR FIXED HERE... 
+     
+     !L_pppp . R_ppph - R_pppp . L_ppph = W1_ppph 
      call dgemm('N','N',np,nb,np,al,L%mat(q)%gam(1)%X,np,&
           R%mat(q)%gam(2)%X,np,bet_off,w1%mat(q)%gam(2)%X,np)
      end if 
