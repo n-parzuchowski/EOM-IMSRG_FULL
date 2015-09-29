@@ -148,6 +148,10 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      corr =  restore_triples(H,G,threebas,jbas) 
      t2 = omp_get_wtime()
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
+     open(unit=39,file='../../output/'//&
+       trim(adjustl(prefix))//'_magnus_triples.dat')
+     write(39,'(I6,4(e15.7))') steps,s,HS%E0+corr,HS%E0+E_mbpt2,crit
+     close(39)
   end if
   
   if (present(O1)) then 

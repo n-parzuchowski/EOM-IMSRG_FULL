@@ -83,9 +83,9 @@ subroutine build_gs_white(H,ETA,jbas)
         ! energy denominator has a sum over J  to factor out m dep. 
         Eden = 0.d0
         
-        do JT = 0, 2*ji , 2
-           Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
-        end do 
+        ! do JT = 0, 2*ji , 2
+        !    Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
+        ! end do 
         
         ! sum is averaged over ji ** 2  
         Eden = Eden / (ji + 1.d0)/(ji + 1.d0) 
@@ -129,12 +129,12 @@ subroutine build_gs_white(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden + Javerage(i,j,ji,jj,H,jbas) 
-           Eden = Eden - Javerage(a,i,ja,ji,H,jbas) 
-           Eden = Eden - Javerage(a,j,ja,jj,H,jbas) 
-           Eden = Eden - Javerage(i,b,ji,jb,H,jbas) 
-           Eden = Eden - Javerage(j,b,jj,jb,H,jbas) 
+           ! Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
+           ! Eden = Eden + Javerage(i,j,ji,jj,H,jbas) 
+           ! Eden = Eden - Javerage(a,i,ja,ji,H,jbas) 
+           ! Eden = Eden - Javerage(a,j,ja,jj,H,jbas) 
+           ! Eden = Eden - Javerage(i,b,ji,jb,H,jbas) 
+           ! Eden = Eden - Javerage(j,b,jj,jb,H,jbas) 
            
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 

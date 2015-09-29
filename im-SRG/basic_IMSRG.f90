@@ -874,6 +874,7 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
 
      ! get the indeces in the correct order
      pre = 1
+
      if ( a > b )  then 
         
         x = bosonic_tp_index(b,a,N) 
