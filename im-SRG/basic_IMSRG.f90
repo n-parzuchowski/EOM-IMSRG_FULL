@@ -1313,7 +1313,8 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   ! right now i1 and i2 still refer to where the pair is located
   ! in the rank zero qn storage
 
- 
+  
+  
    If (C1>C2) qx = qx + tensor_adjust(qx)       
    
    tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
@@ -2733,25 +2734,27 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
                     jj = jbas%jj(j) 
 
 
-                    if ( mod(jbas%ll(i) + jbas%ll(j),2) .ne. PAR ) cycle
                     if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
 
-                    if (triangle(ji,jj,Jtot1)) then 
-                       if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
-                          nb1 = nb1 + 1 
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == PAR ) then
+                       if (triangle(ji,jj,Jtot1)) then 
+                          if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
+                             nb1 = nb1 + 1 
+                          end if
+                       
+                          r1 = r1+1
                        end if
-
-                       r1 = r1+1
                     end if
-
-                    if (triangle(ji,jj,Jtot2)) then 
-                       if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
-                          nb2 = nb2 + 1 
+                    
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == mod(PAR+rank/2,2) ) then
+                       if (triangle(ji,jj,Jtot2)) then 
+                          if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
+                             nb2 = nb2 + 1 
+                          end if
+                          
+                          r2 = r2+1
                        end if
-
-                       r2 = r2+1
                     end if
-
                  end do
               end do
 
@@ -3016,16 +3019,20 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
   integer :: Jtot1,Jtot2,ja,jp,jb,jh,JC,q1,q2,q,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin1,Jmax1,Rindx,Gindx,g,ta,tb,Atot,hg,pg,J3,J4,NBindx2,qONE,qTWO
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx1,x,JTM,rank,Jmin2,Jmax2
-  real(8) :: sm,sm2,pre,horse,coef9
-  logical :: phase
+  real(8) :: sm,sm2,pre,horse,coef9,jew
+  logical :: phase,parflip
 
   Atot = OP%belowEF
   Ntot = OP%Nsp
   JTM = jbas%Jtotal_max 
   pre = 1.d0 
   rank = OP%rank
+
+  parflip = .false. 
+  if ( mod(rank/2,2) == 1) parflip = .true. 
+
   CCME%herm = OP%Herm
-!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
+!!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
   do q1 = 1, CCME%nblocks
       
      Jtot1 = CCME%Jval(q1)
@@ -3039,7 +3046,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
      CCME%CCX(q1)%X = 0.d0
          
      qONE = block_index(Jtot1,Tz,Par)
-     qTWO = block_index(Jtot2,Tz,Par)
+     qTWO = block_index(Jtot2,Tz,mod(Par+rank/2,2))
      
      ! ab = ph 
      do hg = 1, Atot
@@ -3055,48 +3062,57 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
            tp = jbas%itzp(p) 
            th = jbas%itzp(h)
         
-           if ( mod(lp + lh,2) .ne. PAR ) cycle
+           if (.not. (parflip)) then 
+              if ( mod(lp + lh,2) .ne. PAR ) cycle
+           end if 
+           
            if (abs(tp - th)/2 .ne. Tz ) cycle 
         
-
            NBindx1 = 0
            NBindx2 = 0 
            if ( triangle(jp,jh,Jtot1) )  then 
               
-           
-              x = CCindex(p,h,OP%Nsp)
-              gnb = 1
               
-              do while (CCME%qmap(x)%Z(gnb) .ne. qONE )
-                 gnb = gnb + 1 
-              end do
-              
-              NBindx1 = CCME%nbmap(x)%Z(gnb) 
-             
-              if  ( triangle(jp,jh,Jtot2) )  then 
-              
+              if ( mod(lp + lh,2) ==  PAR ) then   
                  x = CCindex(p,h,OP%Nsp)
                  gnb = 1
-                 
-                 do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+              
+                 do while (CCME%qmap(x)%Z(gnb) .ne. qONE )
                     gnb = gnb + 1 
                  end do
-                 
-                 NBindx2 = CCME%nbmap(x)%Z(gnb)
               
+                 NBindx1 = CCME%nbmap(x)%Z(gnb) 
+             
+              end if 
+              
+              if  ( triangle(jp,jh,Jtot2) )  then 
+              
+                 if ( mod(lp+lh+rank/2,2) == PAR) then 
+        
+                    x = CCindex(p,h,OP%Nsp)
+                    gnb = 1
+                    
+                    do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+                       gnb = gnb + 1 
+                    end do
+                 
+                    NBindx2 = CCME%nbmap(x)%Z(gnb)
+                 end if 
               end if
  
            else if  ( triangle(jp,jh,Jtot2) )  then 
               
-              x = CCindex(p,h,OP%Nsp)
-              gnb = 1
+              if ( mod(lp+lh+rank/2,2) == PAR) then 
+        
+                 x = CCindex(p,h,OP%Nsp)
+                 gnb = 1
               
-              do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
-                 gnb = gnb + 1 
-              end do
+                 do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+                    gnb = gnb + 1 
+                 end do
               
-              NBindx2 = CCME%nbmap(x)%Z(gnb)
-              
+                 NBindx2 = CCME%nbmap(x)%Z(gnb)
+              end if
            else 
               cycle
            end if 
@@ -3115,84 +3131,89 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                  ta = jbas%itzp(a) 
                  tb = jbas%itzp(b)
                  
-                
-                 if ( mod(la + lb+Rank/2,2) .ne. PAR ) cycle
+
+                 if (.not. (parflip)) then 
+                    if ( mod(la + lb,2) .ne. PAR ) cycle
+                 end if 
+
                  if (abs(ta - tb)/2 .ne. Tz ) cycle 
-                
-                 
+
+       
                  if ( (triangle(ja,jb,Jtot1)) .and. (NBindx2 .ne. 0) ) then 
-                   
-                    x = CCindex(a,b,OP%Nsp) 
-                
-                    g = 1
-                    do while (CCME%qmap(x)%Z(g) .ne. qONE )
-                       g = g + 1
-                    end do
-              
-                    Rindx = CCME%rmap(x)%Z(g)
-                 
-                    if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
-                         ( (ta + th) == (tb + tp) ) ) then  
+       
+                    if ( mod(la+lb,2) == PAR ) then 
+                       x = CCindex(a,b,OP%Nsp) 
                        
-                       ! hapb 
-                       Jmin1 = abs(ja - jh) 
-                       Jmax1 = ja+jh 
-                       Jmin2 = abs(jp - jb)
-                       Jmax2 = jp+jb 
-                       
-                       sm = 0.d0 
-                       do J3 = Jmin1,Jmax1,2
-                          do J4 = Jmin2,Jmax2,2
-                             sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                  coef9(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
-                                  tensor_elem(a,h,p,b,J3,J4,OP,jbas) 
-                       
-                          end do
+                       g = 1
+                       do while (CCME%qmap(x)%Z(g) .ne. qONE )
+                          g = g + 1
                        end do
-
-                     
-                       CCME%CCX(q1)%X(Rindx,NBindx2) = sm * & 
-                            (-1) **( (jh+jb+Jtot2) / 2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
-
+              
+                       Rindx = CCME%rmap(x)%Z(g)
                  
+                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                            ( (ta + th) == (tb + tp) ) ) then  
+                         
+                          ! hapb 
+                          Jmin1 = abs(ja - jh) 
+                          Jmax1 = ja+jh 
+                          Jmin2 = abs(jp - jb)
+                          Jmax2 = jp+jb 
+                          
+                          sm = 0.d0 
+                          do J3 = Jmin1,Jmax1,2
+                             do J4 = Jmin2,Jmax2,2
+                                sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
+                                     coef9(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
+                                     tensor_elem(a,h,p,b,J3,J4,OP,jbas) 
+                                
+                             end do
+                          end do
+                          
+                     
+                          CCME%CCX(q1)%X(Rindx,NBindx2) = sm * & 
+                               (-1) **( (jh+jb+Jtot2) / 2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+
+                       end if
                     end if
                  end if 
                  
                  if ((triangle(ja,jb,Jtot2)) .and. (NBindx1 .ne. 0) ) then 
-                
-                    x = CCindex(b,a,OP%Nsp) 
-                    g = 1
-                    do while (CCME%qmap(x)%Z(g) .ne. qTWO )
-                       g = g + 1
-                    end do
                     
-                    Gindx = CCME%rmap(x)%Z(g)
-                 
-
-                    if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
-                         ( (ta + th) == (tb + tp) ) ) then  
-               
-                       ! hapb 
-                       Jmin1 = abs(ja - jh) 
-                       Jmax1 = ja+jh 
-                       Jmin2 = abs(jp - jb)
-                       Jmax2 = jp+jb 
-                    
-                       sm = 0.d0 
-                       do J3 = Jmin1,Jmax1,2
-                          do J4 = Jmin2,Jmax2,2
-                             sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                  coef9(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
-                                  tensor_elem(h,a,b,p,J3,J4,OP,jbas) 
-                       
-                          end do
+                    if ( mod(la+lb+rank/2,2) == PAR ) then 
+                       x = CCindex(b,a,OP%Nsp) 
+                       g = 1
+                       do while (CCME%qmap(x)%Z(g) .ne. qTWO )
+                          g = g + 1
                        end do
-
-                       ! store  ( V )_h(p)b(a)
-
-                       CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
-                            (-1) **( (jp+ja+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+                    
+                       Gindx = CCME%rmap(x)%Z(g)
                  
+
+                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                            ( (ta + th) == (tb + tp) ) ) then  
+               
+                          ! hapb 
+                          Jmin1 = abs(ja - jh) 
+                          Jmax1 = ja+jh 
+                          Jmin2 = abs(jp - jb)
+                          Jmax2 = jp+jb 
+                    
+                          sm = 0.d0 
+                          do J3 = Jmin1,Jmax1,2
+                             do J4 = Jmin2,Jmax2,2
+                                sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
+                                     coef9(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
+                                     tensor_elem(h,a,b,p,J3,J4,OP,jbas) 
+                       
+                             end do
+                          end do
+
+                          ! store  ( V )_h(p)b(a)
+                          
+                          CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
+                               (-1) **( (jp+ja+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+                       end if
                     end if
                  end if 
                  
@@ -3202,7 +3223,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
      end do
 
   end do 
-!$omp end parallel do
+!!$omp end parallel do
 
 end subroutine 
 !=======================================================  
