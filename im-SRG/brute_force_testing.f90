@@ -113,9 +113,10 @@ subroutine construct_random_rankX(OP,HERM,jbas)
   type(sq_op) :: OP 
   type(spd) :: jbas
   integer :: i,j,k,l,ji,jj,jk,jl
-  integer :: J1,J2,IX,JX,q
+  integer :: J1,J2,IX,JX,q,qx,rank
   real(8) :: x
 
+  rank = OP%rank
   OP%herm = HERM 
 
   do i = 1, OP%belowEF
@@ -126,13 +127,15 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 
         if (.not. triangle(ji,jj,OP%rank)) cycle        
         if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
-        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j),2)) cycle
+        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+rank/2,2)) cycle
 
         call random_number(x) 
         x = 10.*x-5.
         OP%fhh(i,j) = x
-        OP%fhh(j,i) = (-1)**((ji-jj)/2) * x
+        OP%fhh(j,i) = (-1)**((ji-jj)/2) * x* OP%herm
+         
      end do
+     OP%fhh(i,i) = (OP%herm+1)*OP%fhh(i,i)/2.d0      
   end do
 
   do i = 1, OP%nsp- OP%belowEF
@@ -143,13 +146,14 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 
         if (.not. triangle(ji,jj,OP%rank)) cycle        
         if (jbas%itzp(i+OP%belowEF) .ne. jbas%itzp(j+OP%belowEF) ) cycle
-        if (mod(jbas%ll(i+OP%belowEF),2) .ne. mod(jbas%ll(j+OP%belowEF),2)) cycle
+        if (mod(jbas%ll(i+OP%belowEF),2) .ne. mod(jbas%ll(j+OP%belowEF)+rank/2,2)) cycle
 
         call random_number(x) 
         x = 10.*x-5.
         OP%fpp(i,j) = x
-        OP%fpp(j,i) = (-1)**((ji-jj)/2) * x
+        OP%fpp(j,i) = (-1)**((ji-jj)/2) * x* OP%herm 
      end do 
+     OP%fpp(i,i) = (OP%herm+1)*OP%fpp(i,i)/2.d0 
   end do 
   
   do i = 1, OP%nsp- OP%belowEF
@@ -160,14 +164,14 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 
         if (.not. triangle(ji,jj,OP%rank)) cycle        
         if (jbas%itzp(i+OP%belowEF) .ne. jbas%itzp(j) ) cycle
-        if (mod(jbas%ll(i+OP%belowEF),2) .ne. mod(jbas%ll(j),2)) cycle
+        if (mod(jbas%ll(i+OP%belowEF),2) .ne. mod(jbas%ll(j)+rank/2,2)) cycle
 
         call random_number(x) 
         x = 10.*x-5.
         OP%fph(i,j) = x
      end do 
   end do 
-      
+
   do q = 1, OP%nblocks
      do i = 1, 9
          
@@ -181,7 +185,7 @@ subroutine construct_random_rankX(OP,HERM,jbas)
               if ( OP%tblck(q)%tensor_qn(sea1(i),1)%Y(IX,1) == OP%tblck(q)%tensor_qn(sea1(i),1)%Y(IX,2) ) then 
                  if ( mod( OP%tblck(q)%Jpair(1)/2, 2) == 1) x = 0.d0 
               end if
-
+              
               if ( OP%tblck(q)%tensor_qn(sea2(i),2)%Y(JX,1) == OP%tblck(q)%tensor_qn(sea2(i),2)%Y(JX,2) ) then 
                  if ( mod( OP%tblck(q)%Jpair(2)/2, 2) == 1) x = 0.d0 
               end if
@@ -192,19 +196,47 @@ subroutine construct_random_rankX(OP,HERM,jbas)
         end do
         
         
+
         if ( (OP%tblck(q)%Jpair(1) == OP%tblck(q)%Jpair(2)).and.(sqs(i)) ) then
-           OP%tblck(q)%tgam(i)%X = &
-                0.5*(OP%tblck(q)%tgam(i)%X + Transpose(OP%tblck(q)%tgam(i)%X))
+           if (mod(OP%rank/2,2) == 0 ) then
+              OP%tblck(q)%tgam(i)%X = &
+                   0.5*(OP%tblck(q)%tgam(i)%X + OP%herm * Transpose(OP%tblck(q)%tgam(i)%X))
            
-        end if
-       
+           else
+              qx = tensor_block_index(OP%tblck(q)%Jpair(1),OP%tblck(q)%Jpair(2)&
+                   ,rank,OP%tblck(q)%lam(3),mod(OP%tblck(q)%lam(2)+1,2))
+              
+              OP%tblck(qx)%tgam(i)%X = Transpose( OP%tblck(q)%tgam(i)%X ) * OP%herm 
+              
+           end if 
+       end if 
         
      end do
+     
+     
      if ( OP%tblck(q)%Jpair(1) == OP%tblck(q)%Jpair(2) ) then
-        OP%tblck(q)%tgam(7)%X = Transpose(OP%tblck(q)%tgam(3)%X)
-        OP%tblck(q)%tgam(8)%X = Transpose(OP%tblck(q)%tgam(2)%X)
-        OP%tblck(q)%tgam(9)%X = Transpose(OP%tblck(q)%tgam(6)%X)
-     end if
+        if (mod(OP%rank/2,2) == 0 ) then 
+
+           OP%tblck(q)%tgam(7)%X = Transpose(OP%tblck(q)%tgam(3)%X) * OP%herm
+           OP%tblck(q)%tgam(8)%X = Transpose(OP%tblck(q)%tgam(2)%X) * OP%herm
+           OP%tblck(q)%tgam(9)%X = Transpose(OP%tblck(q)%tgam(6)%X) * OP%herm
+        else
+           
+
+           qx = tensor_block_index(OP%tblck(q)%Jpair(1),OP%tblck(q)%Jpair(2)&
+                   ,rank,OP%tblck(q)%lam(3),mod(OP%tblck(q)%lam(2)+1,2))
+           
+           OP%tblck(qx)%tgam(7)%X = Transpose(OP%tblck(q)%tgam(3)%X)*OP%herm
+           OP%tblck(qx)%tgam(8)%X = Transpose(OP%tblck(q)%tgam(2)%X)*OP%herm 
+           OP%tblck(qx)%tgam(9)%X = Transpose(OP%tblck(q)%tgam(6)%X)*OP%herm
+           OP%tblck(qx)%tgam(3)%X = Transpose(OP%tblck(q)%tgam(7)%X)*OP%herm
+           OP%tblck(qx)%tgam(2)%X = Transpose(OP%tblck(q)%tgam(8)%X)*OP%herm 
+           OP%tblck(qx)%tgam(6)%X = Transpose(OP%tblck(q)%tgam(9)%X)*OP%herm
+        
+        end if
+      
+     end if 
+     
   end do
 
 end subroutine
@@ -359,7 +391,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   real(8) :: val
   
   
-  call seed_random_number
+!  call seed_random_number
   
   BB%rank = rank
   AA%rank = 0
@@ -367,7 +399,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   call allocate_tensor(jbas,BB,AA)
   call construct_random_rank0(AA,h1,jbas) 
   call construct_random_rankX(BB,h2,jbas) 
-  
+ 
   call duplicate_sq_op(BB,OUT)
   call duplicate_sq_op(BB,w1) !workspace
   call duplicate_sq_op(BB,w2) !workspace
@@ -394,8 +426,8 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
   call TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
 
-  goto 12
-  do a = 1, jbas%total_orbits
+
+  do a = 5, 8!jbas%total_orbits
      do b = 1, jbas%total_orbits
         
         val = scalar_tensor_1body_comm(AA,BB,a,b,jbas) 
@@ -409,21 +441,21 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
         print*, 'success:', a,b
      end do 
   end do 
- 
-12 do a = 1, jbas%total_orbits
+
+  do a = 25, jbas%total_orbits
      ja = jbas%jj(a) 
-     do b = 1, jbas%total_orbits
+     do b = 7, jbas%total_orbits
         jb = jbas%jj(b)
         
         PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
         TZ = jbas%itzp(a) + jbas%itzp(b) 
         
-        do c = 1, jbas%total_orbits
+        do c = 6, 8!jbas%total_orbits
            jc = jbas%jj(c)
-           do d = 1, jbas%total_orbits
+           do d = 9, jbas%total_orbits
               jd = jbas%jj(d) 
               
-              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d),2)) cycle 
+              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+rank/2,2)) cycle 
               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
               
               j1min = abs(ja-jb) 
@@ -437,13 +469,12 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
                     if (.not. (triangle(J1,J2,rank))) cycle
                     
                     val = scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
-                 
+                  
                     if (abs(val-tensor_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
                        print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)                
-                !       print*, val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)
+            
                        STOP 'TWO BODY FAILURE'  
-                    end if
-                 
+                    end if 
                  end do 
               end do
               
@@ -756,8 +787,8 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   jc = jbas%jj(c)
   jd = jbas%jj(d)
 
-  do i = 1, totorb
-     ji = jbas%jj(i)
+   do i = 1, totorb
+      ji = jbas%jj(i)
 
      sm = sm + f_elem(a,i,AA,jbas) * tensor_elem( i,b,c,d,J1,J2,BB,jbas) &
           + f_elem(b,i,AA,jbas) * tensor_elem( a,i,c,d,J1,J2,BB,jbas) &
@@ -782,7 +813,7 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
           *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
           sqrt( (J1+1.d0) * (J2+1.d0) )
      
-  end do
+   end do
   
 
   do i = 1, totorb
@@ -826,7 +857,7 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
                     * coef9(jj,J3,ja,J4,ji,jb,jx,jc,J1) * d6ji( jj,J4,jx,rank,jd,J5) * &
                          d6ji(J1,jx,jc,jd,J2,rank) * v_elem(a,j,c,i,J3,AA,jbas) *&
                          tensor_elem(i,b,j,d,J4,J5,BB,jbas) * (-1)**((jc+jd-J2)/2) &
-                         
+                   
                          + (-1)** ((J2+J3 + jd - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
                          * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
                     * coef9(jj,J3,jb,J4,ji,ja,jx,jc,J1) * d6ji( jj,J4,jx,rank,jd,J5) * &
