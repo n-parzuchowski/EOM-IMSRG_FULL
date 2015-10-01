@@ -14,14 +14,42 @@ subroutine construct_random_rank0(OP,HERM,jbas)
   type(sq_op) :: OP 
   type(spd) :: jbas
   integer :: i,j,k,l,ji,jj,jk,jl
-  integer :: J1,J2,IX,JX,q 
+  integer :: J1,J2,IX,JX,q,ig,jg 
   real(8) :: x
   
   OP%rank = 0
   OP%herm = HERM 
   
-  do i = 1, OP%belowEF
-     do j = i, OP%belowEF
+  do ig = 1, OP%belowEF
+     do jg = ig, OP%belowEF
+        
+        i = jbas%holes(ig)
+        j = jbas%holes(jg)
+ 
+        ji = jbas%jj(i) 
+        jj = jbas%jj(j)
+
+        if (ji .ne. jj) cycle        
+        if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
+        if (jbas%ll(i) .ne. jbas%ll(j) ) cycle
+
+        call random_number(x) 
+        x = 10.*x-5.
+        OP%fhh(ig,jg) = x
+        OP%fhh(jg,ig) = OP%herm * x
+        
+        
+     end do
+     
+     OP%fhh(ig,ig) = (OP%herm+1)*OP%fhh(ig,ig)/2.d0
+     
+  end do
+
+  do ig = 1, OP%nsp-OP%belowEF
+     do jg = 1, OP%belowEF
+
+        i = jbas%parts(ig)
+        j = jbas%holes(jg)
         
         ji = jbas%jj(i) 
         jj = jbas%jj(j)
@@ -32,53 +60,34 @@ subroutine construct_random_rank0(OP,HERM,jbas)
 
         call random_number(x) 
         x = 10.*x-5.
-        OP%fhh(i,j) = x
-        OP%fhh(j,i) = OP%herm * x
-        
-        
+        OP%fph(ig,jg) = x
+
      end do
-     
-     OP%fhh(i,i) = (OP%herm+1)*OP%fhh(i,i)/2.d0
-     
   end do
 
-  do i = 1, OP%nsp-OP%belowEF
-     do j = 1, OP%belowEF
+  do ig = 1,OP%nsp- OP%belowEF
+     do jg = ig,OP%nsp- OP%belowEF
         
-        ji = jbas%jj(i+OP%belowEF) 
+        i = jbas%parts(ig)
+        j = jbas%parts(jg)
+
+        ji = jbas%jj(i) 
         jj = jbas%jj(j)
 
         if (ji .ne. jj) cycle        
-        if (jbas%itzp(i+OP%belowEF) .ne. jbas%itzp(j) ) cycle
-        if (jbas%ll(i+OP%belowEF) .ne. jbas%ll(j) ) cycle
+        if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
+        if (jbas%ll(i) .ne. jbas%ll(j) ) cycle
 
         call random_number(x) 
         x = 10.*x-5.
-        OP%fph(i,j) = x
-
+        OP%fpp(ig,jg) = x 
+        OP%fpp(jg,ig) = OP%herm * x
      end do
-  end do
-
-  do i = 1,OP%nsp- OP%belowEF
-     do j = i,OP%nsp- OP%belowEF
-        
-        ji = jbas%jj(i+OP%belowEF) 
-        jj = jbas%jj(j+OP%belowEF)
-
-        if (ji .ne. jj) cycle        
-        if (jbas%itzp(i+OP%belowEF) .ne. jbas%itzp(j+OP%belowEF) ) cycle
-        if (jbas%ll(i+OP%belowEF) .ne. jbas%ll(j+OP%belowEF) ) cycle
-
-        call random_number(x) 
-        x = 10.*x-5.
-        OP%fpp(i,j) = x 
-        OP%fpp(j,i) = OP%herm * x
-     end do
-     OP%fpp(i,i) = (OP%herm+1)*OP%fpp(i,i)/2.d0
+     OP%fpp(ig,ig) = (OP%herm+1)*OP%fpp(ig,ig)/2.d0
   end do
   
   do q=1,OP%nblocks
-     do i = 1, OP%belowEF
+     do i = 1, 6
         do IX = 1,size(OP%mat(q)%gam(i)%X(:,1))
            do JX = 1,size(OP%mat(q)%gam(i)%X(1,:))
               
@@ -112,16 +121,19 @@ subroutine construct_random_rankX(OP,HERM,jbas)
   integer,intent(in) :: HERM
   type(sq_op) :: OP 
   type(spd) :: jbas
-  integer :: i,j,k,l,ji,jj,jk,jl
+  integer :: i,j,k,l,ji,jj,jk,jl,ig,jg
   integer :: J1,J2,IX,JX,q,qx,rank
   real(8) :: x
 
   rank = OP%rank
   OP%herm = HERM 
 
-  do i = 1, OP%belowEF
-     do j = i, OP%belowEF
+  do ig = 1, OP%belowEF
+     do jg = ig, OP%belowEF
         
+        i = jbas%holes(ig)
+        j = jbas%holes(jg)
+
         ji = jbas%jj(i) 
         jj = jbas%jj(j)
 
@@ -131,44 +143,50 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 
         call random_number(x) 
         x = 10.*x-5.
-        OP%fhh(i,j) = x
-        OP%fhh(j,i) = (-1)**((ji-jj)/2) * x* OP%herm
+        OP%fhh(ig,jg) = x
+        OP%fhh(jg,ig) = (-1)**((ji-jj)/2) * x* OP%herm
          
      end do
-     OP%fhh(i,i) = (OP%herm+1)*OP%fhh(i,i)/2.d0      
+     OP%fhh(ig,ig) = (OP%herm+1)*OP%fhh(ig,ig)/2.d0      
   end do
 
-  do i = 1, OP%nsp- OP%belowEF
-     do j = i, OP%nsp-OP%belowEF
+  do ig = 1, OP%nsp- OP%belowEF
+     do jg = ig, OP%nsp-OP%belowEF
         
-        ji = jbas%jj(i+OP%belowEF) 
-        jj = jbas%jj(j+OP%belowEF)
+        i = jbas%parts(ig)
+        j = jbas%parts(jg)
 
-        if (.not. triangle(ji,jj,OP%rank)) cycle        
-        if (jbas%itzp(i+OP%belowEF) .ne. jbas%itzp(j+OP%belowEF) ) cycle
-        if (mod(jbas%ll(i+OP%belowEF),2) .ne. mod(jbas%ll(j+OP%belowEF)+rank/2,2)) cycle
-
-        call random_number(x) 
-        x = 10.*x-5.
-        OP%fpp(i,j) = x
-        OP%fpp(j,i) = (-1)**((ji-jj)/2) * x* OP%herm 
-     end do 
-     OP%fpp(i,i) = (OP%herm+1)*OP%fpp(i,i)/2.d0 
-  end do 
-  
-  do i = 1, OP%nsp- OP%belowEF
-     do j = 1, OP%belowEF
-        
-        ji = jbas%jj(i+OP%belowEF) 
+        ji = jbas%jj(i) 
         jj = jbas%jj(j)
 
         if (.not. triangle(ji,jj,OP%rank)) cycle        
-        if (jbas%itzp(i+OP%belowEF) .ne. jbas%itzp(j) ) cycle
-        if (mod(jbas%ll(i+OP%belowEF),2) .ne. mod(jbas%ll(j)+rank/2,2)) cycle
+        if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
+        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+rank/2,2)) cycle
 
         call random_number(x) 
         x = 10.*x-5.
-        OP%fph(i,j) = x
+        OP%fpp(ig,jg) = x
+        OP%fpp(jg,ig) = (-1)**((ji-jj)/2) * x* OP%herm 
+     end do 
+     OP%fpp(ig,ig) = (OP%herm+1)*OP%fpp(ig,ig)/2.d0 
+  end do 
+  
+  do ig = 1, OP%nsp- OP%belowEF
+     do jg = 1, OP%belowEF
+        
+        i = jbas%parts(ig)
+        j = jbas%holes(jg)
+
+        ji = jbas%jj(i) 
+        jj = jbas%jj(j)
+
+        if (.not. triangle(ji,jj,OP%rank)) cycle        
+        if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
+        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+rank/2,2)) cycle
+
+        call random_number(x) 
+        x = 10.*x-5.
+        OP%fph(ig,jg) = x
      end do 
   end do 
 
@@ -427,7 +445,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   call TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
 
 
-  do a = 5, 8!jbas%total_orbits
+  do a = 1, jbas%total_orbits
      do b = 1, jbas%total_orbits
         
         val = scalar_tensor_1body_comm(AA,BB,a,b,jbas) 
@@ -442,17 +460,17 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
      end do 
   end do 
 
-  do a = 25, jbas%total_orbits
+  do a = 1, jbas%total_orbits
      ja = jbas%jj(a) 
-     do b = 7, jbas%total_orbits
+     do b = 1, jbas%total_orbits
         jb = jbas%jj(b)
         
         PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
         TZ = jbas%itzp(a) + jbas%itzp(b) 
         
-        do c = 6, 8!jbas%total_orbits
+        do c = 1, jbas%total_orbits
            jc = jbas%jj(c)
-           do d = 9, jbas%total_orbits
+           do d = 1, jbas%total_orbits
               jd = jbas%jj(d) 
               
               if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+rank/2,2)) cycle 
