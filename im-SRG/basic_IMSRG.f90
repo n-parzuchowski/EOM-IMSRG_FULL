@@ -568,6 +568,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
         do Tz = -1,1
            do Par1 = 0,1
               
+              print*, q, tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par1) ,Jtot1,Jtot2      
               if (mod(rank/2,2) == 1) then ! this only works for EX transitions
                  Par2 = abs(Par1-1)  
               else
@@ -980,11 +981,21 @@ end function
 !=================================================================
 integer function tensor_block_index(J1,J2,RANK,T,P) 
   ! input 2*J1 2*J2,rank,Tz,and Parity to get block index
-  integer :: J1,J2,T,P,RANK
+  integer :: J1,J2,T,P,RANK,MORE,JX
   
-  
-  tensor_block_index = 6*( (J1/2 - 1) * ( rank/2+1) +(J2 - J1)/2 + 1) &
-                   + 2*(T+1) + P + 1 
+  IF ( J1 < RANK/2 ) THEN
+     tensor_block_index = 6*(J1*J1/4+(J2-rank+J1)/2) &
+          + 2*(T+1) + P + 1      
+  ELSE
+     tensor_block_index = 6*(((rank-2)/4+1)**2 +&
+          (J1/2-((rank-2)/2)/2-1)*(rank+2)/2+(J2-J1)/2 ) &
+          + 2*(T+1) + P + 1 
+  END IF
+     
+!  tensor_block_index = 6*( (J1/2 - 1) * ( rank/2+1) +(J2 - J1)/2 + 1) &
+ !                  + 2*(T+1) + P + 1 
+! tensor_block_index = 6*(JX*JX + (J1+J2-RANK)/2 + 1+  MORE ) &
+ !                  + 2*(T+1) + P + 1 
 
 end function 
 !=================================================================     
@@ -992,10 +1003,19 @@ end function
 integer function CCtensor_block_index(J1,J2,RANK,T,P) 
   ! input 2*J1 2*J2,rank,Tz,and Parity to get block index
   integer :: J1,J2,T,P,RANK
+    
   
-  
-  CCtensor_block_index = 4*( (J1/2 - 1) * ( rank/2+1) +(J2 - J1)/2 + 1) &
-                   + 2*T + P + 1 
+  IF ( J1 < RANK/2 ) THEN
+     CCtensor_block_index = 4*(J1*J1/4+(J2-rank+J1)/2) &
+          + 2*T + P + 1      
+  ELSE
+     CCtensor_block_index = 4*(((rank-2)/4+1)**2 + &
+          (J1/2-((rank-2)/2)/2-1)*(rank+2)/2+(J2-J1)/2 ) &
+          + 2*T + P + 1 
+  END IF
+       
+  !CCtensor_block_index = 4*( (J1/2 - 1) * ( rank/2+1) +(J2 - J1)/2 + 1) &
+   !                + 2*T + P + 1 
 
 end function 
 !=================================================================     

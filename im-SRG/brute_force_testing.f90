@@ -171,17 +171,12 @@ subroutine construct_random_rankX(OP,HERM,jbas)
         OP%fph(i,j) = x
      end do 
   end do 
- !     print*, OP%tblck(31)%npp1,OP%tblck(31)%nph2,size(OP%tblck(31)%tgam(2)%X(:,1) ),size(OP%tblck(31)%tgam(2)%X(1,:) )
-     
-! stop
+
   do q = 1, OP%nblocks
      do i = 1, 9
          
         do IX = 1, size(OP%tblck(q)%tgam(i)%X(:,1) )
            do JX = 1, size(OP%tblck(q)%tgam(i)%X(1,:) )
-       !       if ((q == 31) .and. ( i ==2)) then 
-        !         print*, size(OP%tblck(q)%tgam(i)%X(:,1) ),size(OP%tblck(q)%tgam(i)%X(1,:) ), 'DICK'
-         !     end if 
               
               call random_number(x)
 
@@ -191,7 +186,6 @@ subroutine construct_random_rankX(OP,HERM,jbas)
                  if ( mod( OP%tblck(q)%Jpair(1)/2, 2) == 1) x = 0.d0 
               end if
               
-!              print*, IX,JX,i,q,size(OP%tblck(31)%tgam(2)%X(1,:) )
               if ( OP%tblck(q)%tensor_qn(sea2(i),2)%Y(JX,1) == OP%tblck(q)%tensor_qn(sea2(i),2)%Y(JX,2) ) then 
                  if ( mod( OP%tblck(q)%Jpair(2)/2, 2) == 1) x = 0.d0 
               end if
@@ -222,6 +216,7 @@ subroutine construct_random_rankX(OP,HERM,jbas)
      
      if ( OP%tblck(q)%Jpair(1) == OP%tblck(q)%Jpair(2) ) then
         if (mod(OP%rank/2,2) == 0 ) then 
+
            OP%tblck(q)%tgam(7)%X = Transpose(OP%tblck(q)%tgam(3)%X) * OP%herm
            OP%tblck(q)%tgam(8)%X = Transpose(OP%tblck(q)%tgam(2)%X) * OP%herm
            OP%tblck(q)%tgam(9)%X = Transpose(OP%tblck(q)%tgam(6)%X) * OP%herm
@@ -230,7 +225,7 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 
            qx = tensor_block_index(OP%tblck(q)%Jpair(1),OP%tblck(q)%Jpair(2)&
                    ,rank,OP%tblck(q)%lam(3),mod(OP%tblck(q)%lam(2)+1,2))
-            
+           
            OP%tblck(qx)%tgam(7)%X = Transpose(OP%tblck(q)%tgam(3)%X)*OP%herm
            OP%tblck(qx)%tgam(8)%X = Transpose(OP%tblck(q)%tgam(2)%X)*OP%herm 
            OP%tblck(qx)%tgam(9)%X = Transpose(OP%tblck(q)%tgam(6)%X)*OP%herm
