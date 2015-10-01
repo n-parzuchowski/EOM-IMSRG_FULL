@@ -567,8 +567,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
        
         do Tz = -1,1
            do Par1 = 0,1
-              
-              print*, q, tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par1) ,Jtot1,Jtot2      
+                    
               if (mod(rank/2,2) == 1) then ! this only works for EX transitions
                  Par2 = abs(Par1-1)  
               else
@@ -876,6 +875,135 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
      ! get the indeces in the correct order
      pre = 1
 
+     if ( a > b )  then 
+        
+        x = bosonic_tp_index(b,a,N) 
+        j_min = H%xmap(x)%Z(1)  
+        i1 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
+     else
+       ! if (a == b) pre = pre * sqrt( 2.d0 )
+       
+        x = bosonic_tp_index(a,b,N) 
+        j_min = H%xmap(x)%Z(1)  
+        i1 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+     end if
+  
+     if (c > d)  then     
+        
+        x = bosonic_tp_index(d,c,N) 
+        j_min = H%xmap(x)%Z(1)  
+        i2 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        
+        pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
+     else 
+       ! if (c == d) pre = pre * sqrt( 2.d0 )
+      
+        x = bosonic_tp_index(c,d,N) 
+        j_min = H%xmap(x)%Z(1)  
+        i2 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+     end if
+     ! kets/bras are pre-scaled by sqrt(2) if they 
+     ! have two particles in the same sp-shell
+        
+     ! get the units right. I hope 
+   
+     
+     if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
+        H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
+        H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
+        
+        if (rr_calc) then 
+           rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot)
+           rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot)
+        end if 
+
+        if (pp_calc) then 
+           pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot)
+           pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot)
+        end if 
+
+        
+     else if (C1>C2) then
+        H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
+        
+        if (rr_calc) then 
+           rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot) 
+        end if
+        
+        if (pp_calc) then 
+           pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot) 
+        end if
+
+     else
+        H%mat(q)%gam(qx)%X(i1,i2) = V * pre
+        
+        if (rr_calc) then 
+           rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot) 
+        end if
+
+        if (pp_calc) then 
+           pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot) 
+        end if
+
+     end if 
+     ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
+     
+  end do   
+  close(39)
+      
+end subroutine
+!==================================================================  
+!==================================================================
+subroutine read_binary(H,jbas,htype,hw,rr,pp) 
+  ! read interaction from ASCII file produced by Scott_to_Morten_binary.f90 
+  implicit none
+  
+  type(sq_op) :: H
+  type(sq_op),optional :: rr,pp
+  type(spd) :: jbas
+  character(200) :: spfile,intfile,prefix
+  integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
+  real(8) :: V,Vcm,g1,g2,g3,pre,hw
+  integer :: C1,C2,int1,int2,i1,i2,htype,COM
+  integer :: ntot,npp,npn,nnn,count
+  logical :: rr_calc,pp_calc
+  common /files/ spfile,intfile,prefix
+  
+  open(unit=39,file = '../../TBME_input/'//trim(adjustl(intfile)),form='unformatted') 
+  
+  COM = 0
+  if (htype == 1) COM = 1 ! remove center of mass hamiltonian? 
+  
+  N = jbas%total_orbits
+  
+  ! check if we are concerned with other operators
+  rr_calc = .false.
+  pp_calc = .false. 
+  if (present(rr)) rr_calc= .true. 
+  if (present(pp)) pp_calc= .true. 
+
+  read(39) ntot,npp,npn,nnn 
+  
+  do count = 1, ntot
+     read(39) Tz,Par,J,a,b,c,d,V,g1,g2,g3
+     !read(39,*) Tz,Par,J,a,b,c,d,V,g1,g2,g3
+     
+     ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
+     ! g2 is r1*r2 ME 
+     ! g3 is p1*p2 ME 
+          
+     V = V - g3*COM*hw/(H%Aneut + H%Aprot) ! center of mass correction
+     q = block_index(J,Tz,Par) 
+     
+     C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+     C2 = jbas%con(c)+jbas%con(d) + 1
+    
+     qx = C1*C2
+     qx = qx + adjust_index(qx)   !Vpppp nature  
+
+     ! get the indeces in the correct order
+     pre = 1
      if ( a > b )  then 
         
         x = bosonic_tp_index(b,a,N) 
@@ -2439,7 +2567,7 @@ subroutine print_matrix(matrix)
 end subroutine 
 !===============================================  
 subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
-     ME2J,ME2b,hw,skip_setup,skip_gs)
+     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs)
   !read inputs from file
   implicit none 
   
@@ -2448,7 +2576,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
   integer :: method
-  logical :: HF,EXTDA,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs
+  logical :: HF,EXTDA,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -2521,15 +2649,20 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
         
   me2j = .true.
   me2b = .false. 
+  MORTBIN=.false.
   if( intfile(len(trim(intfile))-3:len(trim(intfile))) == '.int') then 
      me2j =.false.
-   !  if (spfile(1:2) .ne. 'nl') then 
-    !    STOP 'inconsistent interaction and sps files' 
-    ! end if 
+     ! Morten format
+  else if( intfile(len(trim(intfile))-3:len(trim(intfile))) == '.bin') then 
+     me2j =.false.
+     mortbin = .true. 
+     ! binary version of Morten format
   else if( intfile(len(trim(intfile))-6:len(trim(intfile))) == 'me2b.gz') then 
      me2j =.false.
      me2b = .true.
+     ! normal ordered Heiko format
   else 
+     ! Heiko format
      if (spfile(1:2) .ne. 'hk') then 
         STOP 'inconsistent interaction and sps files' 
      end if 

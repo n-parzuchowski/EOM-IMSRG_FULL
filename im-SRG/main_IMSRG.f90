@@ -21,7 +21,7 @@ program main_IMSRG
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,x
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre
   logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j,me2b
-  logical :: skip_setup,skip_gs
+  logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
   external :: dHds_TDA_shell_w_2op
@@ -32,19 +32,36 @@ program main_IMSRG
  
   heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
        13,14,29,30,27,28,25,26,23,24,21,22/) 
-  
+  writing = .false. 
+
   call getarg(1,inputs_from_command) 
+  
+  if (trim(inputs_from_command) == 'X') then 
+     test_commutators = .true.
+     inputs_from_command = ''
+  else
+     test_commutators = .false.
+  end if
+  
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,&
-       me2b,hw,skip_setup,skip_gs)
+       me2b,mortbin,hw,skip_setup,skip_gs)
   
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
-  call test_scalar_tensor_commutator(jbasis,-1,1,10) 
+  
+  if (TEST_COMMUTATORS)  then 
+     ! run this by typing ' X' after the input file in the command line
+     call test_scalar_scalar_commutator(jbasis,-1,1) 
+     call test_scalar_tensor_commutator(jbasis,-1,1,2) 
+     stop
+  end if
+  
   call allocate_blocks(jbasis,HS) 
   
   HS%herm = 1
   HS%hospace = hw
 
+  
   ! check if you can skip some stuff
   if (skip_gs) then 
      print*, 'reading ground state decoupled hamiltonian' 
@@ -66,6 +83,8 @@ program main_IMSRG
      
      if (me2j) then  ! heiko format or scott format? 
         call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj) 
+     else if (mortbin) then 
+        call read_binary(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
      else
         call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
      end if
@@ -79,7 +98,9 @@ program main_IMSRG
      call duplicate_sq_op(HS,r2_rms) 
      
      if (me2j) then 
-        call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj) 
+        call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj)
+     else if (mortbin) then 
+        call read_binary(HS,jbasis,ham_type,hw,rr=rirj)  
      else
         call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
      end if
@@ -95,6 +116,8 @@ program main_IMSRG
         call read_me2b_interaction(HS,jbasis,ham_type,hw) 
         goto 12 ! skip the normal ordering. 
         ! it's already done.  line 128 or search "bare" 
+     else if (mortbin) then 
+        call read_binary(HS,jbasis,ham_type,hw) 
      else
         call read_interaction(HS,jbasis,ham_type,hw)
      end if
@@ -231,12 +254,12 @@ program main_IMSRG
   ! stop 
 
 
-
-call write_binary_operator(HS,'gs_decoup') 
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
-call write_binary_operator(HS,'gs_decoup') 
+if (writing) then 
+   call write_binary_operator(HS,'gs_decoup')
+end if  
 20 if (skip_gs) call read_binary_operator(HS,'gs_decoup') 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
