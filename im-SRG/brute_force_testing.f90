@@ -406,7 +406,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max
   integer :: j2min,j2max,PAR,TZ,J1,J2
   integer,intent(in) :: h1,h2,rank
-  real(8) :: val
+  real(8) :: val,t1,t2,t3,t4,omp_get_wtime
   
   
 !  call seed_random_number
@@ -429,8 +429,9 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   OUT%herm = -1* AA%herm * BB%herm 
   
   print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
-  
+!  t1 = OMP_get_wtime()
   call calculate_generalized_pandya(BB,BBCC,jbas,.false.)
+!  t2 = OMP_get_wtime()
   call calculate_cross_coupled(AA,AACC,jbas,.false.) 
   
   call TS_commutator_111(AA,BB,OUT,jbas) 
@@ -442,9 +443,13 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)
   
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
+!  t4 = OMP_get_wtime()
   call TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
-
-
+!  t3 = OMP_get_wtime()
+  
+  print*, 'time:', t3-t1,t2-t1,t3-t4
+  stop
+goto 12
   do a = 1, jbas%total_orbits
      do b = 1, jbas%total_orbits
         
@@ -460,7 +465,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
      end do 
   end do 
 
-  do a = 1, jbas%total_orbits
+12  do a = 1, jbas%total_orbits
      ja = jbas%jj(a) 
      do b = 1, jbas%total_orbits
         jb = jbas%jj(b)
@@ -844,7 +849,7 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
      end do
   end do
  
-!$OMP PARALLEL DO PRIVATE( ji,jj,i,j,J3,J4,J5,jx) REDUCTION(+:sm)
+!!$OMP PARALLEL DO PRIVATE( ji,jj,i,j,J3,J4,J5,jx) SHARED(AA,BB) REDUCTION(+:sm)
   do i = 1, totorb
      ji =jbas%jj(i)
      do j = 1,totorb
@@ -888,7 +893,7 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
         end do
      end do
   end do
-!$OMP END PARALLEL DO
+!!$OMP END PARALLEL DO
 
   scalar_tensor_2body_comm = sm 
   

@@ -1462,7 +1462,6 @@ end subroutine
   total_threads = size(RES%direct_omp) - 1
    ! construct intermediate matrices
 
-  print*, 
   do q = 1,RCC%nblocks
      if (RCC%jval2(q) > jbas%jtotal_max*2) cycle
 
@@ -1499,11 +1498,12 @@ end subroutine
      
   end do
 
-!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
-    !do thread = 1, total_threads
-!    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
- 
-   do q = 1,RES%nblocks
+
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
+  do thread = 1, total_threads
+     do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
+
+!   do q = 1,RES%nblocks
       J1 = RES%tblck(q)%jpair(1)
       J2 = RES%tblck(q)%jpair(2)
                
@@ -1702,9 +1702,9 @@ end subroutine
       end do
       end do 
    end do
-!   end do 
 
-!!$OMP END PARALLEL DO 
+   end do 
+!$OMP END PARALLEL DO 
    
 end subroutine 
 !=====================================================

@@ -144,9 +144,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   ! triples correction
   if (trip_calc) then 
      call enumerate_three_body(threebas,jbas)
-     t1 = omp_get_wtime()
+ !    t1 = omp_get_wtime()
      corr =  restore_triples(H,G,threebas,jbas) 
-     t2 = omp_get_wtime()
+  !   t2 = omp_get_wtime()
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
   end if
   

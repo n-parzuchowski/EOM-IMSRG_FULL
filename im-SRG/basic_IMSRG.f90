@@ -102,7 +102,7 @@ end type cross_coupled_31_mat
    real(8),allocatable,dimension(:,:) :: phase_pp,phase_hh 
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
    integer,public,dimension(6) :: tensor_adjust = (/0,6,4,0,0,3/)
-   type(six_index_store),public :: store6j   ! holds 6j-symbols
+   type(six_index_store),public :: store6j , half6j  ! holds 6j-symbols
    
 
   !The following public arrays give info about the 6 different categories
@@ -515,7 +515,8 @@ subroutine allocate_tensor(jbas,op,zerorank)
   integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x,rank
   integer :: Jtot1,Jtot2,Jtot,Tz,Par1,Par2,nph1,npp1,nhh1,nph2,npp2,nhh2
   integer :: CX,j_min,j_max,numJ,q1,q2
-  
+  real(8) :: d6ji,lwake
+
   ! rank is multiplied by 2 as well
   rank = op%rank 
   op%hospace = zerorank%hospace
@@ -729,6 +730,14 @@ subroutine allocate_tensor(jbas,op,zerorank)
       end do 
    end do 
    
+   ! these are six j symbols that I don't already have,
+   ! which the commutators need for this tensor.
+   ! access with XXXsixj
+   call store_6j_3halfint(jbas,rank)
+  
+   
+   call divide_work_tensor(op) 
+
  end subroutine allocate_tensor
 !==================================================================  
 !==================================================================
@@ -740,9 +749,9 @@ subroutine divide_work(r1)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+!  threads=omp_get_num_threads() 
 !$omp end parallel
-!threads = 1
+threads = 1
   b = 0.d0
   do q = 1, r1%nblocks
      b = b + r1%mat(q)%nhh +r1%mat(q)%npp + r1%mat(q)%nph 
@@ -776,6 +785,54 @@ subroutine divide_work(r1)
 end subroutine     
 !==================================================================  
 !==================================================================
+subroutine divide_work_tensor(r1) 
+  implicit none 
+  
+  type(sq_op) :: r1
+  integer :: A,N,threads,omp_get_num_threads
+  integer :: i ,g,q,k,b,j,spot
+  
+!$omp parallel
+!  threads=omp_get_num_threads() 
+!$omp end parallel
+threads = 1
+  b = 0.d0
+  do q = 1, r1%nblocks
+     do spot = 1, 9
+        b = b + size(r1%tblck(q)%tgam(spot)%X) 
+     end do 
+  end do
+  
+  allocate( r1%direct_omp(threads+1) )
+  
+  g = 0
+  k = 0
+  q = 1
+  do i = 1,threads
+     
+     g = g+k 
+     j = (b-g)/(threads-i+1) 
+     
+     k = 0
+     
+     do while ( q .le. r1%nblocks) 
+        do spot = 1, 9
+           k = k + size(r1%tblck(q)%tgam(spot)%X) 
+        end do
+        q = q + 1
+        
+        if (k .ge. j) then 
+           r1%direct_omp(i+1) = q-1
+           exit
+        end if
+     end do 
+  end do 
+  r1%direct_omp(threads+1) = r1%nblocks
+  r1%direct_omp(1) = 0 
+
+end subroutine     
+!==================================================================  
+!==================================================================
 subroutine divide_work_tpd(threebas) 
   implicit none 
   
@@ -784,9 +841,9 @@ subroutine divide_work_tpd(threebas)
   integer :: i ,g,q,k,b,j,blocks
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+!  threads=omp_get_num_threads() 
 !$omp end parallel
-!threads = 1
+threads = 1
 
   blocks =size(threebas) 
   b = 0.d0
@@ -1107,6 +1164,24 @@ integer function block_index(J,T,P)
 end function 
 !=================================================================     
 !=================================================================
+integer function halfint_index(j1,j2,RANK) 
+  ! input 2*J1 2*J2,rank,Tz,and Parity to get block index
+  integer :: J1,J2,T,P,RANK,MORE,n
+  
+  n = (j1+1)/2
+  
+  IF ( j1 < RANK ) THEN
+     n = (j1-1)/2
+     halfint_index = n*(n+1) + (j2 - abs(j1-rank))/2 + 1           
+  ELSE
+     n = rank/2
+     halfint_index = n*(n+1) + (j2 - abs(j1-rank))/2 + 1  + &
+          (j1-rank-1)/2*(rank+1.d0) 
+  END IF
+
+end function 
+!=================================================================     
+!=================================================================
 integer function tensor_block_index(J1,J2,RANK,T,P) 
   ! input 2*J1 2*J2,rank,Tz,and Parity to get block index
   integer :: J1,J2,T,P,RANK,MORE,JX
@@ -1120,11 +1195,6 @@ integer function tensor_block_index(J1,J2,RANK,T,P)
           + 2*(T+1) + P + 1 
   END IF
      
-!  tensor_block_index = 6*( (J1/2 - 1) * ( rank/2+1) +(J2 - J1)/2 + 1) &
- !                  + 2*(T+1) + P + 1 
-! tensor_block_index = 6*(JX*JX + (J1+J2-RANK)/2 + 1+  MORE ) &
- !                  + 2*(T+1) + P + 1 
-
 end function 
 !=================================================================     
 !=================================================================
@@ -1852,6 +1922,88 @@ subroutine store_6j(jbas,method)
   end do 
    
 end subroutine    
+!======================================================
+!======================================================
+subroutine store_6j_3halfint(jbas,rank) 
+  ! THIS CODE ASSUMES THAT SIX-J SYMBOLS WITH 3 half-INTEGER j take the form:
+  ! { J1 , J2  , X }
+  ! { a  ,  b  , c }    WHERE X IS THE RANK OF SOME TENSOR    
+  !
+  ! run this once. use sixj in code to call elements 
+  ! kind of complicated, but if fills a public array (half6j) 
+  ! which theoretically doesn't need to be touched when 
+  ! making changes to the code ( this is all background stuff ) 
+  ! so DFWT subroutine because it will be a huge mess
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: j1,j2,j3,j4,j5,j6,halfmax,num_whole,r1,r2,rank,JTM
+  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max,method,TZ,PAR
+  real(8) :: d6ji
+  
+  call dfact0() ! prime the anglib 6j calculator 
+  
+  JTM = jbas%jtotal_max*2
+ 
+  halfmax = jbas%Jtotal_max
+  !end if                        
+  
+  !these mean nothing physical
+  ! they are just set to one so I can use tensor_block_index
+  TZ = 1
+  PAR = 1
+  
+  !half6j%nhalf = num_half
+  nbos = tensor_block_index(JTM,JTM+RANK,RANK,TZ,PAR)/6 
+  ! divide by six because TZ and PAR are irrelevant
+  nferm = halfint_index(halfmax,halfmax+rank,rank) 
+  
+  half6j%nb = nbos
+  half6j%nf = nferm 
+  
+  
+  allocate(half6j%tp_mat(nbos,nferm)) 
+  ! The first index refers to J1,J2 
+  ! which are forcibly ordered
+  
+  ! the second index refers to j4,j5 which cannot be ordered
+  ! so we need an extra set of states for the reverse ordering (nferm) 
+  
+  do J1 = 0,JTM,2 
+     do J2 = max(abs(J1 - rank),J1), J1+rank , 2   
+
+        X12 = tensor_block_index(J1,J2,RANK,TZ,PAR)/6 
+        
+        do j4 = 1, halfmax,2
+           do j5 = abs(j4-rank),j4+rank,2
+           
+              ! if j5<j4 use fermionic index
+              X45 = halfint_index(j4,j5,rank) 
+              
+              ! find the allowed values of j3
+              j3min = max(  abs( J1 - j5 ) , abs( J2-j4 )   )               
+              j3max = min(  J1+j5 , J2+j4 ) 
+
+            
+            ! allocate second part of storage array to hold them 
+              allocate(half6j%tp_mat(X12,X45)%X((j3max-j3min)/2+1,1 ) ) 
+              
+              ! fill the array with 6j symbols
+              r1 = 1 
+             
+              do j3 = j3min,j3max,2
+                 r2 = 1
+                    half6j%tp_mat(X12,X45)%X(r1,1) =  d6ji(J1,J2,rank,j4,j5,j3)   
+                    ! d6ji is the anglib sixj calculator (takes 2*j as arguments) 
+                 r1 = r1 + 1
+              end do 
+                 
+           end do 
+        end do
+     end do 
+  end do 
+   
+end subroutine    
 !=========================================================
 !=========================================================
 subroutine normal_order(H,jbas) 
@@ -2033,6 +2185,49 @@ real(8) function sixj(j1,j2,j3,j4,j5,j6)
      
   else 
      sixj = 0.d0 
+  end if 
+end function
+!=========================================================
+!=========================================================
+real(8) function xxxsixj(j1,j2,RANK,j4,j5,j6)
+  ! twice the angular momentum
+  ! J1, J2, RANK  are INTEGERS, the rest are HALF-INTEGERS
+  ! you should be able to re-write the six-j symbol to look like this.
+  ! so you don't have to carry that obnoxious array around
+  implicit none 
+ 
+  integer :: j1,j2,j3,j4,j5,j6,RANK
+  integer :: l1,l2,l3,l4,l5,l6
+  integer :: x1,x2,j3min,j6min
+    
+  ! check triangle inequalities
+  if ( (triangle(j1,j2,RANK)) .and. (triangle(j4,j5,RANK)) &
+  .and. (triangle(j1,j5,j6)) .and. (triangle(j4,j2,j6)) ) then 
+     
+     l1 = j1; l2 = j2; l3 = RANK; l4 = j4; l5 = j5; l6 = j6 
+          
+     ! find lowest possible momentum
+     j6min = max(  abs( j1 -  j5)  , abs( j4 -  j2 )   )/2               
+    
+
+     ! make sure j1 < = j2
+     if  ( j1 > j2 ) then 
+        l1 = j2 ; l2 = j1 
+        l4 = j5 ; l5 = j4
+     end if 
+     ! allowed by 6j symmetry
+    
+     ! find indeces
+     x1 = tensor_block_index(l1,l2,RANK,1,1)/6
+     x2 = halfint_index(l4,l5,rank) 
+
+     print*, x1,x2
+     ! figure out indeces for j3,j6 based on lowest possible
+     xxxsixj = half6j%tp_mat(x1,x2)%X(l6/2 - j6min + 1 ,1) 
+     
+     
+  else 
+     xxxsixj = 0.d0 
   end if 
 end function
 !=======================================================
@@ -2243,8 +2438,8 @@ subroutine duplicate_sq_op(H,op)
 
      allocate(op%tblck(op%nblocks)) 
     
-    ! allocate(op%direct_omp(size(H%direct_omp)))
-    ! op%direct_omp = H%direct_omp
+     allocate(op%direct_omp(size(H%direct_omp)))
+     op%direct_omp = H%direct_omp
 
      N = op%nsp
      allocate(op%xmap(N*(N+1)/2))
@@ -3185,7 +3380,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
   if ( mod(rank/2,2) == 1) parflip = .true. 
 
   CCME%herm = OP%Herm
-!!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
+!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
   do q1 = 1, CCME%nblocks
       
      Jtot1 = CCME%Jval(q1)
@@ -3376,7 +3571,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
      end do
 
   end do 
-!!$omp end parallel do
+!$omp end parallel do
 
 end subroutine 
 !=======================================================  
