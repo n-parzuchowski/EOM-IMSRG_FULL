@@ -51,8 +51,9 @@ program main_IMSRG
   
   if (TEST_COMMUTATORS)  then 
      ! run this by typing ' X' after the input file in the command line
-   !  call test_scalar_scalar_commutator(jbasis,-1,1) 
-     call test_scalar_tensor_commutator(jbasis,-1,1,2) 
+!     call test_scalar_scalar_commutator(jbasis,-1,1) 
+     call test_EOM_scalar_scalar_commutator(jbasis,1,1) 
+ !    call test_scalar_tensor_commutator(jbasis,-1,1,2) 
      stop
   end if
   

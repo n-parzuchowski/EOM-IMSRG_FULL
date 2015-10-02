@@ -1259,8 +1259,43 @@ real(8) function f_elem(a,b,op,jbas)
   end select
 
 end function
-!==============================================================
-!==============================================================
+!=================================================================     
+!=================================================================
+real(8) function ph_elem(a,b,op,jbas) 
+  implicit none 
+  
+  integer :: a,b,x1,x2,c1,c2
+  type(spd) :: jbas
+  type(sq_op) :: op 
+  
+  ! are they holes or particles
+  c1 = jbas%con(a)
+  c2 = jbas%con(b) 
+  
+  if ( (c1 == 1) .or. (c2 == 0) ) then 
+     ph_elem = 0.d0 
+     return
+  end if 
+  
+  select case(c1+c2) 
+     case(0) 
+        ! pp 
+        ph_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
+  
+     case(1) 
+        ! ph 
+        if (c1 > c2) then 
+           ph_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
+                op%herm
+        else 
+           ph_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+        end if
+     case(2) 
+        ! hh 
+        ph_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
+  end select
+
+end function
 !=================================================================     
 !=================================================================
 real(8) function f_tensor_elem(a,b,op,jbas) 
@@ -1401,6 +1436,122 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
    ! stored info if we are looking for this same ME next time. 
    c1_c=C1;c2_c=C2;q_c=q;qx_c=qx
    i1_c=i1;i2_c=i2;pre_c=pre;fail_c=.false.   
+end function
+!==============================================================
+!==============================================================
+real(8) function pphh_elem(a,b,c,d,J,op,jbas) 
+  ! grabs the matrix element you are looking for
+  implicit none
+  
+  integer :: a,b,c,d,J,T,P,q,qx,c1,c2,N
+  integer :: int1,int2,i1,i2,j_min,x
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  
+  logical :: fail_c,pphh
+  type(sq_op) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c
+  
+  !make sure the matrix element exists first
+  
+  pphh = .false. 
+  if ( jbas%con(a) == 1) pphh = .true.  
+  if ( jbas%con(b) == 1) pphh = .true. 
+  if ( jbas%con(c) == 0) pphh = .true. 
+  if ( jbas%con(d) == 0) pphh = .true. 
+     
+  if (pphh) then 
+     pphh_elem = 0.d0 
+     return
+  end if 
+ 
+  fail_c = .true. 
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+ if ( .not. ((triangle(ja,jb,J)) .and. (triangle (jc,jd,J))) ) then 
+    pphh_elem = 0.d0
+    return
+ end if 
+     
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+     
+  P = mod(la + lb,2) 
+     
+  if ( mod(lc + ld,2) .ne. P ) then
+    pphh_elem = 0.d0 
+    return
+  end if 
+        
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)
+     
+  T = (ta + tb)/2
+     
+  
+  if ((tc+td) .ne. 2*T) then     
+    pphh_elem = 0.d0
+    return
+  end if 
+
+  q = block_index(J,T,P) 
+
+  !! this is a ridiculous but efficient? way of 
+  !! figuring out which Vpppp,Vhhhh,Vphph.... 
+  !! array we are referencing. QX is a number between 
+  !! 1 and 6 which refers to a unique array for the pphh characteristic
+  
+  C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+  C2 = jbas%con(c)+jbas%con(d) + 1
+    
+  qx = C1*C2
+  qx = qx + adjust_index(qx)   !Vpppp nature  
+  
+  ! see subroutine "allocate_blocks" for mapping from qx to each 
+  ! of the 6 storage arrays
+    
+  pre = 1 
+  
+  N = op%Nsp
+  ! get the indeces in the correct order
+  if ( a > b )  then 
+     x = bosonic_tp_index(b,a,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
+  else
+     if (a == b) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(a,b,N)
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+  end if 
+  
+  if (c > d)  then     
+     x = bosonic_tp_index(d,c,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
+  else 
+     if (c == d) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(c,d,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2)  
+  end if 
+ 
+  ! grab the matrix element
+   If (C1>C2) then 
+      pphh_elem = op%mat(q)%gam(qx)%X(i2,i1) * op%herm * pre 
+   else
+      pphh_elem = op%mat(q)%gam(qx)%X(i1,i2) * pre
+   end if 
+   
 end function
 !==============================================================
 !==============================================================
