@@ -429,9 +429,9 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   OUT%herm = -1* AA%herm * BB%herm 
   
   print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
-!  t1 = OMP_get_wtime()
+  t1 = OMP_get_wtime()
   call calculate_generalized_pandya(BB,BBCC,jbas,.false.)
-!  t2 = OMP_get_wtime()
+  t2 = OMP_get_wtime()
   call calculate_cross_coupled(AA,AACC,jbas,.false.) 
   
   call TS_commutator_111(AA,BB,OUT,jbas) 
@@ -443,12 +443,12 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)
   
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
-!  t4 = OMP_get_wtime()
+  t4 = OMP_get_wtime()
   call TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
-!  t3 = OMP_get_wtime()
+  t3 = OMP_get_wtime()
   
   print*, 'time:', t3-t1,t2-t1,t3-t4
-  stop
+ 
 goto 12
   do a = 1, jbas%total_orbits
      do b = 1, jbas%total_orbits

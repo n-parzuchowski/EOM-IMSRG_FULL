@@ -749,9 +749,9 @@ subroutine divide_work(r1)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
-!  threads=omp_get_num_threads() 
+  threads=omp_get_num_threads() 
 !$omp end parallel
-threads = 1
+!threads = 1
   b = 0.d0
   do q = 1, r1%nblocks
      b = b + r1%mat(q)%nhh +r1%mat(q)%npp + r1%mat(q)%nph 
@@ -793,9 +793,9 @@ subroutine divide_work_tensor(r1)
   integer :: i ,g,q,k,b,j,spot
   
 !$omp parallel
-!  threads=omp_get_num_threads() 
+  threads=omp_get_num_threads() 
 !$omp end parallel
-threads = 1
+!threads = 1
   b = 0.d0
   do q = 1, r1%nblocks
      do spot = 1, 9
@@ -841,9 +841,9 @@ subroutine divide_work_tpd(threebas)
   integer :: i ,g,q,k,b,j,blocks
   
 !$omp parallel
-!  threads=omp_get_num_threads() 
+  threads=omp_get_num_threads() 
 !$omp end parallel
-threads = 1
+!threads = 1
 
   blocks =size(threebas) 
   b = 0.d0
@@ -1945,7 +1945,7 @@ subroutine store_6j_3halfint(jbas,rank)
   
   JTM = jbas%jtotal_max*2
  
-  halfmax = jbas%Jtotal_max
+  halfmax = jbas%Jtotal_max + JTM
   !end if                        
   
   !these mean nothing physical
@@ -2221,7 +2221,6 @@ real(8) function xxxsixj(j1,j2,RANK,j4,j5,j6)
      x1 = tensor_block_index(l1,l2,RANK,1,1)/6
      x2 = halfint_index(l4,l5,rank) 
 
-     print*, x1,x2
      ! figure out indeces for j3,j6 based on lowest possible
      xxxsixj = half6j%tp_mat(x1,x2)%X(l6/2 - j6min + 1 ,1) 
      
@@ -3367,7 +3366,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
   integer :: Jtot1,Jtot2,ja,jp,jb,jh,JC,q1,q2,q,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin1,Jmax1,Rindx,Gindx,g,ta,tb,Atot,hg,pg,J3,J4,NBindx2,qONE,qTWO
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx1,x,JTM,rank,Jmin2,Jmax2
-  real(8) :: sm,sm2,pre,horse,coef9,jew
+  real(8) :: sm,sm2,pre,horse
   logical :: phase,parflip
 
   Atot = OP%belowEF
@@ -3512,7 +3511,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     coef9(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
+                                     ninej(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
                                      tensor_elem(a,h,p,b,J3,J4,OP,jbas) 
                                 
                              end do
@@ -3551,7 +3550,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     coef9(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
+                                     ninej(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
                                      tensor_elem(h,a,b,p,J3,J4,OP,jbas) 
                        
                              end do
@@ -4210,6 +4209,25 @@ subroutine enumerate_three_body(threebas,jbas)
    end do 
 
    call divide_work_tpd(threebas) 
-end subroutine   
+end subroutine 
+
+real(8) function ninej(a,b,J1,c,d,J2,J3,J4,RANK) 
+  ! fast ninej using stored 6j
+  implicit none 
+
+  integer ::a ,b, c,d,J1,J2,J3,J4,RANK,x,xmin,xmax
+  real(8) :: sm 
+
+  xmin = max(abs(J2-b),abs(a-rank),abs(J4-c))  
+  xmax = min( J2+b , a+rank ,J4+c )
+  
+  sm = 0.d0 
+  do x = xmin,xmax,2
+     sm = sm - (x+1.d0) * xxxsixj(J1,J2,rank,x,a,b) * &
+          sixj(c,d,J2,b,x,J4)* xxxsixj(J3,J4,rank,x,a,c) 
+  end do 
+  
+  ninej = sm 
+end function
   
 end module       

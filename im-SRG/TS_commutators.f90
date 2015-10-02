@@ -118,7 +118,8 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                  do J1 = abs(ja - jp),ja+jp,2 
                     
                     smx = smx + tensor_elem(ak,pk,ik,qk,J1,J2,R,jbas)&
-                         *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)*d6ji(J1,J2,rank,jq,jp,ji)             
+                         *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)*&
+                         xxxsixj(J1,J2,rank,jq,jp,ji)             
                  
                  end do
               end do
@@ -127,7 +128,8 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                  do J2 = abs(ja - jq),ja+jq,2 
                  
                     smy = smy + tensor_elem(ik,pk,ak,qk,J1,J2,R,jbas)&
-                         *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)*d6ji(J1,J2,rank,jq,jp,ji) 
+                         *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)*&
+                         xxxsixj(J1,J2,rank,jq,jp,ji) 
                                      
                  end do
               end do
@@ -195,7 +197,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                     
                     smx = smx + tensor_elem(ak,pk,ik,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)&
-                         * d6ji(J1,J2,rank,jq,jp,ji)              
+                         * xxxsixj(J1,J2,rank,jq,jp,ji)              
                  
                  end do
               end do
@@ -205,7 +207,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                  
                     smy = smy + tensor_elem(ik,pk,ak,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2) &
-                         * d6ji(J1,J2,rank,jq,jp,ji)
+                         * xxxsixj(J1,J2,rank,jq,jp,ji)
                                      
                  end do
               end do
@@ -272,7 +274,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
 
                     smx = smx + tensor_elem(ak,pk,ik,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)  &
-                          * d6ji(J1,J2,rank,jq,jp,ji)
+                          * xxxsixj(J1,J2,rank,jq,jp,ji)
                     
                  end do
               end do
@@ -282,7 +284,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                  
                     smy = smy + tensor_elem(ik,pk,ak,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2) & 
-                                      * d6ji(J1,J2,rank,jq,jp,ji)
+                                      * xxxsixj(J1,J2,rank,jq,jp,ji)
                     
                  end do
               end do
@@ -728,7 +730,8 @@ subroutine TS_commutator_212(L,R,RES,jbas)
                  if (modli == modla ) then 
                     if (triangle(ji,ja,rank)) then  
                        
-                       sm1 = sm1 - d6ji(ji,jb,J2,J1,rank,ja)*f_tensor_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
+                       sm1 = sm1 - xxxsixj(J1,J2,rank,ji,ja,jb)&
+                            *f_tensor_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
                      
                     end if
                  end if
@@ -742,7 +745,8 @@ subroutine TS_commutator_212(L,R,RES,jbas)
                  if (modli == modlb ) then 
                     if (triangle(ji,jb,rank)) then  
                        
-                       sm2 = sm2 + d6ji(ji,ja,J2,J1,rank,jb)*f_tensor_elem(b,i,R,jbas)*v_elem(i,a,c,d,J2,L,jbas)
+                       sm2 = sm2 + xxxsixj(J1,J2,rank,ji,jb,ja)&
+                            *f_tensor_elem(b,i,R,jbas)*v_elem(i,a,c,d,J2,L,jbas)
                        
                     end if
                  end if
@@ -756,7 +760,8 @@ subroutine TS_commutator_212(L,R,RES,jbas)
                  if (modli == modld ) then 
                     if (triangle(ji,jd,rank)) then  
                        
-                       sm3 = sm3 + d6ji(ji,jd,rank,J2,J1,jc)*f_tensor_elem(i,d,R,jbas)*v_elem(a,b,c,i,J1,L,jbas)
+                       sm3 = sm3 + xxxsixj(J1,J2,rank,jd,ji,jc)&
+                            *f_tensor_elem(i,d,R,jbas)*v_elem(a,b,c,i,J1,L,jbas)
                        
                     end if
                  end if
@@ -770,7 +775,8 @@ subroutine TS_commutator_212(L,R,RES,jbas)
                  if (modli == modlc ) then 
                     if (triangle(ji,jc,rank)) then  
                        
-                       sm4 = sm4 - d6ji(ji,jc,rank,J2,J1,jd)*f_tensor_elem(i,c,R,jbas)*v_elem(a,b,d,i,J1,L,jbas)
+                       sm4 = sm4 -  xxxsixj(J1,J2,rank,jc,ji,jd)&
+                            *f_tensor_elem(i,c,R,jbas)*v_elem(a,b,d,i,J1,L,jbas)
                        
                     end if
                  end if
@@ -1585,7 +1591,7 @@ end subroutine
               
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                       coef9(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
+                       ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
                        WCC%CCX(qx)%X(ril,rkj)*(-1)**((J3+J4)/2)  &
                       + WCC%CCR(qx)%X(ril,rkj) * phase1 * LCC%herm &
                       - (-1)**(rank/2)*phase1*RCC%herm*LCC%herm * &
@@ -1606,7 +1612,7 @@ end subroutine
                   
                   qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                       coef9(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
+                       ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
                        WCC%CCR(qx)%X(rjk,rli)*phase1*(-1)**((rank+J3+J4)/2)*LCC%herm &
                        + WCC%CCX(qx)%X(rjk,rli) * (-1)**(rank/2) &
                         - RCC%herm * WCC%CCR(qx)%X(rkj,ril) &
@@ -1654,7 +1660,7 @@ end subroutine
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                
                   sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                       coef9(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
+                       ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
                        (-1)**((J3+J4)/2) * WCC%CCX(qx)%X(rjl,rki)  & 
                        - phase1*RCC%herm*LCC%herm*(-1)**(rank/2)* &
                        WCC%CCX(qx)%X(rlj,rik) + phase1*LCC%herm * &
@@ -1675,7 +1681,7 @@ end subroutine
                   qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
                   
                   sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                       coef9(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
+                       ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
                        (-1)**((J3+J4+rank)/2) *phase1*LCC%herm &
                        * WCC%CCR(qx)%X(rik,rlj)  & 
                        - RCC%herm*WCC%CCR(qx)%X(rki,rjl) &
