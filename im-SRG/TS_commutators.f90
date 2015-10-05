@@ -849,7 +849,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -857,7 +857,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
              
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
                 
              end do
@@ -875,7 +875,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -883,7 +883,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
            
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
                 
              end do
@@ -930,7 +930,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -938,7 +938,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
              
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
                 
              end do
@@ -956,7 +956,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -964,7 +964,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
            
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
                 
              end do
@@ -1011,7 +1011,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -1019,7 +1019,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
              
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
                 
              end do
@@ -1037,7 +1037,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -1045,7 +1045,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
            
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*d6ji(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
                 
              end do
@@ -1699,11 +1699,7 @@ end subroutine
           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX) + ( sm * &
                (-1) ** ((ji+jj+J2)/2) + sm_ex * (-1)**((J1+J2)/2) )&
                *   pre * pre2 *   sqrt((J1+1.d0)*(J2+1.d0))
-           
-           
-           !if (square) RES%tblck(q)%gam(g_ix)%X(JX,IX) =  &
-            !    RES%tblck(q)%gam(g_ix)%X(IX,JX) * RES%herm
-           
+   
          end do 
       end do
       end do 

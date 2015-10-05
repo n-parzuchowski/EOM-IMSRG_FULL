@@ -1328,6 +1328,43 @@ real(8) function f_tensor_elem(a,b,op,jbas)
   end select
 
 end function
+!=================================================================     
+!=================================================================
+real(8) function ph_tensor_elem(a,b,op,jbas) 
+  implicit none 
+  
+  integer :: a,b,x1,x2,c1,c2
+  type(spd) :: jbas
+  type(sq_op) :: op 
+  
+  ! are they holes or particles
+  c1 = jbas%con(a)
+  c2 = jbas%con(b) 
+  
+  if ( (c1 == 1) .or. (c2 == 0) ) then 
+     ph_tensor_elem = 0.d0 
+     return
+  end if 
+  
+  select case(c1+c2) 
+     case(0) 
+        ! pp 
+        ph_tensor_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
+  
+     case(1) 
+        ! ph 
+        if (c1 > c2) then 
+           ph_tensor_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
+              op%herm * (-1)**( (jbas%jj(a) - jbas%jj(b))/2 ) 
+        else 
+           ph_tensor_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+        end if
+     case(2) 
+        ! hh 
+        ph_tensor_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
+  end select
+
+end function
 !==============================================================
 !==============================================================
 real(8) function v_elem(a,b,c,d,J,op,jbas) 
@@ -1565,7 +1602,7 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   integer :: int1,int2,i1,i2,j_min,x,k1,k2,ax,bx,cx,dx
   integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
   integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  ,phase
-  logical :: fail_c
+  logical :: fail_c,switch
   type(sq_op) :: op 
   type(spd) :: jbas
   real(8) :: pre,pre_c
@@ -1573,6 +1610,7 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   J1 = min(J1x,J2x) 
   
   if (J1 == J1x) then 
+     switch = .false. 
      J2 = J2x 
      phase = 1
      a = ax
@@ -1581,7 +1619,7 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
      d = dx
   else
      J2 = J1x 
-     phase = (-1)** ((J1 + J2)/2)*op%herm 
+     switch = .true. 
      a = cx
      b = dx
      c = ax
@@ -1635,6 +1673,9 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
 
   q = tensor_block_index(J1,J2,rank,T,P) 
 
+  if (switch) then 
+     phase =  OP%tblck(q)%lam(1)*op%herm 
+  end if 
   !! this is a ridiculous but efficient? way of 
   !! figuring out which Vpppp,Vhhhh,Vphph.... 
   !! array we are referencing. QX is a number between 
@@ -1687,6 +1728,157 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
    If (C1>C2) qx = qx + tensor_adjust(qx)       
    
    tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
+    
+end function
+!==============================================================
+!==============================================================
+real(8) function pphh_tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas) 
+  ! grabs the matrix element you are looking for
+  ! right now it's not as versatile as v_elem because 
+  ! it doesn't know ahead of time what the symmetries are
+  implicit none
+  
+  integer :: a,b,c,d,J1,J2,rank,T,P,q,qx,c1,c2,N,J1x,J2x
+  integer :: int1,int2,i1,i2,j_min,x,k1,k2,ax,bx,cx,dx
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  ,phase
+  logical :: fail_c,switch,pphh
+  type(sq_op) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c
+  
+  pphh = .false. 
+  if ( jbas%con(ax) == 1) pphh = .true.  
+  if ( jbas%con(bx) == 1) pphh = .true. 
+  if ( jbas%con(cx) == 0) pphh = .true. 
+  if ( jbas%con(dx) == 0) pphh = .true. 
+     
+  if (pphh) then 
+     pphh_tensor_elem = 0.d0 
+     return
+  end if 
+  
+  J1 = min(J1x,J2x) 
+  
+  if (J1 == J1x) then 
+     switch = .false. 
+     J2 = J2x 
+     phase = 1
+     a = ax
+     b = bx
+     c = cx
+     d = dx
+  else
+     J2 = J1x 
+     switch = .true. 
+     a = cx
+     b = dx
+     c = ax
+     d = bx 
+  end if
+  
+  !make sure the matrix element exists first
+ 
+  rank = op%rank
+
+  if ( .not. (triangle ( J1,J2,rank ))) then 
+     pphh_tensor_elem = 0.d0 
+     return
+  end if 
+ 
+  
+  fail_c = .true. 
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+  if ( .not. ((triangle(ja,jb,J1)) .and. (triangle (jc,jd,J2))) ) then 
+     pphh_tensor_elem = 0.d0
+     return
+  end if
+     
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+
+  P = mod(la + lb,2) 
+     
+  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(rank/2+1)+1)/2) ) then
+    pphh_tensor_elem = 0.d0 
+    return
+  end if 
+        
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)
+     
+  T = (ta + tb)/2
+     
+  if ((tc+td) .ne. 2*T) then     
+    pphh_tensor_elem = 0.d0
+    return
+  end if 
+
+  q = tensor_block_index(J1,J2,rank,T,P) 
+
+  if (switch) then 
+     phase =  OP%tblck(q)%lam(1)*op%herm 
+  end if 
+  !! this is a ridiculous but efficient? way of 
+  !! figuring out which Vpppp,Vhhhh,Vphph.... 
+  !! array we are referencing. QX is a number between 
+  !! 1 and 6 which refers to a unique array for the pphh characteristic
+  
+  C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+  C2 = jbas%con(c)+jbas%con(d) + 1
+    
+  qx = C1*C2
+  qx = qx + adjust_index(qx)   !Vpppp nature  
+  
+  ! see subroutine "allocate_blocks" for mapping from qx to each 
+  ! of the 6 storage arrays
+    
+  pre = 1 
+  
+  N = op%Nsp
+  ! get the indeces in the correct order
+  if ( a > b )  then 
+     x = bosonic_tp_index(b,a,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+     pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J1)/2 ) 
+  else
+     if (a == b) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(a,b,N)
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+  end if 
+  
+  if (c > d)  then     
+     x = bosonic_tp_index(d,c,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2) 
+     pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J2)/2 ) 
+  else 
+     if (c == d) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(c,d,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2)  
+  end if 
+ 
+  ! grab the matrix element
+
+  ! right now i1 and i2 still refer to where the pair is located
+  ! in the rank zero qn storage
+
+  
+  
+   If (C1>C2) qx = qx + tensor_adjust(qx)       
+   
+   pphh_tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
     
 end function
 !==============================================================
@@ -1987,7 +2179,7 @@ subroutine store_6j(jbas,method)
      num_half = (3*jbas%Jtotal_max + 1)/2
      ! however, it clearly increases the memory requirements
   else
-     num_half = (jbas%Jtotal_max + 1)/2
+     num_half = (jbas%Jtotal_max+6 + 1)/2
   end if
   
   store6j%nhalf = num_half
