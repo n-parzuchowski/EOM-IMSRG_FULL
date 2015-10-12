@@ -141,7 +141,7 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 
         if (.not. triangle(ji,jj,OP%rank)) cycle        
         if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
-        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+rank/2,2)) cycle
+        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+op%dpar/2,2)) cycle
 
         call random_number(x) 
         x = 10.*x-5.
@@ -163,7 +163,7 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 
         if (.not. triangle(ji,jj,OP%rank)) cycle        
         if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
-        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+rank/2,2)) cycle
+        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+op%dpar/2,2)) cycle
 
         call random_number(x) 
         x = 10.*x-5.
@@ -184,7 +184,7 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 
         if (.not. triangle(ji,jj,OP%rank)) cycle        
         if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
-        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+rank/2,2)) cycle
+        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+op%dpar/2,2)) cycle
 
         call random_number(x) 
         x = 10.*x-5.
@@ -218,7 +218,7 @@ subroutine construct_random_rankX(OP,HERM,jbas)
         
 
         if ( (OP%tblck(q)%Jpair(1) == OP%tblck(q)%Jpair(2)).and.(sqs(i)) ) then
-           if (mod(OP%rank/2,2) == 0 ) then
+           if (mod(OP%dpar/2,2) == 0 ) then
               OP%tblck(q)%tgam(i)%X = &
                    0.5*(OP%tblck(q)%tgam(i)%X + OP%herm * Transpose(OP%tblck(q)%tgam(i)%X))
            
@@ -235,7 +235,7 @@ subroutine construct_random_rankX(OP,HERM,jbas)
      
      
      if ( OP%tblck(q)%Jpair(1) == OP%tblck(q)%Jpair(2) ) then
-        if (mod(OP%rank/2,2) == 0 ) then 
+        if (mod(OP%dpar/2,2) == 0 ) then 
 
            OP%tblck(q)%tgam(7)%X = Transpose(OP%tblck(q)%tgam(3)%X) * OP%herm
            OP%tblck(q)%tgam(8)%X = Transpose(OP%tblck(q)%tgam(2)%X) * OP%herm
@@ -523,14 +523,14 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
 end subroutine
 !============================================================
 !============================================================
-subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank) 
+subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar) 
   implicit none 
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
   type(cross_coupled_31_mat) :: AACC,BBCC,WCC
   integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max
-  integer :: j2min,j2max,PAR,TZ,J1,J2
+  integer :: j2min,j2max,PAR,TZ,J1,J2,dpar
   integer,intent(in) :: h1,h2,rank
   real(8) :: val,t1,t2,t3,t4,omp_get_wtime
   
@@ -538,7 +538,9 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
 !  call seed_random_number
   
   BB%rank = rank
+  BB%dpar = par
   AA%rank = 0
+ 
   call allocate_blocks(jbas,AA)
   call allocate_tensor(jbas,BB,AA)
   call construct_random_rank0(AA,h1,jbas) 
@@ -575,6 +577,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   
   print*, 'time:', t3-t1,t2-t1,t3-t4
  
+!goto 12
   do a = 1, jbas%total_orbits
      do b = 1, jbas%total_orbits
         
@@ -590,9 +593,9 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
      end do 
   end do 
 
-12  do a = 1, jbas%total_orbits
+12  do a = 12, jbas%total_orbits
      ja = jbas%jj(a) 
-     do b = 1, jbas%total_orbits
+     do b = 7, jbas%total_orbits
         jb = jbas%jj(b)
         
         PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
@@ -603,7 +606,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
            do d = 1, jbas%total_orbits
               jd = jbas%jj(d) 
               
-              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+rank/2,2)) cycle 
+              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
               
               j1min = abs(ja-jb) 
@@ -637,13 +640,13 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
 end subroutine
 !============================================================
 !============================================================
-subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank) 
+subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar) 
   implicit none 
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
   type(cross_coupled_31_mat) :: AACC,BBCC,WCC
-  integer :: a,b,c,d,g,q,ja,jb,jc,jd,j1min,j1max
+  integer :: a,b,c,d,g,q,ja,jb,jc,jd,j1min,j1max,dpar
   integer :: j2min,j2max,PAR,TZ,J1,J2,ax,bx,cx,dx
   integer,intent(in) :: h1,h2,rank
   real(8) :: val,t1,t2,t3,t4,omp_get_wtime
@@ -652,6 +655,7 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank)
 !  call seed_random_number
   
   BB%rank = rank
+  BB%dpar = dpar
   AA%rank = 0
   call allocate_blocks(jbas,AA)
   call allocate_tensor(jbas,BB,AA)
@@ -735,7 +739,7 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank)
               d = jbas%holes(dx)
               jd = jbas%jj(d) 
               
-              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+rank/2,2)) cycle 
+              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
               
               j1min = abs(ja-jb) 

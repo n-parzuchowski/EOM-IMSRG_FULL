@@ -58,7 +58,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:,:) :: exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
-     integer :: Jtarg,Ptarg,valcut,Rank
+     integer :: Jtarg,Ptarg,valcut,Rank,dpar
      real(8) :: E0,hospace
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
@@ -91,7 +91,7 @@ type cross_coupled_31_mat
    type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
    type(real_mat),allocatable,dimension(:) :: CCX,CCR
    integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
-   integer :: nblocks,Nsp,rank,herm
+   integer :: nblocks,Nsp,rank,herm,dpar
 end type cross_coupled_31_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
@@ -362,6 +362,7 @@ subroutine allocate_blocks(jbas,op)
   op%belowEF = AX
   op%Nsp = jbas%total_orbits
   op%rank = 0 !scalar operator
+  op%dPar = 0 
   N = op%Nsp  !number of sp shells
   
   op%nblocks =  (jbas%Jtotal_max + 1) * 6 ! -3  ! 6 possible values of par * Tz  
@@ -569,7 +570,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
         do Tz = -1,1
            do Par1 = 0,1
                     
-              if (mod(rank/2,2) == 1) then ! this only works for EX transitions
+              if (mod(op%dpar/2,2) == 1) then ! this only works for EX transitions
                  Par2 = abs(Par1-1)  
               else
                  Par2 = Par1 
@@ -1638,7 +1639,7 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
 
   P = mod(la + lb,2) 
      
-  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(rank/2+1)+1)/2) ) then
+  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
     tensor_elem = 0.d0 
     return
   end if 
@@ -1789,7 +1790,7 @@ real(8) function pphh_tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
 
   P = mod(la + lb,2) 
      
-  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(rank/2+1)+1)/2) ) then
+  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
     pphh_tensor_elem = 0.d0 
     return
   end if 
@@ -2689,7 +2690,7 @@ subroutine duplicate_sq_op(H,op)
   op%Ptarg = H%Ptarg
   op%valcut = H%valcut 
   op%rank = H%rank 
-  
+  op%dpar = H%dpar
   
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 
@@ -3219,6 +3220,7 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
   NX = HS%Nsp
   CCME%Nsp = NX
   CCME%rank = 0
+  CCME%dpar = 0
   CCME%herm = HS%herm
   JTM = jbas%Jtotal_max
   CCME%nblocks = (JTM + 1) * 2 * 2
@@ -3337,7 +3339,8 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
   
   NX = OP%Nsp
   RANK = OP%rank
-  CCME%rank = OP%rank 
+  CCME%rank = OP%rank
+  CCME%dpar = OP%dpar
   CCME%Nsp = NX
   CCME%herm = OP%herm  
   JTM = jbas%Jtotal_max
@@ -3420,7 +3423,7 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
                        end if
                     end if
                     
-                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == mod(PAR+rank/2,2) ) then
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == mod(PAR+op%dpar/2,2) ) then
                        if (triangle(ji,jj,Jtot2)) then 
                           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
                              nb2 = nb2 + 1 
@@ -3504,6 +3507,7 @@ subroutine duplicate_CCMAT(C1,CCME)
   NX = C1%Nsp
   CCME%Nsp = NX
   CCME%rank = C1%rank
+  CCME%dpar = C1%dpar
   CCME%nblocks = C1%nblocks
   CCME%herm = C1%herm
   allocate(CCME%CCX(C1%nblocks))
@@ -3701,7 +3705,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
   rank = OP%rank
 
   parflip = .false. 
-  if ( mod(rank/2,2) == 1) parflip = .true. 
+  if ( mod(op%dpar/2,2) == 1) parflip = .true. 
 
   CCME%herm = OP%Herm
 !$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
@@ -3718,7 +3722,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
      CCME%CCX(q1)%X = 0.d0
          
      qONE = block_index(Jtot1,Tz,Par)
-     qTWO = block_index(Jtot2,Tz,mod(Par+rank/2,2))
+     qTWO = block_index(Jtot2,Tz,mod(Par+op%dpar/2,2))
      
      ! ab = ph 
      do hg = 1, Atot
@@ -3759,7 +3763,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
               
               if  ( triangle(jp,jh,Jtot2) )  then 
               
-                 if ( mod(lp+lh+rank/2,2) == PAR) then 
+                 if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
         
                     x = CCindex(p,h,OP%Nsp)
                     gnb = 1
@@ -3774,7 +3778,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
  
            else if  ( triangle(jp,jh,Jtot2) )  then 
               
-              if ( mod(lp+lh+rank/2,2) == PAR) then 
+              if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
         
                  x = CCindex(p,h,OP%Nsp)
                  gnb = 1
@@ -3823,7 +3827,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
               
                        Rindx = CCME%rmap(x)%Z(g)
                  
-                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
                             ( (ta + th) == (tb + tp) ) ) then  
                          
                           ! hapb 
@@ -3852,7 +3856,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                  
                  if ((triangle(ja,jb,Jtot2)) .and. (NBindx1 .ne. 0) ) then 
                     
-                    if ( mod(la+lb+rank/2,2) == PAR ) then 
+                    if ( mod(la+lb+op%dpar/2,2) == PAR ) then 
                        x = CCindex(b,a,OP%Nsp) 
                        g = 1
                        do while (CCME%qmap(x)%Z(g) .ne. qTWO )
@@ -3862,7 +3866,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                        Gindx = CCME%rmap(x)%Z(g)
                  
 
-                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
                             ( (ta + th) == (tb + tp) ) ) then  
                
                           ! hapb 
@@ -3922,7 +3926,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas,phase)
   rank = OP%rank
 
   parflip = .false. 
-  if ( mod(rank/2,2) == 1) parflip = .true. 
+  if ( mod(op%dpar/2,2) == 1) parflip = .true. 
 
   CCME%herm = OP%Herm
 !$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
@@ -3939,7 +3943,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas,phase)
      CCME%CCX(q1)%X = 0.d0
          
      qONE = block_index(Jtot1,Tz,Par)
-     qTWO = block_index(Jtot2,Tz,mod(Par+rank/2,2))
+     qTWO = block_index(Jtot2,Tz,mod(Par+op%dpar/2,2))
      
      ! ab = ph 
      do hg = 1, Atot
@@ -3980,7 +3984,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas,phase)
               
               if  ( triangle(jp,jh,Jtot2) )  then 
               
-                 if ( mod(lp+lh+rank/2,2) == PAR) then 
+                 if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
         
                     x = CCindex(p,h,OP%Nsp)
                     gnb = 1
@@ -3995,7 +3999,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas,phase)
  
            else if  ( triangle(jp,jh,Jtot2) )  then 
               
-              if ( mod(lp+lh+rank/2,2) == PAR) then 
+              if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
         
                  x = CCindex(p,h,OP%Nsp)
                  gnb = 1
@@ -4046,7 +4050,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas,phase)
               
                        Rindx = CCME%rmap(x)%Z(g)
                  
-                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
                             ( (ta + th) == (tb + tp) ) ) then  
                          
                           ! hapb 
@@ -4076,7 +4080,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas,phase)
                  
                  if ((triangle(ja,jb,Jtot2)) .and. (NBindx1 .ne. 0) ) then 
                     
-                    if ( mod(la+lb+rank/2,2) == PAR ) then 
+                    if ( mod(la+lb+op%dpar/2,2) == PAR ) then 
                        x = CCindex(a,b,OP%Nsp) 
                        g = 1
                        do while (CCME%qmap(x)%Z(g) .ne. qTWO )
@@ -4086,7 +4090,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas,phase)
                        Gindx = CCME%rmap(x)%Z(g)
                  
 
-                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
                             ( (ta + th) == (tb + tp) ) ) then  
                
                           ! p(h)a(b)  
