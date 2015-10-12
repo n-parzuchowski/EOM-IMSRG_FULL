@@ -227,7 +227,7 @@ subroutine EOM_TS_commutator_122(L,R,RES,jbas)
      J1 = R%tblck(q)%Jpair(1)
      J2 = R%tblck(q)%Jpair(2) 
     
-     do g_ix = 1,9 
+     do g_ix = 3,7,4 
    
         ! figure out how big the array is
         n1 = size(R%tblck(q)%tgam(g_ix)%X(:,1))
@@ -274,7 +274,7 @@ subroutine EOM_TS_commutator_122(L,R,RES,jbas)
             do i = 1,size(jbas%states(q_sp)%Z)   
               
                i_sp = jbas%states(q_sp)%Z(i) 
-               
+               if (jbas%con(i_sp) .ne. jbas%con(a) ) cycle
                sm = sm + f_elem(a,i_sp,L,jbas)*tensor_elem(i_sp,b,c,d,J1,J2,R,jbas)
 
             end do 
@@ -284,7 +284,7 @@ subroutine EOM_TS_commutator_122(L,R,RES,jbas)
             do i = 1,size(jbas%states(q_sp)%Z)   
               
                i_sp = jbas%states(q_sp)%Z(i) 
-               
+               if (jbas%con(i_sp) .ne. jbas%con(b) ) cycle               
                sm = sm + f_elem(b,i_sp,L,jbas)*tensor_elem(a,i_sp,c,d,J1,J2,R,jbas) 
             end do 
             
@@ -293,7 +293,7 @@ subroutine EOM_TS_commutator_122(L,R,RES,jbas)
             do i = 1,size(jbas%states(q_sp)%Z)   
               
                i_sp = jbas%states(q_sp)%Z(i) 
-               
+               if (jbas%con(i_sp) .ne. jbas%con(c) ) cycle 
                sm = sm - f_elem(i_sp,c,L,jbas)*tensor_elem(a,b,i_sp,d,J1,J2,R,jbas)
             end do 
             
@@ -302,13 +302,15 @@ subroutine EOM_TS_commutator_122(L,R,RES,jbas)
             do i = 1,size(jbas%states(q_sp)%Z)   
               
                i_sp = jbas%states(q_sp)%Z(i) 
-               
+               if (jbas%con(i_sp) .ne. jbas%con(d) ) cycle 
                sm = sm - f_elem(i_sp,d,L,jbas)*tensor_elem(a,b,c,i_sp,J1,J2,R,jbas)
             end do 
           
             sm = sm / sqrt(1.d0 + kron_del(a,b)) /sqrt(1.d0 + kron_del(c,d)) 
+            
+            if (g_ix ==7) sm = -1*sm*L%herm 
+            RES%tblck(q)%tgam(g_ix)%X(IX,JX) = sm 
 
-           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = sm 
 
         end do
      end do
@@ -327,7 +329,7 @@ subroutine EOM_TS_commutator_212(L,R,RES,jbas)
   integer :: q,IX,JX,nh,np,nb,i,J1,J2
   integer :: a,b,c,d,ja,jb,jc,jd,ji,g_ix,q_sp,i_sp
   integer :: ta,tb,tc,td,ti,modla,modlb,modlc,modld,modli,spec,rank
-  integer :: jxstart,jxend,ixend,c1,c2,n1,n2
+  integer :: jxstart,jxend,ixend,c1,c2,n1,n2,corrector
   logical :: square
   real(8) ::  sm,sm1,sm2,sm3,sm4,d6ji
   
@@ -338,7 +340,7 @@ subroutine EOM_TS_commutator_212(L,R,RES,jbas)
      J1 = R%tblck(q)%Jpair(1)
      J2 = R%tblck(q)%Jpair(2) 
     
-     do g_ix = 1,9 
+     do g_ix = 3,7,4 
    
         ! figure out how big the array is
         n1 = size(R%tblck(q)%tgam(g_ix)%X(:,1))
@@ -381,77 +383,81 @@ subroutine EOM_TS_commutator_212(L,R,RES,jbas)
            sm = 0.d0 
 
            do i = 1,jbas%total_orbits
-               
+              
               ji = jbas%jj(i) 
               ti = jbas%itzp(i)
               modli = mod(jbas%ll(i)+rank/2,2) 
               
-              sm1 = 0.d0 
-              if (ti == ta) then
-                 if (modli == modla ) then 
-                    if (triangle(ji,ja,rank)) then  
-                       
-                       sm1 = sm1 - xxxsixj(J1,J2,rank,ji,ja,jb)&
-                            *f_tensor_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
+              sm1=0.d0
+              sm2=0.d0
+              if (jbas%con(i) .ne. jbas%con(a) ) then             
+                 if (ti == ta) then
+                    if (modli == modla ) then 
+                       if (triangle(ji,ja,rank)) then  
+                          
+                          sm1 = sm1 - xxxsixj(J1,J2,rank,ji,ja,jb)&
+                               *f_tensor_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
                      
+                       end if
                     end if
                  end if
-              end if
                
-              sm1 = sm1*(-1)**((ja + jb-J2)/2) 
+                 sm1 = sm1*(-1)**((ja + jb-J2)/2) 
                
-              
-              sm2 = 0.d0 
-              if (ti == tb) then
-                 if (modli == modlb ) then 
-                    if (triangle(ji,jb,rank)) then  
+                 if (ti == tb) then
+                    if (modli == modlb ) then 
+                       if (triangle(ji,jb,rank)) then  
+                          
+                          sm2 = sm2 + xxxsixj(J1,J2,rank,ji,jb,ja)&
+                               *f_tensor_elem(b,i,R,jbas)*v_elem(i,a,c,d,J2,L,jbas)
                        
-                       sm2 = sm2 + xxxsixj(J1,J2,rank,ji,jb,ja)&
-                            *f_tensor_elem(b,i,R,jbas)*v_elem(i,a,c,d,J2,L,jbas)
-                       
+                       end if
                     end if
                  end if
-              end if
                
-              sm2 = sm2*(-1)**((J1+J2)/2) 
-              
+                 sm2 = sm2*(-1)**((J1+J2)/2) 
+              end if
 
-              sm3 = 0.d0 
-              if (ti == td) then
-                 if (modli == modld ) then 
-                    if (triangle(ji,jd,rank)) then  
+              sm3=0.d0
+              sm4=0.d0
+    
+              if (jbas%con(i) .ne. jbas%con(c) ) then 
+                 if (ti == td) then
+                    if (modli == modld ) then 
+                       if (triangle(ji,jd,rank)) then  
                        
-                       sm3 = sm3 + xxxsixj(J1,J2,rank,jd,ji,jc)&
-                            *f_tensor_elem(i,d,R,jbas)*v_elem(a,b,c,i,J1,L,jbas)
+                          sm3 = sm3 + xxxsixj(J1,J2,rank,jd,ji,jc)&
+                               *f_tensor_elem(i,d,R,jbas)*v_elem(a,b,c,i,J1,L,jbas)
                        
+                       end if
                     end if
                  end if
-              end if
                
-              sm3 = sm3*(-1)**((jc+jd-J1)/2) 
-              
-
-              sm4 = 0.d0 
-              if (ti == tc) then
-                 if (modli == modlc ) then 
-                    if (triangle(ji,jc,rank)) then  
+                 sm3 = sm3*(-1)**((jc+jd-J1)/2) 
+                 
+                 if (ti == tc) then
+                    if (modli == modlc ) then 
+                       if (triangle(ji,jc,rank)) then  
+                          
+                          sm4 = sm4 -  xxxsixj(J1,J2,rank,jc,ji,jd)&
+                               *f_tensor_elem(i,c,R,jbas)*v_elem(a,b,d,i,J1,L,jbas)
                        
-                       sm4 = sm4 -  xxxsixj(J1,J2,rank,jc,ji,jd)&
-                            *f_tensor_elem(i,c,R,jbas)*v_elem(a,b,d,i,J1,L,jbas)
-                       
+                       end if
                     end if
                  end if
-              end if
-               
-              sm4 = sm4*(-1)**((J2+J1)/2)
+                 
+                 sm4 = sm4*(-1)**((J2+J1)/2)
+              end if 
               
               sm =  sm + (sm1+sm2+sm3+sm4) 
            end do 
            
            sm = sm * sqrt((J1+1.d0)*(J2+1.d0) / &
               (1.d0 + kron_del(a,b)) /(1.d0 + kron_del(c,d))) * (-1)**(rank/2) 
- 
-           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX)  +sm 
+
+           if (g_ix==7) sm = sm *(-1)**((J1+J2+2)/2)*L%herm
+           
+           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX)  + sm 
            
         end do
      end do
@@ -477,167 +483,6 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
   
   Abody = w1%belowEF
   Ntot = w1%Nsp
-
-  ! fpp
-  do ik = 1 , Ntot - Abody
-     i = jbas%parts(ik) 
-     ji = jbas%jj(i) 
-     li = jbas%ll(i) 
-     ti = jbas%itzp(i) 
-     
-     do jk = ik , Ntot - Abody
-        
-        j = jbas%parts(jk) 
-        jj = jbas%jj(j) 
-        if (.not. (triangle(jj,ji,w1%rank))) cycle
-        lj = jbas%ll(j) 
-        if (mod(li,2) .ne. mod(lj+w1%rank/2,2))  cycle
-        tj = jbas%itzp(j)
-        if (tj .ne. ti) cycle 
-                
-        sm = 0.d0 
-      
-        do ck = 1, Abody
-           c = jbas%holes(ck) 
-           jc = jbas%jj(c)
-           ! w1 matrix results from multiplying the pp channel
-           sm1 = 0.d0 
-           do J1 = abs(jc - ji),jc+ji,2
-            
-              ! NOTE: 
-              ! THESE SUMS HAVE TO BE BROKEN UP SO the J on the left side is 
-              ! smaller. I don't have the other matrix multiplication.
-              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
-
-                ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
-                
-             end do              
-          
-             do J2 = max(J1,abs(jc - jj)),jc+jj,2
-             
-                ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                     *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
-                
-             end do
-
-          end do
-          sm = sm + sm1*(-1)**((jc+jj)/2)
-        end do 
-        
-
-        do ck = 1, Ntot - Abody
-           c = jbas%parts(ck) 
-           jc = jbas%jj(c)
-           sm2 = 0.d0
-           do J1 = abs(jc - ji),jc+ji,2
-             do J2 = abs(jc - jj),min(J1-2,jc+jj),2
-
-                ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
-                
-             end do              
-          
-             do J2 = max(J1,abs(jc - jj)),jc+jj,2
-           
-                ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                     *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
-                
-             end do
-            
-           end do 
-           sm = sm + sm2 *  (-1)**((jc+jj)/2)
-        end do 
-     
-        RES%fpp(ik,jk) = RES%fpp(ik,jk) + sm * (-1)**(w1%rank/2)  
-        RES%fpp(jk,ik) = RES%fpp(ik,jk) * RES%herm * (-1)**((ji-jj)/2) 
-     end do 
-  end do       
-
-
-  ! fhh
-  do ik = 1 , Abody
-     i = jbas%holes(ik) 
-     ji = jbas%jj(i) 
-     li = jbas%ll(i) 
-     ti = jbas%itzp(i) 
-     
-     do jk = ik , Abody
-        
-        j = jbas%holes(jk) 
-        jj = jbas%jj(j) 
-        if (.not. (triangle(jj,ji,w1%rank))) cycle
-        lj = jbas%ll(j) 
-        if (mod(li,2) .ne. mod(lj+w1%rank/2,2))  cycle
-        tj = jbas%itzp(j)
-        if (tj .ne. ti) cycle 
-                
-        sm = 0.d0 
-        
-        do ck = 1, Abody
-           c = jbas%holes(ck) 
-           jc = jbas%jj(c)
-           ! w1 matrix results from multiplying the pp channel
-           sm1 = 0.d0 
-           do J1 = abs(jc - ji),jc+ji,2
-            
-              ! NOTE: 
-              ! THESE SUMS HAVE TO BE BROKEN UP SO the J on the left side is 
-              ! smaller. I don't have the other matrix multiplication.
-              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
-
-                ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
-                
-             end do              
-          
-             do J2 = max(J1,abs(jc - jj)),jc+jj,2
-             
-                ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                     *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
-                
-             end do
-
-          end do
-          sm = sm + sm1*(-1)**((jc+jj)/2)
-        end do 
-        
-
-        do ck = 1, Ntot - Abody
-           c = jbas%parts(ck) 
-           jc = jbas%jj(c)
-           sm2 = 0.d0
-           do J1 = abs(jc - ji),jc+ji,2
-             do J2 = abs(jc - jj),min(J1-2,jc+jj),2
-
-                ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
-                
-             end do              
-          
-             do J2 = max(J1,abs(jc - jj)),jc+jj,2
-           
-                ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                     *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
-                
-             end do
-            
-           end do 
-           sm = sm + sm2 *  (-1)**((jc+jj)/2)
-        end do 
-     
-        RES%fhh(ik,jk) = RES%fhh(ik,jk) + sm * (-1)**(w1%rank/2)  
-        RES%fhh(jk,ik) = RES%fhh(ik,jk) * RES%herm * (-1)**((ji-jj)/2) 
-     end do 
-  end do       
   
   ! fph
   do ik = 1 , Ntot-Abody
@@ -670,10 +515,10 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
               ! THESE SUMS HAVE TO BE BROKEN UP SO the J on the left side is 
               ! smaller. I don't have the other matrix multiplication.
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
-
+                 
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J1/2) * pm 
                 
              end do              
           
@@ -698,8 +543,8 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J1/2) * pm 
                 
              end do              
           
@@ -818,7 +663,7 @@ subroutine EOM_TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      if (nb1*np2 .ne. 0)  then 
         
         if (nh1 .ne. 0) then 
-           al_off = -1*L%herm 
+           al_off = -1*L%herm
            !w2phpp = Aphhh.Bhhpp
            call dgemm('N','N',nb1,np2,nh1,al_off,L%mat(q1)%gam(6)%X,nb1,&
                 R%tblck(q)%tgam(7)%X,nh1,bet,w2%tblck(q)%tgam(8)%X,nb1)
@@ -868,7 +713,7 @@ end subroutine
    integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
-   integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,ass
+   integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,f1,f2
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex
    logical :: square
    
@@ -896,9 +741,9 @@ end subroutine
         factor = 1.d0/sqrt(J1+1.d0)
         q1 = J1/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
         
-        call dgemm('T','N',r1,r2,nb1,factor,LCC%CCR(q1)%X,nb1,&
+        call dgemm('N','N',r1,r2,nb1,factor,LCC%CCX(q1)%X,r1,&
              RCC%CCR(q)%X,nb1,bet,WCC%CCX(q)%X,r1) 
-      
+        ! J1<= J2 
      end if
          
      if (nb2 .ne. 0 ) then 
@@ -907,216 +752,396 @@ end subroutine
         PAR2 = mod(PAR+rank/2,2) 
         q2 = J2/2+1 + Tz*(JTM+1) + 2*PAR2*(JTM+1)
         factor = 1.d0/sqrt(J2+1.d0)
-       
+     
         call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(q)%X,r1,&
              LCC%CCX(q2)%X,r2,bet,WCC%CCR(q)%X,r1) 
+      !  J1 >= J2 
+     
      end if
      
   end do
+  
+!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
+ ! do thread = 1, total_threads
+  !   do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
 
-
-!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
-  do thread = 1, total_threads
-     do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
-
-!   do q = 1,RES%nblocks
+   do q = 1,RES%nblocks
       J1 = RES%tblck(q)%jpair(1)
       J2 = RES%tblck(q)%jpair(2)
                
-      do g_ix = 1,9 
-   
-         ! figure out how big the array is
-         n1 = size(RES%tblck(q)%tgam(g_ix)%X(:,1))
-         n2 = size(RES%tblck(q)%tgam(g_ix)%X(1,:))
-         if ((n1*n2) == 0) cycle 
+       g_ix = 3
+       
+       ! figure out how big the array is
+       n1 = size(RES%tblck(q)%tgam(g_ix)%X(:,1))
+       n2 = size(RES%tblck(q)%tgam(g_ix)%X(1,:))
+       if ((n1*n2) .ne. 0) then  
         
-         ! read in information about which 
-         ! array we are using from public arrays
-        c1 = sea1(g_ix) 
-        c2 = sea2(g_ix) 
-        square = sqs(g_ix) 
-        jxstart = jst(g_ix) 
+       ! read in information about which 
+       ! array we are using from public arrays
+       c1 = sea1(g_ix) 
+       c2 = sea2(g_ix) 
+       square = sqs(g_ix) 
+       jxstart = jst(g_ix) 
         
-      do  IX =  1, n1 
-         pre = 1.d0 
+       do  IX =  1, n1 
+          pre = 1.d0 
 
-         i = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
-         j = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
- 
-         if (i == j )  pre  = .70710678118d0
-         ji = jbas%jj(i) 
-         jj = jbas%jj(j) 
-         li = jbas%ll(i) 
-         lj = jbas%ll(j)
-         ti = jbas%itzp(i) 
-         tj = jbas%itzp(j)
-         
-         do JX =1,n2
-            pre2 = 1.d0 
-            k = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
-            l = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
-            
-            if (k == l )  pre2 = .70710678118d0
-            jk = jbas%jj(k) 
-            jl = jbas%jj(l) 
-            lk = jbas%ll(k) 
-            ll = jbas%ll(l)
-            tk = jbas%itzp(k) 
-            tl = jbas%itzp(l)
-           
-            phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
-            
-            sm = 0.d0 
-            sm_ex = 0.d0 
-                       
-            J3min = abs(ji - jl) 
-            J3max = ji + jl
-            
-            J4min = abs(jj - jk)
-            J4max = jj + jk 
-            
-            
-            Tz = abs(ti -tl)/2                         
-            PAR = mod(li+ll,2) 
-
-            if (mod(lk+lj+rank/2,2) == PAR) then 
-               if (abs(tk - tj) == Tz*2)  then 
+          i = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
+          j = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
+          
+          if (i == j )  pre  = .70710678118d0
+          ji = jbas%jj(i) 
+          jj = jbas%jj(j) 
+          li = jbas%ll(i) 
+          lj = jbas%ll(j)
+          ti = jbas%itzp(i) 
+          tj = jbas%itzp(j)
+          
+          do JX =1,n2
+             pre2 = 1.d0 
+             k = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
+             l = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
              
-            do J3 = J3min,J3max,2
+             if (k == l )  pre2 = .70710678118d0
+             jk = jbas%jj(k) 
+             jl = jbas%jj(l) 
+             lk = jbas%ll(k) 
+             ll = jbas%ll(l)
+             tk = jbas%itzp(k) 
+             tl = jbas%itzp(l)
+             
+             phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
+             
+             sm = 0.d0 
+             sm_ex = 0.d0 
             
-               q1 = block_index(J3,Tz,PAR)
-              
-               ril = EOMTS_rval(i,l,Ntot,q1,RCC)
-               rli = EOMTS_rval(l,i,Ntot,q1,RCC)
-
-                do J4 = max( J3 , J4min ) , J4max,2 
+             J3min = abs(ji - jl) 
+             J3max = ji + jl
             
-                  if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  PAR2 = mod(PAR + rank/2,2) 
-                  q2 = block_index(J4,Tz,PAR2)
-               
-                  rjk = EOMTS_rval(j,k,Ntot,q2,RCC)
-                  rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
-              
-                  qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
-                  sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                       ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-                       WCC%CCX(qx)%X(ril,rkj)*(-1)**((J3+J4)/2)  &
-                      + WCC%CCR(qx)%X(ril,rkj) * phase1 * LCC%herm &
-                      - (-1)**(rank/2)*phase1*RCC%herm*LCC%herm * &
-                      WCC%CCX(qx)%X(rli,rjk) - (-1)**(( J3+J4+rank)/2) &
-                      * RCC%herm * WCC%CCR(qx)%X(rli,rjk) )
+             J4min = abs(jj - jk)
+             J4max = jj + jk 
+            
+            
+             Tz = abs(ti -tl)/2                         
+             PAR = mod(li+ll,2) 
 
-                end do 
-               
-                do J4 = J4min , min(J4max,J3-2),2 
-                  if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  
-                  PAR2 = mod(PAR + rank/2,2)                  
-                  q2 = block_index(J4,Tz,PAR2)
-                  
-                  rjk = EOMTS_rval(j,k,Ntot,q2,RCC)     
-                  rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
-                  
-                  qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
-                  sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                       ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-                       WCC%CCR(qx)%X(rjk,rli)*phase1*(-1)**((rank+J3+J4)/2)*LCC%herm &
-                       + WCC%CCX(qx)%X(rjk,rli) * (-1)**(rank/2) &
-                        - RCC%herm * WCC%CCR(qx)%X(rkj,ril) &
-                     - phase1*(-1)**((J3+J4)/2) * RCC%herm *LCC%herm * &
-                          WCC%CCX(qx)%X(rkj,ril) )
+             if (mod(lk+lj+rank/2,2) == PAR) then 
+                if (abs(tk - tj) == Tz*2)  then 
+             
+                   do J3 = J3min,J3max,2
                       
-               end do
-               
-            
-            end do 
-            
-               end if 
-            end if 
+                      q1 = block_index(J3,Tz,PAR)
+                      
+                      ril = EOMTS_rval(i,l,Ntot,q1,RCC)
+                      rli = EOMTS_rval(l,i,Ntot,q1,RCC)
 
-            ! exchange of 1 set of indeces
-            J3min = abs(jj - jl) 
-            J3max = jj + jl
-            
-            J4min = abs(ji - jk)
-            J4max = ji + jk 
-            
-            Tz = abs(tl -tj)/2 
-            PAR = mod(ll+lj,2) 
-
-            if (mod(li+lk+rank/2,2) == PAR) then 
-               if (abs(ti - tk) == Tz*2)  then 
-
-            do J3 = J3min,J3max,2
-               q1 = block_index(J3,Tz,PAR)
-            
-               rjl = EOMTS_rval(j,l,Ntot,q1,RCC)
-               rlj = EOMTS_rval(l,j,Ntot,q1,RCC)
-
-               do J4 = max( J3 , J4min ) , J4max,2 
-                 
-                  if (.not. (triangle(J3,J4,rank))) cycle
-                 
+                      do J4 = max( J3 , J4min ) , J4max,2 
+                         
+                         if (.not. (triangle(J3,J4,rank))) cycle
                   
-                  PAR2 = mod(PAR + rank/2,2)
-                  q2 = block_index(J4,Tz,PAR2)
-             
-                  rki = EOMTS_rval(k,i,Ntot,q2,RCC)
-                  rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+                         PAR2 = mod(PAR + rank/2,2) 
+                         q2 = block_index(J4,Tz,PAR2)
+               
+                         rjk = EOMTS_rval(j,k,Ntot,q2,RCC)
+                         rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
               
-                  qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
-               
-                  sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                       ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
-                       (-1)**((J3+J4)/2) * WCC%CCX(qx)%X(rjl,rki)  & 
-                       - phase1*RCC%herm*LCC%herm*(-1)**(rank/2)* &
-                       WCC%CCX(qx)%X(rlj,rik) + phase1*LCC%herm * &
-                       WCC%CCR(qx)%X(rjl,rki) - (-1)**((J3+J4+rank)/2)* &
-                       RCC%herm * WCC%CCR(qx)%X(rlj,rik) )
-                  
-                end do 
-               
-                do J4 = J4min , min(J4max,J3-2),2 
-                  if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  PAR2 = mod(PAR + rank/2,2)
-                  q2 = block_index(J4,Tz,PAR2)
-     
-                  rki = EOMTS_rval(k,i,Ntot,q2,RCC)
-                  rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+                         qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
+                         sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
+                              ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
+                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(ril,rkj) &
+                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rli,rjk) &
+                              )
 
-                  qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
-                  
-                  sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                       ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
-                       (-1)**((J3+J4+rank)/2) *phase1*LCC%herm &
-                       * WCC%CCR(qx)%X(rik,rlj)  & 
-                       - RCC%herm*WCC%CCR(qx)%X(rki,rjl) &
-                       + (-1)**(rank/2) * WCC%CCX(qx)%X(rik,rlj) &
-                       - phase1*(-1)**((J3+J4)/2) * LCC%herm * RCC%herm * &
-                       WCC%CCX(qx)%X(rki,rjl) ) 
-                  
-               end do
-               
-               
-            end do 
+                      end do 
+
+                      do J4 = J4min , min(J4max,J3-2),2 
+                         if (.not. (triangle(J3,J4,rank))) cycle
+
+
+                         PAR2 = mod(PAR + rank/2,2)                  
+                         q2 = block_index(J4,Tz,PAR2)
+
+                         rjk = EOMTS_rval(j,k,Ntot,q2,RCC)     
+                         rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
+
+                         qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
+
+                         sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
+                              ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * (  &
+                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rkj,ril) &
+                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rjk,rli) &
+                              )
+
+                      end do
+
+
+                   end do 
+
+                end if 
+             end if 
+
+             ! exchange of 1 set of indeces
+             J3min = abs(jj - jl) 
+             J3max = jj + jl
+
+             J4min = abs(ji - jk)
+             J4max = ji + jk 
+
+             Tz = abs(tl -tj)/2 
+             PAR = mod(ll+lj,2) 
+
+             if (mod(li+lk+rank/2,2) == PAR) then 
+                if (abs(ti - tk) == Tz*2)  then 
+
+                   do J3 = J3min,J3max,2
+                      q1 = block_index(J3,Tz,PAR)
+
+                      rjl = EOMTS_rval(j,l,Ntot,q1,RCC)
+                      rlj = EOMTS_rval(l,j,Ntot,q1,RCC)
+
+                      do J4 = max( J3 , J4min ) , J4max,2 
+
+                         if (.not. (triangle(J3,J4,rank))) cycle
+
+
+                         PAR2 = mod(PAR + rank/2,2)
+                         q2 = block_index(J4,Tz,PAR2)
+
+                         rki = EOMTS_rval(k,i,Ntot,q2,RCC)
+                         rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+
+                         qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
+
+                         sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
+                              ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
+                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rjl,rki) &
+                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rlj,rik) &       
+                              )
+
+                      end do
+
+                      do J4 = J4min , min(J4max,J3-2),2 
+                         if (.not. (triangle(J3,J4,rank))) cycle
+
+                         PAR2 = mod(PAR + rank/2,2)
+                         q2 = block_index(J4,Tz,PAR2)
+
+                         rki = EOMTS_rval(k,i,Ntot,q2,RCC)
+                         rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+
+                         qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
+
+                         sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
+                              ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
+                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rki,rjl) &
+                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rik,rlj) &                  
+                              ) 
+
+                      end do
+
+
+                   end do
                end if 
             end if 
-
+           
+          
           RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX) + ( sm * &
                (-1) ** ((ji+jj+J2)/2) + sm_ex * (-1)**((J1+J2)/2) )&
                *   pre * pre2 *   sqrt((J1+1.d0)*(J2+1.d0))
    
          end do 
       end do
-      end do 
-   end do
+
+      end if
+      g_ix = 7
+        
+      ! figure out how big the array is
+      n1 = size(RES%tblck(q)%tgam(g_ix)%X(:,1))
+      n2 = size(RES%tblck(q)%tgam(g_ix)%X(1,:))
+      if ((n1*n2) == 0) cycle 
+        
+      ! read in information about which 
+      ! array we are using from public arrays
+      c1 = sea1(g_ix) 
+      c2 = sea2(g_ix) 
+      square = sqs(g_ix) 
+      jxstart = jst(g_ix) 
+       
+      do  IX =  1, n1 
+         pre = 1.d0 
+         
+         k = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
+         l = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
+          
+          if (k == l )  pre  = .70710678118d0
+          jk = jbas%jj(k) 
+          jl = jbas%jj(l) 
+          lk = jbas%ll(k) 
+          ll = jbas%ll(l)
+          tk = jbas%itzp(k) 
+          tl = jbas%itzp(l)
+          
+          do JX =1,n2
+             pre2 = 1.d0 
+             i = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
+             j = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
+             
+             if (i == j )  pre2 = .70710678118d0
+             ji = jbas%jj(i) 
+             jj = jbas%jj(j) 
+             li = jbas%ll(i) 
+             lj = jbas%ll(j)
+             ti = jbas%itzp(i) 
+             tj = jbas%itzp(j)
+             
+             phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
+
+             sm = 0.d0 
+             sm_ex = 0.d0 
+            
+             J3min = abs(ji - jl) 
+             J3max = ji + jl
+            
+             J4min = abs(jj - jk)
+             J4max = jj + jk 
+            
+            
+             Tz = abs(ti -tl)/2                         
+             PAR = mod(li+ll,2) 
+
+             
+             if (mod(lk+lj+rank/2,2) == PAR) then 
+                if (abs(tk - tj) == Tz*2)  then 
+
+                   do J3 = J3min,J3max,2
+                      
+                      q1 = block_index(J3,Tz,PAR)
+                      
+                      ril = EOMTS_rval(i,l,Ntot,q1,RCC)
+                      rli = EOMTS_rval(l,i,Ntot,q1,RCC)
+
+                      do J4 = max( J3 , J4min ) , J4max,2 
+                         
+                         if (.not. (triangle(J3,J4,rank))) cycle
+                  
+                         PAR2 = mod(PAR + rank/2,2) 
+                         q2 = block_index(J4,Tz,PAR2)
+               
+                         rjk = EOMTS_rval(j,k,Ntot,q2,RCC)
+                         rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
+              
+                         qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
+                         sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
+                              ninej(ji,jl,J3,jj,jk,J4,J2,J1,rank)  * ( &
+                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(ril,rkj) &
+                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rli,rjk) &
+                              )
+
+                      end do 
+
+                      do J4 = J4min , min(J4max,J3-2),2 
+                         if (.not. (triangle(J3,J4,rank))) cycle
+
+
+                         PAR2 = mod(PAR + rank/2,2)                  
+                         q2 = block_index(J4,Tz,PAR2)
+
+                         rjk = EOMTS_rval(j,k,Ntot,q2,RCC)     
+                         rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
+
+                         qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
+
+                         sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
+                              ninej(ji,jl,J3,jj,jk,J4,J2,J1,rank)  * (  &
+                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rkj,ril) &
+                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rjk,rli) &
+                              )
+                       
+                      end do
+
+
+                   end do 
+
+                end if 
+             end if 
+
+             ! exchange of 1 set of indeces
+             J3min = abs(jj - jl) 
+             J3max = jj + jl
+
+             J4min = abs(ji - jk)
+             J4max = ji + jk 
+
+             Tz = abs(tl -tj)/2 
+             PAR = mod(ll+lj,2) 
+
+             if (mod(li+lk+rank/2,2) == PAR) then 
+                if (abs(ti - tk) == Tz*2)  then 
+
+                   do J3 = J3min,J3max,2
+                      q1 = block_index(J3,Tz,PAR)
+
+                      rjl = EOMTS_rval(j,l,Ntot,q1,RCC)
+                      rlj = EOMTS_rval(l,j,Ntot,q1,RCC)
+
+                      do J4 = max( J3 , J4min ) , J4max,2 
+
+                         if (.not. (triangle(J3,J4,rank))) cycle
+
+
+                         PAR2 = mod(PAR + rank/2,2)
+                         q2 = block_index(J4,Tz,PAR2)
+
+                         rki = EOMTS_rval(k,i,Ntot,q2,RCC)
+                         rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+
+                         qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
+
+                         sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
+                              ninej(jj,jl,J3,ji,jk,J4,J2,J1,rank) * ( &
+                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rjl,rki) &
+                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rlj,rik) &       
+                              )
+                        
+                      end do
+
+                      do J4 = J4min , min(J4max,J3-2),2 
+                         if (.not. (triangle(J3,J4,rank))) cycle
+
+                         PAR2 = mod(PAR + rank/2,2)
+                         q2 = block_index(J4,Tz,PAR2)
+
+                         rki = EOMTS_rval(k,i,Ntot,q2,RCC)
+                         rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+
+                         qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
+
+                         sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
+                              ninej(jj,jl,J3,ji,jk,J4,J2,J1,rank) * ( &
+                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rki,rjl) &
+                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rik,rlj) &                  
+                              ) 
+                          
+                      end do
+
+
+                   end do
+               end if 
+            end if 
+          
+          RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX) + ( sm * &
+               (-1) ** ((ji+jj+J1)/2) + sm_ex * (-1)**((J1+J2)/2) )&
+               *   pre * pre2 *   sqrt((J1+1.d0)*(J2+1.d0))
+   
+         end do 
+      end do
+
+
+!      end do 
+ !  end do
 
    end do 
-!$OMP END PARALLEL DO 
+!!$OMP END PARALLEL DO 
    
 end subroutine 
 !=====================================================

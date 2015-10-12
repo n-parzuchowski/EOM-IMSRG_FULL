@@ -575,7 +575,6 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank)
   
   print*, 'time:', t3-t1,t2-t1,t3-t4
  
-goto 12
   do a = 1, jbas%total_orbits
      do b = 1, jbas%total_orbits
         
@@ -680,27 +679,27 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank)
   
   OUT%herm = 1
   
-  print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
+  print*, 'TESTING EOM SCALAR-TENSOR COMMUTATORS' 
  ! t1 = OMP_get_wtime()
- ! call calculate_generalized_pandya(BB,BBCC,jbas,.false.)
+  call EOM_generalized_pandya(BB,BBCC,jbas,.false.)
  ! t2 = OMP_get_wtime()
   call calculate_cross_coupled(AA,AACC,jbas,.false.) 
   
   call EOM_TS_commutator_111(AA,BB,OUT,jbas) 
   call EOM_TS_commutator_121(AA,BB,OUT,jbas)
   call EOM_TS_commutator_211(AACC,BB,OUT,jbas) 
-  ! call TS_commutator_122(AA,BB,OUT,jbas)
-  ! call TS_commutator_212(AA,BB,OUT,jbas)
+  call EOM_TS_commutator_122(AA,BB,OUT,jbas)
+  call EOM_TS_commutator_212(AA,BB,OUT,jbas)
   
   call EOM_TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)
   
   call EOM_TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
   ! t4 = OMP_get_wtime()
-  ! call TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
+  call EOM_TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
   ! t3 = OMP_get_wtime()
   
   print*, 'time:', t3-t1,t2-t1,t3-t4
- 
+!goto 12
   do ax = 1, AA%Nsp-AA%belowEF
      a = jbas%parts(ax)
      do bx = 1, AA%belowEF
@@ -708,6 +707,7 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank)
         
         val = EOM_scalar_tensor_1body_comm(AA,BB,a,b,jbas) 
         
+
         if (abs(val-f_tensor_elem(a,b,OUT,jbas)) > 1e-10) then
            print*, 'at: ',a,b
            print*, val, f_tensor_elem(a,b,OUT,jbas)
@@ -749,7 +749,7 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank)
                     if (.not. (triangle(J1,J2,rank))) cycle
                     
                     val = EOM_scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
-                  
+!                    print*, a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)  
                     if (abs(val-tensor_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
                        print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)  
                        print*, tensor_elem(c,d,a,b,J2,J1,OUT,jbas)  
@@ -1241,7 +1241,7 @@ real(8) function EOM_scalar_tensor_1body_comm(AA,BB,a,b,jbas)
   integer :: ja,jb,jj,ji,jk,Jtot,JTM,totorb
   type(spd) :: jbas
   type(sq_op) :: AA,BB 
-  real(8) :: sm ,d6ji
+  real(8) :: sm ,d6ji,sx
   
   rank = BB%rank
   sm = 0.d0 
@@ -1278,15 +1278,15 @@ real(8) function EOM_scalar_tensor_1body_comm(AA,BB,a,b,jbas)
   end do
   
   do i = 1, totorb
-     ji = jbas%jj(i)
+     ji = jbas%jj(i)      
      do j = 1, totorb
         jj = jbas%jj(j) 
         do k = 1, totorb
            jk =jbas%jj(k)
            
            do J1 = 0,JTM,2
-              do J2 = 0, JTM,2 
-                 
+              do J2 = 0,JTM,2
+           
                  sm = sm + 0.5*(jbas%con(k)*jbas%con(j)*(1-jbas%con(i)) + &
                       (1-jbas%con(k))*(1-jbas%con(j))*jbas%con(i) )* &
                       ( v_elem(i,a,j,k,J1,AA,jbas) * pphh_tensor_elem(j,k,i,b,J1,J2,BB,jbas) &
@@ -1456,33 +1456,33 @@ real(8) function EOM_scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   jc = jbas%jj(c)
   jd = jbas%jj(d)
 
-   ! do i = 1, totorb
-   !    ji = jbas%jj(i)
+    do i = 1, totorb
+       ji = jbas%jj(i)
 
-   !   sm = sm + f_elem(a,i,AA,jbas) * pphh_tensor_elem( i,b,c,d,J1,J2,BB,jbas) &
-   !        + f_elem(b,i,AA,jbas) * pphh_tensor_elem( a,i,c,d,J1,J2,BB,jbas) &
-   !        - f_elem(i,c,AA,jbas) * pphh_tensor_elem( a,b,i,d,J1,J2,BB,jbas) &
-   !        - f_elem(i,d,AA,jbas) * pphh_tensor_elem( a,b,c,i,J1,J2,BB,jbas) 
+      sm = sm + f_elem(a,i,AA,jbas) * pphh_tensor_elem( i,b,c,d,J1,J2,BB,jbas) &
+           + f_elem(b,i,AA,jbas) * pphh_tensor_elem( a,i,c,d,J1,J2,BB,jbas) &
+           - f_elem(i,c,AA,jbas) * pphh_tensor_elem( a,b,i,d,J1,J2,BB,jbas) &
+           - f_elem(i,d,AA,jbas) * pphh_tensor_elem( a,b,c,i,J1,J2,BB,jbas) 
      
           
-   !   sm = sm - ph_tensor_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
-   !        * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
-   !        sqrt( (J1+1.d0) * (J2+1.d0) ) &
+     sm = sm - ph_tensor_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
+          * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
      
-   !        + ph_tensor_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
-   !        * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
-   !        sqrt( (J1+1.d0) * (J2+1.d0) ) &
+          + ph_tensor_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
+          * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
 
-   !        - ph_tensor_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
-   !        *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
-   !        sqrt( (J1+1.d0) * (J2+1.d0) ) &
+          - ph_tensor_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
+          *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
          
           
-   !        + ph_tensor_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
-   !        *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
-   !        sqrt( (J1+1.d0) * (J2+1.d0) )
+          + ph_tensor_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
+          *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) )
      
-   ! end do
+    end do
   
 
   do i = 1, totorb
@@ -1496,49 +1496,49 @@ real(8) function EOM_scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   end do
  
 !!$OMP PARALLEL DO PRIVATE( ji,jj,i,j,J3,J4,J5,jx) SHARED(AA,BB) REDUCTION(+:sm)
-  ! do i = 1, totorb
-  !    ji =jbas%jj(i)
-  !    do j = 1,totorb
-  !       jj = jbas%jj(j) 
+  do i = 1, totorb
+     ji =jbas%jj(i)
+     do j = 1,totorb
+        jj = jbas%jj(j) 
         
-  !       if ((jbas%con(i)-jbas%con(j)) == 0) cycle 
-  !       do J3 = 0, JTM,2
-  !          do J4 = 0, JTM,2 
-  !             do J5 = 0,JTM,2
-  !                do jx = 1,JTM,2
+        if ((jbas%con(i)-jbas%con(j)) == 0) cycle 
+        do J3 = 0, JTM,2
+           do J4 = 0, JTM,2 
+              do J5 = 0,JTM,2
+                 do jx = 1,JTM,2
                     
-  !                   sm = sm + (jbas%con(i)-jbas%con(j)) *  ( &  
+                    sm = sm + (jbas%con(i)-jbas%con(j)) *  ( &  
                    
-  !                        (-1)** ((J2+J3 + jc - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
-  !                        * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)   &
-  !                   * coef9(jj,J3,ja,J4,ji,jb,jx,jd,J1) * d6ji( jj,J4,jx,rank,jc,J5) * &
-  !                        d6ji(J1,jx,jd,jc,J2,rank) * v_elem(a,j,d,i,J3,AA,jbas) *&
-  !                        pphh_tensor_elem(i,b,j,c,J4,J5,BB,jbas) &
+                         (-1)** ((J2+J3 + jc - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
+                         * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)   &
+                    * coef9(jj,J3,ja,J4,ji,jb,jx,jd,J1) * d6ji( jj,J4,jx,rank,jc,J5) * &
+                         d6ji(J1,jx,jd,jc,J2,rank) * v_elem(a,j,d,i,J3,AA,jbas) *&
+                         pphh_tensor_elem(i,b,j,c,J4,J5,BB,jbas) &
                    
-  !                        - (-1)** ((J2+J3 + jc - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
-  !                        * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
-  !                   * coef9(jj,J3,jb,J4,ji,ja,jx,jd,J1) * d6ji( jj,J4,jx,rank,jc,J5) * &
-  !                        d6ji(J1,jx,jd,jc,J2,rank) * v_elem(b,j,d,i,J3,AA,jbas) *&
-  !                        pphh_tensor_elem(i,a,j,c,J4,J5,BB,jbas) *(-1)**((ja+jb-J1)/2) &
+                         - (-1)** ((J2+J3 + jc - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
+                         * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
+                    * coef9(jj,J3,jb,J4,ji,ja,jx,jd,J1) * d6ji( jj,J4,jx,rank,jc,J5) * &
+                         d6ji(J1,jx,jd,jc,J2,rank) * v_elem(b,j,d,i,J3,AA,jbas) *&
+                         pphh_tensor_elem(i,a,j,c,J4,J5,BB,jbas) *(-1)**((ja+jb-J1)/2) &
                    
-  !                        - (-1)** ((J2+J3 + jd - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
-  !                        * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
-  !                   * coef9(jj,J3,ja,J4,ji,jb,jx,jc,J1) * d6ji( jj,J4,jx,rank,jd,J5) * &
-  !                        d6ji(J1,jx,jc,jd,J2,rank) * v_elem(a,j,c,i,J3,AA,jbas) *&
-  !                        pphh_tensor_elem(i,b,j,d,J4,J5,BB,jbas) * (-1)**((jc+jd-J2)/2) &
+                         - (-1)** ((J2+J3 + jd - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
+                         * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
+                    * coef9(jj,J3,ja,J4,ji,jb,jx,jc,J1) * d6ji( jj,J4,jx,rank,jd,J5) * &
+                         d6ji(J1,jx,jc,jd,J2,rank) * v_elem(a,j,c,i,J3,AA,jbas) *&
+                         pphh_tensor_elem(i,b,j,d,J4,J5,BB,jbas) * (-1)**((jc+jd-J2)/2) &
                    
-  !                        + (-1)** ((J2+J3 + jd - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
-  !                        * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
-  !                   * coef9(jj,J3,jb,J4,ji,ja,jx,jc,J1) * d6ji( jj,J4,jx,rank,jd,J5) * &
-  !                        d6ji(J1,jx,jc,jd,J2,rank) * v_elem(b,j,c,i,J3,AA,jbas) *&
-  !                        pphh_tensor_elem(i,a,j,d,J4,J5,BB,jbas)  *(-1)**((ja+jb+jc+jd+J1+J2)/2)  )
-              
-  !                end do
-  !             end do
-  !          end do
-  !       end do
-  !    end do
-  ! end do
+                         + (-1)** ((J2+J3 + jd - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
+                         * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
+                    * coef9(jj,J3,jb,J4,ji,ja,jx,jc,J1) * d6ji( jj,J4,jx,rank,jd,J5) * &
+                         d6ji(J1,jx,jc,jd,J2,rank) * v_elem(b,j,c,i,J3,AA,jbas) *&
+                         pphh_tensor_elem(i,a,j,d,J4,J5,BB,jbas)  *(-1)**((ja+jb+jc+jd+J1+J2)/2)  &
+                         )
+                 end do
+              end do
+           end do
+        end do
+     end do
+  end do
 !!$OMP END PARALLEL DO
 
   EOM_scalar_tensor_2body_comm = sm 

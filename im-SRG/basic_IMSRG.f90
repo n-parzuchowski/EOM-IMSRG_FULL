@@ -1346,24 +1346,8 @@ real(8) function ph_tensor_elem(a,b,op,jbas)
      return
   end if 
   
-  select case(c1+c2) 
-     case(0) 
-        ! pp 
-        ph_tensor_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
-  
-     case(1) 
-        ! ph 
-        if (c1 > c2) then 
-           ph_tensor_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
-              op%herm * (-1)**( (jbas%jj(a) - jbas%jj(b))/2 ) 
-        else 
-           ph_tensor_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
-        end if
-     case(2) 
-        ! hh 
-        ph_tensor_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
-  end select
-
+  ph_tensor_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+           
 end function
 !==============================================================
 !==============================================================
@@ -3695,8 +3679,6 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
 end subroutine 
 !=======================================================  
 !=======================================================          
-!=======================================================  
-!=======================================================          
 subroutine calculate_generalized_pandya(OP,CCME,jbas,phase) 
   ! currently the only CCME of interest are phab terms    |---<--|  J1 
   ! coupling in the 3-1 channel                        <(pa)|V|(hb)> rank
@@ -3903,6 +3885,231 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                           
                           CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
                                (-1) **( (jp+ja+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+                       end if
+                    end if
+                 end if 
+                 
+              end do
+           end do
+        end do
+     end do
+
+  end do 
+!$omp end parallel do
+
+end subroutine 
+!=======================================================  
+!=======================================================          
+subroutine EOM_generalized_pandya(OP,CCME,jbas,phase) 
+  ! currently the only CCME of interest are phab terms    |---<--|  J1 
+  ! coupling in the 3-1 channel                        <(pa)|V|(hb)> rank
+  !                                                      |---<--| J2 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: OP 
+  type(cross_coupled_31_mat) :: CCME
+  integer :: Jtot1,Jtot2,ja,jp,jb,jh,JC,q1,q2,q,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
+  integer :: a,b,p,h,i,j,Jmin1,Jmax1,Rindx,Gindx,g,ta,tb,Atot,hg,pg,J3,J4,NBindx2,qONE,qTWO
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx1,x,JTM,rank,Jmin2,Jmax2,bx,ax
+  real(8) :: sm,sm2,pre,horse
+  logical :: phase,parflip
+
+  Atot = OP%belowEF
+  Ntot = OP%Nsp
+  JTM = jbas%Jtotal_max 
+  pre = 1.d0 
+  rank = OP%rank
+
+  parflip = .false. 
+  if ( mod(rank/2,2) == 1) parflip = .true. 
+
+  CCME%herm = OP%Herm
+!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
+  do q1 = 1, CCME%nblocks
+      
+     Jtot1 = CCME%Jval(q1)
+     Jtot2 = CCME%Jval2(q1)
+     if (Jtot2 > 2*JTM) cycle
+     
+     PAR = mod(q1-1,2)
+     Tz = mod((q1-1)/2,2) 
+     
+     CCME%CCR(q1)%X = 0.d0
+     CCME%CCX(q1)%X = 0.d0
+         
+     qONE = block_index(Jtot1,Tz,Par)
+     qTWO = block_index(Jtot2,Tz,mod(Par+rank/2,2))
+     
+     ! ab = ph 
+     do hg = 1, Atot
+        do pg = 1, Ntot - Atot 
+           
+           h = jbas%holes(hg) 
+           p = jbas%parts(pg) 
+           
+           jp = jbas%jj(p) 
+           jh = jbas%jj(h)
+           lp = jbas%ll(p) 
+           lh = jbas%ll(h)
+           tp = jbas%itzp(p) 
+           th = jbas%itzp(h)
+        
+           if (.not. (parflip)) then 
+              if ( mod(lp + lh,2) .ne. PAR ) cycle
+           end if 
+           
+           if (abs(tp - th)/2 .ne. Tz ) cycle 
+        
+           NBindx1 = 0
+           NBindx2 = 0 
+           if ( triangle(jp,jh,Jtot1) )  then 
+              
+              
+              if ( mod(lp + lh,2) ==  PAR ) then   
+                 x = CCindex(p,h,OP%Nsp)
+                 gnb = 1
+              
+                 do while (CCME%qmap(x)%Z(gnb) .ne. qONE )
+                    gnb = gnb + 1 
+                 end do
+              
+                 NBindx1 = CCME%nbmap(x)%Z(gnb) 
+             
+              end if 
+              
+              if  ( triangle(jp,jh,Jtot2) )  then 
+              
+                 if ( mod(lp+lh+rank/2,2) == PAR) then 
+        
+                    x = CCindex(p,h,OP%Nsp)
+                    gnb = 1
+                    
+                    do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+                       gnb = gnb + 1 
+                    end do
+                 
+                    NBindx2 = CCME%nbmap(x)%Z(gnb)
+                 end if 
+              end if
+ 
+           else if  ( triangle(jp,jh,Jtot2) )  then 
+              
+              if ( mod(lp+lh+rank/2,2) == PAR) then 
+        
+                 x = CCindex(p,h,OP%Nsp)
+                 gnb = 1
+              
+                 do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+                    gnb = gnb + 1 
+                 end do
+              
+                 NBindx2 = CCME%nbmap(x)%Z(gnb)
+              end if
+           else 
+              cycle
+           end if 
+          
+           
+           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
+           ! for the ph  channel 2body derivative 
+        
+           do ax = 1, OP%belowEF
+              a = jbas%holes(ax)
+              do bx = 1, OP%nsp - OP%belowEF
+                 b = jbas%parts(bx) 
+                 
+                 ja = jbas%jj(a) 
+                 jb = jbas%jj(b)
+                 la = jbas%ll(a) 
+                 lb = jbas%ll(b)
+                 ta = jbas%itzp(a) 
+                 tb = jbas%itzp(b)
+                 
+
+                 if (.not. (parflip)) then 
+                    if ( mod(la + lb,2) .ne. PAR ) cycle
+                 end if 
+
+                 if (abs(ta - tb)/2 .ne. Tz ) cycle 
+
+       
+                 if ( (triangle(ja,jb,Jtot1)) .and. (NBindx2 .ne. 0) ) then 
+       
+                    if ( mod(la+lb,2) == PAR ) then 
+                       x = CCindex(a,b,OP%Nsp) 
+                       
+                       g = 1
+                       do while (CCME%qmap(x)%Z(g) .ne. qONE )
+                          g = g + 1
+                       end do
+              
+                       Rindx = CCME%rmap(x)%Z(g)
+                 
+                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                            ( (ta + th) == (tb + tp) ) ) then  
+                         
+                          ! hapb 
+                          Jmin2 = abs(ja - jh) 
+                          Jmax2 = ja+jh 
+                          Jmin1 = abs(jp - jb)
+                          Jmax1 = jp+jb 
+                          
+                          sm = 0.d0 
+                          do J3 = Jmin1,Jmax1,2
+                             do J4 = Jmin2,Jmax2,2
+                                sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
+                                     ninej(jp,jh,Jtot2,jb,ja,Jtot1,J3,J4,rank) * &
+                                     tensor_elem(p,b,a,h,J3,J4,OP,jbas) 
+                                
+                             end do
+                          end do
+                          
+                          ! STORED SUCH THAT THE PH JTOT is GREATER. 
+                          CCME%CCX(q1)%X(Rindx,NBindx2) = sm * & 
+                               (-1) **( (jh+jb+Jtot1) / 2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+                          ! stored backwards because. 
+
+                       end if
+                    end if
+                 end if 
+                 
+                 if ((triangle(ja,jb,Jtot2)) .and. (NBindx1 .ne. 0) ) then 
+                    
+                    if ( mod(la+lb+rank/2,2) == PAR ) then 
+                       x = CCindex(a,b,OP%Nsp) 
+                       g = 1
+                       do while (CCME%qmap(x)%Z(g) .ne. qTWO )
+                          g = g + 1
+                       end do
+                    
+                       Gindx = CCME%rmap(x)%Z(g)
+                 
+
+                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                            ( (ta + th) == (tb + tp) ) ) then  
+               
+                          ! p(h)a(b)  
+                          Jmin2 = abs(ja - jh) 
+                          Jmax2 = ja+jh 
+                          Jmin1 = abs(jp - jb)
+                          Jmax1 = jp+jb 
+                    
+                          sm = 0.d0 
+                          do J3 = Jmin1,Jmax1,2
+                             do J4 = Jmin2,Jmax2,2
+                                sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
+                                     ninej(jp,jh,Jtot1,jb,ja,Jtot2,J3,J4,rank) * &
+                                     tensor_elem(p,b,a,h,J3,J4,OP,jbas) 
+                       
+                             end do
+                          end do
+
+                          ! store  ( V )_p(h)a(b)
+                          
+                          ! PH JTOT IS LESS THAN OR EQUAL TO.
+                          CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
+                               (-1) **( (jb+jh+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
                        end if
                     end if
                  end if 
