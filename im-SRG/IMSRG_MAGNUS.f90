@@ -287,7 +287,7 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA,quads)
      call write_excited_states(steps,s,TDA,HS%E0,37) 
      
      crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
-     write(*,'(I6,6(e15.7))') steps,s,TDA%blkM(1)%eigval(1:4),crit
+     write(*,'(I6,7(e15.7))') steps,s,TDA%blkM(1)%eigval(1:5),crit
      E_old = TDA%blkM(1)%eigval
 
     ! nrm1 = nrm2 

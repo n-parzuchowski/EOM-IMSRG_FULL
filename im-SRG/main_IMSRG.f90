@@ -6,7 +6,7 @@ program main_IMSRG
   use IMSRG_CANONICAL
   use operators
   use me2j_format
-  use lanczos_diag
+  use EOM_IMSRG
   use brute_force_testing
   ! ground state IMSRG calculation for nuclear system 
   implicit none
@@ -246,34 +246,7 @@ program main_IMSRG
   end select
 
  
- 
-  allocate(ladder_ops(5)) 
-  ladder_ops%herm = 1
- 
-  ladder_ops%rank = 0
-  ladder_ops%dpar = 0
-  
-  
-  if ( ladder_ops(1)%rank .ne. 0 ) then 
-    
-     call allocate_tensor(jbasis,ladder_ops(1),HS)   
-     do q = 1,ladder_ops(1)%nblocks
-        ladder_ops(1)%tblck(q)%lam(1) = 1 
-     end do
-    
-  else 
-     call duplicate_sq_op(HS,ladder_ops(1)) 
-  end if
-
-  do i = 2, 5
-     call duplicate_sq_op(ladder_ops(1),ladder_ops(i))
-  end do 
-  
-  call lanczos_diagonalize(jbasis,HS,ladder_ops,5) 
-  print*, ladder_ops%E0
-
-  stop 
-
+  call calculate_excited_states( 6, 2, 10, HS , jbasis) 
 
 !============================================================
 ! store hamiltonian in easiest format for quick reading
@@ -380,9 +353,12 @@ subroutine print_header
   print* 
   print*, 'Constructing Basis...' 
   print*
-  print*, '=============================================================='
-  print*, '  iter      s             E0        E0+MBPT(2)     |MBPT(2)|  '  
-  print*, '=============================================================='
+  print*, '================================'//&
+       '==================================='
+  print*, '  iter        s            E0      '//&
+       '    E0+MBPT(2)      |MBPT(2)|  '  
+  print*, '================================'//&
+       '==================================='
 
 end subroutine   
 
