@@ -51,10 +51,10 @@ program main_IMSRG
   
   if (TEST_COMMUTATORS)  then 
      ! run this by typing ' X' after the input file in the command line
-!     call test_scalar_scalar_commutator(jbasis,-1,1) 
- !    call test_EOM_scalar_scalar_commutator(jbasis,1,1)
+     call test_scalar_scalar_commutator(jbasis,-1,1) 
+     call test_EOM_scalar_scalar_commutator(jbasis,1,1)
      call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
- !    call test_scalar_tensor_commutator(jbasis,1,1,2,0) 
+     call test_scalar_tensor_commutator(jbasis,1,1,2,0) 
      stop
   end if
   
@@ -245,15 +245,34 @@ program main_IMSRG
 
   end select
 
-  ! allocate(ladder_ops(5)) 
-  ! do i = 1, 5
-  !    call duplicate_sq_op(HS,ladder_ops(i))
-  ! end do 
+ 
+ 
+  allocate(ladder_ops(5)) 
+  ladder_ops%herm = 1
+ 
+  ladder_ops%rank = 0
+  ladder_ops%dpar = 0
   
-  ! call lanczos_diagonalize(jbasis,HS,ladder_ops,5) 
-  ! print*, ladder_ops%E0,ladder_ops(5)%mat(1)%lam
+  
+  if ( ladder_ops(1)%rank .ne. 0 ) then 
+    
+     call allocate_tensor(jbasis,ladder_ops(1),HS)   
+     do q = 1,ladder_ops(1)%nblocks
+        ladder_ops(1)%tblck(q)%lam(1) = 1 
+     end do
+    
+  else 
+     call duplicate_sq_op(HS,ladder_ops(1)) 
+  end if
 
-  ! stop 
+  do i = 2, 5
+     call duplicate_sq_op(ladder_ops(1),ladder_ops(i))
+  end do 
+  
+  call lanczos_diagonalize(jbasis,HS,ladder_ops,5) 
+  print*, ladder_ops%E0
+
+  stop 
 
 
 !============================================================

@@ -1,6 +1,7 @@
 module lanczos_diag
   use basic_IMSRG
   use EOM_scalar_commutators
+  use EOM_TS_commutators
   implicit none
   
 
@@ -24,15 +25,21 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   logical :: rvec
   logical,allocatable,dimension(:) :: selct
 
-  call duplicate_sq_op(Op,w1) !workspace
-  call duplicate_sq_op(Op,w2) !workspace
-  call duplicate_sq_op(Op,Q1) !workspace
-  call duplicate_sq_op(Op,Q2) !workspace
+  call duplicate_sq_op(vecs(1),w1) !workspace
+  call duplicate_sq_op(vecs(1),w2) !workspace
+  call duplicate_sq_op(vecs(1),Q1) !workspace
+  call duplicate_sq_op(vecs(1),Q2) !workspace
 
   call allocate_CCMAT(Op,OpCC,jbas) !cross coupled ME
-  call duplicate_CCMAT(OpCC,QCC) !cross coupled ME
-  call allocate_CC_wkspc(OpCC,WCC) ! workspace for CCME
   
+  if (vecs(1)%rank == 0) then 
+     call duplicate_CCMAT(OpCC,QCC) !cross coupled ME
+     call allocate_CC_wkspc(OpCC,WCC) ! workspace for CCME
+  else 
+     call allocate_tensor_CCMAT(vecs(1),QCC,jbas) !cross coupled ME
+     call allocate_CCtensor_wkspc(QCC,WCC) 
+  end if
+
   h = OP%belowEF !holes
   p = OP%Nsp-h  !particles
  
@@ -42,32 +49,84 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
         
         i = jbas%parts(ix)
         j = jbas%holes(jx) 
+  
+        if (triangle(jbas%jj(i),jbas%jj(j),vecs(1)%rank)) then  
+
+           if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
+           if (mod(jbas%ll(i) + jbas%ll(j) + vecs(1)%dpar/2,2) .ne. 0 ) cycle
         
-        if (jbas%jj(i) .ne. jbas%jj(j) ) cycle
-        if (jbas%itzp(i) .ne. jbas%itzp(j) ) cycle
-        if (jbas%ll(i) .ne. jbas%ll(j) ) cycle
-        
-        sps = sps+1
+           sps = sps+1
+        end if 
      end do
   end do
   
-  tps = 0 
-  do q = 1, OP%nblocks
+  if (vecs(1)%rank == 0) then 
+     ! scalar operator
+     tps = 0 
+     do q = 1, OP%nblocks
      
-     do II = 1,OP%mat(q)%npp
-        do JJ = 1, OP%mat(q)%nhh 
+        do II = 1,OP%mat(q)%npp
+           do JJ = 1, OP%mat(q)%nhh 
            
-           if (mod(OP%mat(q)%lam(1)/2,2) == 1) then 
-              if ( OP%mat(q)%qn(1)%Y(II,1) == &
-                   OP%mat(q)%qn(1)%Y(II,2) ) cycle
-             if ( OP%mat(q)%qn(3)%Y(JJ,1) == &
-                   OP%mat(q)%qn(3)%Y(JJ,2) ) cycle
-          end if
+              if (mod(OP%mat(q)%lam(1)/2,2) == 1) then 
+                 if ( OP%mat(q)%qn(1)%Y(II,1) == &
+                      OP%mat(q)%qn(1)%Y(II,2) ) cycle
+                 if ( OP%mat(q)%qn(3)%Y(JJ,1) == &
+                      OP%mat(q)%qn(3)%Y(JJ,2) ) cycle
+              end if
            
-           tps = tps+ 1
-        end do 
-     end do 
-  end do 
+              tps = tps+ 1
+           end do
+        end do
+     end do
+  
+  else 
+     ! tensor case
+     tps = 0 
+     do q = 1, vecs(1)%nblocks
+     
+        do II = 1,size( vecs(1)%tblck(q)%tgam(3)%X(:,1) ) 
+           do JJ = 1, size( vecs(1)%tblck(q)%tgam(3)%X(1,:) )  
+           
+              if (mod(vecs(1)%tblck(q)%Jpair(1)/2,2) == 1) then 
+                 
+                 if ( vecs(1)%tblck(q)%tensor_qn(1,1)%Y(II,1) == &
+                      vecs(1)%tblck(q)%tensor_qn(1,1)%Y(II,2) ) cycle
+              end if 
+
+              if (mod(vecs(1)%tblck(q)%Jpair(2)/2,2) == 1) then 
+   
+                 if ( vecs(1)%tblck(q)%tensor_qn(3,2)%Y(JJ,1) == &
+                      vecs(1)%tblck(q)%tensor_qn(3,2)%Y(JJ,2) ) cycle
+              end if
+           
+              tps = tps+ 1
+           end do
+        end do
+        
+        if (vecs(1)%tblck(q)%Jpair(1) == vecs(1)%tblck(q)%Jpair(2)) cycle
+ 
+        do II = 1,size( vecs(1)%tblck(q)%tgam(7)%X(:,1) ) 
+           do JJ = 1, size( vecs(1)%tblck(q)%tgam(7)%X(1,:) )  
+           
+              if (mod(vecs(1)%tblck(q)%Jpair(1)/2,2) == 1) then 
+                 
+                 if ( vecs(1)%tblck(q)%tensor_qn(3,1)%Y(II,1) == &
+                      vecs(1)%tblck(q)%tensor_qn(3,1)%Y(II,2) ) cycle
+              end if 
+
+              if (mod(vecs(1)%tblck(q)%Jpair(2)/2,2) == 1) then 
+   
+                 if ( vecs(1)%tblck(q)%tensor_qn(1,2)%Y(JJ,1) == &
+                      vecs(1)%tblck(q)%tensor_qn(1,2)%Y(JJ,2) ) cycle
+              end if
+           
+              tps = tps+ 1
+           end do
+        end do
+
+     end do
+  end if    
            
   N = sps + tps ! number of ph and pphh SDs 
   
@@ -106,8 +165,13 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
       exit
     end if
 
-    call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
-  end do 
+    if ( vecs(1)%rank == 0 ) then 
+       call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
+    else
+       call matvec_nonzeroX_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
+    end if
+    
+    end do 
   ! the ritz values are out of order right now. Need to do post
   ! processing to fix this, and get the eigenvectors
   rvec= .true. 
@@ -125,7 +189,11 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   ! d contains the eigenvalues in the same order. 
   
   do i = 1, nev
-     call unwrap(Z(:,i),Vecs(i),N,jbas) 
+     if (Vecs(i)%rank .ne. 0 ) then
+        call unwrap_tensor(Z(:,i),Vecs(i),N,jbas) 
+     else
+        call unwrap(Z(:,i),Vecs(i),N,jbas)
+     end if 
      Vecs(i)%E0 = d(i)
   end do 
       
@@ -176,8 +244,51 @@ subroutine matvec_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   ! Okay, now we have the "matrix vector product" So lets put it back in vector form:
   call rewrap(w,Qout,N,jbas) 
 end subroutine
+!======================================================================================
+!======================================================================================
+subroutine matvec_nonzeroX_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w) 
+  implicit none 
+  
+  integer :: N ,q,a,b,c,d,i,j,k,l,Jtot
+  real(8) :: sm
+  type(sq_op) :: OP, Q_op ,Qout,w1,w2
+  type(cross_coupled_31_mat) :: OpCC,QCC,WCC
+  
+  type(spd) :: jbas
+  real(8),dimension(N) :: v,w 
+  real(8) :: coef9,dfact0
 
+  ! the name says mat-vec product, but really this
+  ! is a commutator. 
+  
+  ! the commutator here is equivalent to the matrix-vector product 
+  ! with only connected diagrams retained. 
 
+  
+  ! FIRST WE NEED TO CONVERT v TO a (SQ_OP) variable
+  
+  call unwrap_tensor(v,Q_op,N,jbas)
+  
+  ! now we have two sq_op operators which can be used with my commutator expressions. Noice. 
+  
+  call EOM_generalized_pandya(Q_op,QCC,jbas,.false.)
+  call calculate_cross_coupled(Op,OpCC,jbas,.false.) 
+  
+  call EOM_TS_commutator_111(Op,Q_op,Qout,jbas) 
+  call EOM_TS_commutator_121(Op,Q_op,Qout,jbas)
+  call EOM_TS_commutator_211(OpCC,Q_op,Qout,jbas) 
+  call EOM_TS_commutator_122(Op,Q_op,Qout,jbas)
+  call EOM_TS_commutator_212(Op,Q_op,Qout,jbas)
+  
+  call EOM_TS_commutator_222_pp_hh(Op,Q_op,Qout,w1,w2,jbas)  
+  call EOM_TS_commutator_221(w1,w2,Op%herm*Q_op%herm,Qout,jbas)
+  call EOM_TS_commutator_222_ph(OpCC,QCC,Qout,WCC,jbas)
+  
+  ! Okay, now we have the "matrix vector product" So lets put it back in vector form:
+  call rewrap_tensor(w,Qout,N,jbas) 
+end subroutine
+!======================================================================================
+!======================================================================================
 subroutine unwrap( v, AX ,N ,jbas) 
   implicit none 
   
@@ -230,7 +341,192 @@ subroutine unwrap( v, AX ,N ,jbas)
   end do 
 
 end subroutine 
+!======================================================================================
+!======================================================================================
+subroutine unwrap_tensor( v, AX ,N ,jbas) 
+  implicit none 
   
+  type(spd) :: jbas
+  integer :: N ,i, II,JJ, parts,holes,q,IX,JX,qx
+  real(8),dimension(N) :: v
+  type(sq_op) :: AX 
+  
+  i = 1
+  
+  holes = AX%belowEF
+  parts = AX%Nsp- holes 
+  
+
+  do ix = 1,parts
+     do jx = 1,holes
+        
+        ii = jbas%parts(ix)
+        JJ = jbas%holes(jx) 
+  
+        if (triangle(jbas%jj(II),jbas%jj(JJ),AX%rank)) then  
+
+           if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
+           if (mod(jbas%ll(II) + jbas%ll(JJ) + AX%dpar/2,2) .ne. 0 ) cycle
+        
+           AX%fph(IX,JX) = v(i) 
+           i = i+ 1
+        end if 
+     end do
+  end do
+  
+  ! tensor case
+  
+  do q = 1, AX%nblocks
+     
+     do II = 1,size( AX%tblck(q)%tgam(3)%X(:,1) ) 
+        do JJ = 1, size( AX%tblck(q)%tgam(3)%X(1,:) )  
+           
+           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
+              
+              if ( AX%tblck(q)%tensor_qn(1,1)%Y(II,1) == &
+                   AX%tblck(q)%tensor_qn(1,1)%Y(II,2) ) cycle
+           end if
+
+           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(3,2)%Y(JJ,1) == &
+                   AX%tblck(q)%tensor_qn(3,2)%Y(JJ,2) ) cycle
+           end if
+
+           AX%tblck(q)%tgam(3)%X(II,JJ) = v(i)
+           i = i + 1
+        end do
+     end do
+
+     ! IF THE Js ARE THE SAME THEN WE NEED TO MAKE SURE THAT IS REFLECTED IN 
+     ! THE TRANSPOSE
+     if (AX%tblck(q)%Jpair(1) == AX%tblck(q)%Jpair(2)) then 
+        if (AX%dpar == 2 ) then 
+           qx = tensor_block_index(AX%tblck(q)%Jpair(1),AX%tblck(q)%Jpair(2)&
+                ,AX%rank,AX%tblck(q)%lam(3),mod(AX%tblck(q)%lam(2)+1,2))
+           AX%tblck(qx)%tgam(7)%X = Transpose(AX%tblck(q)%tgam(3)%X)  
+        else       
+           AX%tblck(q)%tgam(7)%X = Transpose(AX%tblck(q)%tgam(3)%X)  
+        end if
+        
+        cycle 
+     
+     end if
+     
+     ! OTHERWISE BUSINESS AS USUAL.
+     do II = 1,size( AX%tblck(q)%tgam(7)%X(:,1) ) 
+        do JJ = 1, size( AX%tblck(q)%tgam(7)%X(1,:) )  
+
+           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(3,1)%Y(II,1) == &
+                   AX%tblck(q)%tensor_qn(3,1)%Y(II,2) ) cycle
+           end if
+
+           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(1,2)%Y(JJ,1) == &
+                   AX%tblck(q)%tensor_qn(1,2)%Y(JJ,2) ) cycle
+           end if
+
+           AX%tblck(q)%tgam(7)%X(II,JJ) = v(i)
+           i = i + 1
+        end do
+     end do
+
+  end do
+
+end subroutine 
+!======================================================================================
+!======================================================================================
+subroutine rewrap_tensor( v, AX ,N ,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: N ,i, II,JJ, parts,holes,q,IX,JX,qx
+  real(8),dimension(N) :: v
+  type(sq_op) :: AX 
+  
+  i = 1
+  
+  holes = AX%belowEF
+  parts = AX%Nsp- holes 
+  
+  do ix = 1,parts
+     do jx = 1,holes
+        
+        ii = jbas%parts(ix)
+        JJ = jbas%holes(jx) 
+  
+        if (triangle(jbas%jj(II),jbas%jj(JJ),AX%rank)) then  
+
+           if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
+           if (mod(jbas%ll(II) + jbas%ll(JJ) + AX%dpar/2,2) .ne. 0 ) cycle
+        
+           v(i) = AX%fph(IX,JX) 
+           i = i + 1
+        end if 
+     end do
+  end do
+  
+  ! tensor case
+  
+  do q = 1, AX%nblocks
+     
+     do II = 1,size( AX%tblck(q)%tgam(3)%X(:,1) ) 
+        do JJ = 1, size( AX%tblck(q)%tgam(3)%X(1,:) )  
+           
+           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
+              
+              if ( AX%tblck(q)%tensor_qn(1,1)%Y(II,1) == &
+                   AX%tblck(q)%tensor_qn(1,1)%Y(II,2) ) cycle
+           end if
+
+           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(3,2)%Y(JJ,1) == &
+                   AX%tblck(q)%tensor_qn(3,2)%Y(JJ,2) ) cycle
+           end if
+
+           v(i) = AX%tblck(q)%tgam(3)%X(II,JJ) 
+           i = i + 1
+        end do
+     end do
+
+     ! IF THE Js ARE THE SAME THEN WE NEED TO MAKE SURE THAT IS REFLECTED IN 
+     ! THE TRANSPOSE
+     if (AX%tblck(q)%Jpair(1) == AX%tblck(q)%Jpair(2)) then 
+        
+        cycle 
+     
+     end if
+     
+     ! OTHERWISE BUSINESS AS USUAL.
+     do II = 1,size( AX%tblck(q)%tgam(7)%X(:,1) ) 
+        do JJ = 1, size( AX%tblck(q)%tgam(7)%X(1,:) )  
+
+           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(3,1)%Y(II,1) == &
+                   AX%tblck(q)%tensor_qn(3,1)%Y(II,2) ) cycle
+           end if
+
+           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(1,2)%Y(JJ,1) == &
+                   AX%tblck(q)%tensor_qn(1,2)%Y(JJ,2) ) cycle
+           end if
+
+           v(i) = AX%tblck(q)%tgam(7)%X(II,JJ) 
+           i = i + 1
+        end do
+     end do
+
+  end do
+
+end subroutine 
+!============================================================================  
+!============================================================================
 subroutine rewrap( v, AX ,N ,jbas) 
   implicit none 
   
