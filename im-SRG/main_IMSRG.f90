@@ -18,9 +18,9 @@ program main_IMSRG
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
-  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,x
+  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,x,ex_Calc_int
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre
-  logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j,me2b
+  logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b
   logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
@@ -44,7 +44,7 @@ program main_IMSRG
   end if
   
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,&
+       hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
        me2b,mortbin,hw,skip_setup,skip_gs)
   
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
@@ -245,9 +245,10 @@ program main_IMSRG
 
   end select
 
- 
-  call calculate_excited_states( 6, 2, 10, HS , jbasis) 
-
+  
+  if (ex_calc_int==1) then 
+     call calculate_excited_states( HS%Jtarg, HS%Ptarg, 10, HS , jbasis) 
+  end if 
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
@@ -258,7 +259,7 @@ end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (tda_calculation) then 
+  if (ex_calc_int==2) then 
      
      call initialize_TDA(TDA,jbasis,HS%Jtarg,HS%Ptarg,HS%valcut)
      deallocate(HS%exlabels) 

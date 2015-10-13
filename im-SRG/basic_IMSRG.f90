@@ -3087,7 +3087,7 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
+subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
      ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs)
   !read inputs from file
   implicit none 
@@ -3096,8 +3096,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
   character(50) :: valence
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
-  integer :: method
-  logical :: HF,EXTDA,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN
+  integer :: method,Exint
+  logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -3148,8 +3148,6 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
  
   HF = .false. 
   if (jx == 1) HF = .true. 
-  EXTDA = .false.
-  if (excalc == 1) EXTDA = .true.
   COM = .false.
   if (com_int == 1) COM = .true.
   R2RMS = .false.
@@ -3192,7 +3190,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
   inquire( file='../../hamiltonians/'//&
        trim(adjustl(prefix))//'_bare' , exist = skip_setup )
 
-  if (EXTDA) then 
+  if (EXcalc .ne. 0) then 
   inquire( file='../../hamiltonians/'//&
        trim(adjustl(prefix))//'_gs_decoup' , exist = skip_gs )
   else 
