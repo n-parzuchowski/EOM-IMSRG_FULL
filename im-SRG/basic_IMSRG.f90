@@ -58,7 +58,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:,:) :: exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
-     integer :: Jtarg,Ptarg,valcut,Rank
+     integer :: Jtarg,Ptarg,valcut,Rank,dpar
      real(8) :: E0,hospace
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
@@ -91,7 +91,7 @@ type cross_coupled_31_mat
    type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
    type(real_mat),allocatable,dimension(:) :: CCX,CCR
    integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
-   integer :: nblocks,Nsp,rank,herm
+   integer :: nblocks,Nsp,rank,herm,dpar
 end type cross_coupled_31_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
@@ -102,7 +102,7 @@ end type cross_coupled_31_mat
    real(8),allocatable,dimension(:,:) :: phase_pp,phase_hh 
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
    integer,public,dimension(6) :: tensor_adjust = (/0,6,4,0,0,3/)
-   type(six_index_store),public :: store6j   ! holds 6j-symbols
+   type(six_index_store),public :: store6j , half6j  ! holds 6j-symbols
    
 
   !The following public arrays give info about the 6 different categories
@@ -362,6 +362,7 @@ subroutine allocate_blocks(jbas,op)
   op%belowEF = AX
   op%Nsp = jbas%total_orbits
   op%rank = 0 !scalar operator
+  op%dPar = 0 
   N = op%Nsp  !number of sp shells
   
   op%nblocks =  (jbas%Jtotal_max + 1) * 6 ! -3  ! 6 possible values of par * Tz  
@@ -515,7 +516,8 @@ subroutine allocate_tensor(jbas,op,zerorank)
   integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x,rank
   integer :: Jtot1,Jtot2,Jtot,Tz,Par1,Par2,nph1,npp1,nhh1,nph2,npp2,nhh2
   integer :: CX,j_min,j_max,numJ,q1,q2
-  
+  real(8) :: d6ji,lwake
+
   ! rank is multiplied by 2 as well
   rank = op%rank 
   op%hospace = zerorank%hospace
@@ -568,7 +570,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
         do Tz = -1,1
            do Par1 = 0,1
                     
-              if (mod(rank/2,2) == 1) then ! this only works for EX transitions
+              if (mod(op%dpar/2,2) == 1) then ! this only works for EX transitions
                  Par2 = abs(Par1-1)  
               else
                  Par2 = Par1 
@@ -729,6 +731,14 @@ subroutine allocate_tensor(jbas,op,zerorank)
       end do 
    end do 
    
+   ! these are six j symbols that I don't already have,
+   ! which the commutators need for this tensor.
+   ! access with XXXsixj
+   call store_6j_3halfint(jbas,rank)
+  
+   
+   call divide_work_tensor(op) 
+
  end subroutine allocate_tensor
 !==================================================================  
 !==================================================================
@@ -762,6 +772,54 @@ subroutine divide_work(r1)
      
      do while ( q .le. r1%nblocks) 
         k = k + r1%mat(q)%nhh +r1%mat(q)%npp + r1%mat(q)%nph 
+        q = q + 1
+        
+        if (k .ge. j) then 
+           r1%direct_omp(i+1) = q-1
+           exit
+        end if
+     end do 
+  end do 
+  r1%direct_omp(threads+1) = r1%nblocks
+  r1%direct_omp(1) = 0 
+
+end subroutine     
+!==================================================================  
+!==================================================================
+subroutine divide_work_tensor(r1) 
+  implicit none 
+  
+  type(sq_op) :: r1
+  integer :: A,N,threads,omp_get_num_threads
+  integer :: i ,g,q,k,b,j,spot
+  
+!$omp parallel
+  threads=omp_get_num_threads() 
+!$omp end parallel
+!threads = 1
+  b = 0.d0
+  do q = 1, r1%nblocks
+     do spot = 1, 9
+        b = b + size(r1%tblck(q)%tgam(spot)%X) 
+     end do 
+  end do
+  
+  allocate( r1%direct_omp(threads+1) )
+  
+  g = 0
+  k = 0
+  q = 1
+  do i = 1,threads
+     
+     g = g+k 
+     j = (b-g)/(threads-i+1) 
+     
+     k = 0
+     
+     do while ( q .le. r1%nblocks) 
+        do spot = 1, 9
+           k = k + size(r1%tblck(q)%tgam(spot)%X) 
+        end do
         q = q + 1
         
         if (k .ge. j) then 
@@ -1108,6 +1166,24 @@ integer function block_index(J,T,P)
 end function 
 !=================================================================     
 !=================================================================
+integer function halfint_index(j1,j2,RANK) 
+  ! input 2*J1 2*J2,rank,Tz,and Parity to get block index
+  integer :: J1,J2,T,P,RANK,MORE,n
+  
+  n = (j1+1)/2
+  
+  IF ( j1 < RANK ) THEN
+     n = (j1-1)/2
+     halfint_index = n*(n+1) + (j2 - abs(j1-rank))/2 + 1           
+  ELSE
+     n = rank/2
+     halfint_index = n*(n+1) + (j2 - abs(j1-rank))/2 + 1  + &
+          (j1-rank-1)/2*(rank+1.d0) 
+  END IF
+
+end function 
+!=================================================================     
+!=================================================================
 integer function tensor_block_index(J1,J2,RANK,T,P) 
   ! input 2*J1 2*J2,rank,Tz,and Parity to get block index
   integer :: J1,J2,T,P,RANK,MORE,JX
@@ -1121,11 +1197,6 @@ integer function tensor_block_index(J1,J2,RANK,T,P)
           + 2*(T+1) + P + 1 
   END IF
      
-!  tensor_block_index = 6*( (J1/2 - 1) * ( rank/2+1) +(J2 - J1)/2 + 1) &
- !                  + 2*(T+1) + P + 1 
-! tensor_block_index = 6*(JX*JX + (J1+J2-RANK)/2 + 1+  MORE ) &
- !                  + 2*(T+1) + P + 1 
-
 end function 
 !=================================================================     
 !=================================================================
@@ -1190,8 +1261,43 @@ real(8) function f_elem(a,b,op,jbas)
   end select
 
 end function
-!==============================================================
-!==============================================================
+!=================================================================     
+!=================================================================
+real(8) function ph_elem(a,b,op,jbas) 
+  implicit none 
+  
+  integer :: a,b,x1,x2,c1,c2
+  type(spd) :: jbas
+  type(sq_op) :: op 
+  
+  ! are they holes or particles
+  c1 = jbas%con(a)
+  c2 = jbas%con(b) 
+  
+  if ( (c1 == 1) .or. (c2 == 0) ) then 
+     ph_elem = 0.d0 
+     return
+  end if 
+  
+  select case(c1+c2) 
+     case(0) 
+        ! pp 
+        ph_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
+  
+     case(1) 
+        ! ph 
+        if (c1 > c2) then 
+           ph_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
+                op%herm
+        else 
+           ph_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+        end if
+     case(2) 
+        ! hh 
+        ph_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
+  end select
+
+end function
 !=================================================================     
 !=================================================================
 real(8) function f_tensor_elem(a,b,op,jbas) 
@@ -1223,6 +1329,27 @@ real(8) function f_tensor_elem(a,b,op,jbas)
         f_tensor_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
   end select
 
+end function
+!=================================================================     
+!=================================================================
+real(8) function ph_tensor_elem(a,b,op,jbas) 
+  implicit none 
+  
+  integer :: a,b,x1,x2,c1,c2
+  type(spd) :: jbas
+  type(sq_op) :: op 
+  
+  ! are they holes or particles
+  c1 = jbas%con(a)
+  c2 = jbas%con(b) 
+  
+  if ( (c1 == 1) .or. (c2 == 0) ) then 
+     ph_tensor_elem = 0.d0 
+     return
+  end if 
+  
+  ph_tensor_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+           
 end function
 !==============================================================
 !==============================================================
@@ -1335,6 +1462,122 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
 end function
 !==============================================================
 !==============================================================
+real(8) function pphh_elem(a,b,c,d,J,op,jbas) 
+  ! grabs the matrix element you are looking for
+  implicit none
+  
+  integer :: a,b,c,d,J,T,P,q,qx,c1,c2,N
+  integer :: int1,int2,i1,i2,j_min,x
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  
+  logical :: fail_c,pphh
+  type(sq_op) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c
+  
+  !make sure the matrix element exists first
+  
+  pphh = .false. 
+  if ( jbas%con(a) == 1) pphh = .true.  
+  if ( jbas%con(b) == 1) pphh = .true. 
+  if ( jbas%con(c) == 0) pphh = .true. 
+  if ( jbas%con(d) == 0) pphh = .true. 
+     
+  if (pphh) then 
+     pphh_elem = 0.d0 
+     return
+  end if 
+ 
+  fail_c = .true. 
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+ if ( .not. ((triangle(ja,jb,J)) .and. (triangle (jc,jd,J))) ) then 
+    pphh_elem = 0.d0
+    return
+ end if 
+     
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+     
+  P = mod(la + lb,2) 
+     
+  if ( mod(lc + ld,2) .ne. P ) then
+    pphh_elem = 0.d0 
+    return
+  end if 
+        
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)
+     
+  T = (ta + tb)/2
+     
+  
+  if ((tc+td) .ne. 2*T) then     
+    pphh_elem = 0.d0
+    return
+  end if 
+
+  q = block_index(J,T,P) 
+
+  !! this is a ridiculous but efficient? way of 
+  !! figuring out which Vpppp,Vhhhh,Vphph.... 
+  !! array we are referencing. QX is a number between 
+  !! 1 and 6 which refers to a unique array for the pphh characteristic
+  
+  C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+  C2 = jbas%con(c)+jbas%con(d) + 1
+    
+  qx = C1*C2
+  qx = qx + adjust_index(qx)   !Vpppp nature  
+  
+  ! see subroutine "allocate_blocks" for mapping from qx to each 
+  ! of the 6 storage arrays
+    
+  pre = 1 
+  
+  N = op%Nsp
+  ! get the indeces in the correct order
+  if ( a > b )  then 
+     x = bosonic_tp_index(b,a,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
+  else
+     if (a == b) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(a,b,N)
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+  end if 
+  
+  if (c > d)  then     
+     x = bosonic_tp_index(d,c,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
+  else 
+     if (c == d) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(c,d,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2)  
+  end if 
+ 
+  ! grab the matrix element
+   If (C1>C2) then 
+      pphh_elem = op%mat(q)%gam(qx)%X(i2,i1) * op%herm * pre 
+   else
+      pphh_elem = op%mat(q)%gam(qx)%X(i1,i2) * pre
+   end if 
+   
+end function
+!==============================================================
+!==============================================================
 real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas) 
   ! grabs the matrix element you are looking for
   ! right now it's not as versatile as v_elem because 
@@ -1345,7 +1588,7 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   integer :: int1,int2,i1,i2,j_min,x,k1,k2,ax,bx,cx,dx
   integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
   integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  ,phase
-  logical :: fail_c
+  logical :: fail_c,switch
   type(sq_op) :: op 
   type(spd) :: jbas
   real(8) :: pre,pre_c
@@ -1353,6 +1596,7 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   J1 = min(J1x,J2x) 
   
   if (J1 == J1x) then 
+     switch = .false. 
      J2 = J2x 
      phase = 1
      a = ax
@@ -1361,7 +1605,7 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
      d = dx
   else
      J2 = J1x 
-     phase = (-1)** ((J1 + J2)/2)*op%herm 
+     switch = .true. 
      a = cx
      b = dx
      c = ax
@@ -1396,7 +1640,7 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
 
   P = mod(la + lb,2) 
      
-  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(rank/2+1)+1)/2) ) then
+  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
     tensor_elem = 0.d0 
     return
   end if 
@@ -1415,6 +1659,9 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
 
   q = tensor_block_index(J1,J2,rank,T,P) 
 
+  if (switch) then 
+     phase =  OP%tblck(q)%lam(1)*op%herm 
+  end if 
   !! this is a ridiculous but efficient? way of 
   !! figuring out which Vpppp,Vhhhh,Vphph.... 
   !! array we are referencing. QX is a number between 
@@ -1467,6 +1714,157 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
    If (C1>C2) qx = qx + tensor_adjust(qx)       
    
    tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
+    
+end function
+!==============================================================
+!==============================================================
+real(8) function pphh_tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas) 
+  ! grabs the matrix element you are looking for
+  ! right now it's not as versatile as v_elem because 
+  ! it doesn't know ahead of time what the symmetries are
+  implicit none
+  
+  integer :: a,b,c,d,J1,J2,rank,T,P,q,qx,c1,c2,N,J1x,J2x
+  integer :: int1,int2,i1,i2,j_min,x,k1,k2,ax,bx,cx,dx
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  ,phase
+  logical :: fail_c,switch,pphh
+  type(sq_op) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c
+  
+  pphh = .false. 
+  if ( jbas%con(ax) == 1) pphh = .true.  
+  if ( jbas%con(bx) == 1) pphh = .true. 
+  if ( jbas%con(cx) == 0) pphh = .true. 
+  if ( jbas%con(dx) == 0) pphh = .true. 
+     
+  if (pphh) then 
+     pphh_tensor_elem = 0.d0 
+     return
+  end if 
+  
+  J1 = min(J1x,J2x) 
+  
+  if (J1 == J1x) then 
+     switch = .false. 
+     J2 = J2x 
+     phase = 1
+     a = ax
+     b = bx
+     c = cx
+     d = dx
+  else
+     J2 = J1x 
+     switch = .true. 
+     a = cx
+     b = dx
+     c = ax
+     d = bx 
+  end if
+  
+  !make sure the matrix element exists first
+ 
+  rank = op%rank
+
+  if ( .not. (triangle ( J1,J2,rank ))) then 
+     pphh_tensor_elem = 0.d0 
+     return
+  end if 
+ 
+  
+  fail_c = .true. 
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+  if ( .not. ((triangle(ja,jb,J1)) .and. (triangle (jc,jd,J2))) ) then 
+     pphh_tensor_elem = 0.d0
+     return
+  end if
+     
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+
+  P = mod(la + lb,2) 
+     
+  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
+    pphh_tensor_elem = 0.d0 
+    return
+  end if 
+        
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)
+     
+  T = (ta + tb)/2
+     
+  if ((tc+td) .ne. 2*T) then     
+    pphh_tensor_elem = 0.d0
+    return
+  end if 
+
+  q = tensor_block_index(J1,J2,rank,T,P) 
+
+  if (switch) then 
+     phase =  OP%tblck(q)%lam(1)*op%herm 
+  end if 
+  !! this is a ridiculous but efficient? way of 
+  !! figuring out which Vpppp,Vhhhh,Vphph.... 
+  !! array we are referencing. QX is a number between 
+  !! 1 and 6 which refers to a unique array for the pphh characteristic
+  
+  C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+  C2 = jbas%con(c)+jbas%con(d) + 1
+    
+  qx = C1*C2
+  qx = qx + adjust_index(qx)   !Vpppp nature  
+  
+  ! see subroutine "allocate_blocks" for mapping from qx to each 
+  ! of the 6 storage arrays
+    
+  pre = 1 
+  
+  N = op%Nsp
+  ! get the indeces in the correct order
+  if ( a > b )  then 
+     x = bosonic_tp_index(b,a,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+     pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J1)/2 ) 
+  else
+     if (a == b) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(a,b,N)
+     j_min = op%xmap(x)%Z(1)  
+     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+  end if 
+  
+  if (c > d)  then     
+     x = bosonic_tp_index(d,c,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2) 
+     pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J2)/2 ) 
+  else 
+     if (c == d) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(c,d,N) 
+     j_min = op%xmap(x)%Z(1)  
+     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2)  
+  end if 
+ 
+  ! grab the matrix element
+
+  ! right now i1 and i2 still refer to where the pair is located
+  ! in the rank zero qn storage
+
+  
+  
+   If (C1>C2) qx = qx + tensor_adjust(qx)       
+   
+   pphh_tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
     
 end function
 !==============================================================
@@ -1767,7 +2165,7 @@ subroutine store_6j(jbas,method)
      num_half = (3*jbas%Jtotal_max + 1)/2
      ! however, it clearly increases the memory requirements
   else
-     num_half = (jbas%Jtotal_max + 1)/2
+     num_half = (jbas%Jtotal_max+6 + 1)/2
   end if
   
   store6j%nhalf = num_half
@@ -1849,6 +2247,88 @@ subroutine store_6j(jbas,method)
            end do 
         end do 
         
+     end do 
+  end do 
+   
+end subroutine    
+!======================================================
+!======================================================
+subroutine store_6j_3halfint(jbas,rank) 
+  ! THIS CODE ASSUMES THAT SIX-J SYMBOLS WITH 3 half-INTEGER j take the form:
+  ! { J1 , J2  , X }
+  ! { a  ,  b  , c }    WHERE X IS THE RANK OF SOME TENSOR    
+  !
+  ! run this once. use sixj in code to call elements 
+  ! kind of complicated, but if fills a public array (half6j) 
+  ! which theoretically doesn't need to be touched when 
+  ! making changes to the code ( this is all background stuff ) 
+  ! so DFWT subroutine because it will be a huge mess
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: j1,j2,j3,j4,j5,j6,halfmax,num_whole,r1,r2,rank,JTM
+  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max,method,TZ,PAR
+  real(8) :: d6ji
+  
+  call dfact0() ! prime the anglib 6j calculator 
+  
+  JTM = jbas%jtotal_max*2
+ 
+  halfmax = jbas%Jtotal_max + JTM
+  !end if                        
+  
+  !these mean nothing physical
+  ! they are just set to one so I can use tensor_block_index
+  TZ = 1
+  PAR = 1
+  
+  !half6j%nhalf = num_half
+  nbos = tensor_block_index(JTM,JTM+RANK,RANK,TZ,PAR)/6 
+  ! divide by six because TZ and PAR are irrelevant
+  nferm = halfint_index(halfmax,halfmax+rank,rank) 
+  
+  half6j%nb = nbos
+  half6j%nf = nferm 
+  
+  
+  allocate(half6j%tp_mat(nbos,nferm)) 
+  ! The first index refers to J1,J2 
+  ! which are forcibly ordered
+  
+  ! the second index refers to j4,j5 which cannot be ordered
+  ! so we need an extra set of states for the reverse ordering (nferm) 
+  
+  do J1 = 0,JTM,2 
+     do J2 = max(abs(J1 - rank),J1), J1+rank , 2   
+
+        X12 = tensor_block_index(J1,J2,RANK,TZ,PAR)/6 
+        
+        do j4 = 1, halfmax,2
+           do j5 = abs(j4-rank),j4+rank,2
+           
+              ! if j5<j4 use fermionic index
+              X45 = halfint_index(j4,j5,rank) 
+              
+              ! find the allowed values of j3
+              j3min = max(  abs( J1 - j5 ) , abs( J2-j4 )   )               
+              j3max = min(  J1+j5 , J2+j4 ) 
+
+            
+            ! allocate second part of storage array to hold them 
+              allocate(half6j%tp_mat(X12,X45)%X((j3max-j3min)/2+1,1 ) ) 
+              
+              ! fill the array with 6j symbols
+              r1 = 1 
+             
+              do j3 = j3min,j3max,2
+                 r2 = 1
+                    half6j%tp_mat(X12,X45)%X(r1,1) =  d6ji(J1,J2,rank,j4,j5,j3)   
+                    ! d6ji is the anglib sixj calculator (takes 2*j as arguments) 
+                 r1 = r1 + 1
+              end do 
+                 
+           end do 
+        end do
      end do 
   end do 
    
@@ -2036,6 +2516,48 @@ real(8) function sixj(j1,j2,j3,j4,j5,j6)
      sixj = 0.d0 
   end if 
 end function
+!=========================================================
+!=========================================================
+real(8) function xxxsixj(j1,j2,RANK,j4,j5,j6)
+  ! twice the angular momentum
+  ! J1, J2, RANK  are INTEGERS, the rest are HALF-INTEGERS
+  ! you should be able to re-write the six-j symbol to look like this.
+  ! so you don't have to carry that obnoxious array around
+  implicit none 
+ 
+  integer :: j1,j2,j3,j4,j5,j6,RANK
+  integer :: l1,l2,l3,l4,l5,l6
+  integer :: x1,x2,j3min,j6min
+    
+  ! check triangle inequalities
+  if ( (triangle(j1,j2,RANK)) .and. (triangle(j4,j5,RANK)) &
+  .and. (triangle(j1,j5,j6)) .and. (triangle(j4,j2,j6)) ) then 
+     
+     l1 = j1; l2 = j2; l3 = RANK; l4 = j4; l5 = j5; l6 = j6 
+          
+     ! find lowest possible momentum
+     j6min = max(  abs( j1 -  j5)  , abs( j4 -  j2 )   )/2               
+    
+
+     ! make sure j1 < = j2
+     if  ( j1 > j2 ) then 
+        l1 = j2 ; l2 = j1 
+        l4 = j5 ; l5 = j4
+     end if 
+     ! allowed by 6j symmetry
+    
+     ! find indeces
+     x1 = tensor_block_index(l1,l2,RANK,1,1)/6
+     x2 = halfint_index(l4,l5,rank) 
+
+     ! figure out indeces for j3,j6 based on lowest possible
+     xxxsixj = half6j%tp_mat(x1,x2)%X(l6/2 - j6min + 1 ,1) 
+     
+     
+  else 
+     xxxsixj = 0.d0 
+  end if 
+end function
 !=======================================================
 !=======================================================
 subroutine allocate_sp_mat(jbas,H) 
@@ -2169,7 +2691,7 @@ subroutine duplicate_sq_op(H,op)
   op%Ptarg = H%Ptarg
   op%valcut = H%valcut 
   op%rank = H%rank 
-  
+  op%dpar = H%dpar
   
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 
@@ -2244,8 +2766,8 @@ subroutine duplicate_sq_op(H,op)
 
      allocate(op%tblck(op%nblocks)) 
     
-    ! allocate(op%direct_omp(size(H%direct_omp)))
-    ! op%direct_omp = H%direct_omp
+     allocate(op%direct_omp(size(H%direct_omp)))
+     op%direct_omp = H%direct_omp
 
      N = op%nsp
      allocate(op%xmap(N*(N+1)/2))
@@ -2566,7 +3088,7 @@ subroutine print_matrix(matrix)
 	
 end subroutine 
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
+subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
      ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs)
   !read inputs from file
   implicit none 
@@ -2575,8 +3097,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
   character(50) :: valence
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
-  integer :: method
-  logical :: HF,EXTDA,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN
+  integer :: method,Exint
+  logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN
   real(8) :: hw 
   common /files/ spfile,intfile,prefix 
     
@@ -2627,8 +3149,6 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
  
   HF = .false. 
   if (jx == 1) HF = .true. 
-  EXTDA = .false.
-  if (excalc == 1) EXTDA = .true.
   COM = .false.
   if (com_int == 1) COM = .true.
   R2RMS = .false.
@@ -2671,7 +3191,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXTDA,COM,R2RMS,&
   inquire( file='../../hamiltonians/'//&
        trim(adjustl(prefix))//'_bare' , exist = skip_setup )
 
-  if (EXTDA) then 
+  if (EXcalc .ne. 0) then 
   inquire( file='../../hamiltonians/'//&
        trim(adjustl(prefix))//'_gs_decoup' , exist = skip_gs )
   else 
@@ -2699,6 +3219,7 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
   NX = HS%Nsp
   CCME%Nsp = NX
   CCME%rank = 0
+  CCME%dpar = 0
   CCME%herm = HS%herm
   JTM = jbas%Jtotal_max
   CCME%nblocks = (JTM + 1) * 2 * 2
@@ -2817,7 +3338,8 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
   
   NX = OP%Nsp
   RANK = OP%rank
-  CCME%rank = OP%rank 
+  CCME%rank = OP%rank
+  CCME%dpar = OP%dpar
   CCME%Nsp = NX
   CCME%herm = OP%herm  
   JTM = jbas%Jtotal_max
@@ -2900,7 +3422,7 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
                        end if
                     end if
                     
-                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == mod(PAR+rank/2,2) ) then
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == mod(PAR+op%dpar/2,2) ) then
                        if (triangle(ji,jj,Jtot2)) then 
                           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
                              nb2 = nb2 + 1 
@@ -2984,6 +3506,7 @@ subroutine duplicate_CCMAT(C1,CCME)
   NX = C1%Nsp
   CCME%Nsp = NX
   CCME%rank = C1%rank
+  CCME%dpar = C1%dpar
   CCME%nblocks = C1%nblocks
   CCME%herm = C1%herm
   allocate(CCME%CCX(C1%nblocks))
@@ -3159,8 +3682,6 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
 end subroutine 
 !=======================================================  
 !=======================================================          
-!=======================================================  
-!=======================================================          
 subroutine calculate_generalized_pandya(OP,CCME,jbas,phase) 
   ! currently the only CCME of interest are phab terms    |---<--|  J1 
   ! coupling in the 3-1 channel                        <(pa)|V|(hb)> rank
@@ -3173,7 +3694,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
   integer :: Jtot1,Jtot2,ja,jp,jb,jh,JC,q1,q2,q,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin1,Jmax1,Rindx,Gindx,g,ta,tb,Atot,hg,pg,J3,J4,NBindx2,qONE,qTWO
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx1,x,JTM,rank,Jmin2,Jmax2
-  real(8) :: sm,sm2,pre,horse,coef9,jew
+  real(8) :: sm,sm2,pre,horse
   logical :: phase,parflip
 
   Atot = OP%belowEF
@@ -3183,10 +3704,10 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
   rank = OP%rank
 
   parflip = .false. 
-  if ( mod(rank/2,2) == 1) parflip = .true. 
+  if ( mod(op%dpar/2,2) == 1) parflip = .true. 
 
   CCME%herm = OP%Herm
-!!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
+!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
   do q1 = 1, CCME%nblocks
       
      Jtot1 = CCME%Jval(q1)
@@ -3200,7 +3721,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
      CCME%CCX(q1)%X = 0.d0
          
      qONE = block_index(Jtot1,Tz,Par)
-     qTWO = block_index(Jtot2,Tz,mod(Par+rank/2,2))
+     qTWO = block_index(Jtot2,Tz,mod(Par+op%dpar/2,2))
      
      ! ab = ph 
      do hg = 1, Atot
@@ -3241,7 +3762,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
               
               if  ( triangle(jp,jh,Jtot2) )  then 
               
-                 if ( mod(lp+lh+rank/2,2) == PAR) then 
+                 if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
         
                     x = CCindex(p,h,OP%Nsp)
                     gnb = 1
@@ -3256,7 +3777,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
  
            else if  ( triangle(jp,jh,Jtot2) )  then 
               
-              if ( mod(lp+lh+rank/2,2) == PAR) then 
+              if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
         
                  x = CCindex(p,h,OP%Nsp)
                  gnb = 1
@@ -3305,7 +3826,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
               
                        Rindx = CCME%rmap(x)%Z(g)
                  
-                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
                             ( (ta + th) == (tb + tp) ) ) then  
                          
                           ! hapb 
@@ -3318,7 +3839,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     coef9(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
+                                     ninej(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
                                      tensor_elem(a,h,p,b,J3,J4,OP,jbas) 
                                 
                              end do
@@ -3334,7 +3855,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                  
                  if ((triangle(ja,jb,Jtot2)) .and. (NBindx1 .ne. 0) ) then 
                     
-                    if ( mod(la+lb+rank/2,2) == PAR ) then 
+                    if ( mod(la+lb+op%dpar/2,2) == PAR ) then 
                        x = CCindex(b,a,OP%Nsp) 
                        g = 1
                        do while (CCME%qmap(x)%Z(g) .ne. qTWO )
@@ -3344,7 +3865,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                        Gindx = CCME%rmap(x)%Z(g)
                  
 
-                       if ( (mod(la + lh,2) == mod(lb + lp + rank/2,2)) .and. &
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
                             ( (ta + th) == (tb + tp) ) ) then  
                
                           ! hapb 
@@ -3357,7 +3878,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     coef9(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
+                                     ninej(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
                                      tensor_elem(h,a,b,p,J3,J4,OP,jbas) 
                        
                              end do
@@ -3377,7 +3898,232 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
      end do
 
   end do 
-!!$omp end parallel do
+!$omp end parallel do
+
+end subroutine 
+!=======================================================  
+!=======================================================          
+subroutine EOM_generalized_pandya(OP,CCME,jbas,phase) 
+  ! currently the only CCME of interest are phab terms    |---<--|  J1 
+  ! coupling in the 3-1 channel                        <(pa)|V|(hb)> rank
+  !                                                      |---<--| J2 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: OP 
+  type(cross_coupled_31_mat) :: CCME
+  integer :: Jtot1,Jtot2,ja,jp,jb,jh,JC,q1,q2,q,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
+  integer :: a,b,p,h,i,j,Jmin1,Jmax1,Rindx,Gindx,g,ta,tb,Atot,hg,pg,J3,J4,NBindx2,qONE,qTWO
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx1,x,JTM,rank,Jmin2,Jmax2,bx,ax
+  real(8) :: sm,sm2,pre,horse
+  logical :: phase,parflip
+
+  Atot = OP%belowEF
+  Ntot = OP%Nsp
+  JTM = jbas%Jtotal_max 
+  pre = 1.d0 
+  rank = OP%rank
+
+  parflip = .false. 
+  if ( mod(op%dpar/2,2) == 1) parflip = .true. 
+
+  CCME%herm = OP%Herm
+!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
+  do q1 = 1, CCME%nblocks
+      
+     Jtot1 = CCME%Jval(q1)
+     Jtot2 = CCME%Jval2(q1)
+     if (Jtot2 > 2*JTM) cycle
+     
+     PAR = mod(q1-1,2)
+     Tz = mod((q1-1)/2,2) 
+     
+     CCME%CCR(q1)%X = 0.d0
+     CCME%CCX(q1)%X = 0.d0
+         
+     qONE = block_index(Jtot1,Tz,Par)
+     qTWO = block_index(Jtot2,Tz,mod(Par+op%dpar/2,2))
+     
+     ! ab = ph 
+     do hg = 1, Atot
+        do pg = 1, Ntot - Atot 
+           
+           h = jbas%holes(hg) 
+           p = jbas%parts(pg) 
+           
+           jp = jbas%jj(p) 
+           jh = jbas%jj(h)
+           lp = jbas%ll(p) 
+           lh = jbas%ll(h)
+           tp = jbas%itzp(p) 
+           th = jbas%itzp(h)
+        
+           if (.not. (parflip)) then 
+              if ( mod(lp + lh,2) .ne. PAR ) cycle
+           end if 
+           
+           if (abs(tp - th)/2 .ne. Tz ) cycle 
+        
+           NBindx1 = 0
+           NBindx2 = 0 
+           if ( triangle(jp,jh,Jtot1) )  then 
+              
+              
+              if ( mod(lp + lh,2) ==  PAR ) then   
+                 x = CCindex(p,h,OP%Nsp)
+                 gnb = 1
+              
+                 do while (CCME%qmap(x)%Z(gnb) .ne. qONE )
+                    gnb = gnb + 1 
+                 end do
+              
+                 NBindx1 = CCME%nbmap(x)%Z(gnb) 
+             
+              end if 
+              
+              if  ( triangle(jp,jh,Jtot2) )  then 
+              
+                 if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
+        
+                    x = CCindex(p,h,OP%Nsp)
+                    gnb = 1
+                    
+                    do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+                       gnb = gnb + 1 
+                    end do
+                 
+                    NBindx2 = CCME%nbmap(x)%Z(gnb)
+                 end if 
+              end if
+ 
+           else if  ( triangle(jp,jh,Jtot2) )  then 
+              
+              if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
+        
+                 x = CCindex(p,h,OP%Nsp)
+                 gnb = 1
+              
+                 do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+                    gnb = gnb + 1 
+                 end do
+              
+                 NBindx2 = CCME%nbmap(x)%Z(gnb)
+              end if
+           else 
+              cycle
+           end if 
+          
+           
+           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
+           ! for the ph  channel 2body derivative 
+        
+           do ax = 1, OP%belowEF
+              a = jbas%holes(ax)
+              do bx = 1, OP%nsp - OP%belowEF
+                 b = jbas%parts(bx) 
+                 
+                 ja = jbas%jj(a) 
+                 jb = jbas%jj(b)
+                 la = jbas%ll(a) 
+                 lb = jbas%ll(b)
+                 ta = jbas%itzp(a) 
+                 tb = jbas%itzp(b)
+                 
+
+                 if (.not. (parflip)) then 
+                    if ( mod(la + lb,2) .ne. PAR ) cycle
+                 end if 
+
+                 if (abs(ta - tb)/2 .ne. Tz ) cycle 
+
+       
+                 if ( (triangle(ja,jb,Jtot1)) .and. (NBindx2 .ne. 0) ) then 
+       
+                    if ( mod(la+lb,2) == PAR ) then 
+                       x = CCindex(a,b,OP%Nsp) 
+                       
+                       g = 1
+                       do while (CCME%qmap(x)%Z(g) .ne. qONE )
+                          g = g + 1
+                       end do
+              
+                       Rindx = CCME%rmap(x)%Z(g)
+                 
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
+                            ( (ta + th) == (tb + tp) ) ) then  
+                         
+                          ! hapb 
+                          Jmin2 = abs(ja - jh) 
+                          Jmax2 = ja+jh 
+                          Jmin1 = abs(jp - jb)
+                          Jmax1 = jp+jb 
+                          
+                          sm = 0.d0 
+                          do J3 = Jmin1,Jmax1,2
+                             do J4 = Jmin2,Jmax2,2
+                                sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
+                                     ninej(jp,jh,Jtot2,jb,ja,Jtot1,J3,J4,rank) * &
+                                     tensor_elem(p,b,a,h,J3,J4,OP,jbas) 
+                                
+                             end do
+                          end do
+                          
+                          ! STORED SUCH THAT THE PH JTOT is GREATER. 
+                          CCME%CCX(q1)%X(Rindx,NBindx2) = sm * & 
+                               (-1) **( (jh+jb+Jtot1) / 2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+                          ! stored backwards because. 
+
+                       end if
+                    end if
+                 end if 
+                 
+                 if ((triangle(ja,jb,Jtot2)) .and. (NBindx1 .ne. 0) ) then 
+                    
+                    if ( mod(la+lb+op%dpar/2,2) == PAR ) then 
+                       x = CCindex(a,b,OP%Nsp) 
+                       g = 1
+                       do while (CCME%qmap(x)%Z(g) .ne. qTWO )
+                          g = g + 1
+                       end do
+                    
+                       Gindx = CCME%rmap(x)%Z(g)
+                 
+
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
+                            ( (ta + th) == (tb + tp) ) ) then  
+               
+                          ! p(h)a(b)  
+                          Jmin2 = abs(ja - jh) 
+                          Jmax2 = ja+jh 
+                          Jmin1 = abs(jp - jb)
+                          Jmax1 = jp+jb 
+                    
+                          sm = 0.d0 
+                          do J3 = Jmin1,Jmax1,2
+                             do J4 = Jmin2,Jmax2,2
+                                sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
+                                     ninej(jp,jh,Jtot1,jb,ja,Jtot2,J3,J4,rank) * &
+                                     tensor_elem(p,b,a,h,J3,J4,OP,jbas) 
+                       
+                             end do
+                          end do
+
+                          ! store  ( V )_p(h)a(b)
+                          
+                          ! PH JTOT IS LESS THAN OR EQUAL TO.
+                          CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
+                               (-1) **( (jb+jh+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+                       end if
+                    end if
+                 end if 
+                 
+              end do
+           end do
+        end do
+     end do
+
+  end do 
+!$omp end parallel do
 
 end subroutine 
 !=======================================================  
@@ -4016,6 +4762,25 @@ subroutine enumerate_three_body(threebas,jbas)
    end do 
 
    call divide_work_tpd(threebas) 
-end subroutine   
+end subroutine 
+
+real(8) function ninej(a,b,J1,c,d,J2,J3,J4,RANK) 
+  ! fast ninej using stored 6j
+  implicit none 
+
+  integer ::a ,b, c,d,J1,J2,J3,J4,RANK,x,xmin,xmax
+  real(8) :: sm 
+
+  xmin = max(abs(J2-b),abs(a-rank),abs(J4-c))  
+  xmax = min( J2+b , a+rank ,J4+c )
+  
+  sm = 0.d0 
+  do x = xmin,xmax,2
+     sm = sm - (x+1.d0) * xxxsixj(J1,J2,rank,x,a,b) * &
+          sixj(c,d,J2,b,x,J4)* xxxsixj(J3,J4,rank,x,a,c) 
+  end do 
+  
+  ninej = sm 
+end function
   
 end module       

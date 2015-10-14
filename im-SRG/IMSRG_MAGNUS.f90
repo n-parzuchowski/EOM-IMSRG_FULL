@@ -144,9 +144,9 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   ! triples correction
   if (trip_calc) then 
      call enumerate_three_body(threebas,jbas)
-     t1 = omp_get_wtime()
+ !    t1 = omp_get_wtime()
      corr =  restore_triples(H,G,threebas,jbas) 
-     t2 = omp_get_wtime()
+  !   t2 = omp_get_wtime()
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
      open(unit=39,file='../../output/'//&
        trim(adjustl(prefix))//'_magnus_triples.dat')
@@ -291,7 +291,7 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA,quads)
      call write_excited_states(steps,s,TDA,HS%E0,37) 
      
      crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
-     write(*,'(I6,6(e15.7))') steps,s,TDA%blkM(1)%eigval(1:4),crit
+     write(*,'(I6,7(e15.7))') steps,s,TDA%blkM(1)%eigval(1:5),crit
      E_old = TDA%blkM(1)%eigval
 
     ! nrm1 = nrm2 

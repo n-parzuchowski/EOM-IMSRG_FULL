@@ -6,7 +6,7 @@ program main_IMSRG
   use IMSRG_CANONICAL
   use operators
   use me2j_format
-  use lanczos_diag
+  use EOM_IMSRG
   use brute_force_testing
   ! ground state IMSRG calculation for nuclear system 
   implicit none
@@ -18,9 +18,9 @@ program main_IMSRG
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
-  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,x
+  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,x,ex_Calc_int
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre
-  logical :: hartree_fock,tda_calculation,COM_calc,r2rms_calc,me2j,me2b
+  logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b
   logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
   external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
@@ -44,7 +44,7 @@ program main_IMSRG
   end if
   
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,method_int,tda_calculation,COM_calc,r2rms_calc,me2j,&
+       hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
        me2b,mortbin,hw,skip_setup,skip_gs)
   
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
@@ -52,7 +52,9 @@ program main_IMSRG
   if (TEST_COMMUTATORS)  then 
      ! run this by typing ' X' after the input file in the command line
      call test_scalar_scalar_commutator(jbasis,-1,1) 
-     call test_scalar_tensor_commutator(jbasis,-1,1,2) 
+     call test_EOM_scalar_scalar_commutator(jbasis,1,1)
+     call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
+     call test_scalar_tensor_commutator(jbasis,1,1,2,0) 
      stop
   end if
   
@@ -243,17 +245,10 @@ program main_IMSRG
 
   end select
 
-  ! allocate(ladder_ops(5)) 
-  ! do i = 1, 5
-  !    call duplicate_sq_op(HS,ladder_ops(i))
-  ! end do 
   
-  ! call lanczos_diagonalize(jbasis,HS,ladder_ops,5) 
-  ! print*, ladder_ops%E0,ladder_ops(5)%mat(1)%lam
-
-  ! stop 
-
-
+  if (ex_calc_int==1) then 
+     call calculate_excited_states( HS%Jtarg, HS%Ptarg, 10, HS , jbasis) 
+  end if 
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
@@ -264,7 +259,7 @@ end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (tda_calculation) then 
+  if (ex_calc_int==2) then 
      
      call initialize_TDA(TDA,jbasis,HS%Jtarg,HS%Ptarg,HS%valcut)
      deallocate(HS%exlabels) 
@@ -359,9 +354,12 @@ subroutine print_header
   print* 
   print*, 'Constructing Basis...' 
   print*
-  print*, '=============================================================='
-  print*, '  iter      s             E0        E0+MBPT(2)     |MBPT(2)|  '  
-  print*, '=============================================================='
+  print*, '================================'//&
+       '==================================='
+  print*, '  iter        s            E0      '//&
+       '    E0+MBPT(2)      |MBPT(2)|  '  
+  print*, '================================'//&
+       '==================================='
 
 end subroutine   
 
