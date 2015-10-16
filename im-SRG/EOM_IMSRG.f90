@@ -38,13 +38,13 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
      call duplicate_sq_op(ladder_ops(1),ladder_ops(i))
   end do 
   
-  print*, 
+  print* 
   write(*,'((A55),(I1),(A3),(I1))') 'EXECUTING EOM CALCULATION'// &
        ' FOR EXCITED STATES: J=',J/2,' P=',PAR/2  
   print*
   call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
   
-  print*,
+  print*
   write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
   print*
   print*, 'EXCITED STATE ENERGIES:'

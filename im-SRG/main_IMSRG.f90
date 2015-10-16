@@ -165,7 +165,6 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
    
   call print_header
   select case (method_int) 
@@ -244,11 +243,6 @@ program main_IMSRG
      end if 
 
   end select
-
-  
-  if (ex_calc_int==1) then 
-     call calculate_excited_states( HS%Jtarg, HS%Ptarg, 10, HS , jbasis) 
-  end if 
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
@@ -256,6 +250,12 @@ if (writing) then
    call write_binary_operator(HS,'gs_decoup')
 end if  
 20 if (skip_gs) call read_binary_operator(HS,'gs_decoup') 
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!  equation of motion calculation 
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  if (ex_calc_int==1) then 
+     call calculate_excited_states( HS%Jtarg, HS%Ptarg, 10, HS , jbasis) 
+  end if 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -312,7 +312,6 @@ end if
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
            call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA,quads='y')
-     !      print*, rrTDA%blkM(1)%eigval
         else 
            call magnus_TDA(HS,TDA,jbasis,quads='y') 
         end if
@@ -324,7 +323,6 @@ end if
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
            call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA,quads='y')
-     !      print*, rrTDA%blkM(1)%eigval
         else 
            call magnus_TDA(HS,TDA,jbasis,quads='y') 
         end if
@@ -336,7 +334,6 @@ end if
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
            call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
-     !      print*, rrTDA%blkM(1)%eigval
         else 
            call magnus_TDA(HS,TDA,jbasis) 
         end if
