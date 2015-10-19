@@ -1,6 +1,6 @@
 import sys
 import os.path
-nuc = raw_input( 'Enter nucleus name: (He4,O16,Ca40) ' ) 
+nuc = raw_input( 'Enter nucleus name: (He4,O16,Ca40,etc...) ' ) 
 
 if (nuc == 'He4'): 
     nprot = 2
@@ -36,21 +36,29 @@ if (lam=='me2j'):
     print 'USING ME2J MATRIX ELEMENTS NOW'
     me2jlam = raw_input( 'Enter four digit srg cutoff 1/lamda^4: (0625) ')
  
-hamtype = raw_input('For CM hamiltonian type: "1" for harmonic trap: "2", full: "3": ') 
+hamtype = raw_input('For intrinsic hamiltonian type: "1" for harmonic trap: "2", full: "3": ') 
 hf = raw_input( 'For HF type: "HF". Otherwise type: "HO": ') 
 mag = raw_input( 'For magnus type: "mag". Otherwise type: "trad" or "disc": ' ) 
-tda = raw_input( 'For flowing TDA type: "tda". Otherwise type: "gs": ' )
+tda = raw_input( 'select calculation: GS,EOM,TDA: ' )
 
-if tda == 'tda':
+if tda.lower() == 'tda':
+    tdaint = '2'
+    Jtarg = raw_input( 'Input target total 2J: ')
+    Ptarg = raw_input( 'For even parity enter "0", for odd enter "1": ')
+    valshell = raw_input( 'Enter highest major shell in valence space: ')
+    lawbeta = raw_input('Lawson beta factor: ')
+elif tda.lower() == 'eom':
     tdaint = '1'
     Jtarg = raw_input( 'Input target total 2J: ')
     Ptarg = raw_input( 'For even parity enter "0", for odd enter "1": ')
-    valshell = raw_input( 'Enter highest major shell in valence space: ') 
+    valshell = '1s0d' #default
+    lawbeta = raw_input('Lawson beta factor: ')
 else:
     tdaint = '0'
     Ptarg = '0'
     Jtarg ='0'
-    valshell = '1s0d' 
+    valshell = '1s0d' #default
+    lawbeta = '0.0' 
 
 
 contin = raw_input('For other observable options, type "more", else press enter: ') 
@@ -63,10 +71,10 @@ if contin.lower() ==  'more':
     if CMint != '1':
         print 'To calculate Point Nucleon RMS radius,' 
         RRMSint = raw_input('enter 1, otherwise enter 0: ') 
-elif contin.lower() == 'COM':
+elif contin.lower() == 'com':
     print 'Including COM factorization calculation' 
     CMint = 1 
-elif contin.lower() == 'RSQ':
+elif contin.lower() == 'rsq':
     print 'Including RMS radius calculation' 
     RRMSint = 1
 
@@ -102,13 +110,8 @@ elif mag == 'disc':
 else:
     magint = '2'
     
-if tda == 'tda':
-    tdaint = '1'
-else:
-    tdaint = '0'
-    
 mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','18gb','20gb','25gb'] 
-wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','03:00:00',  
+wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','03:00:00', \
 '4:00:00','10:00:00','15:00:00','25:00:00','45:00:00','75:00:00']
 ompnum = ['8','8','8','8','8','8','8','4','2','1','1']
 
@@ -122,9 +125,6 @@ for R in Rlist:
         memreq = mem[Rx - 3] 
         timreq = wtime[Rx-3]
         
-        
-        
-
         if (lam == 'me2j'):
             TBMEfile = 'chi2b_srg'+me2jlam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
             spfile = 'hk'+R+'.sps'
@@ -157,6 +157,30 @@ for R in Rlist:
         
         # write ini file ==========================
         
+
+        if (lam == 'me2j'):
+            if not os.path.isfile('sp_inputs/'+spfile):
+                print 'WARNING!!'
+                print 'file sp_inputs/'+spfile+' not present!\n'
+            
+            if not os.path.isfile('/mnt/research/imsrg/nsuite/me/'+TBMEfile):
+                print 'WARNING!!'
+                print 'file TBME_input/'+TBMEfile+' not present!\n'
+
+            
+        else:
+            if not os.path.isfile('sp_inputs/'+spfile):
+                print 'WARNING!!'
+                print 'file sp_inputs/'+spfile+' not present!\n'
+            
+            if not os.path.isfile('TBME_input/'+TBMEfile):
+                if not os.path.isfile('TBME_input/'+TBMEfile[:-3]+'bin'):
+                    print 'WARNING!!'
+                    print 'file TBME_input/'+TBMEfile+' not present!\n'
+                else:
+                    TBMEfile = TBMEfile[:-3]+'bin'
+
+
         fx = open('inifiles/'+initfile,'w') 
         
         fx.write('##########################\n')
@@ -185,7 +209,7 @@ for R in Rlist:
         fx.write('# ENTER 1 for magnus method\n')
         fx.write('# or 2 for traditional ode\n') 
         fx.write(magint+'\n') 
-        fx.write('# ENTER 1 FOR EXCITED STATES USING TDA\n')
+        fx.write('# 0: gs only, 1: EOM, 2: TDA\n')
         fx.write('# ENTER 0 for ground state only\n') 
         fx.write(tdaint+'\n')
         fx.write('# ENTER total 2J of target states\n') 
@@ -198,6 +222,8 @@ for R in Rlist:
         fx.write(CMint+'\n')
         fx.write('# ENTER 1 TO CALCULATE Rrms, 0 otherwise\n') 
         fx.write(RRMSint+'\n') 
+        fx.write('# Lawson beta value\n') 
+        fx.write(lawbeta+'\n') 
         fx.write('########################################################\n')
         fx.write('# NOTES \n')
         fx.write('#\n')
@@ -213,25 +239,6 @@ for R in Rlist:
         fx.close()
         
         
-        if (lam == 'me2j'):
-            if not os.path.isfile('sp_inputs/'+spfile):
-                print 'WARNING!!'
-                print 'file sp_inputs/'+spfile+' not present!\n'
-            
-            if not os.path.isfile('/mnt/research/imsrg/nsuite/me/'+TBMEfile):
-                print 'WARNING!!'
-                print 'file TBME_input/'+TBMEfile+' not present!\n'
-
-            
-        else:
-            if not os.path.isfile('sp_inputs/'+spfile):
-                print 'WARNING!!'
-                print 'file sp_inputs/'+spfile+' not present!\n'
-            
-            if not os.path.isfile('TBME_input/'+TBMEfile):
-                print 'WARNING!!'
-                print 'file TBME_input/'+TBMEfile+' not present!\n'
-
         
         
 fq.close()
