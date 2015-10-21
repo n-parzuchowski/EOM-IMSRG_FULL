@@ -153,7 +153,7 @@ program main_IMSRG
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
-12 call write_binary_operator(HS,'bare') 
+12 if (writing) call write_binary_operator(HS,'bare') 
 15 if (skip_setup) call read_binary_operator(HS,'bare') 
 !============================================================
 ! IM-SRG CALCULATION 
