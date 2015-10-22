@@ -18,8 +18,8 @@ program main_IMSRG
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
-  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,x,ex_Calc_int
-  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre
+  integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
+  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b
   logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin
   external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
@@ -63,7 +63,11 @@ program main_IMSRG
   HS%herm = 1
   HS%hospace = hw
 
-  
+  ! do
+  !    read*, a,b,c,d, J 
+  !    x= p1_p2(a,b,c,d,J,jbasis) 
+  !    print*, x
+  ! end do 
   ! check if you can skip some stuff
   if (skip_gs) then 
      print*, 'reading ground state decoupled hamiltonian' 
