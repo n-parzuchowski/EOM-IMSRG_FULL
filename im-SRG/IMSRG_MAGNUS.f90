@@ -155,10 +155,8 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   end if
   
   if (present(O1)) then 
-     call duplicate_sq_op(O1,Oevolv)
-    
-     if (present(O2)) then 
-
+     call duplicate_sq_op(O1,Oevolv)    
+     if (present(O2)) then     
        call BCH_EXPAND(Oevolv,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
        
        call copy_sq_op(Oevolv,O2) 
@@ -405,8 +403,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
 
      ! so now just add INT1 + c_n * INT2 to get current value of HS
           
-     call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2) 
-    
+     call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2)     
      call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
     
      if (qd_calc) then 

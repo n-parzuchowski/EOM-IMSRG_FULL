@@ -889,7 +889,7 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
   type(spd) :: jbas
   character(200) :: spfile,intfile,prefix
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
-  real(8) :: V,Vcm,g1,g2,g3,pre,hw
+  real(8) :: V,Vcm,g1,g2,g3,pre,hw,V1
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
   logical :: rr_calc,pp_calc
   common /files/ spfile,intfile,prefix
@@ -920,8 +920,16 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
      
      if (ist > 0) STOP 'interaction file error' 
      if (ist < 0) exit
-     
+
+     if (rr_calc) then 
+        g3 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     end if    
+     g3 = p1_p2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     ! so I am doing it explicitly. 
+
      V = V - g3*COM*hw/(H%Aneut + H%Aprot) ! center of mass correction
+      
+     
      q = block_index(J,Tz,Par) 
      
      C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
@@ -1014,7 +1022,7 @@ end subroutine
 !==================================================================  
 !==================================================================
 subroutine read_binary(H,jbas,htype,hw,rr,pp) 
-  ! read interaction from ASCII file produced by Scott_to_Morten_binary.f90 
+  ! read interaction from binary file produced by Scott_to_Morten_binary.f90 
   implicit none
   
   type(sq_op) :: H
@@ -1044,8 +1052,13 @@ subroutine read_binary(H,jbas,htype,hw,rr,pp)
   read(39) ntot,npp,npn,nnn 
   
   do count = 1, ntot
-     read(39) Tz,Par,J,a,b,c,d,V,g1,g2,g3
+     read(39) Tz,Par,J,a,b,c,d,V
      !read(39,*) Tz,Par,J,a,b,c,d,V,g1,g2,g3
+
+     if (rr_calc) then 
+        g3 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     end if    
+     g3 = p1_p2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      
      ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
      ! g2 is r1*r2 ME 
@@ -4782,5 +4795,223 @@ real(8) function ninej(a,b,J1,c,d,J2,J3,J4,RANK)
   
   ninej = sm 
 end function
+
+
+real(8) function p1_p2( a, b, c, d, J ,jbas ) 
+  !This is 1/b^2 times del1_del2
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: a,b,c,d,J,na,nb,nc,nd,ja,jb,jc,jd
+  integer :: la,lb,lc,ld,ta,tb,tc,td
+  real(8) :: d6ji, j_ac,j_bd,j_ad,j_bc
+  
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)  
+  
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)  
+
+  na = jbas%nn(a)
+  nb = jbas%nn(b)
+  nc = jbas%nn(c)
+  nd = jbas%nn(d)  
+
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)  
+
+  j_ac = 0.d0
+  j_bd = 0.d0 
+  j_bc = 0.d0 
+  j_ad = 0.d0 
+  
+  if( ta == tc) then 
+     j_ac = sqrt( (ja + 1.d0)*(jc+1.d0) ) * (-1) ** ((3+2*la +jc)/2) * &
+          d6ji( ja, 2 , jc, 2*lc , 1 , 2*la ) * reduced_p( a, c, jbas) 
+  end if 
+  
+  if (ta == td) then 
+     j_ad = sqrt( (ja + 1.d0)*(jd+1.d0) ) * (-1) ** ((3+2*la +jd)/2) * &
+          d6ji( ja, 2 , jd, 2*ld , 1 , 2*la ) * reduced_p( a, d, jbas) 
+  end if 
+  
+  if (tb == tc) then
+     j_bc = sqrt( (jb + 1.d0)*(jc+1.d0) ) * (-1) ** ((3+2*lb +jc)/2) * &
+          d6ji( jb, 2 , jc, 2*lc , 1 , 2*lb ) * reduced_p( b, c, jbas) 
+  end if 
+  
+  if (tb == td) then 
+     j_bd = sqrt( (jb + 1.d0)*(jd+1.d0) ) * (-1) ** ((3+2*lb +jd)/2) * &
+          d6ji( jb, 2 , jd, 2*ld , 1 , 2*lb ) * reduced_p( b, d, jbas) 
+  end if 
+  
+  p1_p2 = ((-1) ** ((jb - jc - J ) /2 ) * d6ji(ja,jb,J,jd,jc,2) * &
+       j_ac * j_bd  &
+       -(-1)**((jc +jd-J)/2)* (-1) ** ((jb - jd - J ) /2 ) * d6ji(ja,jb,J,jc,jd,2) * &
+       j_ad * j_bc) / sqrt( (1.d0+kron_del(a,b))*(1.d0+kron_del(c,d))) 
+
+end function
+  
+real(8) function r1_r2( a, b, c, d, J ,jbas ) 
+  !This is b^2 times r1_r2
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: a,b,c,d,J,na,nb,nc,nd,ja,jb,jc,jd
+  integer :: la,lb,lc,ld,ta,tb,tc,td
+  real(8) :: d6ji, j_ac,j_bd,j_ad,j_bc
+  
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)  
+  
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)  
+
+  na = jbas%nn(a)
+  nb = jbas%nn(b)
+  nc = jbas%nn(c)
+  nd = jbas%nn(d)  
+
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)  
+
+  j_ac = 0.d0
+  j_bd = 0.d0 
+  j_bc = 0.d0 
+  j_ad = 0.d0 
+  
+  if( ta == tc) then 
+     j_ac = sqrt( (ja + 1.d0)*(jc+1.d0) ) * (-1) ** ((3+2*la +jc)/2) * &
+          d6ji( ja, 2 , jc, 2*lc , 1 , 2*la ) * reduced_r( a, c, jbas) 
+  end if 
+  
+  if (ta == td) then 
+     j_ad = sqrt( (ja + 1.d0)*(jd+1.d0) ) * (-1) ** ((3+2*la +jd)/2) * &
+          d6ji( ja, 2 , jd, 2*ld , 1 , 2*la ) * reduced_r( a, d, jbas) 
+  end if 
+  
+  if (tb == tc) then
+     j_bc = sqrt( (jb + 1.d0)*(jc+1.d0) ) * (-1) ** ((3+2*lb +jc)/2) * &
+          d6ji( jb, 2 , jc, 2*lc , 1 , 2*lb ) * reduced_r( b, c, jbas) 
+  end if 
+  
+  if (tb == td) then 
+     j_bd = sqrt( (jb + 1.d0)*(jd+1.d0) ) * (-1) ** ((3+2*lb +jd)/2) * &
+          d6ji( jb, 2 , jd, 2*ld , 1 , 2*lb ) * reduced_r( b, d, jbas) 
+  end if 
+  
+  r1_r2 = ((-1) ** ((jb + jc - J ) /2 ) * d6ji(ja,jb,J,jd,jc,2) * &
+       j_ac * j_bd  &
+       -(-1)**((jc +jd-J)/2)* (-1) ** ((jb + jd - J ) /2 ) * d6ji(ja,jb,J,jc,jd,2) * &
+       j_ad * j_bc) / sqrt( (1.d0+kron_del(a,b))*(1.d0+kron_del(c,d))) 
+
+end function
+
+real(8) function reduced_p( a, b , jbas ) 
+  ! < n l || vec{r} || n' l' > 
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: a,b,la,lb,na,nb
+  real(8) :: c1, p1 
+  
+  la = jbas%ll(a) 
+  lb = jbas%ll(b) 
+  
+  if ( la == lb+1) then 
+     c1 = sqrt(lb +1.d0)
+     
+     na = jbas%nn(a) 
+     nb = jbas%nn(b)
+     if (na == nb) then         
+        p1 = -1 * sqrt( nb + lb + 1.5d0) 
+     else if (na == nb - 1) then 
+        p1 = -1 * sqrt( nb*1.d0 )
+     else 
+        p1 = 0.d0 
+     end if 
+        
+  else if ( la == lb-1) then 
+     c1 = -1*sqrt(1.d0*lb)
+
+     na = jbas%nn(a) 
+     nb = jbas%nn(b)
+     if (na == nb) then         
+        p1 =  sqrt( nb + lb + 0.5d0) 
+     else if (na == nb + 1) then 
+        p1 =  sqrt( nb + 1.d0 )
+     else 
+        p1 = 0.d0 
+     end if 
+
+  else
+     c1 = 0.d0 
+     p1 = 0.d0
+  end if 
+  
+  reduced_p = p1*c1
+  
+end function
+
+real(8) function reduced_r( a, b , jbas ) 
+  ! < n l || vec{r} || n' l' > 
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: a,b,la,lb,na,nb
+  real(8) :: c1, p1 
+  
+  la = jbas%ll(a) 
+  lb = jbas%ll(b) 
+  
+  if ( la == lb+1) then 
+     c1 = sqrt(lb +1.d0)
+     
+     na = jbas%nn(a) 
+     nb = jbas%nn(b)
+     if (na == nb) then         
+        p1 = sqrt( nb + lb + 1.5d0) 
+     else if (na == nb - 1) then 
+        p1 = -1 * sqrt( nb*1.d0 )
+     else 
+        p1 = 0.d0 
+     end if 
+        
+  else if ( la == lb-1) then 
+     c1 = -1*sqrt(1.d0*lb)
+
+     na = jbas%nn(a) 
+     nb = jbas%nn(b)
+     if (na == nb) then         
+        p1 =  sqrt( nb + lb + 0.5d0) 
+     else if (na == nb + 1) then 
+        p1 =  -1*sqrt( nb + 1.d0 )
+     else 
+        p1 = 0.d0 
+     end if 
+
+  else
+     c1 = 0.d0 
+     p1 = 0.d0
+  end if 
+  
+  reduced_r = p1*c1
+  
+end function
   
 end module       
+
+
+
