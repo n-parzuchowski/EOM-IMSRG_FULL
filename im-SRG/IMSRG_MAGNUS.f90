@@ -18,13 +18,13 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   type(tpd),allocatable,dimension(:) :: threebas
   type(mscheme_3body) :: threebd
   type(sq_op),optional :: O1,O2
-  type(sq_op) :: H,H2,G1b,G2b,G,ETA,HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
+  type(sq_op) :: H,H2,G1b,G2b,G,ETA,HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv,CR
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
   character(200) :: spfile,intfile,prefix
   character(1),optional :: quads,trips
-  logical :: qd_calc,trip_calc
+  logical :: qd_calc,trip_calc,xxCR
   common /files/ spfile,intfile,prefix
   
   qd_calc = .false. 
@@ -35,6 +35,8 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   trip_calc = .false. 
   if (present(trips)) then 
      trip_calc=.true.
+     xxCr = .false. 
+     if (trips == 'C') xxCr = .true.
   end if 
      
 
@@ -145,7 +147,13 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   if (trip_calc) then 
      call enumerate_three_body(threebas,jbas)
  !    t1 = omp_get_wtime()
-     corr =  restore_triples(H,G,threebas,jbas) 
+     if ( xxCR ) then 
+        call duplicate_sq_op(H,CR)         
+        call CR_EXPAND(CR,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+        corr =  restore_triples(CR,G,threebas,jbas)
+     else
+        corr =  restore_triples(H,G,threebas,jbas) 
+     end if 
   !   t2 = omp_get_wtime()
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
      open(unit=39,file='../../output/'//&
@@ -416,6 +424,93 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
   end do 
  
 end subroutine 
+!=========================================================================
+!=========================================================================
+subroutine CR_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads) 
+  implicit none 
+  
+  real(8), parameter :: conv = 1e-8
+  integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw
+  integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
+  integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
+  type(spd) :: jbas
+  type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
+  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  real(8) ::  cof(14),adnorm,fullnorm,s,advals(14),sm,sm2,dcgi,dcgi00
+  character(3) :: args
+  character(1),optional :: quads ! enter some character to restore quadrupoles 
+  logical :: qd_calc   
+
+  qd_calc = .false. 
+  if (present(quads)) then 
+     qd_calc = .true. 
+  end if 
+  
+  advals = 0.d0 
+  
+  cof = (/1.d0,0.5d0,0.166666666666666666d0, &
+       0.04166666666666666d0,0.0083333333333333333d0,&
+       .001388888888888d0,1.984126984d-4,2.48015873016d-5,&
+       2.75573192239d-6,2.75573192239d-7,2.505210839d-8, &
+       2.087675698d-9,1.6059043837d-10,1.1470745598d-11/) 
+
+  ! intermediates must be HERMITIAN
+  INT2%herm = 1
+  INT1%herm = 1 
+  AD%herm = 1
+  
+  !! so here:  H is the current hamiltonian and we 
+  !! copy it onto HS.  We copy this onto 
+  !! INT2, just to make things easier for everyone.
+  call duplicate_sq_op(H,INT3)
+
+  call copy_sq_op( H , HS )  !basic_IMSRG
+  call copy_sq_op( HS , INT2 )
+ 
+  advals(1) = abs(H%E0)   
+
+  do iw = 2 ,14
+
+     ! current value of HS is renamed INT1 
+     ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
+     ! AD refers AD_n and INT2 becomes AD_{n+1} . 
+     call copy_sq_op( HS , INT1) 
+     call copy_sq_op( INT2 , AD ) 
+     ! so to start, AD is equal to H
+     call clear_sq_op(INT2)    
+     !now: INT2 = [ G , AD ]  
+        
+! zero body commutator
+ 
+     call calculate_cross_coupled(AD,ADCC,jbas,.true.)
+     call calculate_cross_coupled(G,GCC,jbas,.false.) 
+ 
+     INT2%E0 = commutator_110(G,AD,jbas) + commutator_220(G,AD,jbas)
+
+     call commutator_111(G,AD,INT2,jbas) 
+     call commutator_121(G,AD,INT2,jbas)
+     call commutator_122(G,AD,INT2,jbas)    
+
+     call commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)
+  
+     call commutator_221(G,AD,INT2,w1,w2,jbas)
+     call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
+
+     ! so now just add INT1 + c_n * INT2 to get current value of HS
+          
+     call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2)     
+     call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
+    
+     if (qd_calc) then 
+        call restore_quadrupoles(AD,G,w1,w2,INT3,jbas) 
+     end if 
+     
+     advals(iw) = abs(INT2%E0*cof(iw))
+     if (advals(iw) < conv) exit
+     
+  end do 
+ 
+end subroutine 
 !===============================================================
 !===============================================================
 subroutine MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
@@ -511,6 +606,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   
   sm = 0.d0   
   total_threads = size(threebas(1)%direct_omp) - 1
+
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,OM) & 
 !$OMP& REDUCTION(+:sm)  
   
@@ -571,7 +667,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   end do
   end do 
  !$OMP END PARALLEL DO 
-   restore_triples = sm / 36.d0 
+  restore_triples = sm / 36.d0 
 
 end function
 !================================================

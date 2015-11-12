@@ -20,7 +20,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
   ladder_ops%herm = 1
  
   ladder_ops%rank = J 
-  ladder_ops%dpar = PAR
+  ladder_ops%dpar = 2*PAR
   
   
   if ( ladder_ops(1)%rank .ne. 0 ) then 
@@ -40,7 +40,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
   
   print* 
   write(*,'((A55),(I1),(A3),(I1))') 'EXECUTING EOM CALCULATION'// &
-       ' FOR EXCITED STATES: J=',J/2,' P=',PAR/2  
+       ' FOR EXCITED STATES: J=',J/2,' P=',PAR  
   print*
   call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
   

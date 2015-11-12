@@ -245,6 +245,18 @@ program main_IMSRG
      else 
         call magnus_decouple(HS,jbasis,trips='y') 
      end if 
+     
+  case (7) ! magnus(2/3)[T] 
+    
+     if (COM_calc) then 
+        call magnus_decouple(HS,jbasis,pipj,rirj,quads='y',trips='C')
+        call calculate_CM_energy(pipj,rirj,hw) 
+     else if (r2rms_calc) then
+        call magnus_decouple(HS,jbasis,r2_rms,quads='y',trips='C')
+        call write_tilde_from_Rcm(r2_rms)
+     else 
+        call magnus_decouple(HS,jbasis,quads='y',trips='C') 
+     end if 
 
   end select
 !============================================================
