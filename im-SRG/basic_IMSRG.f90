@@ -942,6 +942,7 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
 
      ! get the indeces in the correct order
      pre = 1
+
      if ( a > b )  then 
         
         x = bosonic_tp_index(b,a,N) 
@@ -1023,7 +1024,7 @@ end subroutine
 !==================================================================  
 !==================================================================
 subroutine read_binary(H,jbas,htype,hw,rr,pp) 
-  ! read interaction from binary file produced by Scott_to_Morten_binary.f90 
+  ! read interaction from binary file produced by VRenormalize 
   implicit none
   
   type(sq_op) :: H
@@ -1051,10 +1052,11 @@ subroutine read_binary(H,jbas,htype,hw,rr,pp)
   if (present(pp)) pp_calc= .true. 
 
   read(39) ntot,npp,npn,nnn 
-  
+
   do count = 1, ntot
+
      read(39) Tz,Par,J,a,b,c,d,V
-     !read(39,*) Tz,Par,J,a,b,c,d,V,g1,g2,g3
+     !read(39) Tz,Par,J,a,b,c,d,V,g1,g2,g3
 
      if (rr_calc) then 
         g3 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
