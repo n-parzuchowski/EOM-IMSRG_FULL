@@ -133,9 +133,9 @@ program main_IMSRG
 !============================================================
 ! BUILD BASIS
 !============================================================
-
+ 
   call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
-
+  
   if (hartree_fock) then 
      
      if (COM_calc) then 
@@ -154,6 +154,9 @@ program main_IMSRG
      call normal_order(HS,jbasis) 
   end if
 
+  ! lawson 0b term
+  HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
+  
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================

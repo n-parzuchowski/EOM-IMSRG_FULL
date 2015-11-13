@@ -66,7 +66,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   !call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
  ! call build_gs_white(HS,ETA,jbas) 
   
-  call build_gs_white(HS,DG,jbas) 
+  call build_gs_imtime(HS,DG,jbas) 
   
   call copy_sq_op(HS,H) 
   

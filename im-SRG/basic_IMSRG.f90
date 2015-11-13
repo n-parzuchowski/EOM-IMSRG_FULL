@@ -59,7 +59,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      integer :: Jtarg,Ptarg,valcut,Rank,dpar
-     real(8) :: E0,hospace
+     real(8) :: E0,hospace,lawson_beta,com_hw 
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   TYPE :: mscheme_3body !second quantized operator 
@@ -922,13 +922,15 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
      if (ist < 0) exit
 
      if (rr_calc) then 
-        g3 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+        g2 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      end if    
      g3 = p1_p2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      ! so I am doing it explicitly. 
+     
+     g1 = (g3 + H%com_hw**2 /hw**2 *g2)*H%lawson_beta ! lawson term    
 
-     V = V - g3*COM*hw/(H%Aneut + H%Aprot) ! center of mass correction
-      
+     V = V + (g1 - g3*COM) *hw/(H%Aneut + H%Aprot) ! center of mass correction
+ 
      
      q = block_index(J,Tz,Par) 
      
@@ -1062,8 +1064,10 @@ subroutine read_binary(H,jbas,htype,hw,rr,pp)
      ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
      ! g2 is r1*r2 ME 
      ! g3 is p1*p2 ME 
+     g1 = (g3 + H%com_hw**2 /hw**2 *g2)*H%lawson_beta ! lawson term    
+
+     V = V + (g1 - g3*COM) *hw/(H%Aneut + H%Aprot) ! center of mass correction
           
-     V = V - g3*COM*hw/(H%Aneut + H%Aprot) ! center of mass correction
      q = block_index(J,Tz,Par) 
      
      C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
@@ -2042,7 +2046,7 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
   real(8),intent(in) :: hw
   integer :: i,j,mass,c1,c2,cx
   integer :: ni,li,ji,nj,lj,jj,tzi,tzj,AX
-  real(8) :: kij,T
+  real(8) :: kij,T,beta,cmhw
   type(sq_op) :: H 
   type(spd) :: jbas
  
@@ -2050,11 +2054,13 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
 
   AX = H%belowEF
   mass = H%Aprot + H%Aneut
-
   
   H%fpp = 0.d0
   H%fhh = 0.d0
   H%fph = 0.d0
+  beta = H%lawson_beta
+  cmhw = H%com_hw
+
   do i = 1, H%Nsp
      
      ! extract info
@@ -2088,7 +2094,14 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
         
         select case (Htype) 
            case(1) 
-              T =  kij*(1.d0-1.d0/mass) 
+              if (abs(beta) < 1e-5) then
+                 T =  kij*(1.d0-1.d0/mass) 
+              else
+                 T =  kij*(1.d0+(beta-1.d0)/mass) & !lawson modified
+                      + beta*cmhw*cmhw/(hw*hw) * &
+                      kij*(kron_del(ni,nj) - kron_del(ni,nj+1) - &
+                   kron_del(ni,nj-1) )/mass
+              end if 
            case(2) 
               T = 2*kij*kron_del(ni,nj)
            case(3)
@@ -3111,7 +3124,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
   integer :: method,Exint
   logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN
-  real(8) :: hw 
+  real(8) :: hw
   common /files/ spfile,intfile,prefix 
     
   input = adjustl(input) 
@@ -3154,6 +3167,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*) com_int
   read(22,*)
   read(22,*) rrms_int 
+  read(22,*)
+  read(22,*) H%lawson_beta,H%com_hw
  
   valence = adjustl(valence)
   H%Jtarg = Jtarg

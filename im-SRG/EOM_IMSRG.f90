@@ -55,6 +55,9 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
      write(*,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
   end do
      
+  open(unit=75,file = 'lawson_check.dat',position='append') 
+  write(75,*) HS%lawson_beta, HS%E0,ladder_ops(1:5)%E0+HS%E0
+  close(75)
 end subroutine 
 
 subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)    
