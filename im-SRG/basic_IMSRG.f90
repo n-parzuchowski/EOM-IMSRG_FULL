@@ -319,8 +319,16 @@ subroutine find_holes(jbas,pholes,nholes,hk)
         else 
             STOP 'this nucleus is not available' 
          end if 
-
-      
+         
+      else if (pholes == 14) then 
+         if (nholes == 8) then 
+            jbas%con(1:6) = 1
+            if (hk=='hk')then 
+               jbas%con(11) = 1
+            else
+               jbas%con(7) = 1
+            end if 
+         end if
       else 
         STOP 'this nucleus is not available' 
      end if 
