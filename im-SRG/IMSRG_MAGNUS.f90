@@ -146,7 +146,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   ! triples correction
   if (trip_calc) then 
      call enumerate_three_body(threebas,jbas)
- !    t1 = omp_get_wtime()
+     t1 = omp_get_wtime()
      if ( xxCR ) then 
         call duplicate_sq_op(H,CR)         
         call CR_EXPAND(CR,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
@@ -154,7 +154,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      else
         corr =  restore_triples(H,G,threebas,jbas) 
      end if 
-  !   t2 = omp_get_wtime()
+     t2 = omp_get_wtime()
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
      open(unit=39,file='../../output/'//&
        trim(adjustl(prefix))//'_magnus_triples.dat')
