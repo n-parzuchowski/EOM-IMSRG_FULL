@@ -66,14 +66,22 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
   
   !call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2) 
- ! call build_gs_white(HS,ETA,jbas) 
-  
-  call build_gs_imtime(HS,DG,jbas) 
+ 
+  call build_gs_white(HS,DG,jbas)  
+  !call build_gs_imtime(HS,DG,jbas) 
   
   call copy_sq_op(HS,H) 
   
   s = 0.d0 
-  ds = 1.0d0
+    
+  if (HS%lawson_beta < 3.0) then 
+     ds = 1.0d0
+  else if (HS%lawson_beta < 6.0) then 
+     ds = 0.5d0
+  else
+     ds = 0.1d0
+  end if 
+  
   crit = 10.
   steps = 0
 

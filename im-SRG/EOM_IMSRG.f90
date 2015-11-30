@@ -14,6 +14,9 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
   type(sq_op) :: HS 
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   integer :: J,PAR,Numstates,i,q
+  character(2) :: Jlabel,Plabel,betalabel
+  character(200) :: spfile,intfile,prefix
+  common /files/ spfile,intfile,prefix
   
   
   allocate(ladder_ops(numstates)) 
@@ -54,10 +57,36 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
   do i = 1, Numstates
      write(*,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
   end do
-     
-  open(unit=75,file = 'lawson_check.dat',position='append') 
+
+  
+  ! WRITE STUFF TO FILES. 
+  write( Jlabel ,'(I2)') HS%Jtarg
+  write( betalabel ,'(I2)') nint(HS%lawson_beta)
+  if (HS%Ptarg == 0 ) then 
+     Plabel ='+'
+  else 
+     Plabel ='-'
+  end if
+  
+  Jlabel = adjustl(Jlabel)
+  Plabel = adjustl(Plabel)
+  betalabel = adjustl(betalabel)
+  open(unit=72,file='../../output/'//&
+       trim(adjustl(prefix))//'_'//trim(Jlabel)//trim(Plabel)//&
+       '_EOM_spec_law'//trim(betalabel)//'.dat')
+  
+  do i = 1, Numstates
+     write(72,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
+  end do
+
+  close(72)
+  
+  open(unit=75,file='../../output/'//&
+       trim(adjustl(prefix))//'_'//trim(Jlabel)//trim(Plabel)//'_lawson_check.dat'&
+       ,position='append')
   write(75,*) HS%lawson_beta, HS%E0,ladder_ops(1:5)%E0+HS%E0
   close(75)
+  
 end subroutine 
 
 subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)    
