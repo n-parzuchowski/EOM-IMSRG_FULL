@@ -30,10 +30,9 @@ program main_IMSRG
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
  
-  t1 = omp_get_wtime() 
-  
+  t1 = omp_get_wtime()
   heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
-       13,14,29,30,27,28,25,26,23,24,21,22/) 
+       13,14,29,30,27,28,25,26,23,24,21,22/)   
   writing = .false. 
 
   call getarg(1,inputs_from_command) 
@@ -53,6 +52,7 @@ program main_IMSRG
   
   if (TEST_COMMUTATORS)  then 
      ! run this by typing ' X' after the input file in the command line
+     ! This takes forever, you might want to comment some of this out. 
      call test_scalar_scalar_commutator(jbasis,-1,1) 
      call test_EOM_scalar_scalar_commutator(jbasis,1,1)
      call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
@@ -64,12 +64,6 @@ program main_IMSRG
   
   HS%herm = 1
   HS%hospace = hw
-
-  ! do
-  !    read*, a,b,c,d, J 
-  !    x= p1_p2(a,b,c,d,J,jbasis) 
-  !    print*, x
-  ! end do 
   ! check if you can skip some stuff
   if (skip_gs) then 
      print*, 'reading ground state decoupled hamiltonian' 
@@ -276,6 +270,7 @@ end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
+
   if (ex_calc_int==1) then 
      call calculate_excited_states( HS%Jtarg, HS%Ptarg, 10, HS , jbasis) 
      t2 = omp_get_wtime() 
@@ -299,7 +294,6 @@ end if
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
            call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
-     !      print*, rrTDA%blkM(1)%eigval
         else 
            call magnus_TDA(HS,TDA,jbasis) 
         end if
