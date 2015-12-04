@@ -60,6 +60,7 @@ subroutine build_gs_white(H,ETA,jbas)
 
   ETA%fpp = 0.d0 
   ETA%fhh = 0.d0 
+  ETA%pphh_ph = .true. 
   
   ! one body part
   do a = 1,H%Nsp - H%belowEF

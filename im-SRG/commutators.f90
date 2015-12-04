@@ -598,19 +598,22 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      nh = L%mat(q)%nhh
      np = L%mat(q)%npp
      nb = L%mat(q)%nph
-          
-     if (np .ne. 0)  then 
-       
-     !L_pppp . R_pppp = W1_pppp   
-     call dgemm('N','N',np,np,np,al,L%mat(q)%gam(1)%X,np,&
-          R%mat(q)%gam(1)%X,np,bet,w1%mat(q)%gam(1)%X,np)
-     end if 
      
-     if (nh .ne. 0) then 
-     !L_hhhh . R_hhhh = W2_hhhh
-     call dgemm('N','N',nh,nh,nh,al,L%mat(q)%gam(5)%X,nh,&
-          R%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(5)%X,nh)
-     end if 
+     IF ( .NOT. L%pphh_ph ) THEN 
+        if (np .ne. 0)  then 
+     
+           !L_pppp . R_pppp = W1_pppp   
+           call dgemm('N','N',np,np,np,al,L%mat(q)%gam(1)%X,np,&
+                R%mat(q)%gam(1)%X,np,bet,w1%mat(q)%gam(1)%X,np)
+   
+        end if
+     
+        if (nh .ne. 0) then 
+           !L_hhhh . R_hhhh = W2_hhhh
+           call dgemm('N','N',nh,nh,nh,al,L%mat(q)%gam(5)%X,nh,&
+                R%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(5)%X,nh)
+        end if
+     END IF 
           
      if (np*nh .ne. 0) then 
      !L_hhpp . R_pphh = W1_hhhh
@@ -625,19 +628,23 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      
      w2%mat(q)%gam(1)%X = w2%mat(q)%gam(1)%X * R%herm
   
-     bet_off = -1
+     al_off = -1
      !R_pppp . L_pphh = W1_pphh (Transposed)
-     call dgemm('N','N',np,nh,np,al,R%mat(q)%gam(1)%X,np,&
+     call dgemm('N','N',np,nh,np,al_off,R%mat(q)%gam(1)%X,np,&
           L%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(3)%X,np) 
-    
-     !L_pppp . R_pphh - R_pppp . L_pphh = W1_pphh
-     call dgemm('N','N',np,nh,np,al,L%mat(q)%gam(1)%X,np,&
-          R%mat(q)%gam(3)%X,np,bet_off,w1%mat(q)%gam(3)%X,np) 
-     
-     !R_pphh . L_hhhh = W2_pphh (Transposed)
-     call dgemm('N','N',np,nh,nh,al,R%mat(q)%gam(3)%X,np,&
-          L%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(3)%X,np) 
       
+     IF (.NOT. L%pphh_ph) THEN 
+        bet_off = 1 
+        !L_pppp . R_pphh - R_pppp . L_pphh = W1_pphh
+        call dgemm('N','N',np,nh,np,al,L%mat(q)%gam(1)%X,np,&
+             R%mat(q)%gam(3)%X,np,bet_off,w1%mat(q)%gam(3)%X,np) 
+     
+        !R_pphh . L_hhhh = W2_pphh (Transposed)
+        call dgemm('N','N',np,nh,nh,al,R%mat(q)%gam(3)%X,np,&
+             L%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(3)%X,np)       
+     END IF 
+    
+     bet_off = -1     
      !L_pphh . R_hhhh - R_pphh . L_hhhh = W2_pphh 
      call dgemm('N','N',np,nh,nh,al,L%mat(q)%gam(3)%X,np,&
           R%mat(q)%gam(5)%X,nh,bet_off,w2%mat(q)%gam(3)%X,np)           
@@ -660,77 +667,81 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
           w1%mat(q)%gam(3)%X  - w2%mat(q)%gam(3)%X 
      
      
+     IF (.NOT. L%pphh_ph) THEN
+        
+        if (nb*nh .ne. 0) then 
      
+           !L_phhh . R_hhph = W2_phph
+           call dgemm('N','T',nb,nb,nh,al,L%mat(q)%gam(6)%X,nb,&
+                R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(4)%X,nb) 
      
-     if (nb*nh .ne. 0) then 
+           w2%mat(q)%gam(4)%X = w2%mat(q)%gam(4)%X * R%herm
      
-     !L_phhh . R_hhph = W2_phph
-     call dgemm('N','T',nb,nb,nh,al,L%mat(q)%gam(6)%X,nb,&
-          R%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(4)%X,nb) 
-     
-     w2%mat(q)%gam(4)%X = w2%mat(q)%gam(4)%X * R%herm
-     
-     end if
+        end if
 
-     if (nb*np .ne. 0) then 
-     !L_phpp . R_ppph = W1_phph
-     call dgemm('T','N',nb,nb,np,al,L%mat(q)%gam(2)%X,np,&
-          R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(4)%X,nb) 
+        if (nb*np .ne. 0) then 
+           !L_phpp . R_ppph = W1_phph
+           call dgemm('T','N',nb,nb,np,al,L%mat(q)%gam(2)%X,np,&
+                R%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(4)%X,nb) 
      
-     w1%mat(q)%gam(4)%X = w1%mat(q)%gam(4)%X * L%herm 
-     end if 
+           w1%mat(q)%gam(4)%X = w1%mat(q)%gam(4)%X * L%herm 
+        end if
      
-     ! Vphph
-     RES%mat(q)%gam(4)%X = RES%mat(q)%gam(4)%X + &
-          w1%mat(q)%gam(4)%X  - w2%mat(q)%gam(4)%X - &
-           ( Transpose(w1%mat(q)%gam(4)%X - w2%mat(q)%gam(4)%X ) ) * &
-           pm
-     
+        ! Vphph
+        RES%mat(q)%gam(4)%X = RES%mat(q)%gam(4)%X + &
+             w1%mat(q)%gam(4)%X  - w2%mat(q)%gam(4)%X - &
+             ( Transpose(w1%mat(q)%gam(4)%X - w2%mat(q)%gam(4)%X ) ) * &
+             pm
+      
  
-     if (nb*nh .ne. 0)  then 
-     !R_phhh . L_hhhh = W2_phhh 
-     call dgemm('N','N',nb,nh,nh,al,R%mat(q)%gam(6)%X,nb,&
-          L%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(6)%X,nb) 
+        if (nb*nh .ne. 0)  then 
+           !R_phhh . L_hhhh = W2_phhh 
+           call dgemm('N','N',nb,nh,nh,al,R%mat(q)%gam(6)%X,nb,&
+                L%mat(q)%gam(5)%X,nh,bet,w2%mat(q)%gam(6)%X,nb) 
      
-     bet_off = -1
-     !L_phhh . R_hhhh - R_phhh . L_hhhh = W2_phhh
-     call dgemm('N','N',nb,nh,nh,al,L%mat(q)%gam(6)%X,nb,&
-          R%mat(q)%gam(5)%X,nh,bet_off,w2%mat(q)%gam(6)%X,nb) 
-     end if 
+           bet_off = -1
+           !L_phhh . R_hhhh - R_phhh . L_hhhh = W2_phhh
+           call dgemm('N','N',nb,nh,nh,al,L%mat(q)%gam(6)%X,nb,&
+                R%mat(q)%gam(5)%X,nh,bet_off,w2%mat(q)%gam(6)%X,nb) 
+        end if
 
    
-     if (nb*np .ne. 0) then 
-     bet_off = -1 
-     !R_pppp . L_ppph = W1_ppph
-     call dgemm('N','N',np,nb,np,al,R%mat(q)%gam(1)%X,np,&
-          L%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(2)%X,np)  
-          ! HOLY LORD GRIEVOUS ERROR FIXED HERE... 
+        if (nb*np .ne. 0) then 
+           bet_off = -1 
+           !R_pppp . L_ppph = W1_ppph
+           call dgemm('N','N',np,nb,np,al,R%mat(q)%gam(1)%X,np,&
+                L%mat(q)%gam(2)%X,np,bet,w1%mat(q)%gam(2)%X,np)  
+           ! HOLY LORD GRIEVOUS ERROR FIXED HERE... 
      
-     !L_pppp . R_ppph - R_pppp . L_ppph = W1_ppph 
-     call dgemm('N','N',np,nb,np,al,L%mat(q)%gam(1)%X,np,&
-          R%mat(q)%gam(2)%X,np,bet_off,w1%mat(q)%gam(2)%X,np)
-     end if 
-
+           !L_pppp . R_ppph - R_pppp . L_ppph = W1_ppph 
+           call dgemm('N','N',np,nb,np,al,L%mat(q)%gam(1)%X,np,&
+                R%mat(q)%gam(2)%X,np,bet_off,w1%mat(q)%gam(2)%X,np)
+        end if
+     END IF 
      !  the following are
      !  slightly messier because they need to be tranposed 
      !  to matrices which i don't have stored
      
      !R_phpp . L_pphh = W1_phhh
      if (nb*np*nh .ne. 0) then 
-     call dgemm('T','N',nb,nh,np,al,R%mat(q)%gam(2)%X,np,&
+     al_off = -1*R%herm 
+     call dgemm('T','N',nb,nh,np,al_off,R%mat(q)%gam(2)%X,np,&
           L%mat(q)%gam(3)%X,np,bet,w1%mat(q)%gam(6)%X,nb)
-         
-     al_off = L%herm 
-     bet_off = -1*R%herm
-
-     !L_phpp . R_pphh - R_phpp . L_pphh = W1_phhh 
-     call dgemm('T','N',nb,nh,np,al_off,L%mat(q)%gam(2)%X,np,&
-          R%mat(q)%gam(3)%X,np,bet_off,w1%mat(q)%gam(6)%X,nb)
-
      
-     !R_pphh . L_hhph = W2_ppph 
-     call dgemm('N','T',np,nb,nh,al,R%mat(q)%gam(3)%X,np,&
-          L%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(2)%X,np)
+     IF ( .NOT. L%pphh_ph) THEN
+        al_off = L%herm 
+        bet_off = 1
+     
+        !L_phpp . R_pphh - R_phpp . L_pphh = W1_phhh 
+        call dgemm('T','N',nb,nh,np,al_off,L%mat(q)%gam(2)%X,np,&
+             R%mat(q)%gam(3)%X,np,bet_off,w1%mat(q)%gam(6)%X,nb)
+
+        
+        !R_pphh . L_hhph = W2_ppph 
+        call dgemm('N','T',np,nb,nh,al,R%mat(q)%gam(3)%X,np,&
+             L%mat(q)%gam(6)%X,nb,bet,w2%mat(q)%gam(2)%X,np)
+     
+     END IF
      
      al_off = R%herm 
      bet_off = -1*L%herm 
@@ -748,7 +759,7 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
           w1%mat(q)%gam(2)%X  - w2%mat(q)%gam(2)%X
 
   end do
-
+  
 end subroutine 
 !=================================================================
 !=================================================================
@@ -781,10 +792,10 @@ end subroutine
       
       call dgemm('N','N',rinx,rinx,nb,al,LCC%CCX(q)%X,rinx,&
            RCC%CCR(q)%X,nb,bet,WCC%CCX(q)%X,rinx) 
-     
+      
       call dgemm('N','N',rinx,rinx,nb,al,RCC%CCX(q)%X,rinx,&
            LCC%CCR(q)%X,nb,bet,WCC%CCR(q)%X,rinx) 
-   
+      
    end do 
 
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  

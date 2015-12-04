@@ -60,6 +60,7 @@ module basic_IMSRG
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
      integer :: Jtarg,Ptarg,valcut,Rank,dpar
      real(8) :: E0,hospace,lawson_beta,com_hw 
+     logical :: pphh_ph
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   TYPE :: mscheme_3body !second quantized operator 
@@ -114,7 +115,7 @@ end type cross_coupled_31_mat
   logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
   ! 100000 if square matrix, 1 if not. 
   integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
- 
+  integer,public :: global_counter1=0,global_counter2=0,global_counter3=0
 contains
 !====================================================
 !====================================================
@@ -371,6 +372,7 @@ subroutine allocate_blocks(jbas,op)
   op%Nsp = jbas%total_orbits
   op%rank = 0 !scalar operator
   op%dPar = 0 
+  op%pphh_ph = .false. 
   N = op%Nsp  !number of sp shells
   
   op%nblocks =  (jbas%Jtotal_max + 1) * 6 ! -3  ! 6 possible values of par * Tz  
@@ -1383,7 +1385,7 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
   ! grabs the matrix element you are looking for
   implicit none
   
-  integer :: a,b,c,d,J,T,P,q,qx,c1,c2,N
+  integer :: a,b,c,d,J,T,P,q,qx,c1,c2,N,pphh_int
   integer :: int1,int2,i1,i2,j_min,x
   integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
   integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  
@@ -1393,8 +1395,17 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
   real(8) :: pre,pre_c
   common /TBMEinfo/ c1_c,c2_c,q_c,qx_c,i1_c,i2_c,pre_c,fail_c  
   
-  !make sure the matrix element exists first
-  
+ ! make sure the matrix element exists first
+  if (op%pphh_ph) then 
+     ! is this a generator with a bunch of zeros? 
+     pphh_int = jbas%con(a) + jbas%con(b)
+     pphh_int = pphh_int - jbas%con(c) - jbas%con(d) 
+     if (abs(pphh_int) .ne. 2) then 
+        v_elem = 0.d0 
+        return
+     end if
+  end if
+ 
  fail_c = .true. 
  ja = jbas%jj(a)
  jb = jbas%jj(b)
@@ -2727,6 +2738,7 @@ subroutine duplicate_sq_op(H,op)
   op%valcut = H%valcut 
   op%rank = H%rank 
   op%dpar = H%dpar
+  op%pphh_ph = .false. 
   
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 
@@ -3653,7 +3665,137 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
         
            do a = 1, HS%nsp
               do b = 1, HS%nsp
+  
+                 ja = jbas%jj(a) 
+                 jb = jbas%jj(b)
+                 la = jbas%ll(a) 
+                 lb = jbas%ll(b)
+                 ta = jbas%itzp(a) 
+                 tb = jbas%itzp(b)
+                 
+                 if (.not. triangle(ja,jb,JC) )  cycle
+                 if ( mod(la + lb,2) .ne. PAR ) cycle
+                 if (abs(ta - tb)/2 .ne. Tz ) cycle 
+                 
+                 x = CCindex(a,b,HS%Nsp) 
+                 g = 1
+                 do while (CCME%qmap(x)%Z(g) .ne. q1 )
+                    g = g + 1
+                 end do
+              
+                 Rindx = CCME%rmap(x)%Z(g)
+                 
+                 x = CCindex(b,a,HS%Nsp) 
+                 g = 1
+                 do while (CCME%qmap(x)%Z(g) .ne. q1 )
+                    g = g + 1
+                 end do
+              
+                 Gindx = CCME%rmap(x)%Z(g)
+                 
+                 sm = 0.d0 
+               
+!                 horse = 0.d0 
+                 if ( (mod(la + lh,2) == mod(lb + lp,2)) .and. &
+                      ( (ta + th) == (tb + tp) ) ) then  
+               
+                    ! hapb 
+                    Jmin = max(abs(jp - jb),abs(ja - jh)) 
+                    Jmax = min(jp+jb,ja+jh) 
+                    
+                    sm = 0.d0 
+                    do JT = Jmin,Jmax,2
+                       sm = sm + (-1)**(JT/2) * (JT + 1) * &
+                            sixj(jp,jh,JC,ja,jb,JT)  * &
+                            v_elem(h,a,p,b,JT,HS,jbas) 
+                    end do
+                 
+                    ! store  < h a | v | p b>    Pandya ( V )_h(p)b(a)
+                    CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
+                         (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
+                    ! scaled by sqrt(JC + 1) for convience in ph derivative
+
+                    ! store < p b | v | h a>     Pandya ( V )_p(h)a(b)
+                    CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
+                         (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
+                 
+                 end if
+              end do
+           end do
+        end do
+     end do
+
+  end do 
+!$omp end parallel do
+
+end subroutine 
+!=======================================================  
+!=======================================================          
+subroutine calculate_cross_coupled_pphh(HS,CCME,jbas,phase) 
+  ! currently the only CCME of interest are phab terms    |---<---| 
+  ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
+  !                                                      |---<---|
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: HS
+  type(cross_coupled_31_mat) :: CCME
+  integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
+  integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,Gindx,g,ta,tb,Atot,hg,pg
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x,JTM,ax,bx
+  real(8) :: sm,sm2,pre,horse
+  logical :: phase
+
+  Atot = HS%belowEF
+  Ntot = HS%Nsp
+  JTM = jbas%Jtotal_max 
+  pre = 1.d0 
+  CCME%herm = HS%Herm
+  
+!$omp parallel do default(firstprivate),shared(CCME,HS,jbas) 
+  do q1 = 1, CCME%nblocks
+      
+     JC = mod(q1-1,JTM+1) * 2 
+     PAR = (q1 - 1) / (2*JTM + 2) 
+     TZ = mod(q1-1,(2*JTM+2))/(JTM+1)  
+     
+     CCME%CCR(q1)%X = 0.d0
+     CCME%CCX(q1)%X = 0.d0
+         
+     ! ab = ph 
+     do hg = 1, Atot
+        do pg = 1, Ntot - Atot 
            
+           h = jbas%holes(hg) 
+           p = jbas%parts(pg) 
+           
+           jp = jbas%jj(p) 
+           jh = jbas%jj(h)
+           lp = jbas%ll(p) 
+           lh = jbas%ll(h)
+           tp = jbas%itzp(p) 
+           th = jbas%itzp(h)
+        
+           if (.not. triangle(jp,jh,JC) )  cycle
+           if ( mod(lp + lh,2) .ne. PAR ) cycle
+           if (abs(tp - th)/2 .ne. Tz ) cycle 
+           
+           x = CCindex(p,h,HS%Nsp)
+           gnb = 1
+           do while (CCME%qmap(x)%Z(gnb) .ne. q1 )
+              gnb = gnb + 1
+           end do
+              
+           NBindx = CCME%nbmap(x)%Z(gnb) 
+
+           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
+           ! for the ph  channel 2body derivative 
+        
+           do ax = 1, HS%belowEF
+              a = jbas%holes(ax) 
+              do bx = 1, HS%nsp-HS%belowEF
+                 b = jbas%parts(bx) 
+                 
                  ja = jbas%jj(a) 
                  jb = jbas%jj(b)
                  la = jbas%ll(a) 

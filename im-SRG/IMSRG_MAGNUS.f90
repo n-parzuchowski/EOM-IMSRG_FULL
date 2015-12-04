@@ -361,7 +361,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
   character(3) :: args
   character(1),optional :: quads ! enter some character to restore quadrupoles 
   logical :: qd_calc   
-
+  real(8) ::  omp_get_wtime,t1,t2,t3,t4
   qd_calc = .false. 
   if (present(quads)) then 
      qd_calc = .true. 
@@ -401,27 +401,25 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
      call clear_sq_op(INT2)    
      !now: INT2 = [ G , AD ]  
         
-! zero body commutator
- 
+! zero body commutator 
      call calculate_cross_coupled(AD,ADCC,jbas,.true.)
      call calculate_cross_coupled(G,GCC,jbas,.false.) 
- 
+  
      INT2%E0 = commutator_110(G,AD,jbas) + commutator_220(G,AD,jbas)
-
+     
      call commutator_111(G,AD,INT2,jbas) 
      call commutator_121(G,AD,INT2,jbas)
      call commutator_122(G,AD,INT2,jbas)    
-
+          
      call commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)
-  
+
      call commutator_221(G,AD,INT2,w1,w2,jbas)
      call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
-
+     
      ! so now just add INT1 + c_n * INT2 to get current value of HS
-          
      call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2)     
      call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
-    
+     
      if (qd_calc) then 
         call restore_quadrupoles(AD,G,w1,w2,INT3,jbas) 
      end if 

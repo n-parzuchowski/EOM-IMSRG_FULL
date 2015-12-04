@@ -30,6 +30,8 @@ program main_IMSRG
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
  
+  t1 = omp_get_wtime() 
+  
   heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
        13,14,29,30,27,28,25,26,23,24,21,22/) 
   writing = .false. 
@@ -272,9 +274,13 @@ end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  equation of motion calculation 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  t2 = omp_get_wtime() 
+  write(*,'(A5,f12.7)') 'TIME:', t2-t1
   if (ex_calc_int==1) then 
      call calculate_excited_states( HS%Jtarg, HS%Ptarg, 10, HS , jbasis) 
-  end if 
+     t2 = omp_get_wtime() 
+     write(*,'(A5,f12.7)') 'TIME:', t2-t1
+  end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -359,9 +365,11 @@ end if
       
      end select
      
-     
-  end if 
+     t2 = omp_get_wtime() 
+     write(*,'(A5,f12.7)') 'TIME:', t2-t1
   
+  end if 
+
 end program main_IMSRG
 !=========================================================================
 subroutine print_header
