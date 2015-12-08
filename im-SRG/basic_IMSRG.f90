@@ -1,4 +1,5 @@
 module basic_IMSRG 
+  use gzipmod
   ! contains basic type declarations, constants, and adminstrative routines  
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: real_mat !element of an array of matrices
@@ -901,7 +902,7 @@ end subroutine
 !==================================================================  
 !==================================================================
 subroutine read_interaction(H,jbas,htype,hw,rr,pp) 
-  ! read interaction from ASCII file produced by Scott_to_Morten.f90 
+  ! read interaction from ASCII file produced by VRenormalize
   implicit none
   
   type(sq_op) :: H
@@ -931,7 +932,7 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
   if (present(pp)) pp_calc= .true. 
 
   do 
-     read(39,*,iostat=ist) Tz,Par,J,a,b,c,d,V,g1,g2,g3
+     read(39,*,iostat=ist) Tz,Par,J,a,b,c,d,V!,g1,g2,g3
      !read(39,*) Tz,Par,J,a,b,c,d,V,g1,g2,g3
      
      ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
@@ -941,9 +942,7 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
      if (ist > 0) STOP 'interaction file error' 
      if (ist < 0) exit
 
-     if (rr_calc) then 
-        g2 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
-     end if    
+     g2 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      g3 = p1_p2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      ! so I am doing it explicitly. 
      
@@ -1043,8 +1042,8 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
 end subroutine
 !==================================================================  
 !==================================================================
-subroutine read_binary(H,jbas,htype,hw,rr,pp) 
-  ! read interaction from binary file produced by VRenormalize 
+subroutine read_gz(H,jbas,htype,hw,rr,pp) 
+  ! read interaction from gz file produced by VRenormalize 
   implicit none
   
   type(sq_op) :: H
@@ -1056,9 +1055,11 @@ subroutine read_binary(H,jbas,htype,hw,rr,pp)
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
   integer :: ntot,npp,npn,nnn,count
   logical :: rr_calc,pp_calc
+  integer(c_int) :: filehandle,sz
+  character(49) :: string_in
   common /files/ spfile,intfile,prefix
   
-  open(unit=39,file = trim(TBME_DIR)//trim(adjustl(intfile)),form='unformatted') 
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(intfile))//achar(0),"r"//achar(0))  
   
   COM = 0
   if (htype == 1) COM = 1 ! remove center of mass hamiltonian? 
@@ -1071,16 +1072,24 @@ subroutine read_binary(H,jbas,htype,hw,rr,pp)
   if (present(rr)) rr_calc= .true. 
   if (present(pp)) pp_calc= .true. 
 
-  read(39) ntot,npp,npn,nnn 
-
+  ! the first line is the number of matrix elements... I hope. 
+  string_in = read_morten_gz(filehandle) 
+  read(string_in,'(I49)') ntot  
+ 
   do count = 1, ntot
+     
+     string_in = read_morten_gz(filehandle) 
+     read(string_in(1:4),'(I4)') Tz
+     read(string_in(5:8),'(I4)') Par
+     read(string_in(9:12),'(I4)') J
+     read(string_in(13:16),'(I4)') a
+     read(string_in(17:20),'(I4)') b
+     read(string_in(21:24),'(I4)') c
+     read(string_in(25:28),'(I4)') d     
+     read(string_in(29:49),'(e20.6)') V
+     !read(39) Tz,Par,J,a,b,c,d,V
 
-     read(39) Tz,Par,J,a,b,c,d,V
-     !read(39) Tz,Par,J,a,b,c,d,V,g1,g2,g3
-
-     if (rr_calc) then 
-        g3 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
-     end if    
+     g2 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      g3 = p1_p2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      
      ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
@@ -1175,7 +1184,7 @@ subroutine read_binary(H,jbas,htype,hw,rr,pp)
      ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
      
   end do   
-  close(39)
+  sz = gzclose(filehandle)
       
 end subroutine
 !==================================================================  
@@ -3246,7 +3255,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   if( intfile(len(trim(intfile))-3:len(trim(intfile))) == '.int') then 
      me2j =.false.
      ! Morten format
-  else if( intfile(len(trim(intfile))-3:len(trim(intfile))) == '.bin') then 
+  else if( intfile(len(trim(intfile))-6:len(trim(intfile))) == '.int.gz') then 
      me2j =.false.
      mortbin = .true. 
      ! binary version of Morten format

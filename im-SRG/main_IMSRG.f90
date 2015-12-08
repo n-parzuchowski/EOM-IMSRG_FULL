@@ -33,7 +33,6 @@ program main_IMSRG
   t1 = omp_get_wtime()
   heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
        13,14,29,30,27,28,25,26,23,24,21,22/)   
-  writing = .false. 
 
   call getarg(1,inputs_from_command) 
   
@@ -64,19 +63,7 @@ program main_IMSRG
   
   HS%herm = 1
   HS%hospace = hw
-  ! check if you can skip some stuff
-  if (skip_gs) then 
-     print*, 'reading ground state decoupled hamiltonian' 
-     goto 20 ! line 223 (subject to change) 
-     ! or search "gs_decoup" 
-  end if 
-  if (skip_setup) then
-     print*, 'reading pre-normal ordered hamiltonian' 
-     goto 15 ! line 129 (subject to change)
-     ! or search "bare" 
-  end if 
-  
-  
+    
   ! for calculating COM expectation value
   if (COM_calc) then  
      
@@ -86,7 +73,7 @@ program main_IMSRG
      if (me2j) then  ! heiko format or scott format? 
         call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj) 
      else if (mortbin) then 
-        call read_binary(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
+        call read_gz(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
      else
         call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
      end if
@@ -102,7 +89,7 @@ program main_IMSRG
      if (me2j) then 
         call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj)
      else if (mortbin) then 
-        call read_binary(HS,jbasis,ham_type,hw,rr=rirj)  
+        call read_gz(HS,jbasis,ham_type,hw,rr=rirj)  
      else
         call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
      end if
@@ -114,12 +101,12 @@ program main_IMSRG
      if (me2j) then 
         call read_me2j_interaction(HS,jbasis,ham_type,hw) 
      else if (me2b) then
-        ! pre normal ordered interaction with three body included at No2b                
+        ! pre normal ordered interaction with three body included at No2b       
         call read_me2b_interaction(HS,jbasis,ham_type,hw) 
         goto 12 ! skip the normal ordering. 
         ! it's already done.  line 128 or search "bare" 
      else if (mortbin) then 
-        call read_binary(HS,jbasis,ham_type,hw) 
+        call read_gz(HS,jbasis,ham_type,hw) 
      else
         call read_interaction(HS,jbasis,ham_type,hw)
      end if
@@ -151,13 +138,7 @@ program main_IMSRG
   end if
 
   ! lawson 0b term
-  HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
-  
-!============================================================
-! store hamiltonian in easiest format for quick reading
-!============================================================
-12 if (writing) call write_binary_operator(HS,'bare') 
-15 if (skip_setup) call read_binary_operator(HS,'bare') 
+12  HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
@@ -261,10 +242,7 @@ program main_IMSRG
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
-if (writing) then 
-   call write_binary_operator(HS,'gs_decoup')
-end if  
-20 if (skip_gs) call read_binary_operator(HS,'gs_decoup') 
+
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  equation of motion calculation 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
