@@ -41,7 +41,7 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
   crit = 10.
   steps = 0
 
-  open(unit=36,file='../../output/'//&
+  open(unit=36,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_0b_discrete_flow.dat')
 
 if (present(O1)) then 
@@ -179,7 +179,7 @@ subroutine discrete_TDA( HS , TDA, jbas,O1,O1TDA,O2,O2TDA )
   call diagonalize_blocks(TDA)
 
   E_old = TDA%blkM(1)%eigval
-  open(unit=37,file='../../output/'//&
+  open(unit=37,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_excited.dat')
 
   call write_excited_states(steps,s,TDA,H%E0,37) 

@@ -76,7 +76,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
   
   steps = 0 
   
-  open(unit=36,file='../../output/'//&
+  open(unit=36,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_0bflow.dat')
   
   E_mbpt2 = mbpt2(H,jbas) 
@@ -265,7 +265,7 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
   else
      Plabel = '-'
   end if 
-  open(unit=37,file='../../output/'//&
+  open(unit=37,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_'//Jlabel//Plabel//'_excited.dat')
   
   call write_excited_states(steps,s,TDA,H%E0,37) 

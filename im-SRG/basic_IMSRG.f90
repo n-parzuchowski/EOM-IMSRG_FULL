@@ -95,27 +95,37 @@ type cross_coupled_31_mat
    integer :: nblocks,Nsp,rank,herm,dpar
 end type cross_coupled_31_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
+
+   ! THIS STUFF IS IMPORTANT, DON'T CHANGE IT.
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
    real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
-   real(8),public,parameter :: hbarc = 197.326968d0, m_nuc = 938.918725 !2006 values 
-   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
-   real(8),public,parameter :: Pi_const = acos(-1.d0) 
    real(8),allocatable,dimension(:,:) :: phase_pp,phase_hh 
    integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
    integer,public,dimension(6) :: tensor_adjust = (/0,6,4,0,0,3/)
    type(six_index_store),public :: store6j , half6j  ! holds 6j-symbols
+   !The following public arrays give info about the 6 different categories
+   ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
+   ! holds the c values for qn and pn arrays
+   integer,public,dimension(9) :: sea1 = (/1,1,1,2,3,2,3,2,3/), sea2 = (/1,2,3,2,3,3,1,1,2/) 
+   ! true if square matrix
+   logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
+   ! 100000 if square matrix, 1 if not. 
+   integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
+   integer,public :: global_counter1=0,global_counter2=0,global_counter3=0
+   character(500) :: TBME_DIR,SP_DIR,INI_DIR
    
 
-  !The following public arrays give info about the 6 different categories
-  ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
-  
-  ! holds the c values for qn and pn arrays
-  integer,public,dimension(9) :: sea1 = (/1,1,1,2,3,2,3,2,3/), sea2 = (/1,2,3,2,3,3,1,1,2/) 
-  ! true if square matrix
-  logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
-  ! 100000 if square matrix, 1 if not. 
-  integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
-  integer,public :: global_counter1=0,global_counter2=0,global_counter3=0
+
+   ! CHANGE THESE AS NEEDED. ==========================================================
+   real(8),public,parameter :: hbarc = 197.326968d0, m_nuc = 938.918725 !2006 values 
+   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
+   real(8),public,parameter :: Pi_const = acos(-1.d0) 
+
+   character(500) :: OUTPUT_DIR = '/home/nathan/nuclear_IMSRG/output/'   
+   character(500),dimension(1) :: TBME_DIRECTORY_LIST=(/ '/home/nathan/nuclear_IMSRG/TBME_input/' /)  
+   character(500),dimension(1) :: SP_DIRECTORY_LIST=(/ '/home/nathan/nuclear_IMSRG/sp_inputs/' /)  
+   character(500),dimension(1) :: INI_DIRECTORY_LIST=(/ '/home/nathan/nuclear_IMSRG/inifiles/' /) 
+   
 contains
 !====================================================
 !====================================================
@@ -135,7 +145,7 @@ subroutine read_sp_basis(jbas,hp,hn,method)
   common /files/ spfile,intfile,prefix
   
   interm= adjustl(spfile)
-  open(unit=39,file='../../sp_inputs/'//trim(interm))
+  open(unit=39,file=trim(SP_DIR)//trim(interm))
   hk=interm(1:2)
 
   ix = 0 
@@ -904,7 +914,7 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
   logical :: rr_calc,pp_calc
   common /files/ spfile,intfile,prefix
   
-  open(unit=39,file = '../../TBME_input/'//trim(adjustl(intfile))) 
+  open(unit=39,file = trim(TBME_DIR)//trim(adjustl(intfile))) 
   
   read(39,*);read(39,*);read(39,*);read(39,*)
   read(39,*);read(39,*);read(39,*);read(39,*) !skip all of the garbage 
@@ -1048,7 +1058,7 @@ subroutine read_binary(H,jbas,htype,hw,rr,pp)
   logical :: rr_calc,pp_calc
   common /files/ spfile,intfile,prefix
   
-  open(unit=39,file = '../../TBME_input/'//trim(adjustl(intfile)),form='unformatted') 
+  open(unit=39,file = trim(TBME_DIR)//trim(adjustl(intfile)),form='unformatted') 
   
   COM = 0
   if (htype == 1) COM = 1 ! remove center of mass hamiltonian? 
@@ -3144,17 +3154,31 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   character(50) :: valence
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
-  integer :: method,Exint
-  logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN
+  integer :: method,Exint,ISTAT ,i
+  logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN, found
   real(8) :: hw
   common /files/ spfile,intfile,prefix 
     
   input = adjustl(input) 
   if (trim(input) == '') then 
-     print*, 'RUNNING TEST CASE: testcase.ini' 
-     open(unit=22,file='../../inifiles/testcase.ini')
-  else   
-  open(unit=22,file='../../inifiles/'//trim(input)) 
+     print*, 'RUNNING TEST CASE: testcase.ini'
+     i = 1 
+     found = .false. 
+     do while (.not. (found))   
+        INI_DIR = INI_DIRECTORY_LIST(i) 
+        inquire(file=trim(INI_DIR)//'testcase.ini',exist=found) 
+        i = i + 1
+     end do
+     open(unit=22,file=trim(INI_DIR)//'testcase.ini')
+  else       
+     i = 1 
+     found = .false. 
+     do while (.not. (found))   
+        INI_DIR = INI_DIRECTORY_LIST(i) 
+        inquire(file=trim(INI_DIR)//trim(input),exist=found)      
+        i = i + 1
+     end do
+     open(unit=22,file=trim(INI_DIR)//trim(input)) 
   end if 
   
   read(22,*);read(22,*);read(22,*)
@@ -3246,6 +3270,24 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   else 
      skip_gs = .false.
   end if
+
+  ! figure out where the TBME and SP files are....
+  i = 1 
+  found = .false. 
+  do while (.not. (found))   
+     TBME_DIR = TBME_DIRECTORY_LIST(i) 
+     inquire(file=trim(TBME_DIR)//trim(intfile),exist=found)      
+     i = i + 1
+  end do
+     
+  i = 1 
+  found = .false. 
+  do while (.not. (found))   
+     SP_DIR = SP_DIRECTORY_LIST(i) 
+     inquire(file=trim(SP_DIR)//trim(spfile),exist=found)      
+     i = i + 1
+  end do
+
 end subroutine
 !=======================================================  
 !=======================================================
@@ -4725,7 +4767,7 @@ subroutine write_tilde_from_Rcm(rr)
   character(200) :: spfile,intfile,input,prefix
   common /files/ spfile,intfile,prefix 
 
-  open(unit=53, file='../../output/'//&
+  open(unit=53, file=OUTPUT_DIR//&
        trim(adjustl(prefix))//'_omegatilde.dat') 
   write(53,'(2(e14.6))') rr%hospace,&
        hbarc2_over_mc2*1.5d0/float(rr%Aprot+rr%Aneut)/rr%E0 

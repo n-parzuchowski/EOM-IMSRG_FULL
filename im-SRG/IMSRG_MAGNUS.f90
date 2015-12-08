@@ -85,7 +85,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
   crit = 10.
   steps = 0
 
-  open(unit=36,file='../../output/'//&
+  open(unit=36,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_0b_magnus_flow.dat')
 
   E_mbpt2 = mbpt2(HS,jbas) 
@@ -164,7 +164,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      end if 
      t2 = omp_get_wtime()
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
-     open(unit=39,file='../../output/'//&
+     open(unit=39,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_magnus_triples.dat')
      write(39,'(I6,4(e15.7))') steps,s,HS%E0+corr,HS%E0+E_mbpt2,crit
      close(39)
@@ -259,7 +259,7 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA,quads)
   else 
      Plabel ='-'
   end if
-  open(unit=37,file='../../output/'//&
+  open(unit=37,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_'//Jlabel//Plabel//'_excited.dat')
   
   call write_excited_states(steps,s,TDA,HS%E0,37)

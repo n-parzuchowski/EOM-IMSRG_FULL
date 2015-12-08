@@ -71,7 +71,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
   Jlabel = adjustl(Jlabel)
   Plabel = adjustl(Plabel)
   betalabel = adjustl(betalabel)
-  open(unit=72,file='../../output/'//&
+  open(unit=72,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_'//trim(Jlabel)//trim(Plabel)//&
        '_EOM_spec_law'//trim(betalabel)//'.dat')
   
@@ -81,7 +81,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
 
   close(72)
   
-  open(unit=75,file='../../output/'//&
+  open(unit=75,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_'//trim(Jlabel)//trim(Plabel)//'_lawson_check.dat'&
        ,position='append')
   write(75,*) HS%lawson_beta, HS%E0,ladder_ops(1:5)%E0+HS%E0

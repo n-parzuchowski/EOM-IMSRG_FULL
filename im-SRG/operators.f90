@@ -436,7 +436,7 @@ subroutine calculate_CM_energy(pp,rr,hw)
   end do   
 
   !write results to file
-  open(unit=42,file='../../output/'//&
+  open(unit=42,file=trim(OUTPUT_DIR)//&
          trim(adjustl(prefix))//'_Ecm.dat')
   write(42,'(6(e14.6))') hw, wTs, Ecm 
   close(42)
@@ -488,7 +488,7 @@ subroutine calculate_CM_energy_TDA(TDA,rr,pp,ppTDA,rrTDA,hw)
    args = adjustl(args) 
 
   !write results to file
-  open(unit=42,file='../../output/'//&
+  open(unit=42,file=trim(OUTPUT_DIR)//&
          trim(adjustl(prefix))//'_Ecm_excited.dat')
   write(42,'('//trim(args)//'(e14.6))') hw, omegas, energies 
   close(42)
