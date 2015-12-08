@@ -16,7 +16,7 @@ subroutine get_me2j_spfile(eMaxchr)
 
   read(eMaxchr,'(I2)') eMax
   eMaxchr = adjustl(eMaxchr) 
-  open(unit=24,file='../../sp_inputs/hk'//trim(eMaxchr)//'Lmax10.sps')
+  open(unit=24,file=trim(SP_DIRECTORY_LIST(1))//'hk'//trim(eMaxchr)//'Lmax10.sps')
   
   q = 1
   
@@ -39,6 +39,8 @@ subroutine get_me2j_spfile(eMaxchr)
   end do 
   
   close(24) 
+  print*, trim(SP_DIRECTORY_LIST(1))//'hk'//trim(eMaxchr)//'Lmax10.sps'
+  STOP
 end subroutine
 
 
@@ -144,26 +146,26 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   write(eMaxchr,'(I2)') eMax 
   eMaxchr = adjustl(eMaxchr)  
   
-  open(unit=34,file='../../inifiles/interactionpath')
-  read(34,*) itpath 
-  itpath = adjustl(itpath) 
+ ! open(unit=34,file='../../inifiles/interactionpath')
+ ! read(34,*) itpath 
+ ! itpath = adjustl(itpath) 
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
-  hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
+  hndle=gzOpen(trim(TBME_DIR)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
   
  ! print*, trim(itpath)
   
   ! opening the pipj and rirj files 
   if (len(trim(eMaxchr)) == 1) then 
-     hndle2=gzOpen(trim(itpath)//"tpp_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
+     hndle2=gzOpen(trim(TBME_DIR)//"tpp_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      if (rr_calc) then 
-        hndle3=gzOpen(trim(itpath)//"r1r2_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
+        hndle3=gzOpen(trim(TBME_DIR)//"r1r2_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      end if
   else
-      hndle2=gzOpen(trim(itpath)//"tpp_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
+      hndle2=gzOpen(trim(TBME_DIR)//"tpp_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      if (rr_calc) then 
-        hndle3=gzOpen(trim(itpath)//"r1r2_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
+        hndle3=gzOpen(trim(TBME_DIR)//"r1r2_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
      end if
   end if 
   
@@ -601,25 +603,25 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson)
   
  
 
-  open(unit=34,file='../../inifiles/interactionpath_me2b')
-  do
-  read(34,*) itpath 
-  itpath = adjustl(itpath)
+!  open(unit=34,file='../../inifiles/interactionpath_me2b')
+!  do
+!  read(34,*) itpath 
+!  itpath = adjustl(itpath)
   
   ! check if file is in directory
 
-  inquire( file=trim(itpath)//trim(adjustl(intfile))//achar(0),exist=file_there )
-  if ( file_there ) exit
+ ! inquire( file=trim(TBME_DIR)//trim(adjustl(intfile))//achar(0),exist=file_there )
+ ! if ( file_there ) exit
   
-  end do
-  close(34)
+ ! end do
+ ! close(34)
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
   if ( present(Lawson) ) then 
-     hndle=gzOpen(trim(itpath)//"O16_Hcm_eMax10_hwHO020.ham0.me2b.gz"//achar(0),"r"//achar(0)) 
+     hndle=gzOpen(trim(TBME_DIR)//"O16_Hcm_eMax10_hwHO020.ham0.me2b.gz"//achar(0),"r"//achar(0)) 
   else 
-     hndle=gzOpen(trim(itpath)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
+     hndle=gzOpen(trim(TBME_DIR)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
   end if 
   
 ! here is where we start dealing with the two body piece
@@ -1032,12 +1034,12 @@ end do
 14 me1bfile = intfile(1:len(trim(intfile))-5)//'1b.gz'
   
   if ( present(Lawson) ) then 
-     hndle=gzOpen(trim(itpath)//"O16_Hcm_eMax10_hwHO020.ham0.me1b.gz"//achar(0),"r"//achar(0)) 
+     hndle=gzOpen(trim(TBME_DIR)//"O16_Hcm_eMax10_hwHO020.ham0.me1b.gz"//achar(0),"r"//achar(0)) 
   else 
-     hndle=gzOpen(trim(itpath)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0)) 
+     hndle=gzOpen(trim(TBME_DIR)//trim(adjustl(me1bfile))//achar(0),"r"//achar(0)) 
   end if 
 
-!    print*, trim(itpath)//trim(adjustl(me1bfile))//achar(0)
+!    print*, trim(TBME_DIR)//trim(adjustl(me1bfile))//achar(0)
   sz=200
 
   ! read verion line, and then some integer
