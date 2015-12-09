@@ -42,11 +42,11 @@ program main_IMSRG
   else
      test_commutators = .false.
   end if
-  
+
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
        me2b,mortbin,hw,skip_setup,skip_gs)
-  
+
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
   
   if (TEST_COMMUTATORS)  then 
@@ -58,7 +58,7 @@ program main_IMSRG
      call test_scalar_tensor_commutator(jbasis,1,1,2,0) 
      stop
   end if
-  
+
   call allocate_blocks(jbasis,HS) 
   
   HS%herm = 1

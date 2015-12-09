@@ -40,10 +40,10 @@ end interface
 
 contains
 
-character(49) function read_morten_gz(handle) 
+character(52) function read_morten_gz(handle) 
   ! THE FORMAT HERE IS   
   !  Tz  Pi  J  a b c d     V_{abcd}^J
-  ! THAT'S IT. IT's 49 CHARACTERS LONG.   
+  ! THAT'S IT. IT's 52 CHARACTERS LONG.   
   implicit none
   
   integer(c_int) :: handle,sz
@@ -52,7 +52,7 @@ character(49) function read_morten_gz(handle)
   
   sz=200 
   buf = gzGets( handle, buffer, sz ) 
-  read_morten_gz = buffer(1:49) 
+  read_morten_gz = buffer(1:52) 
 
 end function 
 

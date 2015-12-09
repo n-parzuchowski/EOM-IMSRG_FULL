@@ -122,10 +122,10 @@ end type cross_coupled_31_mat
    real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
    real(8),public,parameter :: Pi_const = acos(-1.d0) 
 
-   character(500) :: OUTPUT_DIR = '/home/nathan/nuclear_IMSRG/output/'   
-   character(500),dimension(1) :: TBME_DIRECTORY_LIST=(/ '/home/nathan/nuclear_IMSRG/TBME_input/' /)  
-   character(500),dimension(1) :: SP_DIRECTORY_LIST=(/ '/home/nathan/nuclear_IMSRG/sp_inputs/' /)  
-   character(500),dimension(1) :: INI_DIRECTORY_LIST=(/ '/home/nathan/nuclear_IMSRG/inifiles/' /) 
+   character(500) :: OUTPUT_DIR = '/mnt/home/parzuch6/nuclear_IMSRG/output/'   
+   character(500),dimension(1) :: TBME_DIRECTORY_LIST=(/ '/mnt/home/parzuch6/nuclear_IMSRG/TBME_input/' /)  
+   character(500),dimension(1) :: SP_DIRECTORY_LIST=(/ '/mnt//home/parzuch6/nuclear_IMSRG/sp_inputs/' /)  
+   character(500),dimension(1) :: INI_DIRECTORY_LIST=(/ '/mnt/home/parzuch6/nuclear_IMSRG/inifiles/' /) 
    
 contains
 !====================================================
@@ -1053,10 +1053,10 @@ subroutine read_gz(H,jbas,htype,hw,rr,pp)
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
   real(8) :: V,Vcm,g1,g2,g3,pre,hw
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
-  integer :: ntot,npp,npn,nnn,count
+  integer :: ntot,npp,npn,nnn,count,i
   logical :: rr_calc,pp_calc
   integer(c_int) :: filehandle,sz
-  character(49) :: string_in
+  character(200) :: string_in, fixed
   common /files/ spfile,intfile,prefix
   
   filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(intfile))//achar(0),"r"//achar(0))  
@@ -1074,20 +1074,36 @@ subroutine read_gz(H,jbas,htype,hw,rr,pp)
 
   ! the first line is the number of matrix elements... I hope. 
   string_in = read_morten_gz(filehandle) 
-  read(string_in,'(I49)') ntot  
- 
+  
+  do i = 3, 20
+     if (string_in(i:i+3) == 'XXXX') exit
+  end do 
+  fixed = string_in(1:i-2) 
+  read(fixed,'(I49)') ntot  
+  write(*,'(A11,I20)') '# of TBME: ',ntot
+
   do count = 1, ntot
-     
+
      string_in = read_morten_gz(filehandle) 
-     read(string_in(1:4),'(I4)') Tz
-     read(string_in(5:8),'(I4)') Par
-     read(string_in(9:12),'(I4)') J
-     read(string_in(13:16),'(I4)') a
-     read(string_in(17:20),'(I4)') b
-     read(string_in(21:24),'(I4)') c
-     read(string_in(25:28),'(I4)') d     
-     read(string_in(29:49),'(e20.6)') V
-     !read(39) Tz,Par,J,a,b,c,d,V
+     string_in = adjustl(string_in)
+
+     do i = 20, 80
+        if (string_in(i:i+3) == 'XXXX') exit
+     end do
+     if (string_in(1:1) == '-') then 
+        fixed = '  '//string_in(1:i-2) 
+     else 
+        fixed = '   '//string_in(1:i-2) 
+     end if 
+
+     read(fixed(1:4),'(I4)') Tz
+     read(fixed(5:8),'(I4)') Par
+     read(fixed(9:12),'(I4)') J
+     read(fixed(13:16),'(I4)') a
+     read(fixed(17:20),'(I4)') b
+     read(fixed(21:24),'(I4)') c
+     read(fixed(25:28),'(I4)') d     
+     read(fixed(29:49),'(e20.6)') V
 
      g2 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      g3 = p1_p2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
