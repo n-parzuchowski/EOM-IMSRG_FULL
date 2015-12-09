@@ -227,25 +227,6 @@ subroutine allocate_3body_storage( XR , jbas)
   end do 
   
   call divide_work_threebody(XR) 
-!  memry = memry/ 1024. /1024. 
-  
-!  IF ( memry > 100.d0 ) then  ! ask user if the memory is getting
-                              ! out of control
-     
-  ! print*, '3 - body ALLOCATION will require in MB: ', memry
-  ! print*, 'CONTINUE?? (Y/N)'
-  ! read*, choice 
-  
-  ! if (choice .ne. 'Y') STOP 'aborted...'
-  ! else 
-  
-  ! print*, 'allocating',memry,'MB'
-  ! end if 
-  
-  ! do q = 1, XR%nblocks
-  !   allocate(XR%Wmat(q)%X(size(XR%qn_p(q)%Y(:,1)) &
-  !        ,size(XR%qn_h(q)%Y(:,1))))
-  ! end do 
     
 end subroutine     
 !==================================================================

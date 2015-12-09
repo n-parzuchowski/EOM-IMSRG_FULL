@@ -4,7 +4,6 @@ module IMSRG_MAGNUS
   use generators
   use basic_IMSRG
   use HF_mod 
-  use mscheme
   implicit none 
   
 contains
