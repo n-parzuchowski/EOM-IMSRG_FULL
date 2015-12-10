@@ -75,58 +75,75 @@ module basic_IMSRG
      real(8) :: E0,hospace
   END TYPE mscheme_3body 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-type sp_block_mat
-   real(8),allocatable,dimension(:,:) :: matrix!,eigvec
-   real(8),allocatable,dimension(:) :: Eigval,extra
-   integer,allocatable,dimension(:,:) :: labels
-   integer,allocatable,dimension(:) :: states
-   integer,dimension(3) :: lmda
-end type sp_block_mat
+  type sp_block_mat
+     real(8),allocatable,dimension(:,:) :: matrix!,eigvec
+     real(8),allocatable,dimension(:) :: Eigval,extra
+     integer,allocatable,dimension(:,:) :: labels
+     integer,allocatable,dimension(:) :: states
+     integer,dimension(3) :: lmda
+  end type sp_block_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-type full_sp_block_mat
-   type(sp_block_mat),allocatable,dimension(:) :: blkM
-   integer,allocatable,dimension(:) :: map
-   integer :: blocks
-end type full_sp_block_mat
+  type full_sp_block_mat
+     type(sp_block_mat),allocatable,dimension(:) :: blkM
+     integer,allocatable,dimension(:) :: map
+     integer :: blocks
+  end type full_sp_block_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-type cross_coupled_31_mat
-   type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
-   type(real_mat),allocatable,dimension(:) :: CCX,CCR
-   integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
-   integer :: nblocks,Nsp,rank,herm,dpar
-end type cross_coupled_31_mat
+  type cross_coupled_31_mat
+     type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
+     type(real_mat),allocatable,dimension(:) :: CCX,CCR
+     integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
+     integer :: nblocks,Nsp,rank,herm,dpar
+  end type cross_coupled_31_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
 
-   ! THIS STUFF IS IMPORTANT, DON'T CHANGE IT.
+  ! THIS STUFF IS IMPORTANT, DON'T CHANGE IT.
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
-   real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
-   real(8),allocatable,dimension(:,:) :: phase_pp,phase_hh 
-   integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
-   integer,public,dimension(6) :: tensor_adjust = (/0,6,4,0,0,3/)
-   type(six_index_store),public :: store6j , half6j  ! holds 6j-symbols
-   !The following public arrays give info about the 6 different categories
-   ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
-   ! holds the c values for qn and pn arrays
-   integer,public,dimension(9) :: sea1 = (/1,1,1,2,3,2,3,2,3/), sea2 = (/1,2,3,2,3,3,1,1,2/) 
-   ! true if square matrix
-   logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
-   ! 100000 if square matrix, 1 if not. 
-   integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
-   integer,public :: global_counter1=0,global_counter2=0,global_counter3=0
-   character(500) :: TBME_DIR,SP_DIR,INI_DIR
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ! Most of this stuff is really non-intuitive. The heavy lifting parts of the code
+  ! use it, and hopefully you will never have to worry about what it does. 
+
+  real(8),public,parameter :: al = 1.d0 , bet = 0.d0  ! parameters for dgemm that NEVER change
+  real(8),allocatable,dimension(:,:) :: phase_pp,phase_hh 
+  integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
+  integer,public,dimension(6) :: tensor_adjust = (/0,6,4,0,0,3/)
+  type(six_index_store),public :: store6j , half6j  ! holds 6j-symbols
+  !The following public arrays give info about the 6 different categories
+  ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
+  ! holds the c values for qn and pn arrays
+  integer,public,dimension(9) :: sea1 = (/1,1,1,2,3,2,3,2,3/), sea2 = (/1,2,3,2,3,3,1,1,2/) 
+  ! true if square matrix
+  logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
+  ! 100000 if square matrix, 1 if not. 
+  integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
+
+
+
+  integer,public :: global_counter1=0,global_counter2=0,global_counter3=0
+  character(500) :: TBME_DIR,SP_DIR,INI_DIR,OUTPUT_DIR
    
-
-
-   ! CHANGE THESE AS NEEDED. ==========================================================
-   real(8),public,parameter :: hbarc = 197.326968d0, m_nuc = 938.918725 !2006 values 
-   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
-   real(8),public,parameter :: Pi_const = acos(-1.d0) 
-
-   character(500) :: OUTPUT_DIR = '/mnt/home/parzuch6/nuclear_IMSRG/output/'   
-   character(500),dimension(1) :: TBME_DIRECTORY_LIST=(/ '/mnt/home/parzuch6/nuclear_IMSRG/TBME_input/' /)  
-   character(500),dimension(1) :: SP_DIRECTORY_LIST=(/ '/mnt//home/parzuch6/nuclear_IMSRG/sp_inputs/' /)  
-   character(500),dimension(1) :: INI_DIRECTORY_LIST=(/ '/mnt/home/parzuch6/nuclear_IMSRG/inifiles/' /) 
-   
+  ! CHANGE THESE AS NEEDED. ==========================================================
+  real(8),public,parameter :: hbarc = 197.326968d0, m_nuc = 938.918725 !2006 values 
+  real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
+  real(8),public,parameter :: Pi_const = acos(-1.d0) 
+  
+  ! If you have multiple places where you might want to write/read from, list them here. 
+  ! You can have as many as you want, just make sure to increase the dimension accordingly. 
+  ! Fortran is stupid about strings so make sure the strings are the same length, or it will get pissed.    
+  ! The code will search through the possibilities and use the first one that works. 
+  character(500),dimension(2) :: OUTPUT_DIRECTORY_LIST=& 
+       (/               '/home/nathan/nuclear_IMSRG/output/                 '              , &
+                        '/mnt/home/parzuch6/nuclear_IMSRG/output/           '                /) 
+  character(500),dimension(2) :: TBME_DIRECTORY_LIST=&
+       (/               '/mnt/home/parzuch6/nuclear_IMSRG/TBME_input/       '              , &
+                        '/home/nathan/nuclear_IMSRG/TBME_input/             '                /)  
+  character(500),dimension(2) :: SP_DIRECTORY_LIST=&
+       (/               '/mnt/home/parzuch6/nuclear_IMSRG/sp_inputs/        '              , &
+                        '/home/nathan/nuclear_IMSRG/sp_inputs/              '                /)  
+  character(500),dimension(2) :: INI_DIRECTORY_LIST=&
+       (/               '/mnt/home/parzuch6/nuclear_IMSRG/inifiles/         '              , &
+                        '/home/nathan/nuclear_IMSRG/inifiles/               '                /)
+  !======================================================================================
 contains
 !====================================================
 !====================================================
@@ -3310,6 +3327,14 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   do while (.not. (found))   
      SP_DIR = SP_DIRECTORY_LIST(i) 
      inquire(file=trim(SP_DIR)//trim(spfile),exist=found)      
+     i = i + 1
+  end do
+
+  i = 1 
+  found = .false. 
+  do while (.not. (found))   
+     OUTPUT_DIR = OUTPUT_DIRECTORY_LIST(i) 
+     inquire(file=trim(OUTPUT_DIR),exist=found)      
      i = i + 1
   end do
 
