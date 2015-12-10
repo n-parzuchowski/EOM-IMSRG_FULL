@@ -58,8 +58,9 @@ else:
     Ptarg = '0'
     Jtarg ='0'
     valshell = '1s0d' #default
-    lawbeta = '0.0' 
-
+    lawbeta = '0.0'
+    
+hw_com = '0.0'
 
 contin = raw_input('For other observable options, type "more", else press enter: ') 
 
@@ -112,16 +113,26 @@ else:
     
 mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','18gb','20gb','25gb'] 
 wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','03:00:00', \
-'4:00:00','10:00:00','15:00:00','25:00:00','45:00:00','75:00:00']
+'04:00:00','04:00:00','04:00:00','04:00:00','04:00:00','04:00:00']
 ompnum = ['8','8','8','8','8','8','8','4','2','1','1']
-
 
 for R in Rlist:
     for hw in hwlist:
         
         hwx = int(hw) 
         Rx = int(R) 
-        
+
+        if magint=='5':
+            if Rx > 5: 
+                resubmit=True
+            else:
+                resubmit=False
+        else:
+            if Rx > 8: 
+                resubmit=True
+            else:
+                resubmit=False
+                
         memreq = mem[Rx - 3] 
         timreq = wtime[Rx-3]
         
@@ -131,7 +142,7 @@ for R in Rlist:
             jobname = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw 
             initfile = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw+'.ini'
         else:    
-            TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int' 
+            TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
             spfile = 'nl'+R+'.sps'
             jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw 
             initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'.ini'
@@ -149,8 +160,20 @@ for R in Rlist:
         fx.write('#PBS -m a\n\n')
         fx.write('cd $HOME/nuclear_IMSRG/src/im-SRG\n\n')
         fx.write('export OMP_NUM_THREADS='+ompnum[Rx-3]+'\n\n')
-        fx.write('./run_IMSRG '+initfile+'\n')
-        fx.write('qstat -f ${PBS_JOBID}\n')
+        if resubmit: 
+            fx.write('export BLCR_CHECKFILE="../../blcr_checkpoints/'+jobname+'.blcr"\n')
+            fx.write('export BLCR_OUTFILE="../../output/'+jobname+'.out"\n')
+            fx.write('export BLCR_WAIT_TIME=13500\n')
+            fx.write('export BLCR_PBS_FILE="pbs_'+jobname+'"\n')
+            fx.write('export PATH_TO_PBS_FILE="../../"\n\n')
+            fx.write('sh resubmit_qsub.sh ./run_IMSRG '+initfile+'\n')
+            print 'WARNING: CHECK "blcr_checkpoints" for .blcr file...'
+            print 'IF AN OLD ONE IS PRESENT, IT WILL BE RE-USED'
+            print
+        else:
+            fx.write('./run_IMSRG '+initfile+'\n')
+        
+        fx.write('qstat -f ${PBS_JOBID}\nexit 0\n')
         fx.close()
         
         fq.write('qsub pbs_'+jobname+'\n') 
@@ -223,7 +246,7 @@ for R in Rlist:
         fx.write('# ENTER 1 TO CALCULATE Rrms, 0 otherwise\n') 
         fx.write(RRMSint+'\n') 
         fx.write('# Lawson beta value\n') 
-        fx.write(lawbeta+'\n') 
+        fx.write(lawbeta+','+hw_com+'\n') 
         fx.write('########################################################\n')
         fx.write('# NOTES \n')
         fx.write('#\n')
