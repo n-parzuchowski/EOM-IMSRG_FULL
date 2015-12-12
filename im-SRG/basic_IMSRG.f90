@@ -3238,12 +3238,13 @@ subroutine print_matrix(matrix)
 end subroutine 
 !===============================================  
 subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
-     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs)
+     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips)
   !read inputs from file
   implicit none 
   
   character(200) :: spfile,intfile,input,prefix
   character(50) :: valence
+  character(1) :: quads,trips
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
   integer :: method,Exint,ISTAT ,i
@@ -3292,7 +3293,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*);read(22,*)
   read(22,*) jx
   read(22,*);read(22,*)
-  read(22,*) method
+  read(22,*) method,quads,trips
   read(22,*);read(22,*)
   read(22,*) excalc
   read(22,*)
@@ -3308,10 +3309,11 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*)
   read(22,*) H%lawson_beta,H%com_hw
  
+
   valence = adjustl(valence)
   H%Jtarg = Jtarg
   H%Ptarg = Ptarg
- 
+  
   HF = .false. 
   if (jx == 1) HF = .true. 
   COM = .false.

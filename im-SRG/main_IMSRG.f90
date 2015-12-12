@@ -12,11 +12,12 @@ program main_IMSRG
   implicit none
   
   type(spd) :: jbasis
-  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,quad_trans
+  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,quad_trans,exp_omega
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
+  character(1) :: quads,trips
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x
@@ -45,7 +46,7 @@ program main_IMSRG
 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
-       me2b,mortbin,hw,skip_setup,skip_gs)
+       me2b,mortbin,hw,skip_setup,skip_gs,quads,trips)
 
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
   
@@ -164,19 +165,19 @@ program main_IMSRG
   select case (method_int) 
   
   case (1) ! magnus 
-    
+
+     call magnus_decouple(HS,exp_omega,jbasis,quads,trips)    
+
      if (COM_calc) then 
-        call magnus_decouple(HS,jbasis,pipj,rirj)
+        print*, 'TRANSFORMING Hcm'
+        call transform_observable_BCH(pipj,exp_omega,jbasis,quads)
+        call transform_observable_BCH(rirj,exp_omega,jbasis,quads)
+        print*, 'CALCULTING Ecm' 
         call calculate_CM_energy(pipj,rirj,hw) 
      else if (r2rms_calc) then
-        call magnus_decouple(HS,jbasis,r2_rms)
+        print*, 'TRANSFORMING RADIUS'
+        call transform_observable_BCH(r2_rms,exp_omega,jbasis,quads)
         call write_tilde_from_Rcm(r2_rms)
-     else 
-        print*, 'original'
-        call print_matrix(quad_trans%fph)
-        call magnus_decouple(HS,jbasis,quad_trans) 
-        print*, 'evolved'
-        call print_matrix(quad_trans%fph)
      end if
     
   case (2) ! traditional
@@ -193,7 +194,6 @@ program main_IMSRG
      end if
      
   case (3) 
-  
      if (COM_calc) then 
         call discrete_decouple(HS,jbasis,pipj,rirj)
         call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
@@ -203,54 +203,6 @@ program main_IMSRG
      else 
         call discrete_decouple(HS,jbasis) 
      end if
-
-  case (4) ! magnus(2/3) 
-    
-     if (COM_calc) then 
-        call magnus_decouple(HS,jbasis,pipj,rirj,quads='y')
-        call calculate_CM_energy(pipj,rirj,hw) 
-     else if (r2rms_calc) then
-        call magnus_decouple(HS,jbasis,r2_rms,quads='y')
-        call write_tilde_from_Rcm(r2_rms)
-     else 
-        call magnus_decouple(HS,jbasis,quads='y') 
-     end if 
-     
-  case (5) ! magnus(2/3)[T] 
-    
-     if (COM_calc) then 
-        call magnus_decouple(HS,jbasis,pipj,rirj,quads='y',trips='y')
-        call calculate_CM_energy(pipj,rirj,hw) 
-     else if (r2rms_calc) then
-        call magnus_decouple(HS,jbasis,r2_rms,quads='y',trips='y')
-        call write_tilde_from_Rcm(r2_rms)
-     else 
-        call magnus_decouple(HS,jbasis,quads='y',trips='y') 
-     end if 
-
-  case (6) ! magnus(2)[T] 
-    
-     if (COM_calc) then 
-        call magnus_decouple(HS,jbasis,pipj,rirj,trips='y')
-        call calculate_CM_energy(pipj,rirj,hw) 
-     else if (r2rms_calc) then
-        call magnus_decouple(HS,jbasis,r2_rms,trips='y')
-        call write_tilde_from_Rcm(r2_rms)
-     else 
-        call magnus_decouple(HS,jbasis,trips='y') 
-     end if 
-     
-  case (7) ! magnus(2/3)[T] 
-    
-     if (COM_calc) then 
-        call magnus_decouple(HS,jbasis,pipj,rirj,quads='y',trips='C')
-        call calculate_CM_energy(pipj,rirj,hw) 
-     else if (r2rms_calc) then
-        call magnus_decouple(HS,jbasis,r2_rms,quads='y',trips='C')
-        call write_tilde_from_Rcm(r2_rms)
-     else 
-        call magnus_decouple(HS,jbasis,quads='y',trips='C') 
-     end if 
 
   end select
 !============================================================
@@ -279,14 +231,15 @@ program main_IMSRG
     
      select case (method_int) 
         case(1) !magnus
-    
-        if (COM_calc) then 
-           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
-           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
-        else if (r2rms_calc) then
-           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
-        else 
-           call magnus_TDA(HS,TDA,jbasis) 
+           
+           call magnus_TDA(HS,TDA,exp_omega,jbasis,quads)     
+       
+           if (COM_calc) then 
+              call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
+           else if (r2rms_calc) then
+              print*, 'fuck'
+           else 
+              print*, 'superfuck'
         end if
         
         case(2) !traditional
@@ -314,39 +267,6 @@ program main_IMSRG
         else 
            call discrete_TDA(HS,TDA,jbasis) 
         end if 
-        
-        case(4) !magnus(2/3)
-    
-        if (COM_calc) then 
-           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA,quads='y') 
-           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
-        else if (r2rms_calc) then
-           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA,quads='y')
-        else 
-           call magnus_TDA(HS,TDA,jbasis,quads='y') 
-        end if
-        
-        case(5) !magnus(2/3)[T]
-    
-        if (COM_calc) then 
-           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA,quads='y') 
-           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
-        else if (r2rms_calc) then
-           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA,quads='y')
-        else 
-           call magnus_TDA(HS,TDA,jbasis,quads='y') 
-        end if
-        
-        case(6) !magnus(2)[T]
-    
-        if (COM_calc) then 
-           call magnus_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
-           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
-        else if (r2rms_calc) then
-           call magnus_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
-        else 
-           call magnus_TDA(HS,TDA,jbasis) 
-        end if
       
      end select
      

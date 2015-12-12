@@ -9,55 +9,43 @@ module IMSRG_MAGNUS
   
 contains
 
-subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips) 
+subroutine magnus_decouple(HS,G,jbas,quads,trips)
   ! runs IMSRG using magnus expansion method
   implicit none 
   
   integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
   type(spd) :: jbas
   type(tpd),allocatable,dimension(:) :: threebas
-  type(sq_op),optional :: O1,O2
-  type(sq_op) :: H,H2,G1b,G2b,G,ETA,HS,INT1,INT2,AD
-  type(sq_op) :: w1,w2,DG,G0,ETA0,H0,Oevolv,CR
+  type(sq_op) :: H,G,HS,AD
+  type(sq_op) :: DG,CR
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
   character(200) :: spfile,intfile,prefix
-  character(1),optional :: quads,trips
-  logical :: qd_calc,trip_calc,xxCR
+  character(1) :: quads,trips
+  logical :: trip_calc,xxCR
   common /files/ spfile,intfile,prefix
   
-  qd_calc = .false. 
-  if (present(quads)) then 
-     qd_calc = .true.
-  end if 
-  
   trip_calc = .false. 
-  if (present(trips)) then 
+  xxCr = .false. 
+
+  if (trips=='y') then 
+     ! triples correction
      trip_calc=.true.
-     xxCr = .false. 
-     if (trips == 'C') xxCr = .true.
+  else if (trips == 'C') then 
+     ! triples correction with full internal BCH
+     trip_calc=.true. 
+     xxCr = .true.
   end if 
      
-
   HS%neq = 1
   call duplicate_sq_op(HS,H) !evolved hamiltonian
-  call duplicate_sq_op(HS,w1) !workspace
-  call duplicate_sq_op(HS,w2) !workspace
-  call duplicate_sq_op(HS,INT1) !workspace
-  call duplicate_sq_op(HS,INT2) !workspace
   call duplicate_sq_op(HS,AD) !workspace
   call duplicate_sq_op(HS,G) !magnus operator
   call duplicate_sq_op(HS,DG) !magnus operator
   G%herm = -1 
-  DG%herm = -1
-  G0%herm = -1 
-  ETA0%herm = -1
-  
-  call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
-  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
-  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
-  
+  DG%herm = -1 
+   
   !call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
   call build_gs_white(HS,DG,jbas)  
   !call build_gs_imtime(HS,DG,jbas) 
@@ -85,39 +73,25 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
 
   write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
   write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-
-  nrm1 = mat_frob_norm(DG)
   
   do while (crit > 1e-6) 
      
-     call MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+     call MAGNUS_EXPAND(DG,G,AD,jbas)
      
      call euler_step(G,DG,s,ds) 
      
-     if (qd_calc) then 
-        ! calculate quadrupoles correction   
-        call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,'y') 
-     else
-        ! make two separate operators
-        call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-     end if
-     
-     !   call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
-  
+     call BCH_EXPAND(HS,G,H,jbas,quads) 
+    
      call build_gs_white(HS,DG,jbas)   
      
-     nrm2 = HS%E0 !mat_frob_norm(ETA)
-     nrm2 = mat_frob_norm(DG)
-
      E_mbpt2 = mbpt2(HS,jbas) 
 
      crit = abs(E_mbpt2) 
-     nrm1 = nrm2 
      steps = steps + 1
      write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
 
- end do
+  end do
  
 ! triples correction ===========================================================
   if (trip_calc) then 
@@ -126,7 +100,7 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      if ( xxCR ) then 
         call duplicate_sq_op(H,CR)         
         ! completely renormalized bit.
-        call CR_EXPAND(CR,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
+        call CR_EXPAND(CR,G,H,jbas,quads) 
         corr =  restore_triples(CR,G,threebas,jbas)
      else
         corr =  restore_triples(H,G,threebas,jbas) 
@@ -138,96 +112,36 @@ subroutine magnus_decouple(HS,jbas,O1,O2,quads,trips)
      write(39,'(I6,4(e15.7))') steps,s,HS%E0+corr,HS%E0+E_mbpt2,crit
      close(39)
   end if
-
-! calculate any observables which have been requested =====================
-  
-  if (present(O1)) then 
-  
-     if (present(O2)) then     
-
-        call duplicate_sq_op(O2,Oevolv)    
-        if (O2%rank > 0)  then 
-           call change_to_tensors(O2,INT1,INT2,AD,w1,w2,ADCC,WCC,jbas) 
-           call BCH_TENSOR(Oevolv,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)       
-        else
-           call BCH_EXPAND(Oevolv,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)       
-        end if
-
-        call copy_sq_op(Oevolv,O2) 
-        call clear_sq_op(Oevolv)
-     end if
-    
-     if (O1%rank > 0) then 
-        if (INT1%rank .ne. O1%rank) then 
-           if (Oevolv%rank .ne. O1%rank) then 
-              if (present(O2)) then
-                 call change_to_tensors(jbas,O1,INT1,INT2,AD,w1,w2,ADCC,WCC,Oevolv)
-              else
-                 print*, 'fuck'
-                 call change_to_tensors(jbas,O1,INT1,INT2,AD,w1,w2,ADCC,WCC)
-                 print*, 'end fuck'
-                 call duplicate_sq_op(O1,Oevolv)
-              end if
-           else
-              call change_to_tensors(jbas,O1,INT1,INT2,AD,w1,w2,ADCC,WCC)    
-           end if
-        end if
-        
-        call BCH_TENSOR(Oevolv,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)       
-        call copy_sq_op(Oevolv,O1)             
-     else
-        call BCH_EXPAND(Oevolv,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)      
-        call copy_sq_op(Oevolv,O1)  
-     end if
-  end if
-       
-!===========================================================================  
-  close(36)
   
 end subroutine  
 !===========================================================================
 !===========================================================================
-subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA,quads) 
+subroutine magnus_TDA(HS,TDA,G,jbas,quads) 
   ! runs IMSRG TDA decoupling using magnus expansion method
   implicit none 
   
   integer :: Atot,Ntot,nh,np,nb,q,steps,i,Jsing
   type(spd) :: jbas
-  type(sq_op),optional :: O1,O2
   type(full_sp_block_mat) :: TDA
-  type(full_sp_block_mat),optional :: O1TDA,O2TDA
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC,HCC,OeCC
   real(8) :: ds,s,crit,nrm1,nrm2,wTs(2),Ecm(3)
   real(8),allocatable,dimension(:) :: E_old,wTvec
   character(200) :: spfile,intfile,prefix
   character(3) :: args
-  character(1),optional :: quads 
-  logical :: qd_calc 
+  character(1) :: quads 
   character(1) :: Jlabel,Plabel
   common /files/ spfile,intfile,prefix
   
-  qd_calc = .false.
-  if (present(quads)) qd_calc =.true. 
-  
   call duplicate_sq_op(HS,H) !evolved hamiltonian
-  call duplicate_sq_op(HS,w1) !workspace
-  call duplicate_sq_op(HS,w2) !workspace
-  call duplicate_sq_op(HS,INT1) !workspace
-  call duplicate_sq_op(HS,INT2) !workspace
   call duplicate_sq_op(HS,AD) !workspace
   call duplicate_sq_op(HS,G) !magnus operator
   call duplicate_sq_op(HS,DG) !magnus operator
 
   G%herm = -1 
   DG%herm = -1
-  G0%herm = -1 
-  ETA0%herm = -1
     
-  call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
-  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
-  call duplicate_CCMAT(ADCC,HCC) 
-  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+  call allocate_CCMAT(HS,HCC,jbas) !cross coupled ME
   
   ! TDA stuff
   call calculate_cross_coupled(HS,HCC,jbas,.true.)
@@ -261,15 +175,10 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA,quads)
  
   do while (crit > 1e-5) 
   
-     call MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+     call MAGNUS_EXPAND(DG,G,AD,jbas)
      call euler_step(G,DG,s,ds) 
  
-     if (qd_calc) then 
-        call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,'y') 
-     else
-        call BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-     end if
-    
+     call BCH_EXPAND(HS,G,H,jbas,quads) 
          
      call build_specific_space(HS,DG,jbas)
     
@@ -283,72 +192,91 @@ subroutine magnus_TDA(HS,TDA,jbas,O1,O1TDA,O2,O2TDA,quads)
      write(*,'(I6,7(e15.7))') steps,s,TDA%blkM(1)%eigval(1:5),crit
      E_old = TDA%blkM(1)%eigval
 
-    ! nrm1 = nrm2 
      steps = steps + 1
-     
-     
+          
   end do
  
 ! calculate any observables which have been requested =====================
   
-  if (present(O1)) then 
-     call duplicate_sq_op(O1,Oevolv) 
-     call duplicate_CCMAT(HCC,OeCC)
+  ! if (present(O1)) then 
+  !    call duplicate_sq_op(O1,Oevolv) 
+  !    call duplicate_CCMAT(HCC,OeCC)
 
-     if (present(O2)) then 
+  !    if (present(O2)) then 
         
-        ! transform observable
-        call BCH_EXPAND(Oevolv,G,O2,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-        call duplicate_sp_mat(TDA,O2TDA) 
-        allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
-        O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-        call calculate_cross_coupled(Oevolv,OeCC,jbas,.true.) 
-        call calc_TDA(O2TDA,Oevolv,OeCC,jbas)
-        call copy_sq_op(Oevolv,O2)
-     end if 
+  !       ! transform observable
+  !       call BCH_EXPAND(Oevolv,G,O2,jbas) 
+  !       call duplicate_sp_mat(TDA,O2TDA) 
+  !       allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
+  !       O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
+  !       call calculate_cross_coupled(Oevolv,OeCC,jbas,.true.) 
+  !       call calc_TDA(O2TDA,Oevolv,OeCC,jbas)
+  !       call copy_sq_op(Oevolv,O2)
+  !    end if 
      
-     ! transform observable
-     call BCH_EXPAND(Oevolv,G,O1,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s) 
-     call duplicate_sp_mat(TDA,O1TDA)
-     allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
-     O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-     call calculate_cross_coupled(Oevolv,OeCC,jbas,.true.) 
-     call calc_TDA(O1TDA,Oevolv,OeCC,jbas) 
-     call copy_sq_op(Oevolv,O1) 
-  end if 
+  !    ! transform observable
+  !    call BCH_EXPAND(Oevolv,G,O1,jbas) 
+  !    call duplicate_sp_mat(TDA,O1TDA)
+  !    allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
+  !    O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
+  !    call calculate_cross_coupled(Oevolv,OeCC,jbas,.true.) 
+  !    call calc_TDA(O1TDA,Oevolv,OeCC,jbas) 
+  !    call copy_sq_op(Oevolv,O1) 
+  ! end if 
 
 !===========================================================================  
   close(37)
 end subroutine
 !=========================================================================
 !=========================================================================
-subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads) 
+subroutine transform_observable_BCH(Op,G,jbas,quads)
   implicit none 
   
-  real(8), parameter :: conv = 1e-8
+  type(spd) :: jbas
+  type(sq_op) :: Op,G,Oevolved
+  character(1) :: quads
+  
+  call duplicate_sq_op(Op,Oevolved) 
+  
+  if (Op%rank > 0) then      
+     call BCH_TENSOR(Oevolved,G,Op,jbas,quads)
+  else
+     call BCH_EXPAND(Oevolved,G,Op,jbas,quads)
+  end if 
+
+  call copy_sq_op(Oevolved,Op) 
+  
+end subroutine   
+!=========================================================================
+!=========================================================================
+subroutine BCH_EXPAND(HS,G,H,jbas,quads) 
+  implicit none 
+  
+  real(8), parameter :: conv = 1e-6
   integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
-  real(8) ::  cof(15),adnorm,fullnorm,s,advals(15),sm,sm2,dcgi,dcgi00
+  real(8) :: adnorm,fullnorm,s,advals(15),sm,sm2,coef
   character(3) :: args
-  character(1),optional :: quads ! enter some character to restore quadrupoles 
-  logical :: qd_calc   
- 
-  qd_calc = .false. 
-  if (present(quads)) then 
-     qd_calc = .true. 
-  end if 
-  
+  character(1) :: quads ! enter some character to restore quadrupoles 
+
+  call duplicate_sq_op(HS,w1) !workspace
+  call duplicate_sq_op(HS,w2) !workspace
+  call duplicate_sq_op(HS,INT1) !workspace
+  call duplicate_sq_op(HS,INT2) !workspace
+  call duplicate_sq_op(HS,AD) !workspace
+  INT2%herm = 1
+  INT1%herm = 1 
+  AD%herm = 1
+  call allocate_CCMAT(AD,ADCC,jbas) !cross coupled ME
+  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
+  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+
   advals = 0.d0 
-  
-  cof = (/1.d0,1.d0,0.5d0,0.166666666666666666d0, &
-       0.04166666666666666d0,0.0083333333333333333d0,&
-       .001388888888888d0,1.984126984d-4,2.48015873016d-5,&
-       2.75573192239d-6,2.75573192239d-7,2.505210839d-8, &
-       2.087675698d-9,1.6059043837d-10,1.1470745598d-11/) 
+  coef = 1.d0 
 
   ! intermediates must be HERMITIAN
   INT2%herm = 1
@@ -358,15 +286,15 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
   !! so here:  H is the current hamiltonian and we 
   !! copy it onto HS.  We copy this onto 
   !! INT2, just to make things easier for everyone.
-  call duplicate_sq_op(H,INT3)
+  if (quads=='y') call duplicate_sq_op(H,INT3)
 
   call copy_sq_op( H , HS )  !basic_IMSRG
   call copy_sq_op( HS , INT2 )
  
   advals(1) = abs(H%E0)   
 
-  do iw = 2 ,15
-
+  do iw = 2 ,30
+     coef = coef/(iw-1.d0) 
      ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
      ! AD refers AD_n and INT2 becomes AD_{n+1} . 
@@ -392,49 +320,49 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
      call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
      
      ! so now just add INT1 + c_n * INT2 to get current value of HS
-     call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2)     
-     call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
-     
-     if (qd_calc) then 
+     if (quads=='y') then 
+        call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2)          
         call restore_quadrupoles(AD,G,w1,w2,INT3,jbas) 
      end if 
-     
-     advals(iw) = abs(INT2%E0*cof(iw))
+
+     call add_sq_op(INT1 ,1.d0 , INT2 , coef , HS )   !basic_IMSRG
+          
+     advals(iw) = mat_frob_norm(INT2)*coef
      if (advals(iw) < conv) exit
      
   end do 
- 
+  
 end subroutine BCH_EXPAND
 !=========================================================================
 !=========================================================================
-subroutine BCH_TENSOR(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads) 
+subroutine BCH_TENSOR(HS,G,H,jbas,quads) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-8
+  real(8), parameter :: conv = 1e-6
   integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
-  real(8) ::  cof(15),adnorm,fullnorm,s,advals(15),sm,sm2,dcgi,dcgi00
+  real(8) ::  coef,adnorm,fullnorm,s,advals(15),sm,sm2,dcgi,dcgi00
   character(3) :: args
-  character(1),optional :: quads ! enter some character to restore quadrupoles 
-  logical :: qd_calc   
+  character(1) :: quads ! enter some character to restore quadrupoles 
  
-  qd_calc = .false. 
-  if (present(quads)) then 
-     qd_calc = .true. 
-  end if 
+  call duplicate_sq_op(HS,w1) !workspace
+  call duplicate_sq_op(HS,w2) !workspace
+  call duplicate_sq_op(HS,INT1) !workspace
+  call duplicate_sq_op(HS,INT2) !workspace
+  call duplicate_sq_op(HS,AD) !workspace
+  INT2%herm = 1
+  INT1%herm = 1 
+  AD%herm = 1
+  call allocate_tensor_CCMAT(AD,ADCC,jbas) !cross coupled ME
+  call allocate_CCMAT(G,GCC,jbas) !cross coupled ME
+  call allocate_CCtensor_wkspc(ADCC,WCC) ! workspace for CCME
   
   advals = 0.d0 
-  
-  cof = (/1.d0,1.d0,0.5d0,0.166666666666666666d0, &
-       0.04166666666666666d0,0.0083333333333333333d0,&
-       .001388888888888d0,1.984126984d-4,2.48015873016d-5,&
-       2.75573192239d-6,2.75573192239d-7,2.505210839d-8, &
-       2.087675698d-9,1.6059043837d-10,1.1470745598d-11/) 
-
+  coef = 1.d0
   ! intermediates must be HERMITIAN
   INT2%herm = 1
   INT1%herm = 1 
@@ -450,7 +378,7 @@ subroutine BCH_TENSOR(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
   advals(1) = abs(H%E0)   
 
   do iw = 2 ,15
- 
+     coef = coef/(iw-1.d0)
      ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
      ! AD refers AD_n and INT2 becomes AD_{n+1} . 
@@ -476,9 +404,9 @@ subroutine BCH_TENSOR(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
      call TS_commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
      
      ! so now just add INT1 + c_n * INT2 to get current value of HS
-     call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
+     call add_sq_op(INT1 ,1.d0 , INT2 , coef , HS )   !basic_IMSRG
          
-     advals(iw) = mat_frob_norm(INT2)*cof(iw)
+     advals(iw) = mat_frob_norm(INT2)*coef
     if (advals(iw) < conv) exit
      
   end do 
@@ -486,34 +414,36 @@ subroutine BCH_TENSOR(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
 end subroutine BCH_TENSOR
 !=========================================================================
 !=========================================================================
-subroutine CR_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads) 
+subroutine CR_EXPAND(HS,G,H,jbas,quads) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-8
+  real(8), parameter :: conv = 1e-6
   integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
   type(cross_coupled_31_mat) :: WCC,ADCC,GCC
-  real(8) ::  cof(14),adnorm,fullnorm,s,advals(14),sm,sm2,dcgi,dcgi00
+  real(8) ::  coef,adnorm,fullnorm,s,advals(14),sm,sm2,dcgi,dcgi00
   character(3) :: args
-  character(1),optional :: quads ! enter some character to restore quadrupoles 
-  logical :: qd_calc   
+  character(1) :: quads ! enter some character to restore quadrupoles 
 
-  qd_calc = .false. 
-  if (present(quads)) then 
-     qd_calc = .true. 
-  end if 
-  
+  call duplicate_sq_op(HS,w1) !workspace
+  call duplicate_sq_op(HS,w2) !workspace
+  call duplicate_sq_op(HS,INT1) !workspace
+  call duplicate_sq_op(HS,INT2) !workspace
+  call duplicate_sq_op(HS,AD) !workspace
+  INT2%herm = 1
+  INT1%herm = 1 
+  AD%herm = 1
+  call allocate_CCMAT(AD,ADCC,jbas) !cross coupled ME
+  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
+  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+
+
   advals = 0.d0 
   
-  cof = (/1.d0,0.5d0,0.166666666666666666d0, &
-       0.04166666666666666d0,0.0083333333333333333d0,&
-       .001388888888888d0,1.984126984d-4,2.48015873016d-5,&
-       2.75573192239d-6,2.75573192239d-7,2.505210839d-8, &
-       2.087675698d-9,1.6059043837d-10,1.1470745598d-11/) 
-
+  coef = 1.d0
   ! intermediates must be HERMITIAN
   INT2%herm = 1
   INT1%herm = 1 
@@ -522,7 +452,7 @@ subroutine CR_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
   !! so here:  H is the current hamiltonian and we 
   !! copy it onto HS.  We copy this onto 
   !! INT2, just to make things easier for everyone.
-  call duplicate_sq_op(H,INT3)
+  if (quads=='y') call duplicate_sq_op(H,INT3)
 
   call copy_sq_op( H , HS )  !basic_IMSRG
   call copy_sq_op( HS , INT2 )
@@ -530,7 +460,7 @@ subroutine CR_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
   advals(1) = abs(H%E0)   
 
   do iw = 2 ,14
-
+     coef= coef/float(iw)
      ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
      ! AD refers AD_n and INT2 becomes AD_{n+1} . 
@@ -557,15 +487,14 @@ subroutine CR_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
      call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
 
      ! so now just add INT1 + c_n * INT2 to get current value of HS
-          
-     call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2)     
-     call add_sq_op(INT1 ,1.d0 , INT2 , cof(iw) , HS )   !basic_IMSRG
-    
-     if (qd_calc) then 
+     if (quads=='y') then
+        call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2)        
         call restore_quadrupoles(AD,G,w1,w2,INT3,jbas) 
-     end if 
+     end if           
      
-     advals(iw) = abs(INT2%E0*cof(iw))
+     call add_sq_op(INT1 ,1.d0 , INT2 , coef , HS )   !basic_IMSRG
+         
+     advals(iw) = mat_frob_norm(INT2)*coef
      if (advals(iw) < conv) exit
      
   end do 
@@ -573,10 +502,10 @@ subroutine CR_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s,quads)
 end subroutine 
 !===============================================================
 !===============================================================
-subroutine MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
+subroutine MAGNUS_EXPAND(DG,G,AD,jbas)
   implicit none 
   
-  real(8), parameter :: conv = 1e-8
+  real(8), parameter :: conv = 1e-6
   integer :: trunc,i,q,j,k,l,ry
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
@@ -584,11 +513,20 @@ subroutine MAGNUS_EXPAND(DG,G,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   real(8) ::  cof(7),adnorm,fullnorm,s,advals(7) 
   character(3) :: args
   
-  advals = 0.d0 
-  ! Intermediates are ANTI-HERMITIAN 
+  call duplicate_sq_op(DG,w1) !workspace
+  call duplicate_sq_op(DG,w2) !workspace
+  call duplicate_sq_op(DG,INT1) !workspace
+  call duplicate_sq_op(DG,INT2) !workspace
   INT2%herm = -1
   INT1%herm = -1 
   AD%herm = -1
+  
+  call allocate_CCMAT(AD,ADCC,jbas) !cross coupled ME
+  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
+  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+
+  advals = 0.d0 
+  ! Intermediates are ANTI-HERMITIAN 
   
   cof = (/1.d0,-0.5d0,.0833333333d0,0.d0,-0.00138888888d0,0.d0,3.306878d-5/) 
   ! nested derivatives not so important
@@ -960,38 +898,3 @@ subroutine build_intermediates_For_intermediates(L,R,w1,w2,jbas)
   end do
 
 end subroutine 
-!==================================================================
-!==================================================================
-subroutine change_to_tensors(jbas,O2,INT1,INT2,AD,w1,w2,ADCC,WCC,Oevolv) 
-  use basic_IMSRG
-  implicit none 
-  
-  type(sq_op) :: O2,INT1,INT2,AD,w1,w2
-  type(sq_op),optional :: Oevolv
-  type(cross_coupled_31_mat) :: ADCC,WCC
-  type(spd) :: jbas 
-
-  call deallocate_sq_op(INT1)
-  call deallocate_sq_op(INT2)
-  call deallocate_sq_op(AD)
-  call deallocate_sq_op(w1)
-  call deallocate_sq_op(w2)
-  call deallocate_31_mat(ADCC)
-  call deallocate_31_mat(WCC)
-  
-  call duplicate_sq_op(O2,INT1) 
-  call duplicate_sq_op(O2,INT2)
-  call duplicate_sq_op(O2,AD)
-  call duplicate_sq_op(O2,w1)
-  call duplicate_sq_op(O2,w2)
-  
-  if (present(Oevolv)) then 
-     print*, 'my fucking god...'
-     call deallocate_sq_op(Oevolv)
-     call duplicate_sq_op(O2,Oevolv)
-  end if 
-  
-  call allocate_tensor_CCMAT(O2,ADCC,jbas) !cross coupled ME
-  call allocate_CCtensor_wkspc(ADCC,WCC) !
-
-end subroutine

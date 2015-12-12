@@ -5,7 +5,6 @@ module EOM_IMSRG
   use operators
   implicit none
   
-
 contains 
 
 subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1) 
@@ -32,6 +31,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   if ( ladder_ops(1)%rank .ne. 0 ) then 
     
      call allocate_tensor(jbas,ladder_ops(1),HS)   
+     
      do q = 1,ladder_ops(1)%nblocks
         ladder_ops(1)%tblck(q)%lam(1) = 1 
      end do
@@ -41,7 +41,6 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   end if
 
   do i = 2, Numstates
-     print*, 'my fucking ass...'
      call duplicate_sq_op(ladder_ops(1),ladder_ops(i))
   end do 
   
