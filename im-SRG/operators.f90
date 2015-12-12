@@ -493,10 +493,10 @@ subroutine calculate_CM_energy_TDA(TDA,rr,pp,ppTDA,rrTDA,hw)
   write(42,'('//trim(args)//'(e14.6))') hw, omegas, energies 
   close(42)
   
-end subroutine
+end subroutine calculate_CM_energy_TDA
 
 subroutine calculate_EX(op,jbas) 
-  ! calculates electromagnetic transition amplitudes 
+  ! calculates electromagnetic transition operator 
   implicit none 
   
   type(spd) :: jbas
@@ -616,7 +616,7 @@ subroutine calculate_EX(op,jbas)
      end do 
   end do     
         
-end subroutine        
+end subroutine calculate_EX
   
 real(8) function rsq_ME(n1,l1,n2,l2,hw) 
   ! only for monopole and quadrupole. 
@@ -698,7 +698,77 @@ real(8) function rsq_ME(n1,l1,n2,l2,hw)
 
   end if 
          
-end function    
+end function rsq_ME
+
+real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas ) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) :: Trans_op,Qdag 
+  integer :: ja,jb,ji,jj,rank,Nsp,Abody
+  integer :: a,b,i,j,ax,ix,jx,bx,J1,J2
+  real(8) :: sm , phase
+  
+  sm = 0.d0 
+  
+  Nsp = jbas%total_orbits 
+  Abody = sum(jbas%con) 
+   
+  rank = Trans_op%rank 
+  
+  if (rank .ne. Qdag%rank)  then 
+     transition_to_ground_ME = 0.d0 
+     return
+  end if 
+  
+  do ax = 1,Nsp-Abody
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     do ix = 1,Abody 
+        i = jbas%holes(ix)
+        ji = jbas%jj(i) 
+        
+        phase = (-1) ** ((ja-ji+rank)/2)
+        sm = sm + f_tensor_elem(i,a,Trans_op,jbas)*&
+             f_tensor_elem(a,i,Qdag,jbas)*phase
+     end do 
+  end do 
+
+  do ax = 1,Nsp-Abody
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     do bx = 1,Nsp-Abody
+        b = jbas%parts(bx)
+        jb = jbas%jj(b) 
+        
+        do ix = 1,Abody 
+           i = jbas%holes(ix)
+           ji = jbas%jj(i) 
+           
+           do jx = 1,Abody 
+              j = jbas%holes(jx)
+              jj = jbas%jj(j) 
+  
+              do J1 = abs(ji-jj),ji+jj,2
+                 do J2 = abs(ja-jb),ja+jb,2
+                    
+              phase = (-1) **((ja+jb+ji+jj+rank)/2) 
+              sm = sm + phase*0.25d0*&
+                   tensor_elem(i,j,a,b,J1,J2,Trans_op,jbas)*&
+                   tensor_elem(a,b,i,j,J2,J1,Qdag,jbas) 
+                 end do 
+              end do 
+           end do
+        end do
+     end do
+  end do
+        
+  transition_to_ground_ME = sm + 1.d0/(rank+1.d0) 
+  
+end function transition_to_ground_ME
+
 end module
   
   

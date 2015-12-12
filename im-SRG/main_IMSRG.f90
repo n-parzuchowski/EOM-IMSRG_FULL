@@ -12,7 +12,7 @@ program main_IMSRG
   implicit none
   
   type(spd) :: jbasis
-  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms
+  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,quad_trans
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
@@ -60,6 +60,16 @@ program main_IMSRG
   end if
 
   call allocate_blocks(jbasis,HS) 
+ 
+  !Electric Quadrupole transition operator
+  quad_trans%rank = 4
+  quad_trans%herm = 1
+  quad_trans%dpar=0
+  call allocate_tensor(jbasis,quad_trans,HS)
+  quad_trans%hospace=hw
+  call calculate_EX(quad_trans,jbasis)
+  !It is a 1body operator, and is already normal ordered as a result. 
+  print*, quad_trans%hospace,quad_trans%Aneut
   
   HS%herm = 1
   HS%hospace = hw
@@ -162,9 +172,13 @@ program main_IMSRG
         call magnus_decouple(HS,jbasis,r2_rms)
         call write_tilde_from_Rcm(r2_rms)
      else 
-        call magnus_decouple(HS,jbasis) 
-     end if 
-     
+        print*, 'original'
+        call print_matrix(quad_trans%fph)
+        call magnus_decouple(HS,jbasis,quad_trans) 
+        print*, 'evolved'
+        call print_matrix(quad_trans%fph)
+     end if
+    
   case (2) ! traditional
      if (COM_calc) then 
         call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_2op,pipj,rirj)
@@ -242,7 +256,6 @@ program main_IMSRG
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
-
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  equation of motion calculation 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -250,7 +263,7 @@ program main_IMSRG
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
 
   if (ex_calc_int==1) then 
-     call calculate_excited_states( HS%Jtarg, HS%Ptarg, 10, HS , jbasis) 
+     call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbasis,quad_trans) 
      t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   end if

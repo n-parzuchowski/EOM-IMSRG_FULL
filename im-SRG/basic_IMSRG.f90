@@ -64,17 +64,6 @@ module basic_IMSRG
      logical :: pphh_ph
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-  TYPE :: mscheme_3body !second quantized operator 
-     type(real_mat),allocatable,dimension(:) :: Wmat
-     type(int_vec),allocatable,dimension(:) :: lam
-     type(int_mat),allocatable,dimension(:) :: qn_h,qn_p
-     integer,allocatable,dimension(:,:) :: qnm_holes,qnm_parts
-     integer,allocatable,dimension(:) :: direct_omp 
-     integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
-     integer :: Jtarg,Ptarg,valcut,oc_m,un_m
-     real(8) :: E0,hospace
-  END TYPE mscheme_3body 
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   type sp_block_mat
      real(8),allocatable,dimension(:,:) :: matrix!,eigvec
      real(8),allocatable,dimension(:) :: Eigval,extra
@@ -565,7 +554,8 @@ subroutine allocate_tensor(jbas,op,zerorank)
   op%belowEF = AX
   op%Nsp = jbas%total_orbits
   N = op%Nsp  !number of sp shells
-
+  op%Aprot = zerorank%Aprot
+  op%Aneut = zerorank%Aneut
   ! allocate the map array, which is used by 
   ! v_elem to find matrix elements
   allocate(op%xmap(N*(N+1)/2)) 
@@ -2769,13 +2759,55 @@ subroutine add_sp_mat(A,ax,B,bx,C)
 
 end subroutine
 !=====================================================
+subroutine deallocate_sq_op(op) 
+  implicit none 
+  
+  type(sq_op) :: op 
+
+  if (allocated(op%mat)) then 
+     deallocate(op%mat)
+  end if 
+  
+  if (allocated(op%tblck)) then 
+     deallocate(op%tblck)
+  end if 
+  deallocate(op%xmap,op%fph,op%fpp,op%fhh,op%exlabels,op%direct_omp) 
+end subroutine deallocate_sq_op
+!=====================================================
+subroutine deallocate_31_mat(op)
+  implicit none 
+  type(cross_coupled_31_mat) :: op
+  deallocate(op%CCX,op%CCR)
+  if (allocated(op%rmap)) then 
+     deallocate(op%rmap)
+  end if 
+  if (allocated(op%qmap)) then 
+     deallocate(op%qmap)
+  end if 
+  if (allocated(op%nbmap)) then 
+     deallocate(op%nbmap)
+  end if 
+  if (allocated(op%Jval2)) then 
+     deallocate(op%Jval2)
+  end if 
+  if (allocated(op%Jval)) then 
+     deallocate(op%Jval)
+  end if 
+  if (allocated(op%nph)) then 
+     deallocate(op%nph)
+  end if 
+  if (allocated(op%rlen)) then 
+     deallocate(op%rlen)
+  end if 
+end subroutine deallocate_31_mat
+!======================================================
 subroutine duplicate_sq_op(H,op) 
   ! make a copy of the shape of H onto op
   implicit none 
   
   type(sq_op) :: H,op
   integer :: q,i,j,holes,parts,nh,np,nb,N,nh2,np2,nb2
-  
+
   op%herm = 1 ! default, change it in the calling program
              ! if you want anti-herm (-1) 
   op%Aprot = H%Aprot
@@ -2791,20 +2823,20 @@ subroutine duplicate_sq_op(H,op)
   op%rank = H%rank 
   op%dpar = H%dpar
   op%pphh_ph = .false. 
-  
+
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 
-  
+
   allocate(op%fhh(holes,holes)) 
   allocate(op%fpp(parts,parts)) 
   allocate(op%fph(parts,holes)) 
-  
+
   ! everything is initialized to zero
   op%E0 = 0.d0 
   op%fhh = 0.d0
   op%fpp = 0.d0
   op%fph = 0.d0 
-  
+
   if (allocated(H%mat)) then ! scalar operator. 
      
      allocate(op%mat(op%nblocks)) 
@@ -2953,9 +2985,15 @@ subroutine copy_sq_op(H,op)
   
   do q = 1, op%nblocks
               
-     do i = 1,6
-        op%mat(q)%gam(i)%X = H%mat(q)%gam(i)%X
-     end do 
+     if (op%rank > 0 ) then 
+        do i = 1,9
+           op%tblck(q)%tgam(i)%X = H%tblck(q)%tgam(i)%X
+        end do
+     else
+        do i = 1,6
+           op%mat(q)%gam(i)%X = H%mat(q)%gam(i)%X
+        end do
+     end if 
      
   end do 
   
@@ -3084,10 +3122,17 @@ subroutine add_sq_op(A,ax,B,bx,C)
   
   do q = 1, A%nblocks
               
-     do i = 1,6
-        C%mat(q)%gam(i)%X = A%mat(q)%gam(i)%X*ax + B%mat(q)%gam(i)%X*bx
-     end do 
-     
+     if (C%rank > 0) then 
+        do i = 1,9
+           C%tblck(q)%tgam(i)%X = A%tblck(q)%tgam(i)%X*ax &
+                + B%tblck(q)%tgam(i)%X*bx
+        end do
+     else 
+
+        do i = 1,6
+           C%mat(q)%gam(i)%X = A%mat(q)%gam(i)%X*ax + B%mat(q)%gam(i)%X*bx
+        end do
+     end if 
   end do 
   
 end subroutine 
@@ -3133,10 +3178,15 @@ subroutine clear_sq_op(C)
   
   do q = 1, C%nblocks
               
-     do i = 1,6
-        C%mat(q)%gam(i)%X = 0.d0
-     end do 
-     
+     if (C%rank > 0 ) then 
+        do i = 1,9
+           C%tblck(q)%tgam(i)%X = 0.d0
+        end do
+     else
+        do i = 1,6
+           C%mat(q)%gam(i)%X = 0.d0
+        end do
+     end if 
   end do 
   
 end subroutine 
@@ -4731,9 +4781,15 @@ real(8) function mat_frob_norm(op)
 
   sm = sum(op%fhh**2) +  sum(op%fph**2) + sum(op%fpp**2)
   do q = 1, op%nblocks
-     do g = 1,6
-        sm = sm + sum(op%mat(q)%gam(g)%X**2)
-     end do 
+     if (op%rank > 0) then 
+        do g = 1,9
+           sm = sm + sum(op%tblck(q)%tgam(g)%X**2)
+        end do
+     else
+        do g = 1,6
+           sm = sm + sum(op%mat(q)%gam(g)%X**2)
+        end do
+     end if 
   end do 
   
   mat_frob_norm = sqrt(sm)

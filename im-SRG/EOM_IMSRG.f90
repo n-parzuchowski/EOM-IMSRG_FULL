@@ -2,16 +2,19 @@ module EOM_IMSRG
   use basic_IMSRG
   use EOM_scalar_commutators
   use EOM_TS_commutators
+  use operators
   implicit none
   
 
 contains 
 
-subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas) 
+subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1) 
   implicit none
   
+  real(8) :: BE2,Mfi 
   type(spd) :: jbas
   type(sq_op) :: HS 
+  type(sq_op),optional :: O1
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   integer :: J,PAR,Numstates,i,q
   character(2) :: Jlabel,Plabel,betalabel
@@ -38,6 +41,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
   end if
 
   do i = 2, Numstates
+     print*, 'my fucking ass...'
      call duplicate_sq_op(ladder_ops(1),ladder_ops(i))
   end do 
   
@@ -47,17 +51,37 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas)
   print*
   call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
   
-  print*
-  write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
-  print*
-  print*, 'EXCITED STATE ENERGIES:'
-  print*, '=================================='
-  print*, '      dE             E_0 + dE'
-  print*, '=================================='
-  do i = 1, Numstates
-     write(*,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
-  end do
-
+  
+  
+  if ( present(O1) ) then 
+     
+     print*
+     write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
+     print*
+     print*, 'EXCITED STATE ENERGIES:'
+     print*, '================================================='
+     print*, '      dE             E_0 + dE        BE(2)       '
+     print*, '================================================='
+  
+     do i = 1, Numstates
+        Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
+        BE2 = Mfi**2/(J+1.d0) 
+        write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2 
+     end do
+  
+  else
+     
+     print*
+     write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
+     print*
+     print*, 'EXCITED STATE ENERGIES:'
+     print*, '=================================='
+     print*, '      dE             E_0 + dE'
+     print*, '=================================='
+     do i = 1, Numstates
+        write(*,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
+     end do
+  end if 
   
   ! WRITE STUFF TO FILES. 
   write( Jlabel ,'(I2)') HS%Jtarg
