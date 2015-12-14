@@ -1,53 +1,47 @@
-module generators 
-  use basic_IMSRG
-  implicit none 
+! !==========================================================
+! !==========================================================
+! subroutine build_gs_wegner(H,ETA,jbas,HCC,HODCC,WCC,w1,w2) 
+!   use commutators
+!   ! calculates the traditional white generator for
+!   ! ground state decoupling
+!   implicit none 
   
+!   type(spd) :: jbas
+!   type(sq_op) :: H,ETA,HOD,w1,w2
+!   type(cross_coupled_31_mat) :: HCC,HODCC,WCC
+!   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
+!   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
+!   real(8) :: Eden,sm,Javerage
   
-contains
+!   ETA%herm = -1
 
-!==========================================================
-!==========================================================
-subroutine build_gs_wegner(H,ETA,jbas,HCC,HODCC,WCC,w1,w2) 
-  use commutators
-  ! calculates the traditional white generator for
-  ! ground state decoupling
-  implicit none 
+!   call duplicate_sq_op(H,HOD) 
   
-  type(spd) :: jbas
-  type(sq_op) :: H,ETA,HOD,w1,w2
-  type(cross_coupled_31_mat) :: HCC,HODCC,WCC
-  integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
-  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
-  real(8) :: Eden,sm,Javerage
-  
-  ETA%herm = -1
+!   HOD%fph = H%fph
 
-  call duplicate_sq_op(H,HOD) 
-  
-  HOD%fph = H%fph
+!   do q = 1,HOD%nblocks
+!      HOD%mat(q)%gam(3)%X = H%mat(q)%gam(3)%X
+!   end do 
 
-  do q = 1,HOD%nblocks
-     HOD%mat(q)%gam(3)%X = H%mat(q)%gam(3)%X
-  end do 
-
-  call calculate_cross_coupled(HOD,HODCC,jbas,.true.)
-  call calculate_cross_coupled(H,HCC,jbas,.false.) 
+!   call calculate_cross_coupled(HOD,HODCC,jbas,.true.)
+!   call calculate_cross_coupled(H,HCC,jbas,.false.) 
  
-  call commutator_111(H,HOD,ETA,jbas) 
-  call commutator_121(H,HOD,ETA,jbas)
-  call commutator_122(H,HOD,ETA,jbas)    
+!   call commutator_111(H,HOD,ETA,jbas) 
+!   call commutator_121(H,HOD,ETA,jbas)
+!   call commutator_122(H,HOD,ETA,jbas)    
 
-  call commutator_222_pp_hh(H,HOD,ETA,w1,w2,jbas)
+!   call commutator_222_pp_hh(H,HOD,ETA,w1,w2,jbas)
   
-  call commutator_221(H,HOD,ETA,w1,w2,jbas)
-  call commutator_222_ph(HCC,HODCC,ETA,WCC,jbas)
+!   call commutator_221(H,HOD,ETA,w1,w2,jbas)
+!   call commutator_222_ph(HCC,HODCC,ETA,WCC,jbas)
 
-end subroutine
+! end subroutine
 !==========================================================
 !==========================================================
 subroutine build_gs_white(H,ETA,jbas) 
   ! calculates the traditional white generator for
   ! ground state decoupling
+  use basic_IMSRG
   implicit none 
   
   type(spd) :: jbas
@@ -146,12 +140,70 @@ subroutine build_gs_white(H,ETA,jbas)
      end do 
   end do 
 
+end subroutine build_gs_white
+!==========================================================
+!==========================================================
+subroutine build_hartree_fock_gen(H,ETA,jbas) 
+  ! calculates the traditional white generator for
+  ! ground state decoupling
+  use basic_IMSRG
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H,ETA 
+  integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
+  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
+  real(8) :: Eden,sm,Javerage
+  
+  ETA%herm = -1 ! anti-hermitian operator
+
+  ETA%fpp = 0.d0 
+  ETA%fhh = 0.d0 
+  ETA%pphh_ph = .true. 
+  
+  ! one body part
+  do a = 1,H%Nsp - H%belowEF
+     ak = jbas%parts(a) 
+     ja = jbas%jj(ak)
+     la = jbas%ll(ak)
+     ta = jbas%itzp(ak)
+     
+     do i = 1,H%belowEF
+       
+        ik = jbas%holes(i)
+        ji = jbas%jj(ik)       
+        li = jbas%ll(ik)        
+        ti = jbas%itzp(ik)
+             
+        ! the generator is zero if these are true: 
+        if ( ji .ne. ja) cycle
+        if ( li .ne. la) cycle
+        if ( ti .ne. ta) cycle 
+     
+        ! energy denominator has a sum over J  to factor out m dep. 
+        Eden = 0.d0
+        
+        ! do JT = 0, 2*ji , 2
+        !    Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
+        ! end do 
+        
+        ! sum is averaged over ji ** 2  
+        Eden = Eden / (ji + 1.d0)/(ji + 1.d0) 
+        
+        Eden = Eden + H%fpp(a,a) - H%fhh(i,i) 
+        
+        ETA%fph(a,i) = H%fph(a,i) / Eden
+        
+     end do 
+  end do 
+  
 end subroutine 
 !==========================================================
 !==========================================================
 subroutine build_gs_imtime(H,ETA,jbas) 
   ! calculates the traditional white generator for
   ! ground state decoupling
+  use basic_IMSRG
   implicit none 
   
   type(spd) :: jbas
@@ -249,6 +301,7 @@ end subroutine
 subroutine build_ex_white(H,ETA,jbas) 
   ! calculates the traditional white generator for
   ! ground state decoupling
+  use basic_IMSRG
   implicit none 
   
   type(spd) :: jbas
@@ -386,12 +439,13 @@ subroutine build_ex_white(H,ETA,jbas)
      
   end do 
 
-end subroutine
+end subroutine build_ex_white
 !==========================================================
 !==========================================================
 subroutine build_ex_imtime(H,ETA,jbas) 
   ! calculates the traditional white generator for
   ! ground state decoupling
+  use basic_IMSRG
   implicit none 
   
   type(spd) :: jbas
@@ -632,6 +686,7 @@ end subroutine
 subroutine build_specific_space(H,ETA,jbas) 
   ! calculates imaginary time generator for a specific space 
   ! defined by the TDA operator for specified qnums
+  use basic_IMSRG
   implicit none 
   
   type(spd) :: jbas
@@ -885,6 +940,7 @@ end subroutine
 subroutine build_valence_decouple(H,ETA,jbas) 
   ! calculates the traditional white generator for
   ! ground state decoupling
+  use basic_IMSRG
   implicit none 
   
   type(spd) :: jbas
@@ -1072,9 +1128,6 @@ ETA%fpp = 0.d0
   end do 
 
 end subroutine  
-!==========================================================
-!==========================================================
-end module
 !==========================================================
 !==========================================================
 real(8) function Javerage(a,b,ja,jb,H,jbas) 

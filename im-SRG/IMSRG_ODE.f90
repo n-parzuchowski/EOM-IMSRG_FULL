@@ -2,13 +2,12 @@ module IMSRG_ODE
   use commutators
   use adams_ode 
   use operators
-  use generators
   use basic_IMSRG
   implicit none 
   
 contains
 !==============================================================
-subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2) 
+subroutine decouple_hamiltonian(H,jbas,build_generator,O1,O2) 
   ! runs IMSRG using the specified derivative calculator
   implicit none 
 
@@ -28,7 +27,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
   real(8) :: ds,s,E_old,crit,E_mbpt2
   character(200) :: spfile,intfile,prefix
   logical :: com_calc 
-  external :: deriv_calculator 
+  external :: build_generator,dHds,dHds_1op,dHds_2op
   common /files/ spfile,intfile,prefix
   
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -82,7 +81,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
   E_mbpt2 = mbpt2(H,jbas) 
   crit = abs(E_mbpt2)
  
-  write(36,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
+  write(36,'(I6,4(e17.9))') steps,s,H%E0,H%E0+E_mbpt2,crit
   write(*,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
   
   if (present(O1)) then 
@@ -97,7 +96,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
      call vectorize(O1,cur_vec(H%neq+1:2*H%neq))
      call vectorize(O2,cur_vec(2*H%neq+1:3*H%neq)) 
 
-     call ode(deriv_calculator,neq,cur_vec,H,jbas,&
+     call ode(dHds_2op,build_generator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
 
      call repackage(H,cur_vec(1:H%neq)) 
@@ -128,7 +127,7 @@ subroutine decouple_hamiltonian( H , jbas, deriv_calculator,O1,O2)
      call vectorize(H,cur_vec(1:H%neq))
      call vectorize(O1,cur_vec(H%neq+1:2*H%neq))
     
-     call ode(deriv_calculator,neq,cur_vec,H,jbas,&
+     call ode(dHds_1op,build_generator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
 
      call repackage(H,cur_vec(1:H%neq)) 
@@ -156,7 +155,7 @@ else
      ! send info to SG solver
      call vectorize(H,cur_vec)
     
-     call ode(deriv_calculator,neq,cur_vec,H,jbas,&
+     call ode(dHds,build_generator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
           
      call repackage(H,cur_vec) 
@@ -168,7 +167,7 @@ else
      E_mbpt2 = mbpt2(H,jbas) 
      crit = abs(E_mbpt2)
   
-     write(36,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
+     write(36,'(I6,4(e17.9))') steps,s,H%E0,H%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,H%E0,H%E0+E_mbpt2,crit
     
      if (crit < conv_crit) exit
@@ -181,7 +180,7 @@ end if
 end subroutine   
 !================================================
 !==============================================================
-subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA ) 
+subroutine TDA_decouple( H , TDA, jbas,build_generator,O1,O1TDA,O2,O2TDA ) 
   ! runs IMSRG using the specified derivative calculator
   implicit none 
 
@@ -203,7 +202,7 @@ subroutine TDA_decouple( H , TDA, jbas, deriv_calculator,O1,O1TDA,O2,O2TDA )
   character(200) :: spfile,intfile,prefix
   character(1) :: Jlabel,Plabel
   integer :: Jsing
-  external :: deriv_calculator 
+  external :: build_generator,dHds,dHds_1op,dHds_2op
   common /files/ spfile,intfile,prefix
 
  ! E_old = H%E0 ! for convergence check
@@ -285,7 +284,7 @@ if (present(O1)) then
      call vectorize(O1,cur_vec(H%neq+1:2*H%neq))
      call vectorize(O2,cur_vec(2*H%neq+1:3*H%neq)) 
      
-     call ode(deriv_calculator,neq,cur_vec,H,jbas,&
+     call ode(dHds_2op,build_generator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
           
      call repackage(H,cur_vec(1:H%neq)) 
@@ -325,7 +324,7 @@ if (present(O1)) then
      call vectorize(H,cur_vec(1:H%neq))
      call vectorize(O1,cur_vec(H%neq+1:2*H%neq))
     
-     call ode(deriv_calculator,neq,cur_vec,H,jbas,&
+     call ode(dHds_1op,build_generator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
 
      call repackage(H,cur_vec(1:H%neq)) 
@@ -362,7 +361,7 @@ else
 
      ! send info to SG solver
      call vectorize(H,cur_vec)
-     call ode(deriv_calculator,neq,cur_vec,H,jbas,&
+     call ode(dHds,build_generator,neq,cur_vec,H,jbas,&
           s,s+ds,relerr,abserr,iflag,work,iwork) 
      call repackage(H,cur_vec) 
         
@@ -413,22 +412,16 @@ end if
         
   end if 
   
-end subroutine   
-!================================================
-!================================================
+end subroutine
 end module
+!These are external so that they can be passed to ODE   
 !================================================
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !================================================
-subroutine dHds_white_gs(t,yy,yp,HS,jbas) 
+subroutine dHds(t,yy,yp,HS,jbas,build_gen) 
   ! calculates the derivatives inside the solver
   ! use in shampine and gordon, modified to include HS,jbas
   use basic_IMSRG
   use commutators
-!  use TS_commutators
- ! use brute_force_testing
-  use generators
-  use operators
   implicit none 
   
   real(8) :: t,ex,ex2
@@ -438,6 +431,7 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,w3,w4
   type(cross_coupled_31_mat) :: WCC,ETACC,HSCC,KCC 
+  external :: build_gen
 
 !!! we need the sq_op structure to compute the derivatives at max speed
 !!! so we allocate a bunch of those to work in 
@@ -451,14 +445,13 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
   call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
 
- ! call build_gs_wegner(HS,ETA,jbas,HSCC,ETACC,WCC,w1,w2) 
-  call build_gs_white(HS,ETA,jbas) ! constructs generator
+  call build_gen(HS,ETA,jbas) ! constructs generator
   
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)
   call calculate_cross_coupled_pphh(ETA,ETACC,jbas,.false.) 
    
   DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
-  !print*, 'dE0/ds =', DH%E0
+
   call commutator_111(ETA,HS,DH,jbas) 
   call commutator_121(ETA,HS,DH,jbas)
   call commutator_122(ETA,HS,DH,jbas)
@@ -471,63 +464,14 @@ subroutine dHds_white_gs(t,yy,yp,HS,jbas)
   ! rewrite in a form that shampine and gordon are comfortable with.
   call vectorize(DH,yp)
   
-end subroutine 
-!================================================
-subroutine dHds_TDA_shell(t,yy,yp,HS,jbas) 
+end subroutine dHds
+!==============================================================
+!==============================================================
+subroutine dHds_1op(t,yy,yp,HS,jbas,build_gen) 
   ! calculates the derivatives inside the solver
   ! use in shampine and gordon, modified to include HS,jbas
   use basic_IMSRG
   use commutators
-  use generators
-  implicit none 
-  
-  real(8) :: t,ex,ex2
-  integer :: i,j,neq,bytes,n,m,p,q,r,s,px,qx,rx,sx,k,l
-  real(8) :: yp(*),yy(*)
-  type(spd) :: jbas
-  type(sq_op) :: HS,ETA,DH,w1,w2
-  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC 
-
-!!! we need the sq_op structure to compute the derivatives at max speed
-!!! so we allocate a bunch of those to work in 
-
-! ALLOCATE A BUNCH OF WORKSPACE
-  call duplicate_sq_op(HS,ETA) !generator
-  call duplicate_sq_op(HS,DH) !derivative
-  call duplicate_sq_op(HS,w1) !workspace
-  call duplicate_sq_op(HS,w2) !workspace
-  call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
-  call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
-  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
-
-  call build_specific_space(HS,ETA,jbas)
-  
-  call calculate_cross_coupled(HS,HSCC,jbas,.true.)
-  call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
-   
-  DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
-  
-  call commutator_111(ETA,HS,DH,jbas) 
-  call commutator_121(ETA,HS,DH,jbas)
-  call commutator_122(ETA,HS,DH,jbas)
-  
-  call commutator_222_pp_hh(ETA,HS,DH,w1,w2,jbas)
-  
-  call commutator_221(ETA,HS,DH,w1,w2,jbas)
-  call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
-
-  ! rewrite in a form that shampine and gordon are comfortable with.
-  call vectorize(DH,yp)
-  
-end subroutine 
-!==============================================================
-!==============================================================
-subroutine dHds_white_gs_with_1op(t,yy,yp,HS,jbas) 
-  ! calculates the derivatives inside the solver
-  ! use in shampine and gordon, modified to include HS,jbas
-  use basic_IMSRG
-  use commutators
-  use generators
   implicit none 
   
   real(8) :: t,ex,ex2
@@ -535,7 +479,8 @@ subroutine dHds_white_gs_with_1op(t,yy,yp,HS,jbas)
   real(8) :: yp(*),yy(*)
   type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,O1,O2
-  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC 
+  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC
+  external :: build_gen
 
 !!! we need the sq_op structure to compute the derivatives at max speed
 !!! so we allocate a bunch of those to work in 
@@ -555,7 +500,7 @@ subroutine dHds_white_gs_with_1op(t,yy,yp,HS,jbas)
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
   call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
 
-  call build_gs_white(HS,ETA,jbas) ! constructs generator
+  call build_gen(HS,ETA,jbas) ! constructs generator
   
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)
   call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
@@ -595,12 +540,11 @@ subroutine dHds_white_gs_with_1op(t,yy,yp,HS,jbas)
 end subroutine
 !==================================================================
 !==================================================================
-subroutine dHds_white_gs_with_2op(t,yy,yp,HS,jbas) 
+subroutine dHds_2op(t,yy,yp,HS,jbas,build_gen) 
   ! calculates the derivatives inside the solver
   ! use in shampine and gordon, modified to include HS,jbas
   use basic_IMSRG
   use commutators
-  use generators
   implicit none 
   
   real(8) :: t,ex,ex2
@@ -609,7 +553,8 @@ subroutine dHds_white_gs_with_2op(t,yy,yp,HS,jbas)
   type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,O1,O2
   type(cross_coupled_31_mat) :: WCC,ETACC,HSCC 
-
+  external :: build_gen
+  
 !!! we need the sq_op structure to compute the derivatives at max speed
 !!! so we allocate a bunch of those to work in 
 
@@ -631,7 +576,7 @@ subroutine dHds_white_gs_with_2op(t,yy,yp,HS,jbas)
   call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
   call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
 
-  call build_gs_white(HS,ETA,jbas) ! constructs generator
+  call build_gen(HS,ETA,jbas) ! constructs generator
   
   call calculate_cross_coupled(HS,HSCC,jbas,.true.)
   call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
@@ -685,169 +630,3 @@ subroutine dHds_white_gs_with_2op(t,yy,yp,HS,jbas)
   ! rewrite in a form that shampine and gordon are comfortable with.
   call vectorize(DH,yp(2*HS%neq+1:3*HS%neq))
 end subroutine
-!================================================
-subroutine dHds_TDA_shell_w_1op(t,yy,yp,HS,jbas) 
-  ! calculates the derivatives inside the solver
-  ! use in shampine and gordon, modified to include HS,jbas
-  use basic_IMSRG
-  use commutators
-  use generators
-  implicit none 
-  
-  real(8) :: t,ex,ex2
-  integer :: i,j,neq,bytes,n,m,p,q,r,s,px,qx,rx,sx,k,l
-  real(8) :: yp(*),yy(*)
-  type(spd) :: jbas
-  type(sq_op) :: HS,ETA,DH,w1,w2,O1
-  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC 
-
-!!! we need the sq_op structure to compute the derivatives at max speed
-!!! so we allocate a bunch of those to work in 
-
-  neq = 2*HS%neq
-  
-! ALLOCATE A BUNCH OF WORKSPACE
-  call duplicate_sq_op(HS,ETA) !generator
-  call duplicate_sq_op(HS,DH) !derivative
-  call duplicate_sq_op(HS,w1) !workspace
-  call duplicate_sq_op(HS,w2) !workspace
-  call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
-  call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
-  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
-
-  call duplicate_sq_op(HS,O1) 
-  call repackage(O1,yy(HS%neq+1:2*HS%neq)) 
-
-  call build_specific_space(HS,ETA,jbas)
-  
-  call calculate_cross_coupled(HS,HSCC,jbas,.true.)
-  call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
- 
-  DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
- 
-  call commutator_111(ETA,HS,DH,jbas) 
-  call commutator_121(ETA,HS,DH,jbas)
-  call commutator_122(ETA,HS,DH,jbas)
-  
-  call commutator_222_pp_hh(ETA,HS,DH,w1,w2,jbas)
-  
-  call commutator_221(ETA,HS,DH,w1,w2,jbas)
-  call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
-
-  ! rewrite in a form that shampine and gordon are comfortable with.
-  call vectorize(DH,yp(1:HS%neq))
-  
-!===================================================================
-  
-  call calculate_cross_coupled(O1,HSCC,jbas,.true.)
-  
-  DH%E0 = commutator_110(ETA,O1,jbas) + commutator_220(ETA,O1,jbas)
- 
-  call commutator_111(ETA,O1,DH,jbas) 
-  call commutator_121(ETA,O1,DH,jbas)
-  call commutator_122(ETA,O1,DH,jbas)
-  
-  call commutator_222_pp_hh(ETA,O1,DH,w1,w2,jbas)
-  
-  call commutator_221(ETA,O1,DH,w1,w2,jbas)
-  call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
-  
-  ! rewrite in a form that shampine and gordon are comfortable with.
-  call vectorize(DH,yp(HS%neq+1:2*HS%neq))
-  
-end subroutine 
-!==============================================================
-!==============================================================
-!================================================
-subroutine dHds_TDA_shell_w_2op(t,yy,yp,HS,jbas) 
-  ! calculates the derivatives inside the solver
-  ! use in shampine and gordon, modified to include HS,jbas
-  use basic_IMSRG
-  use commutators
-  use generators
-  implicit none 
-  
-  real(8) :: t,ex,ex2
-  integer :: i,j,neq,bytes,n,m,p,q,r,s,px,qx,rx,sx,k,l
-  real(8) :: yp(*),yy(*)
-  type(spd) :: jbas
-  type(sq_op) :: HS,ETA,DH,w1,w2,O1,O2
-  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC 
-
-!!! we need the sq_op structure to compute the derivatives at max speed
-!!! so we allocate a bunch of those to work in 
-
-  neq = 3*HS%neq
-! ALLOCATE A BUNCH OF WORKSPACE
-  call duplicate_sq_op(HS,ETA) !generator
-  call duplicate_sq_op(HS,DH) !derivative
-  call duplicate_sq_op(HS,w1) !workspace
-  call duplicate_sq_op(HS,w2) !workspace
-  call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
-  call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
-  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
-
-  call duplicate_sq_op(HS,O1) 
-  call repackage(O1,yy(HS%neq+1:2*HS%neq)) 
-
-  call duplicate_sq_op(HS,O2)
-  call repackage(O2,yy(2*HS%neq+1:3*HS%neq))
-
-  call build_specific_space(HS,ETA,jbas)
-  
-  call calculate_cross_coupled(HS,HSCC,jbas,.true.)
-  call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
-   
-  DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
-  
-  call commutator_111(ETA,HS,DH,jbas) 
-  call commutator_121(ETA,HS,DH,jbas)
-  call commutator_122(ETA,HS,DH,jbas)
-  
-  call commutator_222_pp_hh(ETA,HS,DH,w1,w2,jbas)
-  
-  call commutator_221(ETA,HS,DH,w1,w2,jbas)
-  call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
-
-  ! rewrite in a form that shampine and gordon are comfortable with.
-  call vectorize(DH,yp(1:HS%neq))
-  
-!===================================================================
-  
-  call calculate_cross_coupled(O1,HSCC,jbas,.true.)
-  
-  DH%E0 = commutator_110(ETA,O1,jbas) + commutator_220(ETA,O1,jbas)
- 
-  call commutator_111(ETA,O1,DH,jbas) 
-  call commutator_121(ETA,O1,DH,jbas)
-  call commutator_122(ETA,O1,DH,jbas)
-  
-  call commutator_222_pp_hh(ETA,O1,DH,w1,w2,jbas)
-  
-  call commutator_221(ETA,O1,DH,w1,w2,jbas)
-  call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
-  
-  ! rewrite in a form that shampine and gordon are comfortable with.
-  call vectorize(DH,yp(HS%neq+1:2*HS%neq))
-
-!===================================================================
-  call calculate_cross_coupled(O2,HSCC,jbas,.true.)
-   
-  DH%E0 = commutator_110(ETA,O2,jbas) + commutator_220(ETA,O2,jbas)
-
-  call commutator_111(ETA,O2,DH,jbas) 
-  call commutator_121(ETA,O2,DH,jbas)
-  call commutator_122(ETA,O2,DH,jbas)
-  
-  call commutator_222_pp_hh(ETA,O2,DH,w1,w2,jbas)
-  
-  call commutator_221(ETA,O2,DH,w1,w2,jbas)
-  call commutator_222_ph(ETACC,HSCC,DH,WCC,jbas)
-  
-  ! rewrite in a form that shampine and gordon are comfortable with.
-  call vectorize(DH,yp(2*HS%neq+1:3*HS%neq))
-  
-end subroutine 
-!==============================================================
-!==============================================================
-

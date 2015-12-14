@@ -2,14 +2,13 @@ module IMSRG_MAGNUS
   use commutators
   use TS_commutators
   use operators
-  use generators
   use basic_IMSRG
   use HF_mod 
   implicit none 
   
 contains
 
-subroutine magnus_decouple(HS,G,jbas,quads,trips)
+subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   ! runs IMSRG using magnus expansion method
   implicit none 
   
@@ -19,12 +18,13 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips)
   type(sq_op) :: H,G,HS,AD
   type(sq_op) :: DG,CR
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
-  real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
+  real(8) :: ds,s,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
   character(200) :: spfile,intfile,prefix
   character(1) :: quads,trips
   logical :: trip_calc,xxCR
   common /files/ spfile,intfile,prefix
+  external :: build_generator 
   
   trip_calc = .false. 
   xxCr = .false. 
@@ -40,16 +40,14 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips)
      
   HS%neq = 1
   call duplicate_sq_op(HS,H) !evolved hamiltonian
+  if (.not. allocated(G%mat)) call duplicate_sq_op(HS,G) !magnus operator
   call duplicate_sq_op(HS,AD) !workspace
-  call duplicate_sq_op(HS,G) !magnus operator
+
   call duplicate_sq_op(HS,DG) !magnus operator
   G%herm = -1 
   DG%herm = -1 
    
-  !call build_gs_wegner(HS,ETA,jbas,ADCC,GCC,WCC,w1,w2)  
-  call build_gs_white(HS,DG,jbas)  
-  !call build_gs_imtime(HS,DG,jbas) 
-  
+  call build_generator(HS,DG,jbas)  
   call copy_sq_op(HS,H) 
   
   s = 0.d0 
@@ -61,7 +59,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips)
   else
      ds = 0.1d0
   end if 
-  
+
   crit = 10.
   steps = 0
 
@@ -73,7 +71,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips)
 
   write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
   write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-  
+  Eold=0.
   do while (crit > 1e-6) 
      
      call MAGNUS_EXPAND(DG,G,AD,jbas)
@@ -82,11 +80,13 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips)
      
      call BCH_EXPAND(HS,G,H,jbas,quads) 
     
-     call build_gs_white(HS,DG,jbas)   
+     call build_generator(HS,DG,jbas)   
      
      E_mbpt2 = mbpt2(HS,jbas) 
+     
+     crit = abs(E_mbpt2)  
 
-     crit = abs(E_mbpt2) 
+     
      steps = steps + 1
      write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
@@ -116,7 +116,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips)
 end subroutine  
 !===========================================================================
 !===========================================================================
-subroutine magnus_TDA(HS,TDA,G,jbas,quads) 
+subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator) 
   ! runs IMSRG TDA decoupling using magnus expansion method
   implicit none 
   
@@ -132,6 +132,7 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads)
   character(1) :: quads 
   character(1) :: Jlabel,Plabel
   common /files/ spfile,intfile,prefix
+  external :: build_generator 
   
   call duplicate_sq_op(HS,H) !evolved hamiltonian
   call duplicate_sq_op(HS,AD) !workspace
@@ -168,7 +169,7 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads)
        trim(adjustl(prefix))//'_'//Jlabel//Plabel//'_excited.dat')
   
   call write_excited_states(steps,s,TDA,HS%E0,37)
-  call build_specific_space(HS,DG,jbas) 
+  call build_generator(HS,DG,jbas) 
   call copy_sq_op(HS,H) 
   
   !nrm1 = mat_frob_norm(DG) 
@@ -180,7 +181,7 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads)
  
      call BCH_EXPAND(HS,G,H,jbas,quads) 
          
-     call build_specific_space(HS,DG,jbas)
+     call build_generator(HS,DG,jbas)
     
      call calculate_cross_coupled(HS,HCC,jbas,.true.) 
      call calc_TDA(TDA,HS,HCC,jbas) 
@@ -227,6 +228,80 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads)
 !===========================================================================  
   close(37)
 end subroutine
+!============================================================================
+!============================================================================
+subroutine magnus_HF(HS,G,jbas,build_generator)
+  ! runs IMSRG using magnus expansion method
+  implicit none 
+  
+  integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
+  type(spd) :: jbas
+  type(tpd),allocatable,dimension(:) :: threebas
+  type(sq_op) :: H,G,HS,AD
+  type(sq_op) :: DG,CR
+  type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
+  real(8) :: ds,s,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
+  real(8) :: omp_get_wtime,t1,t2
+  character(200) :: spfile,intfile,prefix
+  character(1) :: quads,trips
+  logical :: trip_calc,xxCR,ecrit
+  common /files/ spfile,intfile,prefix
+  external :: build_generator 
+     
+  HS%neq = 1
+  call duplicate_sq_op(HS,H) !evolved hamiltonian
+  if (.not. allocated(G%mat)) call duplicate_sq_op(HS,G) !magnus operator
+  call duplicate_sq_op(HS,AD) !workspace
+
+  call duplicate_sq_op(HS,DG) !magnus operator
+  G%herm = -1 
+  DG%herm = -1 
+   
+  call build_generator(HS,DG,jbas)  
+  call copy_sq_op(HS,H) 
+  
+  s = 0.d0 
+    
+  if (HS%lawson_beta < 3.0) then 
+     ds = 1.0d0
+  else if (HS%lawson_beta < 6.0) then 
+     ds = 0.5d0
+  else
+     ds = 0.1d0
+  end if 
+
+  ds = 1.0
+  crit = 10.
+  steps = 0
+  
+  open(unit=36,file=trim(OUTPUT_DIR)//&
+       trim(adjustl(prefix))//'_0b_magnus_flow.dat')
+
+  write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
+  write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+  Eold=0.
+  do while (crit > 1e-12) 
+     
+     call MAGNUS_EXPAND_1b(DG,G,AD,jbas)
+     
+     call euler_step(G,DG,s,ds) 
+     
+     call BCH_EXPAND_1b(HS,G,H,jbas,quads) 
+    
+     call build_generator(HS,DG,jbas)   
+     
+     crit = abs(HS%E0-Eold) 
+     Eold = HS%E0
+     
+     steps = steps + 1
+ !    write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+
+  end do
+  
+end subroutine  
+!===========================================================================
+!===========================================================================
 !=========================================================================
 !=========================================================================
 subroutine transform_observable_BCH(Op,G,jbas,quads)
@@ -333,6 +408,74 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
   end do 
   
 end subroutine BCH_EXPAND
+!=========================================================================
+!=========================================================================
+subroutine BCH_EXPAND_1b(HS,G,H,jbas,quads) 
+  ! for 1-body transformations
+  implicit none 
+  
+  real(8), parameter :: conv = 1e-6
+  integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw
+  integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
+  integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
+  type(spd) :: jbas
+  type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
+  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  real(8) :: adnorm,fullnorm,s,advals(15),sm,sm2,coef
+  character(3) :: args
+  character(1) :: quads ! enter some character to restore quadrupoles 
+
+  call duplicate_sq_op(HS,INT1) !workspace
+  call duplicate_sq_op(HS,INT2) !workspace
+  call duplicate_sq_op(HS,AD) !workspace
+  INT2%herm = 1
+  INT1%herm = 1 
+  AD%herm = 1
+
+  advals = 0.d0 
+  coef = 1.d0 
+
+  ! intermediates must be HERMITIAN
+  INT2%herm = 1
+  INT1%herm = 1 
+  AD%herm = 1
+  
+  !! so here:  H is the current hamiltonian and we 
+  !! copy it onto HS.  We copy this onto 
+  !! INT2, just to make things easier for everyone.
+
+  call copy_sq_op( H , HS )  !basic_IMSRG
+  call copy_sq_op( HS , INT2 )
+ 
+  advals(1) = abs(H%E0)   
+
+  do iw = 2 ,30
+     coef = coef/(iw-1.d0) 
+     ! current value of HS is renamed INT1 
+     ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
+     ! AD refers AD_n and INT2 becomes AD_{n+1} . 
+     call copy_sq_op( HS , INT1) 
+     call copy_sq_op( INT2 , AD ) 
+     ! so to start, AD is equal to H
+     call clear_sq_op(INT2)    
+     !now: INT2 = [ G , AD ]  
+        
+! zero body commutator 
+     INT2%E0 = commutator_110(G,AD,jbas)
+     
+     call commutator_111(G,AD,INT2,jbas) 
+     call commutator_121(G,AD,INT2,jbas)
+     call commutator_122(G,AD,INT2,jbas)    
+     
+     ! so now just add INT1 + c_n * INT2 to get current value of HS
+     call add_sq_op(INT1 ,1.d0 , INT2 , coef , HS )   !basic_IMSRG
+          
+     advals(iw) = mat_frob_norm(INT2)*coef
+     if (advals(iw) < conv) exit
+     
+  end do 
+  
+end subroutine BCH_EXPAND_1b
 !=========================================================================
 !=========================================================================
 subroutine BCH_TENSOR(HS,G,H,jbas,quads) 
@@ -542,7 +685,6 @@ subroutine MAGNUS_EXPAND(DG,G,AD,jbas)
   q = 1
  ! return
   do i = 2 , 7
-
      call copy_sq_op( DG , INT1) 
      call copy_sq_op( INT2 , AD ) 
   
@@ -574,6 +716,66 @@ subroutine MAGNUS_EXPAND(DG,G,AD,jbas)
   end do   
      
 end subroutine 
+!=====================================================
+!=====================================================
+subroutine MAGNUS_EXPAND_1b(DG,G,AD,jbas)
+  implicit none 
+  
+  real(8), parameter :: conv = 1e-6
+  integer :: trunc,i,q,j,k,l,ry
+  type(spd) :: jbas
+  type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
+  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  real(8) ::  cof(7),adnorm,fullnorm,s,advals(7) 
+  character(3) :: args
+  
+  call duplicate_sq_op(DG,INT1) !workspace
+  call duplicate_sq_op(DG,INT2) !workspace
+  INT2%herm = -1
+  INT1%herm = -1 
+  AD%herm = -1
+  
+  advals = 0.d0 
+  ! Intermediates are ANTI-HERMITIAN 
+  
+  cof = (/1.d0,-0.5d0,.0833333333d0,0.d0,-0.00138888888d0,0.d0,3.306878d-5/) 
+  ! nested derivatives not so important
+     
+  !! same deal as BCH expansion, which is explained ad nauseam above. 
+   
+  call copy_sq_op( DG , INT2 )
+  advals(1) = mat_frob_norm(INT2)  
+  
+  fullnorm = mat_frob_norm(G)   
+  if (fullnorm < 1e-9) return
+  
+  q = 1
+ ! return
+  do i = 2 , 7
+     call copy_sq_op( DG , INT1) 
+     call copy_sq_op( INT2 , AD ) 
+  
+     adnorm = advals(i-q) 
+  
+     if  (abs(cof(i)) > 1e-6) then  
+        q = 1 
+     else 
+        q = 2
+     end if 
+     
+     if ( abs(adnorm/fullnorm) < conv ) exit
+  
+     call commutator_111(G,AD,INT2,jbas) 
+     call commutator_121(G,AD,INT2,jbas)
+     call commutator_122(G,AD,INT2,jbas)    
+                 
+     call add_sq_op(INT1 , 1.d0 , INT2 , cof(i) , DG ) !ME_general
+     
+     advals(i) = mat_frob_norm(INT2)*abs(cof(i))
+    
+  end do   
+     
+end subroutine MAGNUS_EXPAND_1b
 !=====================================================
 !=====================================================
 subroutine euler_step(G,DG,s,stp)

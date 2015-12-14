@@ -4,6 +4,38 @@ module operators
   
 
 contains
+subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) :: Op,zr
+  character(1) :: trs_type
+  integer :: rank 
+  logical :: tcalc
+  
+  tcalc = .true. 
+  Select case (trs_type) 
+     case ('E') ! ELECTRIC TRANSITION
+         Op%rank = 2*rank
+         Op%herm = 1
+         Op%dpar = (-1)**rank 
+         if (rank==0) then 
+            print*, 'not implemented'
+         else
+            call allocate_tensor(jbas,Op,zr)
+            Op%hospace=zr%hospace
+            call calculate_EX(Op,jbas)
+         end if 
+     case ('M') ! MAGNETIC TRANSITION
+        stop 'not implemented'
+     case ('F') ! FERMI TRANSITION
+        stop 'not implemented'
+     case ('G') ! GAMOW-TELLER TRANSITION
+        stop 'not implemented'
+     case default
+        tcalc = .false. 
+  end select
+end subroutine initialize_transition_operator
 !===================================================================
 !===================================================================
 subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut) 
@@ -768,6 +800,30 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
   transition_to_ground_ME = sm + 1.d0/(rank+1.d0) 
   
 end function transition_to_ground_ME
+
+subroutine construct_number_operator(op,H,jbas) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) :: op,H
+  integer :: i,ix,ji
+  
+  call duplicate_sq_op(H,op) 
+  
+  do ix = 1, H%belowEF
+     i= jbas%holes(ix) 
+     ji = jbas%jj(i)
+     op%fhh(ix,ix) = (ji+1.d0)
+  end do 
+  
+  do ix = 1,jbas%total_orbits-H%belowEF
+     i= jbas%parts(ix) 
+     ji = jbas%jj(i)
+     op%fpp(ix,ix) = (ji+1.d0)
+  end do 
+
+  op%E0 = sum(op%fhh)
+end subroutine
 
 end module
   

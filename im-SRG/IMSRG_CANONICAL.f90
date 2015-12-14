@@ -1,7 +1,6 @@
 module IMSRG_CANONICAL
   use commutators
   use operators
-  use generators
   use basic_IMSRG
   use HF_mod 
   implicit none 

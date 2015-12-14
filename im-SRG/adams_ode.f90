@@ -30,7 +30,7 @@ end subroutine
   
   
 
-subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwork )
+subroutine ode ( f,gen,neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwork )
   
 !*****************************************************************************80
 !
@@ -167,7 +167,7 @@ subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwo
   integer ( kind = 4 ) neqn
 
   real ( kind = 8 ) abserr
-  external f
+  external f, gen
   integer ( kind = 4 ), parameter :: ialpha = 1
   integer ( kind = 4 ), parameter :: ibeta = 13
   integer ( kind = 4 ), parameter :: idelsn = 93
@@ -218,7 +218,7 @@ subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwo
     nornd = ( iwork(2) /= -1 )
   end if
 
-  call de(f, neqn, y, rx,jbas, t, tout, relerr, abserr, iflag, work(iyy), &
+  call de(f,gen, neqn, y, rx,jbas, t, tout, relerr, abserr, iflag, work(iyy), &
     work(iwt), work(ip), work(iyp), work(iypout), work(iphi), &
     work(ialpha), work(ibeta), work(isig), work(iv), work(iw), work(ig), &
     phase1, work(ipsi), work(ix), work(ih), work(ihold), start, &
@@ -246,7 +246,7 @@ subroutine ode ( f, neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, iwo
   return
 end subroutine 
 
-subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
+subroutine de(f,gen,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
   ypout, phi, alpha, beta, sig, v, w, g, phase1, psi, x, h, hold, start, &
   told, delsgn, ns, nornd, k, kold, isnold )
 
@@ -392,7 +392,7 @@ subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
   real ( kind = 8 ) del
   real ( kind = 8 ) delsgn
   real ( kind = 8 ) eps
-  external f
+  external f,gen
   real ( kind = 8 ) fouru
   real ( kind = 8 ) g(13)
   real ( kind = 8 ) h
@@ -530,7 +530,7 @@ subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
     if ( isn <= 0 .and. abs ( tout - x ) < fouru * abs ( x ) ) then
       h = tout - x
       call repackage( rx, yy(1:rx%neq) ) 
-      call f ( x, yy, yp, rx,jbas)
+      call f ( x, yy, yp, rx,jbas,gen)
       y(1:neqn) = yy(1:neqn) + h * yp(1:neqn)
       iflag = 2
       t = tout
@@ -559,7 +559,7 @@ subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
         
     wt(1:neqn) = releps * abs ( yy(1:neqn) ) + abseps
     
-    call step ( x, yy, f, rx,jbas, neqn, h, eps, wt, start, &
+    call step ( x, yy, f,gen, rx,jbas, neqn, h, eps, wt, start, &
       hold, k, kold, crash, phi, p, yp, psi, &
       alpha, beta, sig, v, w, g, phase1, ns, nornd )
 !
@@ -594,7 +594,7 @@ subroutine de(f,neqn,y,rx,jbas,t,tout,relerr,abserr, iflag, yy, wt, p, yp, &
   return
 end subroutine 
 
-subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, crash, &
+subroutine step ( x, y, f,gen, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, crash, &
   phi, p, yp, psi, alpha, beta, sig, v, w, g, phase1, ns, nornd )
 
 !*****************************************************************************80
@@ -766,7 +766,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
   real ( kind = 8 ) erkm2
   real ( kind = 8 ) erkp1
   real ( kind = 8 ) err
-  external f
+  external f,gen
   real ( kind = 8 ) fouru
   real ( kind = 8 ) g(13)
   real ( kind = 8 ), dimension ( 13 ) :: gstr = (/ &
@@ -855,7 +855,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
 !
   if ( start ) then
     call repackage( rx, y(1:rx%neq) ) 
-    call f ( x, y, yp , rx,jbas)
+    call f ( x, y, yp , rx,jbas,gen)
     phi(1:neqn,1) = yp(1:neqn)
     phi(1:neqn,2) = 0.0D+00
     total = sqrt ( sum ( ( yp(1:neqn) / wt(1:neqn) )**2 ) )
@@ -1008,7 +1008,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
     x = x + h
     absh = abs ( h )
     call repackage( rx, p(1:rx%neq) ) 
-    call f ( x, p, yp, rx,jbas)
+    call f ( x, p, yp, rx,jbas,gen)
  
 !
 !  Estimate the errors at orders K, K-1 and K-2.
@@ -1139,7 +1139,7 @@ subroutine step ( x, y, f, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, cras
   end if
 
   call repackage( rx, y(1:rx%neq) ) 
-  call f ( x, y, yp , rx,jbas )
+  call f ( x, y, yp , rx,jbas ,gen)
 
 !
 !  Update differences for the next step.

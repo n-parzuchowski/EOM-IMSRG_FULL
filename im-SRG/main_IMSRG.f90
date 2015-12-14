@@ -12,20 +12,18 @@ program main_IMSRG
   implicit none
   
   type(spd) :: jbasis
-  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,quad_trans,exp_omega
+  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   character(200) :: inputs_from_command
-  character(1) :: quads,trips
-  integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz
+  character(1) :: quads,trips,trans_type
+  integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x
-  logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b
+  logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin
-  external :: dHds_white_gs,dHds_TDA_shell,dHds_TDA_shell_w_1op
-  external :: dHds_white_gs_with_1op,dHds_white_gs_with_2op
-  external :: dHds_TDA_shell_w_2op
+  external :: build_gs_white,build_specific_space,build_hartree_fock_gen
   integer :: heiko(30)
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
@@ -46,7 +44,8 @@ program main_IMSRG
 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
-       me2b,mortbin,hw,skip_setup,skip_gs,quads,trips)
+       me2b,mortbin,hw,skip_setup,skip_gs,quads,trips,&
+       trans_type,trans_rank)
 
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
   
@@ -61,20 +60,12 @@ program main_IMSRG
   end if
 
   call allocate_blocks(jbasis,HS) 
- 
-  !Electric Quadrupole transition operator
-  quad_trans%rank = 4
-  quad_trans%herm = 1
-  quad_trans%dpar=0
-  call allocate_tensor(jbasis,quad_trans,HS)
-  quad_trans%hospace=hw
-  call calculate_EX(quad_trans,jbasis)
-  !It is a 1body operator, and is already normal ordered as a result. 
-  print*, quad_trans%hospace,quad_trans%Aneut
-  
   HS%herm = 1
   HS%hospace = hw
-    
+
+  call initialize_transition_operator&
+       (trans_type,trans_rank,Otrans,HS,jbasis,trans_calc)  
+     
   ! for calculating COM expectation value
   if (COM_calc) then  
      
@@ -129,22 +120,31 @@ program main_IMSRG
 !============================================================
  
   call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
-  
+
   if (hartree_fock) then 
-     
-     if (COM_calc) then 
-        call calc_HF(HS,jbasis,coefs,pipj,rirj)
-        call normal_order(pipj,jbasis)
-        call normal_order(rirj,jbasis)
+  
+    if (COM_calc) then 
+       call calc_HF(HS,jbasis,coefs,pipj,rirj)
+       call normal_order(pipj,jbasis)
+       call normal_order(rirj,jbasis)
      else if (r2rms_calc) then 
         call calc_HF(HS,jbasis,coefs,r2_rms)
         call normal_order(r2_rms,jbasis)
+     else if (trans_calc) then 
+        call calc_HF(HS,jbasis,coefs,Otrans)
      else
         call calc_HF(HS,jbasis,coefs)
      end if 
     ! calc_HF normal orders the hamiltonian
   
   else 
+     if (COM_calc) then
+        call normal_order(pipj,jbasis)
+        call normal_order(rirj,jbasis)
+     else if (r2rms_calc) then 
+        call normal_order(r2_rms,jbasis)
+     end if 
+
      call normal_order(HS,jbasis) 
   end if
 
@@ -166,7 +166,7 @@ program main_IMSRG
   
   case (1) ! magnus 
 
-     call magnus_decouple(HS,exp_omega,jbasis,quads,trips)    
+     call magnus_decouple(HS,exp_omega,jbasis,quads,trips,build_gs_white)    
 
      if (COM_calc) then 
         print*, 'TRANSFORMING Hcm'
@@ -174,22 +174,29 @@ program main_IMSRG
         call transform_observable_BCH(rirj,exp_omega,jbasis,quads)
         print*, 'CALCULTING Ecm' 
         call calculate_CM_energy(pipj,rirj,hw) 
-     else if (r2rms_calc) then
+     end if 
+     
+     if (r2rms_calc) then
         print*, 'TRANSFORMING RADIUS'
         call transform_observable_BCH(r2_rms,exp_omega,jbasis,quads)
-        call write_tilde_from_Rcm(r2_rms)
+        call write_tilde_from_Rcm(r2_rms) 
+     end if
+    
+     if (trans_calc) then
+        print*, 'TRANSFORMING TRANSITION OPERATOR'
+        call transform_observable_BCH(Otrans,exp_omega,jbasis,quads)
      end if
     
   case (2) ! traditional
      if (COM_calc) then 
-        call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_2op,pipj,rirj)
+        call decouple_hamiltonian(HS,jbasis,build_gs_white,pipj,rirj)
         call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
      else if (r2rms_calc) then 
-        call decouple_hamiltonian(HS,jbasis,dHds_white_gs_with_1op,r2_rms)
+        call decouple_hamiltonian(HS,jbasis,build_gs_white,r2_rms)
 !        call write_tilde_from_Rcm(r2_rms)
         print*, sqrt(r2_rms%E0)
     else 
-        call decouple_hamiltonian(HS,jbasis,dHds_white_gs) 
+        call decouple_hamiltonian(HS,jbasis,build_gs_white) 
     !    call discrete_decouple(HS,jbasis) 
      end if
      
@@ -215,7 +222,7 @@ program main_IMSRG
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
 
   if (ex_calc_int==1) then 
-     call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbasis,quad_trans) 
+     call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbasis,Otrans) 
      t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   end if
@@ -232,7 +239,7 @@ program main_IMSRG
      select case (method_int) 
         case(1) !magnus
            
-           call magnus_TDA(HS,TDA,exp_omega,jbasis,quads)     
+           call magnus_TDA(HS,TDA,exp_omega,jbasis,quads,build_specific_space)     
        
            if (COM_calc) then 
               call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
@@ -245,15 +252,15 @@ program main_IMSRG
         case(2) !traditional
      
         if (COM_calc) then 
-           call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell_w_2op, &
+           call TDA_decouple(HS,TDA,jbasis,build_gs_white, &
                 pipj,ppTDA,rirj,rrTDA) 
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
-           call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell_w_1op,&
+           call TDA_decouple(HS,TDA,jbasis,build_gs_white,&
                 r2_rms,rrTDA)
            print*, rrTDA%blkM(1)%eigval
         else 
-           call TDA_decouple(HS,TDA,jbasis,dHds_TDA_shell) 
+           call TDA_decouple(HS,TDA,jbasis,build_gs_white) 
         end if 
         
         case(3) !discrete

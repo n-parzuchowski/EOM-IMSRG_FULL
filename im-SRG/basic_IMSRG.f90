@@ -3238,16 +3238,16 @@ subroutine print_matrix(matrix)
 end subroutine 
 !===============================================  
 subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
-     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips)
+     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips,trans_type,trans_rank)
   !read inputs from file
   implicit none 
   
   character(200) :: spfile,intfile,input,prefix
   character(50) :: valence
-  character(1) :: quads,trips
+  character(1) :: quads,trips,trans_type
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
-  integer :: method,Exint,ISTAT ,i
+  integer :: method,Exint,ISTAT ,i,trans_rank
   logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN, found
   real(8) :: hw
   common /files/ spfile,intfile,prefix 
@@ -3306,6 +3306,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*) com_int
   read(22,*)
   read(22,*) rrms_int 
+  read(22,*)
+  read(22,*) trans_type,trans_rank 
   read(22,*)
   read(22,*) H%lawson_beta,H%com_hw
  

@@ -15,6 +15,7 @@ subroutine calc_HF(H,jbas,D,O1,O2,O3)
   type(full_sp_block_mat) :: T,F,Vgam,rho,D,Dx
   integer :: q,r,i,j,k,l
   real(8) :: crit,sm
+  real(8),allocatable,dimension(:,:) :: TRANS_MAT,OPERATOR
 
   ! allocate the workspace  
 
@@ -82,23 +83,34 @@ subroutine calc_HF(H,jbas,D,O1,O2,O3)
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! work with additional operators 
  if (present(O1)) then 
-    call write_kin_matrix(T,O1,jbas) 
-    call transform_1b_to_HF(D,Dx,T,O1,jbas)
-    call transform_2b_to_HF(D,O1,jbas) 
- end if
+    if (O1%rank > 0) then 
+       call transform_1b_to_HF_tensor(D,O1,jbas) 
+    else
+       call write_kin_matrix(T,O1,jbas) 
+       call transform_1b_to_HF(D,Dx,T,O1,jbas)
+       call transform_2b_to_HF(D,O1,jbas) 
+    end if 
+end if
  
  if (present(O2)) then 
-    call write_kin_matrix(T,O2,jbas) 
-    call transform_1b_to_HF(D,Dx,T,O2,jbas)
-    call transform_2b_to_HF(D,O2,jbas) 
- end if
+    if (O2%rank > 0) then 
+       call transform_1b_to_HF_tensor(D,O2,jbas) 
+    else
+       call write_kin_matrix(T,O2,jbas) 
+       call transform_1b_to_HF(D,Dx,T,O2,jbas)
+       call transform_2b_to_HF(D,O2,jbas) 
+    end if
+end if
  
  if (present(O3)) then 
-    call write_kin_matrix(T,O3,jbas) 
-    call transform_1b_to_HF(D,Dx,T,O3,jbas)
-    call transform_2b_to_HF(D,O3,jbas) 
+    if (O3%rank > 0) then 
+       call transform_1b_to_HF_tensor(D,O3,jbas) 
+    else
+       call write_kin_matrix(T,O3,jbas) 
+       call transform_1b_to_HF(D,Dx,T,O3,jbas)
+       call transform_2b_to_HF(D,O3,jbas) 
+    end if
  end if
-    
 end subroutine calc_HF
 !====================================================
 subroutine write_kin_matrix(T,H,jbas)
@@ -453,6 +465,70 @@ subroutine transform_2b_to_HF(D,H,jbas)
 end subroutine     
 !==============================================================
 !==============================================================
+subroutine transform_1b_to_HF_tensor(D,O1,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: O1
+  type(full_sp_block_mat) :: D 
+  integer :: q,i,j,a,b,nt,c1,c2,cx
+  real(8),allocatable,dimension(:,:) :: Dfull,Ffull,Dx
+
+  nt = O1%Nsp
+  allocate(Dfull(nt,nt)) 
+  Dfull = 0.d0 
+  do q = 1, D%blocks
+     if (D%map(q) == 0) cycle
+     
+     do i = 1, D%map(q) 
+        do j = 1,D%map(q) 
+           
+           Dfull(D%blkM(q)%states(i),D%blkM(q)%states(j)) = &
+            D%blkM(q)%matrix(i,j) 
+        
+        end do
+     end do 
+  end do 
+  
+  allocate(Ffull(nt,nt)) 
+  allocate(Dx(nt,nt)) 
+  do i = 1, nt
+     do j = 1,nt      
+        Ffull(i,j) = f_tensor_elem(i,j,O1,jbas) 
+     end do 
+  end do 
+  
+  ! transform the Fock matrix
+  call dgemm('N','N',nt,nt,nt,al,Ffull,nt,Dfull,nt,bet,Dx,nt) 
+  call dgemm('T','N',nt,nt,nt,al,Dfull,nt,Dx,nt,bet,Ffull,nt)
+  
+  do i=1,nt
+     do j=1,nt
+                
+        c1 = jbas%con(i) 
+        c2 = jbas%con(j) 
+        cx = c1 + c2 
+           
+           ! fancy array remap ( normal ordered now ) 
+        select case (cx) 
+        case(0) 
+           O1%fpp(i-jbas%holesb4(i),j-jbas%holesb4(j)) = &
+                Ffull(i,j) 
+        case(1) 
+           if (c2 > c1) then 
+              O1%fph(i-jbas%holesb4(i),j-jbas%partsb4(j)) = &
+                   Ffull(i,j)  
+           end if
+        case(2) 
+           O1%fhh(i-jbas%partsb4(i),j-jbas%partsb4(j)) = &
+                Ffull(i,j)
+        end select
+        
+     end do
+  end do  
+
+
+end subroutine transform_1b_to_HF_tensor
 end module         
                 
               
