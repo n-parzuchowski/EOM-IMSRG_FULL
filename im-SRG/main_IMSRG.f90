@@ -60,6 +60,7 @@ program main_IMSRG
   end if
 
   call allocate_blocks(jbasis,HS) 
+  call allocate_three_body_storage(jbasis) 
   HS%herm = 1
   HS%hospace = hw
 

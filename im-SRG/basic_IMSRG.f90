@@ -83,9 +83,23 @@ module basic_IMSRG
      type(real_mat),allocatable,dimension(:) :: CCX,CCR
      integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
      integer :: nblocks,Nsp,rank,herm,dpar
-  end type cross_coupled_31_mat
+  end type cross_coupled_31_mat  
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-
+  type three_block
+     type(real_mat),allocatable,dimension(:,:) :: sub
+     integer,dimension(3) :: lam
+  end type three_block
+  
+  type extendable_hash
+     type(int_mat),allocatable,dimension(:) :: subhash 
+     integer,allocatable,dimension(:) :: Jij_start
+     integer :: jhalf_start
+  end type extendable_hash
+     
+  type three_body_force
+     type(three_block),allocatable,dimension(:) :: mat
+     type(extendable_hash),allocatable,dimension(:) :: hashmap
+  end type three_body_force
   ! THIS STUFF IS IMPORTANT, DON'T CHANGE IT.
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -134,6 +148,98 @@ module basic_IMSRG
                         '/home/nathan/nuclear_IMSRG/inifiles/               '                /)
   !======================================================================================
 contains
+subroutine allocate_three_body_storage(jbas)
+  implicit none 
+  
+  type(spd) :: jbas
+  type(three_body_force) :: store_3b
+  integer :: jtot, Tz,PAR,Jij,Jlm,i,j,k,l,m,n
+  integer :: ji,jj,jl,jk,jm,jn,aux
+  integer :: jtot_max,Nsp,num_3b,num_blocks
+  integer :: j_half,j_half_min,j_half_max
+  integer :: Jij_min,Jij_max,q,q1
+  
+  jtot_max = 3*(jbas%jtotal_max)
+  Nsp = jbas%total_orbits
+  num_3b = (Nsp**3+Nsp**2)/2
+  num_blocks = (jtot_max-1)/2+1
+  
+  allocate(store_3b%mat(num_blocks),store_3b%hashmap(num_3b)) 
+  
+  l = 1 
+  do k = 1,Nsp
+     jk = jbas%jj(k)
+     do i= 1, Nsp
+        ji = jbas%jj(i)
+        do j=i,Nsp
+           jj = jbas%jj(j)
+           
+           if ( l .ne. threebody_index(i,j,k,Nsp)) then 
+              print*, 'threebody index mis-match:' 
+              print*, l,threebody_index(i,j,k,Nsp)
+           end if 
+          
+           j_half_max = ji+jj+jk
+           if (abs(ji-jj) > jk) then 
+              J_half_min = abs(ji-jj)-jk
+           else if (jk < (ji+jj)) then 
+              J_half_min = 1
+           else
+              J_half_min = jk-ji-jj
+           end if 
+           
+           store_3b%hashmap(l)%jhalf_start = J_half_min
+           aux = (j_half_max - j_half_min)/2+1
+          
+           allocate(store_3b%hashmap(l)%subhash(aux)) 
+           allocate ( store_3b%hashmap(l)%Jij_start(aux) )
+           
+           do j_half = j_half_min, j_half_max,2 
+              
+              Jij_min = max(abs(ji-jj),abs(j_half-jk)) 
+              Jij_max = min(ji+jj,j_half+jk) 
+              
+              aux = (Jij_max-Jij_min)/2 + 1
+              q = (j_half - j_half_min)/2 + 1
+              
+              allocate ( store_3b%hashmap(l)%subhash(q)%Y(aux,4) ) 
+              store_3b%hashmap(l)%Jij_start(q)= Jij_min
+              ! So this is how this hash map works: 
+              
+              ! [ q(j,Pi,Tz) , q1(j,Pi,Tz,Jij) , II, JJ ] 
+              !       = store_3b%hashmap ( threebody_index(i,j,k,Nsp) ) % 
+              !             subhash( (j_half - store_3b%j_half_min)/2+1) % Y ( (Jij - Jij_min)/2 + 1 , [1,2,3,4] ) 
+              
+              ! IT'S TERRIBLE.
+              print*, j_half
+            end do   
+              
+              
+           
+           
+       
+           l=l+1
+        end do
+     end do 
+  end do 
+  
+ ! do jtot = 1,jtot_max,2 
+  !   do Pi = 0,1
+   !     do Tz=-3,3,2 
+           
+     
+  stop
+ end subroutine 
+ ! we need a
+ !  type three_block
+!      type(real_mat),allocatable,dimension(:,:) :: sub
+!      integer,dimension(3) :: lam
+!   end type three_block
+  
+!   type three_body_force
+!      type(three_block),allocatable,dimension(:) :: mat
+!   end type three_body_force
+! 
 !====================================================
 !====================================================
 subroutine read_sp_basis(jbas,hp,hn,method)
@@ -3191,6 +3297,19 @@ subroutine clear_sq_op(C)
   
 end subroutine 
 !=====================================================
+!=====================================================
+integer function threebody_index(i,j,k,n)
+  ! n is total number of sp states
+  ! assume i <= j 
+  implicit none 
+  
+  integer :: i,j,k,n,x1
+  
+  x1 = n*(i-1) + (3*i-i*i)/2 + j - i 
+  
+  threebody_index = (n*n+n)/2*(k-1)+x1   
+
+end function 
 !=====================================================
 integer function bosonic_tp_index(i,j,n)
   ! n is total number of sp states
