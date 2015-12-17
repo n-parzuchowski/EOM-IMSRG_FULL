@@ -20,10 +20,8 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
-  character(200) :: spfile,intfile,prefix
   character(1) :: quads,trips
   logical :: trip_calc,xxCR
-  common /files/ spfile,intfile,prefix
   external :: build_generator 
   
   trip_calc = .false. 
@@ -127,11 +125,9 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC,HCC,OeCC
   real(8) :: ds,s,crit,nrm1,nrm2,wTs(2),Ecm(3)
   real(8),allocatable,dimension(:) :: E_old,wTvec
-  character(200) :: spfile,intfile,prefix
   character(3) :: args
   character(1) :: quads 
   character(1) :: Jlabel,Plabel
-  common /files/ spfile,intfile,prefix
   external :: build_generator 
   
   call duplicate_sq_op(HS,H) !evolved hamiltonian
@@ -242,10 +238,8 @@ subroutine magnus_HF(HS,G,jbas,build_generator)
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
-  character(200) :: spfile,intfile,prefix
   character(1) :: quads,trips
   logical :: trip_calc,xxCR,ecrit
-  common /files/ spfile,intfile,prefix
   external :: build_generator 
      
   HS%neq = 1

@@ -16,6 +16,7 @@ program main_IMSRG
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
+  type(three_body_force) :: threebod
   character(200) :: inputs_from_command
   character(1) :: quads,trips,trans_type
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
@@ -60,7 +61,12 @@ program main_IMSRG
   end if
 
   call allocate_blocks(jbasis,HS) 
-  call allocate_three_body_storage(jbasis) 
+  call allocate_three_body_storage(jbasis,threebod)
+  threebody_file = 'chi2b_srg0625ho40C_eMax04_hwHO020.me3j.gz' 
+  call read_me3j(threebod,jbasis)
+  stop
+ !print*, W_elem(1,2,3,2,1,3,2,2,3,threebod,jbasis) 
+ 
   HS%herm = 1
   HS%hospace = hw
 

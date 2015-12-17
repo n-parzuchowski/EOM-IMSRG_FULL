@@ -17,8 +17,6 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,Oevolv
   type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),oldcrit
-  character(200) :: spfile,intfile,prefix
-  common /files/ spfile,intfile,prefix
   
   call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian
@@ -146,10 +144,7 @@ subroutine discrete_TDA( HS , TDA, jbas,O1,O1TDA,O2,O2TDA )
   integer,dimension(5) :: iwork
   real(8),allocatable,dimension(:) :: cur_vec,work,E_old
   integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps ,i 
-  real(8) :: ds,s,crit,min_crit
-  character(200) :: spfile,intfile,prefix
-  common /files/ spfile,intfile,prefix
-  
+  real(8) :: ds,s,crit,min_crit  
   
   call duplicate_sq_op(HS,ETA) !generator
   call duplicate_sq_op(HS,H) !evolved hamiltonian

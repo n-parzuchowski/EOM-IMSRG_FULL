@@ -25,10 +25,8 @@ subroutine decouple_hamiltonian(H,jbas,build_generator,O1,O2)
   real(8),allocatable,dimension(:) :: cur_vec,work
   integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps  
   real(8) :: ds,s,E_old,crit,E_mbpt2
-  character(200) :: spfile,intfile,prefix
   logical :: com_calc 
   external :: build_generator,dHds,dHds_1op,dHds_2op
-  common /files/ spfile,intfile,prefix
   
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   ! first figure out how many equations there are:
@@ -199,11 +197,9 @@ subroutine TDA_decouple( H , TDA, jbas,build_generator,O1,O1TDA,O2,O2TDA )
   real(8),allocatable,dimension(:) :: cur_vec,work,E_old
   integer :: neq,iflag,Atot,Ntot,nh,np,nb,q,steps ,i 
   real(8) :: ds,s,crit,min_crit
-  character(200) :: spfile,intfile,prefix
   character(1) :: Jlabel,Plabel
   integer :: Jsing
   external :: build_generator,dHds,dHds_1op,dHds_2op
-  common /files/ spfile,intfile,prefix
 
  ! E_old = H%E0 ! for convergence check
   

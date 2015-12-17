@@ -14,6 +14,10 @@ module basic_IMSRG
      integer,allocatable,dimension(:) :: Z
   END TYPE int_vec
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  TYPE :: real_vec !element of an array of matrices
+     real(8),allocatable,dimension(:) :: XX 
+  END TYPE real_vec
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: spd    ! single particle discriptor
      INTEGER :: total_orbits,Jtotal_max,lmax,spblocks
      INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
@@ -84,20 +88,16 @@ module basic_IMSRG
      integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
      integer :: nblocks,Nsp,rank,herm,dpar
   end type cross_coupled_31_mat  
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-  type three_block
-     type(real_mat),allocatable,dimension(:,:) :: sub
-     integer,dimension(3) :: lam
-  end type three_block
-  
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
   type extendable_hash
-     type(int_mat),allocatable,dimension(:) :: subhash 
-     integer,allocatable,dimension(:) :: Jij_start
-     integer :: jhalf_start
+     type(int_mat),allocatable,dimension(:,:) :: position
+     integer,allocatable,dimension(:) :: jhalf_start,halfsize
+     integer :: Jij_start
   end type extendable_hash
      
   type three_body_force
-     type(three_block),allocatable,dimension(:) :: mat
+     integer,allocatable,dimension(:,:) :: lam 
+     type(real_vec),allocatable,dimension(:) :: mat
      type(extendable_hash),allocatable,dimension(:) :: hashmap
   end type three_body_force
   ! THIS STUFF IS IMPORTANT, DON'T CHANGE IT.
@@ -129,6 +129,7 @@ module basic_IMSRG
   real(8),public,parameter :: hbarc = 197.326968d0, m_nuc = 938.918725 !2006 values 
   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
   real(8),public,parameter :: Pi_const = acos(-1.d0) 
+  character(200),public :: spfile,intfile,prefix,threebody_file
   
   ! If you have multiple places where you might want to write/read from, list them here. 
   ! You can have as many as you want, just make sure to increase the dimension accordingly. 
@@ -148,7 +149,7 @@ module basic_IMSRG
                         '/home/nathan/nuclear_IMSRG/inifiles/               '                /)
   !======================================================================================
 contains
-subroutine allocate_three_body_storage(jbas)
+subroutine allocate_three_body_storage(jbas,store_3b)
   implicit none 
   
   type(spd) :: jbas
@@ -157,89 +158,223 @@ subroutine allocate_three_body_storage(jbas)
   integer :: ji,jj,jl,jk,jm,jn,aux
   integer :: jtot_max,Nsp,num_3b,num_blocks
   integer :: j_half,j_half_min,j_half_max
-  integer :: Jij_min,Jij_max,q,q1
-  
+  integer :: Jij_min,Jij_max,q,q1,aux2,Tij,ttot
+  integer :: ti,tj,tk,li,lj,lk,num_included 
+  real(8) :: mem ,elem
+
   jtot_max = 3*(jbas%jtotal_max)
-  Nsp = jbas%total_orbits
+  Nsp = jbas%total_orbits/2 ! isospin coupled
   num_3b = (Nsp**3+Nsp**2)/2
-  num_blocks = (jtot_max-1)/2+1
-  
-  allocate(store_3b%mat(num_blocks),store_3b%hashmap(num_3b)) 
+  num_blocks = ((jtot_max-1)/2+1)*4
+ 
+  allocate(store_3b%mat(num_blocks),store_3b%hashmap(num_3b))
+  allocate(store_3b%lam(num_blocks,3) ) 
   
   l = 1 
   do k = 1,Nsp
-     jk = jbas%jj(k)
+     jk = jbas%jj(2*k) ! isospin coupled so only looking at Tz=1 states in jbas
      do i= 1, Nsp
-        ji = jbas%jj(i)
+        ji = jbas%jj(2*i)
         do j=i,Nsp
-           jj = jbas%jj(j)
+           jj = jbas%jj(2*j)
            
            if ( l .ne. threebody_index(i,j,k,Nsp)) then 
               print*, 'threebody index mis-match:' 
               print*, l,threebody_index(i,j,k,Nsp)
            end if 
           
-           j_half_max = ji+jj+jk
-           if (abs(ji-jj) > jk) then 
-              J_half_min = abs(ji-jj)-jk
-           else if (jk < (ji+jj)) then 
-              J_half_min = 1
-           else
-              J_half_min = jk-ji-jj
-           end if 
+           Jij_min = abs(ji-jj)
+           Jij_max = ji+jj
+           aux = (Jij_max-Jij_min)/2+1
            
-           store_3b%hashmap(l)%jhalf_start = J_half_min
-           aux = (j_half_max - j_half_min)/2+1
-          
-           allocate(store_3b%hashmap(l)%subhash(aux)) 
-           allocate ( store_3b%hashmap(l)%Jij_start(aux) )
+           store_3b%hashmap(l)%Jij_start= Jij_min
            
-           do j_half = j_half_min, j_half_max,2 
-              
-              Jij_min = max(abs(ji-jj),abs(j_half-jk)) 
-              Jij_max = min(ji+jj,j_half+jk) 
-              
-              aux = (Jij_max-Jij_min)/2 + 1
-              q = (j_half - j_half_min)/2 + 1
-              
-              allocate ( store_3b%hashmap(l)%subhash(q)%Y(aux,4) ) 
-              store_3b%hashmap(l)%Jij_start(q)= Jij_min
-              ! So this is how this hash map works: 
-              
-              ! [ q(j,Pi,Tz) , q1(j,Pi,Tz,Jij) , II, JJ ] 
-              !       = store_3b%hashmap ( threebody_index(i,j,k,Nsp) ) % 
-              !             subhash( (j_half - store_3b%j_half_min)/2+1) % Y ( (Jij - Jij_min)/2 + 1 , [1,2,3,4] ) 
-              
-              ! IT'S TERRIBLE.
-              print*, j_half
-            end do   
-              
-              
+           allocate(store_3b%hashmap(l)%position(aux,2))  ! the 2 are the Tab projections 
+           allocate(store_3b%hashmap(l)%jhalf_start(aux)) 
+           allocate(store_3b%hashmap(l)%halfsize(aux)) 
            
-           
+           do Jij = Jij_min , Jij_max, 2
+              
+              aux = (Jij-Jij_min)/2+1
+              
+              j_half_min = abs(Jij-jk)
+              j_half_max = Jij+jk 
+              
+              store_3b%hashmap(l)%jhalf_start(aux) = j_half_min
+              
+              aux2 = (j_half_max-j_half_min)/2+1 
+              
+              store_3b%hashmap(l)%halfsize(aux) = aux2 
+              do Tij = 1,2! not actual Tab value
+                 if (Tij ==2) aux2 = aux2 * 2 ! two possible thalf
+                 allocate( store_3b%hashmap(l)%position(aux,Tij)%Y(aux2,2) ) 
+              end do 
+              
+           end do
        
            l=l+1
         end do
-     end do 
-  end do 
+     end do
+  end do
   
- ! do jtot = 1,jtot_max,2 
-  !   do Pi = 0,1
-   !     do Tz=-3,3,2 
+  q = 1
+  elem = 0.d0 
+  mem = 0.d0 
+  do jtot = 1,jtot_max,2 
+     do PAR = 0,1
+        do ttot=1,3,2 
            
-     
-  stop
- end subroutine 
- ! we need a
- !  type three_block
-!      type(real_mat),allocatable,dimension(:,:) :: sub
-!      integer,dimension(3) :: lam
-!   end type three_block
+           store_3b%lam(q,1) = jtot 
+           store_3b%lam(q,2) = PAR
+           store_3b%lam(q,3) = ttot           
+           
+           num_included = 0 
+           do k = 1,Nsp
+              jk = jbas%jj(2*k) 
+              lk = jbas%ll(2*k)
+              
+              do Tij = 0,1  ! don't need to multiply by two here 
+                 if ((ttot==3).and.(Tij==0)) cycle
+                 
+                 do Jij = abs(jtot-jk),jtot+jk,2
+                 
+                    do i = 1, Nsp
+                       ji = jbas%jj(2*i) 
+                       li = jbas%ll(2*i)
+                       
+                       do j = i,Nsp
+                          jj = jbas%jj(2*j) 
+                          lj = jbas%ll(2*j)
+                          
+                          if ( .not. (triangle(ji,jj,Jij)) ) cycle
+                          if (mod(li+lj+lk,2).ne. PAR) cycle
+                          
+                          l = threebody_index(i,j,k,Nsp)
+                          num_included=num_included+1 
+                          
+                          aux = ( Jij - store_3b%hashmap(l)%Jij_start ) /2 + 1
+                          aux2 = (jtot - store_3b%hashmap(l)%jhalf_start(aux))/2 + 1 &
+                               +store_3b%hashmap(l)%halfsize(aux)*(ttot-1)/2                           
+                          store_3b%hashmap(l)%position(aux,Tij+1)%Y(aux2,1) = q 
+                          store_3b%hashmap(l)%position(aux,Tij+1)%Y(aux2,2) = num_included 
+                      
+                       end do
+                    end do
+                 end do
+              end do
+           end do
+           
+
+           aux = bosonic_tp_index(num_included,num_included,num_included) 
+           elem = elem + aux
+           allocate(store_3b%mat(q)%XX(aux)) 
+           store_3b%mat(q)%XX = 5.d0
+           mem = mem+sizeof(store_3b%mat(q)%XX)
+           q = q + 1
+          
+        end do
+     end do
+  end do
+  mem = mem /1024./1024./1024. 
   
-!   type three_body_force
-!      type(three_block),allocatable,dimension(:) :: mat
-!   end type three_body_force
-! 
+  print*, 'MEMORY OF 3 BODY STORAGE IS: ',mem,'GB' 
+  print*, 'number of matrix elements: ',elem
+        
+end subroutine allocate_three_body_storage
+
+real(8) function WT_elem(ix,jx,kx,lx,mx,nx,Jij,Jlm,jtot,Tij,Tlm,ttot,store_3b,jbas) 
+  ! right now this only works for hermitian things
+  ! make sure you enter the isopsin-coupled basis states. 
+  ! iso( 1,2,3,4,5,6 ) == pn(2,4,6,8,10,12), (use the 1,2,3,4,5...)  
+  implicit none 
+  
+  type(spd) :: jbas
+  type(three_body_force) :: store_3b 
+  integer :: i,j,k,l,m,n,Jij,Jlm,jtot,Tz,PAR
+  integer :: ix,jx,kx,lx,mx,nx,Tij_indx,Tlm_indx
+  integer :: aux1,aux2,aux3,aux4,x1,x2
+  integer :: q,II,JJ,Nsp,aux,NN,Tij,Tlm,ttot
+  real(8) :: pre1,pre2,szofblock
+  
+  if (ttot == 3) then 
+     if ((Tij==0).or.(Tlm==0)) then 
+        WT_elem=0.d0 
+     end if 
+  end if 
+  
+  PAR = mod(jbas%ll(ix)+jbas%ll(jx)+jbas%ll(kx),2)
+  if (  PAR .ne. mod(jbas%ll(lx)+jbas%ll(mx)+jbas%ll(nx),2) ) then 
+     WT_elem = 0.d0 
+     return
+  end if 
+  
+  if (.not. (triangle(jbas%jj(kx),Jij,jtot))) then 
+     WT_elem = 0.d0 
+     return 
+  end if 
+  if (.not. (triangle(jbas%jj(nx),Jlm,jtot))) then 
+     WT_elem = 0.d0 
+     return 
+  end if 
+  
+  IF (ix > jx) then 
+     i = jx
+     j = ix 
+     k = kx 
+     
+     pre1=(-1.d0) ** ((jbas%jj(i) -jbas%jj(j) - Jij)/2)  
+  else   
+     i = ix
+     j = jx 
+     k = kx 
+     pre1 = 1.d0
+  end if 
+
+
+  IF (lx > mx) then 
+     l = mx
+     m = lx 
+     n = nx 
+     
+     pre2=(-1.d0) ** ((jbas%jj(l) -jbas%jj(m) - Jlm)/2)  
+  else   
+     l = lx
+     m = mx 
+     n = nx 
+     pre2 = 1.d0
+  end if 
+
+  
+  Nsp = jbas%total_orbits/2 ! isospin coupled
+  x1=threebody_index(i,j,k,Nsp)
+  x2=threebody_index(l,m,n,Nsp)
+  
+  aux1 = (Jij-store_3b%hashmap(x1)%Jij_start)/2 + 1  
+  aux2 = (Jlm-store_3b%hashmap(x2)%Jij_start)/2 + 1  
+  aux3 = (jtot - store_3b%hashmap(x1)%jhalf_start(aux1))/2+1 & 
+       + store_3b%hashmap(x1)%halfsize(aux1)*(ttot-1)/2    
+  aux4 = (jtot - store_3b%hashmap(x2)%jhalf_start(aux2))/2+1 & 
+       + store_3b%hashmap(x2)%halfsize(aux2)*(ttot-1)/2
+  
+  Tij_indx = (Tij+2)/2
+  Tlm_indx = (Tlm+2)/2
+  ! that sucked
+  q = store_3b%hashmap(x1)%position(aux1,Tij_indx)%Y(aux3,1) 
+  ! if (q .ne. store_3b%hashmap(x2)%position(aux2)%Y(aux4,1) ) then 
+  !    print*, q, store_3b%hashmap(x2)%position(aux2)%Y(aux4,1)
+  ! end if 
+  
+  II = store_3b%hashmap(x1)%position(aux1,Tij_indx)%Y(aux3,2) 
+  JJ = store_3b%hashmap(x2)%position(aux2,Tlm_indx)%Y(aux4,1) 
+  
+  szofblock = size(store_3b%mat(q)%XX)
+  NN = (sqrt(1+8*szofblock)-1)/2
+  
+  aux = bosonic_tp_index(min(II,JJ),max(II,JJ),NN) 
+  
+  WT_elem = store_3b%mat(q)%XX(aux)*pre1*pre2
+
+end function
 !====================================================
 !====================================================
 subroutine read_sp_basis(jbas,hp,hn,method)
@@ -249,13 +384,11 @@ subroutine read_sp_basis(jbas,hp,hn,method)
   implicit none 
   
   type(spd) :: jbas
-  character(200) :: spfile,intfile,prefix
   character(2) :: hk
   character(200) :: interm
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
   integer :: q,r,Jtarget,PARtarget,method
   real(8) :: e
-  common /files/ spfile,intfile,prefix
   
   interm= adjustl(spfile)
   open(unit=39,file=trim(SP_DIR)//trim(interm))
@@ -1021,12 +1154,10 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
   type(sq_op) :: H
   type(sq_op),optional :: rr,pp
   type(spd) :: jbas
-  character(200) :: spfile,intfile,prefix
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
   real(8) :: V,Vcm,g1,g2,g3,pre,hw,V1
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
   logical :: rr_calc,pp_calc
-  common /files/ spfile,intfile,prefix
   
   open(unit=39,file = trim(TBME_DIR)//trim(adjustl(intfile))) 
   
@@ -1162,7 +1293,6 @@ subroutine read_gz(H,jbas,htype,hw,rr,pp)
   type(sq_op) :: H
   type(sq_op),optional :: rr,pp
   type(spd) :: jbas
-  character(200) :: spfile,intfile,prefix
   integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
   real(8) :: V,Vcm,g1,g2,g3,pre,hw
   integer :: C1,C2,int1,int2,i1,i2,htype,COM
@@ -1170,7 +1300,6 @@ subroutine read_gz(H,jbas,htype,hw,rr,pp)
   logical :: rr_calc,pp_calc
   integer(c_int) :: filehandle,sz
   character(200) :: string_in, fixed
-  common /files/ spfile,intfile,prefix
   
   filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(intfile))//achar(0),"r"//achar(0))  
   
@@ -3113,8 +3242,8 @@ subroutine write_binary_operator(H,stage)
   integer Atot,Ntot,q
   real(8),allocatable,dimension(:):: outvec 
   character(*),intent(in) :: stage 
-  character(200) :: spfile,intfile,input,prefix
-  common /files/ spfile,intfile,prefix 
+  character(200) :: input
+
   
   if (prefix(1:8) == 'testcase') return  
   Atot = H%belowEF
@@ -3155,8 +3284,8 @@ subroutine read_binary_operator(H,stage)
   integer Atot,Ntot,q
   real(8),allocatable,dimension(:):: outvec 
   character(*),intent(in) :: stage 
-  character(200) :: spfile,intfile,input,prefix
-  common /files/ spfile,intfile,prefix 
+  character(200) :: input
+
   
   Atot = H%belowEF
   Ntot = H%Nsp
@@ -3361,7 +3490,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   !read inputs from file
   implicit none 
   
-  character(200) :: spfile,intfile,input,prefix
+  character(200) :: input
   character(50) :: valence
   character(1) :: quads,trips,trans_type
   type(sq_op) :: H 
@@ -3369,7 +3498,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   integer :: method,Exint,ISTAT ,i,trans_rank
   logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN, found
   real(8) :: hw
-  common /files/ spfile,intfile,prefix 
+
     
   input = adjustl(input) 
   if (trim(input) == '') then 
@@ -4993,8 +5122,6 @@ subroutine write_tilde_from_Rcm(rr)
   implicit none 
   
   type(sq_op) :: rr 
-  character(200) :: spfile,intfile,input,prefix
-  common /files/ spfile,intfile,prefix 
 
   open(unit=53, file=OUTPUT_DIR//&
        trim(adjustl(prefix))//'_omegatilde.dat') 

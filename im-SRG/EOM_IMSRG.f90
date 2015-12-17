@@ -16,10 +16,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   type(sq_op),optional :: O1
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   integer :: J,PAR,Numstates,i,q
-  character(2) :: Jlabel,Plabel,betalabel
-  character(200) :: spfile,intfile,prefix
-  common /files/ spfile,intfile,prefix
-  
+  character(2) :: Jlabel,Plabel,betalabel  
   
   allocate(ladder_ops(numstates)) 
   ladder_ops%herm = 1

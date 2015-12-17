@@ -452,8 +452,6 @@ subroutine calculate_CM_energy(pp,rr,hw)
   type(sq_op) :: pp,rr,Hcm
   real(8) :: hw,wTs(2),Ecm(3) 
   integer :: i
-  character(200) ::  spfile,intfile,prefix
-  common /files/ spfile,intfile,prefix
  
   call duplicate_sq_op(pp,Hcm)
   call add_sq_op(pp,1.d0,rr,1.d0,Hcm)
@@ -484,9 +482,7 @@ subroutine calculate_CM_energy_TDA(TDA,rr,pp,ppTDA,rrTDA,hw)
   real(8) :: hw,wTs(2)
   real(8),allocatable,dimension(:) :: energies,omegas 
   integer :: i,q
-  character(200) ::  spfile,intfile,prefix
   character(3) :: args
-  common /files/ spfile,intfile,prefix
  
   
   call duplicate_sp_mat(TDA,HcmTDA) 

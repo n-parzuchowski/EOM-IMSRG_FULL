@@ -60,11 +60,9 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   logical :: pp_calc,rr_calc
   character(1) :: rem
   character(2) :: eMaxchr
-  character(200) :: spfile,intfile,input,prefix
   type(c_ptr) :: buf,buf2,buf3
   integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
-  common /files/ spfile,intfile,prefix 
   
   pp_calc=.false.
   rr_calc=.false.
@@ -422,9 +420,8 @@ subroutine export_to_nushellX(H,jbas)
   integer :: i,j,k,l,J_tot,T_tot,Jx,Tx
   integer :: tot_pp_elems,tot_nn_elems,tot_pn_elems
   real(8) :: pre,mat_elem
-  character(200) :: spfile,intfile,prefix 
   real(8),allocatable,dimension(:) :: sp_ens
-  common /files/ spfile,intfile,prefix 
+
   
 
   open(unit=34,file='../../hamiltonians/'// &
@@ -557,14 +554,13 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson)
   logical :: pp_calc,rr_calc,file_there,noteffedup
   character(1),optional :: Lawson
   character(2) :: eMaxchr
-  character(200) :: spfile,intfile,input,prefix
   character(200) :: me1bfile
   integer :: lj,twol,twoj,ljMax,idx,idxx
   integer,allocatable,dimension(:,:) :: SPBljs 
   type(c_ptr) :: buf,buf2,buf3
   integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
-  common /files/ spfile,intfile,prefix 
+
   
   rr_calc = .false.
   pp_calc = .false. 
@@ -1121,8 +1117,481 @@ do a= 1, aMax
 
 end subroutine
 !==========================================================
-
+! subroutine read_me3j(store_3b,jbas) 
+!   implicit none 
   
+!   type(spd) :: jbas
+!   type(three_body_force) :: store_3b
+!   integer :: nlj1,nlj2,nlj3,nlj4,nlj5,nlj6,aux,aux1,aux2,aux3,aux4
+!   integer :: nsp,ja,jb,jc,jd,je,jf,iblock,Jab,Jde,Tab,ttab,ttot,jtot
+!   integer :: ea,eb,ec,ed,ef,ee,e1max,EE1max,EE2max,EE3max
+!   integer :: Tij_indx,Tlm_indx,blocksize,endpoint,endsz,endsz2
+!   integer :: lmax3,jtot_max,jtot_max_1,jtot_max_2,jtot_min,jtot_min_1
+!   integer :: jtot_min_2,i,II,JJ,Jab_max,Jab_min,jc_max,jc_min
+!   integer :: Jde_min,Jde_max,x1,x2,q,NN,nsp_iso,tc_min,tc_max
+!   integer :: spot_in_gz_file,subtract
+!   real(8) :: szofblock,V,ass
+!   character(1)::rem
+!   real(8),allocatable,dimension(:) :: xblock,me_fromfile
+!   type(c_ptr) :: buf,buf2,buf3
+!   integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
+!   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
+!   logical :: autozero ,thing
+  
+!   lmax3 = 12
+!   EE1max = 4
+!   e1max = 4
+!   EE2max = 8
+!   EE3max = 12 
+
+!   allocate(me_fromfile(10))
+!   nsp = jbas%total_orbits
+!   nsp_iso = nsp/2
+!   !open file 
+!   hndle=gzOpen(trim(TBME_DIR)//trim(adjustl(threebody_file))//achar(0),"r"//achar(0)) 
+!   sz = 200.
+!   ! read first line, it's not important to me.
+!   buf = gzGets(hndle,buffer(1:sz),sz)
+!   ! once again, not looping over isospin
+!   spot_in_gz_file=0 !first element 
+!   do nlj1=2,nsp,2 
+!      ja = jbas%jj(nlj1) 
+     
+!      ea = jbas%nn(nlj1)*2 + jbas%ll(nlj1) 
+!      if (ea > e1max ) exit
+!      if (ea > EE1max )  exit
+     
+!      do nlj2=2,nsp,2 
+!         jb = jbas%jj(nlj2) 
+!         eb = jbas%nn(nlj2)*2 + jbas%ll(nlj2) 
+!         if ((ea+eb) > EE2max ) exit
+        
+!         do nlj3 = 2,nsp,2 
+!            jc = jbas%jj(nlj3) 
+ 
+!            ec = jbas%nn(nlj3)*2 + jbas%ll(nlj3) 
+!            if ((ea+eb+ec) > EE3max ) exit
+        
+!            Jab_min = abs(ja-jb) 
+!            Jab_max = ja+jb
+           
+!            jtot_max_1=ja+jb+jc 
+           
+!            if (Jab_min > jc ) then 
+!               jtot_min_1 = Jab_min-jc 
+!            else if (jc < Jab_max) then 
+!               jtot_min_1 = 1
+!            else 
+!               jtot_min_1 = jc - Jab_max
+!            end if 
+           
+           
+           
+!            do nlj4=2,nsp,2 
+!               jd = jbas%jj(nlj4) 
+!               ed = jbas%nn(nlj4)*2 + jbas%ll(nlj4) 
+              
+!               do nlj5=2,nsp,2 
+!                  je = jbas%jj(nlj5) 
+!                  ee = jbas%nn(nlj5)*2 + jbas%ll(nlj5) 
+                 
+!                  do nlj6 = 2,nsp,2 
+!                     jf = jbas%jj(nlj6) 
+!                     ef = jbas%nn(nlj6)*2 + jbas%ll(nlj6)
+                    
+!                     if (ed+ee+ef > EE3max ) exit
+                    
+!                     !parity 
+!                     if (mod( jbas%ll(nlj1)+jbas%ll(nlj2) &
+!                          +jbas%ll(nlj3)+jbas%ll(nlj4)+ &
+!                          jbas%ll(nlj5)+jbas%ll(nlj6),2) .ne. 0 ) cycle 
+                    
+!                     Jde_min = abs(jd-je) 
+!                     Jde_max = jd+je
+           
+!                     jtot_max_2=jd+je+jf 
+                    
+!                     if (Jde_min > jf ) then 
+!                        jtot_min_2 = Jde_min-jf 
+!                     else if (jf < Jde_max) then 
+!                        jtot_min_2 = 1
+!                     else 
+!                        jtot_min_2 = jf - Jde_max
+!                     end if
+                    
+!                     jtot_min = max(jtot_min_1,jtot_min_2) 
+!                     jtot_max = min(jtot_max_1,jtot_max_2) 
+  
+!                     if (jtot_min > jtot_max ) cycle
+                    
+!                     do Jab = Jab_min,Jab_max,2
+!                        do Jde = Jde_min,Jde_max,2
+                          
+!                           jc_min = max(abs(Jab-jc),abs(Jde-jf)) 
+!                           jc_max = min(Jab+jc,Jde+jf) 
+!                           if (jc_min > jc_max)  cycle
+                          
+!                           blocksize = 5*((jc_max - jc_min)/2+1)
+!                           allocate(xblock(blocksize)) 
+
+!                           ! this is very dumb. 
+!                           ! need to read in blocks of numbers
+!                           ! of arbitrary size, 
+!                           ! from a gzipped file, with ten numbers
+!                           ! in each column. 
+!                           ! i have to read each row individually, and then
+!                           ! figure out where the end of the "block" is
+!                           print*, 'size', blocksize
+!                           thing = .true. 
+!                           subtract = 0
+!                           do while (thing)
+!                              print*, 'spot',spot_in_gz_file
+!                              if (spot_in_gz_file==0) then 
+!                                 i = 0
+!                                 endsz=130
+!                                 rem='9'
+!                                 endpoint = 10-subtract
+!                                 deallocate(me_fromfile)
+!                                 allocate(me_fromfile(endpoint))
+                                
+!                                 if (i+endpoint > blocksize) then 
+!                                    deallocate(me_fromfile)                          
+!                                    allocate(me_fromfile( blocksize - i) ) 
+!                                    endpoint = blocksize-i
+!                                    endsz = endpoint*13 
+!                                    write(rem,'(I1)') endpoint-1
+!                                    thing = .false.
+!                                 else if ( i+10 == blocksize) then 
+!                                    thing = .false. 
+!                                 end if
+                                
+!                                 buf = gzGets(hndle,buffer(1:sz),sz)  
+!                                 print*, buffer(1:endsz) 
+!                                 read(buffer(1:endsz),'(f12.7,'//rem//'(f13.7))') me_fromfile 
+                                
+!                                 xblock(i+1:i+endpoint) = me_fromfile 
+!                                 i =  i + endpoint 
+!                                 spot_in_gz_file = mod(spot_in_gz_file+endpoint,10) 
+
+!                                 print*, 'newspot' ,spot_in_gz_file
+!                                 read*, ass
+!                             else 
+!                                 deallocate(me_fromfile) 
+!                                 endpoint=10-spot_in_gz_file 
+!                                 write(rem,'(I1)') endpoint 
+!                                 allocate(me_fromfile(endpoint) )
+!                                 endsz2= 130
+!                                 i = 0 
+!                                 if (i+endpoint > blocksize) then 
+!                                    deallocate(me_fromfile)                          
+!                                    allocate(me_fromfile( blocksize - i) ) 
+!                                    endpoint = blocksize-i
+!                                    endsz2=endsz+13*endpoint 
+!                                    write(rem,'(I1)') endpoint
+!                                    thing = .false.
+!                                 else if (i+endpoint == blocksize) then 
+!                                    thing = .false. 
+!                                 end if
+!                                 print*, buffer(endsz+1:endsz2)                               
+!                                 read(buffer(endsz+1:endsz2),'('//rem//'(f13.7))') me_fromfile 
+!                                 xblock(i+1:i+endpoint) = me_fromfile 
+!                                 i = i + endpoint
+!                                 spot_in_gz_file = mod(spot_in_gz_file+endpoint,10) 
+!                                 print*, 'newspot' ,spot_in_gz_file
+!                                 subtract = blocksize-endpoint
+!                                 print*, 'subtract' ,subtract
+!                                 read*, ass
+!                              end if
+!                           end do
+!                          ! print*, nlj1,nlj2,nlj3,nlj4,nlj5,nlj6
+!                           do iblock = 1,blocksize
+!                              do jtot = jc_min,jc_max ,2  ! yeah... this jc doesn't have anything to do with the jc of the sp state. 
+                                
+!                                 do tab = 0,2,2
+!                                    do ttab = 0,2,2
+                                      
+!                                       tc_min = 1
+!                                       tc_max = min(tab+1,ttab+1) 
+                                      
+!                                       do ttot = tc_min,tc_max,2
+                                         
+!                                          V = xblock(5*(jtot-jc_min)/2+tab+ttab/2+(ttot-1)/2+1) 
+
+!                                          autozero = .false.
+
+!                                          if ( (jbas%ll(nlj1)>lmax3) .or. (jbas%ll(nlj2)>lmax3) .or. (jbas%ll(nlj3)>lmax3) .or. &
+!                                               (jbas%ll(nlj4)>lmax3) .or. (jbas%ll(nlj5)>lmax3) .or. (jbas%ll(nlj6)>lmax3)) V=0.d0
+
+
+!                                          if ( (nlj1==nlj2) .and. (mod((tab+Jab)/2,2)==0) ) autozero = .true.
+!                                          if ( (nlj4==nlj5) .and. (mod((ttab+Jde)/2,2)==0) ) autozero = .true.
+!                                          if ( (nlj1==nlj2) .and. (nlj1==nlj3) .and. (ttot==3) .and. (ja<3) ) autozero = .true.
+!                                          if ( (nlj4==nlj5) .and. (nlj4==nlj6) .and. (ttot==3) .and. (jd<3) ) autozero = .true.
+
+                                         
+!                                          if (autozero) then 
+!                                             if ( abs(V) > 1e-8)then  
+!                                                print*, 'something is fucked'
+!                                                print*, tab,jab,ttab,jde,jtot,ttot
+!                                                print*, nlj1,nlj2,nlj3,nlj4,nlj5,nlj6
+!                                                print*, V
+!                                                STOP 'end something is fucked' 
+!                                             end if
+!                                          end if 
+                                       
+!                                          if ( nlj1 > nlj2 ) cycle
+!                                          if ( nlj4 > nlj5 ) cycle
+                                         
+!                                          x1=threebody_index(nlj1/2,nlj2/2,nlj3/2,nsp_iso)
+!                                          x2=threebody_index(nlj4/2,nlj5/2,nlj6/2,nsp_iso)
+
+!                                          aux1 = (Jab-store_3b%hashmap(x1)%Jij_start)/2 + 1  
+!                                          aux2 = (Jde-store_3b%hashmap(x2)%Jij_start)/2 + 1  
+!                                          aux3 = (jtot - store_3b%hashmap(x1)%jhalf_start(aux1))/2+1 & 
+!                                               + store_3b%hashmap(x1)%halfsize(aux1)*(ttot-1)/2    
+!                                          aux4 = (jtot - store_3b%hashmap(x2)%jhalf_start(aux2))/2+1 & 
+!                                               + store_3b%hashmap(x2)%halfsize(aux2)*(ttot-1)/2
+                                         
+!                                          Tij_indx = (Tab+2)/2
+!                                          Tlm_indx = (ttab+2)/2
+!                                          ! that sucked
+                                         
+!                                          q = store_3b%hashmap(x1)%position(aux1,Tij_indx)%Y(aux3,1) 
+
+!                                          II = store_3b%hashmap(x1)%position(aux1,Tij_indx)%Y(aux3,2) 
+!                                          JJ = store_3b%hashmap(x2)%position(aux2,Tlm_indx)%Y(aux4,1) 
+                                         
+!                                          szofblock = size(store_3b%mat(q)%XX)
+!                                          NN = (sqrt(1+8*szofblock)-1)/2
+                                         
+!                                          aux = bosonic_tp_index(min(II,JJ),max(II,JJ),NN) 
+                                         
+!                                          store_3b%mat(q)%XX(aux) = V 
+                                         
+!                                          end do 
+!                                       end do
+!                                    end do
+!                                 end do
+!                              end do
+!                              deallocate(xblock) 
+!                           end do
+                          
+!                        end do
+!                     end do
+!                  end do
+!               end do
+!            end do
+!         end do
+!      end do
+!  ! end do
+ 
+!   rx = gzClose(hndle)  
+! end subroutine
+
+
+
+
+
+
+
+
+
+
+
+!==========================================================
+subroutine read_me3j(store_3b,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(three_body_force) :: store_3b
+  integer :: nlj1,nlj2,nlj3,nnlj1,nnlj2,nnlj3,aux,aux1,aux2,aux3,aux4
+  integer :: nnlj2_end,nnlj3_end,twoTMin,twoTmax,twoJCMin,twoJCMax
+  integer :: twoJCMindown,twoJCMaxup,twoJCMindownket,twoJCMindownbra
+  integer :: twoJCMaxupket,twoJCMaxupbra,la,lb,lc,ld,le,lf
+  integer :: nsp,ja,jb,jc,jd,je,jf,iblock,Jab,JJab,Tab,TTab,ttot,jtot
+  integer :: ea,eb,ec,ed,ef,ee,e1max,E3max,JabMax,JabMin,JJabMax,JJabMin
+  integer :: Tij_indx,Tlm_indx,blocksize,endpoint,endsz,endsz2
+  integer :: lmax3,jtot_max,jtot_max_1,jtot_max_2,jtot_min,jtot_min_1
+  integer :: jtot_min_2,i,II,JJ,Jab_max,Jab_min,jc_max,jc_min
+  integer :: Jde_min,Jde_max,x1,x2,q,NN,nsp_iso,tc_min,tc_max
+  integer :: spot_in_gz_file,subtract
+  real(8) :: szofblock,V,ass
+  character(1)::rem
+  real(8),allocatable,dimension(:) :: xblock,me_fromfile
+  type(c_ptr) :: buf,buf2,buf3
+  integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
+  character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
+  logical :: autozero ,thing
+  
+ ! lmax3 = 12
+ ! EE1max = 4
+ ! e1max = 4
+ ! EE2max = 8
+  E3max = 12 
+
+!  allocate(me_fromfile(10))
+  nsp = jbas%total_orbits
+  nsp_iso = nsp/2
+  !open file 
+ ! hndle=gzOpen(trim(TBME_DIR)//trim(adjustl(threebody_file))//achar(0),"r"//achar(0)) 
+ ! sz = 200.
+  ! read first line, it's not important to me.
+  !buf = gzGets(hndle,buffer(1:sz),sz)
+  ! once again, not looping over isospin
+  spot_in_gz_file=0 !first element 
+  
+
+  i = 0
+  do nlj1 = 1, nsp_iso 
+     la = jbas%ll(2*nlj1)
+     ja = jbas%jj(2*nlj1)
+     ea = 2*jbas%nn(2*nlj1)+la 
+     if (ea > E3Max) exit
+     
+     do nlj2 = 1,nlj1
+        lb = jbas%ll(2*nlj2)
+        jb = jbas%jj(2*nlj2)
+        eb = 2*jbas%nn(2*nlj2)+lb 
+        if (ea + eb > E3Max) exit
+        
+        do nlj3 = 1,nlj2
+           lc = jbas%ll(2*nlj3)
+           jc = jbas%jj(2*nlj3)
+           ec = 2*jbas%nn(2*nlj3)+lc 
+           if (ea + eb + ec > E3Max) exit
+        
+
+     do nnlj1 = 1, nlj1 
+        ld = jbas%ll(2*nnlj1)
+        jd = jbas%jj(2*nnlj1)
+        ed = 2*jbas%nn(2*nnlj1)+ld 
+        if (ed > E3Max) exit
+        
+        if ( nlj1 == nnlj1 ) then 
+           nnlj2_end = nlj2
+        else
+           nnlj2_end = nnlj1
+        end if
+                  
+        do nnlj2 = 1, nnlj2_end            
+           le = jbas%ll(2*nnlj2)
+           je = jbas%jj(2*nnlj2)
+           ee = 2*jbas%nn(2*nnlj2)+le 
+           if (ed + ee > E3Max) exit
+        
+           if ( (nlj1 == nnlj1).and.(nlj2==nnlj2)) then 
+              nnlj3_end = nlj3
+           else
+              nnlj3_end = nnlj2
+           end if 
+           
+           do nnlj3 = 1,nnlj3_end
+              lf = jbas%ll(2*nnlj3)
+              jf = jbas%jj(2*nnlj3)
+              ef = 2*jbas%nn(2*nnlj3)+lf 
+              if (ed + ee + ef > E3Max) exit
+
+              
+              ! check parity 
+              if ( mod(la+lb+lc+ld+le+lf,2) .ne. 0 ) cycle
+              
+              JabMax =  ja+jb 
+              JabMin = abs(ja-jb) 
+              
+              JJabMax = jd+je
+              JJabMin = abs(jd-je) 
+              
+              !determine roughly the two*J bounds
+              
+              if (abs(ja-jb) > jc) then 
+                 twoJCMindownbra = abs(ja-jb)-jc
+              else if ( jc < ja+jb) then 
+                 twoJCMindownbra = 1
+              else
+                 twoJCMindownbra = jc - ja -jb
+              end if 
+              
+              if (abs(jd-je) > jf) then 
+                 twoJCMindownket = abs(jd-je)-jf
+              else if ( jf < jd+je) then 
+                 twoJCMindownket = 1
+              else
+                 twoJCMindownket = jf - jd -je
+              end if 
+              
+              twoJCMaxupbra = ja+jb+jc
+              twoJCMaxupket = jd+je+jf
+              
+              twoJCMindown = max(twoJCMindownket,twoJCMindownbra) 
+              twoJCMaxup = min(twoJCMaxupket,twoJCMaxupbra)
+              
+              if (twoJCMindown > twoJCMaxup) cycle
+              
+              do Jab = JabMin,JabMax,2
+                 do JJab=JJabMin,JJabMax,2
+                    
+                    twoJCMin = max(abs(Jab-jc),abs(JJab-jf))
+                    twoJCMax = min(Jab+jc,JJab+jf) 
+                    
+                    do jtot = twoJCMin,twoJCMax,2
+                       
+                       do Tab = 0,1
+                          do TTab = 0,1
+                             
+                             twoTMin = max(abs(Tab-1),abs(TTab-1))
+                             twoTMax = min(Tab+1,TTab+1) 
+                             
+                             do ttot = twoTMin,twoTmax,2
+                                
+                                i = i + 1
+  !write(45,'(13(I5))') i, nlj1-1,nlj2-1,nlj3-1,nnlj1-1,nnlj2-1,nnlj3-1,Jab/2,JJab/2,Tab/2,TTab/2,jtot/2,ttot/2
+                                
+                                
+                                
+                                
+  
+                             end do !ttot
+
+                          end do !TTab
+                       end do ! Tab
+                    end do !jtot
+                 end do !JJab
+              end do !Jab
+           end do !nnlj3
+        end do !nnlj2
+     end do !nnlj1 
+        end do !nlj3
+     end do !nlj2
+  end do !nlj1
+    
+                print*, i 
+              
+                 
+           
+  
+ 
+  !rx = gzClose(hndle)  
+end subroutine
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 end module
+
 
 
