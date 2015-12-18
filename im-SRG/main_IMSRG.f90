@@ -8,6 +8,7 @@ program main_IMSRG
   use me2j_format
   use EOM_IMSRG
   use brute_force_testing
+  use three_body_routines
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
