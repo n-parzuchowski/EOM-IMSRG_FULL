@@ -96,12 +96,18 @@ module basic_IMSRG
   end type extendable_hash
      
   type three_body_force
-     integer :: num_elems
+     integer :: num_elems,E3max 
      integer,allocatable,dimension(:) :: kets,bras,Nsize
      integer,allocatable,dimension(:,:) :: lam
      type(real_vec),allocatable,dimension(:) :: mat
      type(extendable_hash),allocatable,dimension(:) :: hashmap
   end type three_body_force
+
+  ! to swap two variables. 
+  ! works for real,real(8),integer
+  interface swap
+     module procedure swap_r,swap_d,swap_i
+  end interface
   ! THIS STUFF IS IMPORTANT, DON'T CHANGE IT.
   ! I try to keep public stuff to a minimum, and only use it where absolutely necessary 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3342,26 +3348,26 @@ end function
 !===================================================== 
 !=====================================================  
 subroutine print_matrix(matrix)
-	implicit none 
-	
-	integer :: i,m
-	real(8),dimension(:,:) :: matrix
-	character(1) :: y
-	character(10) :: fmt2
-
-    m=size(matrix(1,:))
-
-    write(y,'(i1)') m
+  implicit none 
   
-    fmt2= '('//y//'(f14.8))'	
+  integer :: i,m
+  real(8),dimension(:,:) :: matrix
+  character(1) :: y
+  character(10) :: fmt2
+  
+  m=size(matrix(1,:))
+  
+  write(y,'(i1)') m
+  
+  fmt2= '('//y//'(f14.8))'	
 	
-	print*
-	do i=1,m
-	   write(*,fmt2) matrix(i,:)
-	end do
-	print* 
-	
-end subroutine 
+  print*
+  do i=1,m
+     write(*,fmt2) matrix(i,:)
+  end do
+  print* 
+  
+end subroutine print_matrix
 !===============================================  
 subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
      ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips,trans_type,trans_rank)
@@ -5452,7 +5458,22 @@ real(8) function reduced_r( a, b , jbas )
   reduced_r = p1*c1
   
 end function
-  
+subroutine swap_d(a,b) 
+  implicit none
+  real(8) :: a,b,ax,bx
+  ax = a;bx = b;b = ax;a = bx
+end subroutine
+subroutine swap_r(a,b) 
+  implicit none
+  real :: a,b,ax,bx
+  ax = a;bx = b;b = ax;a = bx
+end subroutine
+subroutine swap_i(a,b) 
+  implicit none
+  integer :: a,b,ax,bx
+  ax = a;bx = b;b = ax;a = bx
+end subroutine
+
 end module       
 
 

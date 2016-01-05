@@ -314,7 +314,7 @@ subroutine allocate_three_body_storage(jbas,store_3b)
   integer :: ji,jj,jl,jk,jm,jn,a,b,c,d,e,f,qx,Tab_indx,TTab_indx
   integer :: jtot_max,Nsp,num_3b,num_blocks,x1,x2
   integer :: j_half,j_half_min,j_half_max,NN
-  integer :: Jij_min,Jij_max,q,q1Tij,ttot
+  integer :: Jij_min,Jij_max,q,q1Tij,ttot,mores
   integer :: ti,tj,tk,li,lj,lk,num_included 
   integer :: nlj1,nlj2,nlj3,nnlj1,nnlj2,nnlj3,aux,aux1,aux2,aux3,aux4
   integer :: nnlj2_end,nnlj3_end,twoTMin,twoTmax,twoJCMin,twoJCMax
@@ -383,6 +383,7 @@ subroutine allocate_three_body_storage(jbas,store_3b)
   end do
   
   E3max = 12
+  store_3b%E3max = 12
   
   elems = 0
   mem = 0.d0 
@@ -537,16 +538,269 @@ subroutine allocate_three_body_storage(jbas,store_3b)
   
   print*, 'number of matrix elements: ',elems
   store_3b%num_elems = elems
+  elems = 0
   do q = 1, num_blocks     
+     if (store_3b%kets(q) .ne. store_3b%bras(q)) print*, 'shit'
      NN = store_3b%kets(q) 
+     elems = elems + (NN*NN+NN)/2
      allocate(store_3b%mat(q)%XX((NN*NN+NN)/2))
-     store_3b%Nsize(q) = (NN*NN+NN)/2 
+     store_3b%Nsize(q) = NN
      mem = mem +sizeof(store_3b%mat(q)%XX)
   end do
   
   mem = mem/1024.d0/1024.d0/1024.d0
   print*, 'MEMORY OF 3 BODY STORAGE IS: ',mem,'GB' 
+  print*, 'slots:', elems
 end subroutine allocate_three_body_storage
+
+
+
+subroutine SetME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in,STOR,jbas)
+  ! here we accept pn basis indeces, but treat them as iso-spin coupled. 
+  ! e.g. 1==2, 3==4, 5==6 ...   
+  implicit none 
+  
+  integer :: Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in
+  real(8) :: V_in,x
+  type(three_body_force) :: STOR
+  type(spd) :: jbas
+  
+  x = AddToME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in,STOR,jbas)
+  !x is not important here
+end subroutine SetME
+
+real(8) function GetME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,STOR,jbas) 
+  ! here we accept pn basis indeces, but treat them as iso-spin coupled. 
+  implicit none 
+  
+  integer,intent(in) :: Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in
+  integer :: Jab_i,Jde_i,jt,Tab_i,Tde_i,tt,a_i,b_i,c_i,d_i,e_i,f_i
+  real(8) :: x
+  type(three_body_force) :: STOR
+  type(spd) :: jbas
+  
+  Jab_i = Jab_in; Jde_i = Jde_in; jt = jtot;Tab_i = Tab_in; Tde_i = Tde_in; tt = ttot
+  a_i=a_in;  b_i=b_in;  c_i=c_in;  d_i=d_in;  e_i=e_in;  f_i=f_in
+
+  GetME = AddToME(Jab_i,Jde_i,jt,Tab_i,Tde_i,tt,a_i,b_i,c_i,d_i,e_i,f_i,0.d0,STOR,jbas) 
+end function GetME
+  
+!!! These functions are ported from Ragnar Stroberg's code: 
+real(8) function &
+AddToME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in,STOR,jbas) 
+  implicit none 
+
+  type(spd) :: jbas 
+  type(three_body_force) :: STOR
+  integer :: a,b,c,d,e,f,abc_recoup,def_recoup,jmin
+  integer :: Tde_min,ttot,jmax
+  integer :: ja,jb,jc,jd,je,jf,x1,x2,q,II,JJ,Jindx
+  integer :: aux1,aux2,aux3,aux4,Tab_indx,TTab_indx
+  integer :: Jab,Jde,Tab,Tde,aux,Jab_max,Jab_min
+  integer :: Jde_max,Jde_min,Tab_max,Tab_min,Tde_max
+  real(8) :: V_out,Cj_abc,Cj_def,Ct_abc,Ct_def
+ 
+  integer,intent(in) :: a_in,b_in,c_in,d_in,e_in,f_in
+  integer,intent(in) :: Jab_in,Jde_in,jtot,Tab_in,Tde_in  
+  real(8),intent(in) :: V_in
+  
+  abc_recoup = SortOrbits(a_in,b_in,c_in,a,b,c)
+  def_recoup = SortOrbits(d_in,e_in,f_in,d,e,f)
+    
+  if ((d>a).or.((d==a).and.(e>b)).or.((d==a).and.(e==b).and.(f>c))) then 
+     call swap(a,d)
+     call swap(b,e)
+     call swap(c,f)
+     call swap(Jab_in,Jde_in)
+     call swap(Tab_in,Tde_in)
+     call swap(abc_recoup,def_recoup)
+  end if 
+  
+  ! make sure the element isn't above the E3max truncation
+  if ( (2* ( jbas%nn(a)+jbas%nn(b) + jbas%nn(c)) + &
+       jbas%ll(a) + jbas%ll(b) +jbas%ll(c) ) > STOR%E3max ) then 
+     AddToME = 0.d0 
+     return
+  end if 
+
+  if ( (2* ( jbas%nn(d)+jbas%nn(e) + jbas%nn(f)) + &
+       jbas%ll(d) + jbas%ll(e) +jbas%ll(f) ) > STOR%E3max ) then 
+     AddToME = 0.d0 
+     return
+  end if      
+  
+  ja = jbas%jj(a) 
+  jb = jbas%jj(b) 
+  jc = jbas%jj(c) 
+  jd = jbas%jj(d) 
+  je = jbas%jj(e) 
+  jf = jbas%jj(f)  
+  
+  Jab_min = abs(ja-jb)
+  Jab_max = ja+jb
+  Jde_min = abs(jd-je)
+  Jde_max = jd+je 
+  
+  if (ttot == 3) then 
+     Tab_min = 2
+     Tde_min = 2
+  else
+     Tab_min = 0
+     Tde_min = 0
+  end if 
+  Tab_max = 2
+  Tde_max = 2
+  
+  !!! Find indeces:::  
+  x1=threebody_index((a-1)/2+1,(b-1)/2+1,(c-1)/2+1)
+  x2=threebody_index((d-1)/2+1,(e-1)/2+1,(f-1)/2+1) 
+    
+
+  V_out = 0.d0 
+  
+  do Jab = Jab_min,Jab_max,2
+     Cj_abc = Recoupling_Coef(abc_recoup,ja,jb,jc,Jab_in,Jab,jtot) 
+     if (abc_recoup>2) Cj_abc = Cj_abc*(-1) 
+
+     do Jde = Jde_min,Jde_max,2
+        Cj_def = Recoupling_Coef(def_recoup,jd,je,jf,Jde_in,Jde,jtot) 
+        if (def_recoup>2) Cj_def = Cj_def*(-1) 
+        
+        jmin = max( abs( Jab-jc) , abs(Jde-jf) ) 
+        jmax = min( Jab+jc , Jde+jf) 
+
+        if ( jmin > jmax) cycle
+        
+        if ( (jtot .ge. jmin).and.(jtot.le.jmax) ) then
+
+           do Tab = Tab_min,Tab_max,2
+              Ct_abc = Recoupling_Coef(abc_recoup,1,1,1,Tab_in,Tab,ttot) 
+              do Tde= Tde_min,Tde_max,2
+                 Ct_def = Recoupling_Coef(def_recoup,1,1,1,Tde_in,Tde,ttot)          
+                
+                 aux1 = (Jab-STOR%hashmap(x1)%Jij_start)/2 + 1  
+                 aux2 = (Jde-STOR%hashmap(x2)%Jij_start)/2 + 1  
+                 aux3 = (jtot - STOR%hashmap(x1)%jhalf_start(aux1))/2+1 & 
+                      + STOR%hashmap(x1)%halfsize(aux1)*(ttot-1)/2   
+                 aux4 = (jtot - STOR%hashmap(x2)%jhalf_start(aux2))/2+1 & 
+                      + STOR%hashmap(x2)%halfsize(aux2)*(ttot-1)/2
+
+                 Tab_indx = (Tab+2)/2
+                 TTab_indx = (Tde+2)/2
+
+                 q=STOR%hashmap(x1)%position(aux1,Tab_indx)%Y(aux3,1)
+                 II=STOR%hashmap(x1)%position(aux1,Tab_indx)%Y(aux3,2)
+                 JJ=STOR%hashmap(x2)%position(aux2,TTab_indx)%Y(aux4,3)
+                 
+                 if ( II >= JJ) then 
+                    aux = bosonic_tp_index(JJ,II,STOR%Nsize(q))
+                    STOR%mat(q)%XX(aux) = STOR%mat(q)%XX(aux) + &
+                         Cj_abc * Cj_def * Ct_abc * Ct_def * V_in
+
+                 else 
+                    
+                    aux = bosonic_tp_index(II,JJ,STOR%Nsize(q))                    
+                 end if
+                  
+                 V_out = V_out + Cj_abc * Cj_def * Ct_abc * Ct_def &
+                      *STOR%mat(q)%XX(aux)
+         
+              end do
+           end do
+        end if
+     end do
+  end do
+
+  AddToME = V_out 
+
+end function 
+!=====================================================================================
+!=====================================================================================
+integer function SortOrbits(a_in,b_in,c_in,a,b,c) 
+  ! order so that a>=b>=c
+  implicit none 
+  
+  integer :: a_in,b_in,c_in,a,b,c
+  integer :: recoupling_case
+  integer :: ax,bx,cx
+  
+  ! this puts us in isospin basis
+  a_in = a_in - mod(a_in-1,2)
+  b_in = b_in - mod(b_in-1,2) 
+  c_in = c_in - mod(c_in-1,2)
+  
+  a=a_in
+  b=b_in
+  c=c_in 
+
+  if (a<b) call swap(a,b)
+  if (b<c) call swap(b,c)
+  if (a<b) call swap(a,b) 
+
+  ! any even perm is less than 3
+  if (a_in == a) then 
+     if ( b_in==b) then 
+        recoupling_case = 0
+     else
+        recoupling_case = 3
+     end if 
+  else if (a_in==b) then 
+     if (b_in == a) then 
+        recoupling_case = 4
+     else 
+        recoupling_case = 1
+     end if 
+  else 
+     if (b_in==a) then 
+        recoupling_case = 2
+     else
+        recoupling_case = 5
+     end if 
+  end if 
+
+  SortOrbits = recoupling_case 
+  
+end function
+!=====================================================================================
+!=====================================================================================
+real(8) function Recoupling_Coef(recoup_case,ja,jb,jc,Jab_in,Jab,jtot)
+  ! these are just overlaps. 
+  ! the return value of SortOrbits determines the case.
+  implicit none
+  
+  integer :: recoup_case,ja,jb,jc,Jab_in,Jab,jtot
+  real(8) :: coeff,d6ji
+ 
+  
+  select case (recoup_case)
+   
+    case (0)
+       if( Jab==Jab_in) then
+          coeff = 1.d0 
+       else
+          coeff = 0.d0 
+       end if 
+    
+    case (1) 
+       coeff= (-1)**((jb-jc+Jab_in)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * d6ji(ja, jb, Jab, jc, jtot, Jab_in)
+    case (2) 
+       coeff= (-1)**((ja-jb-Jab)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * d6ji(jb, ja, Jab, jc, jtot, Jab_in)
+    case (3) 
+       coeff = (-1)**((jb+jc+Jab_in-Jab)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * d6ji(jb, ja, Jab, jc, jtot, Jab_in)
+    case (4) 
+       if (Jab==Jab_in) then 
+         coeff = (-1)**((ja+jb-Jab)/2)  
+       else
+         coeff = 0.d0 
+       end if 
+    case (5) 
+       coeff = -sqrt((Jab_in+1.d0)*(Jab+1.d0)) * d6ji(ja, jb, Jab, jc,jtot, Jab_in)
+    case default
+       coeff = 0.d0 
+    end select
+    
+    Recoupling_Coef = coeff
+end function
 
 end module
         
@@ -557,8 +811,7 @@ end module
         
         
   
-  
-  
+   
   
   
 

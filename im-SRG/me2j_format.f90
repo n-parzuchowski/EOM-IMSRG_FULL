@@ -1118,6 +1118,7 @@ do a= 1, aMax
 end subroutine
 !==========================================================
 subroutine read_me3j(store_3b,jbas) 
+  use three_body_routines
   implicit none 
   
   type(spd) :: jbas
@@ -1132,15 +1133,15 @@ subroutine read_me3j(store_3b,jbas)
   integer :: lmax3,jtot_max,jtot_max_1,jtot_max_2,jtot_min,jtot_min_1
   integer :: jtot_min_2,i,II,JJ,Jab_max,Jab_min,jc_max,jc_min
   integer :: Jde_min,Jde_max,x1,x2,q,NN,nsp_iso,tc_min,tc_max
-  integer :: spot_in_gz_file,iMax,PAR,Tab_indx,TTab_indx
-  real(8) :: szofblock,V,ass
+  integer :: spot_in_gz_file,iMax,PAR,Tab_indx,TTab_indx,r,w
+  real(8) :: szofblock,V
   character(1)::rem
   real(8),allocatable,dimension(:) :: xblock,me_fromfile
   type(c_ptr) :: buf,buf2,buf3
   integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
   logical :: autozero ,thing
- 
+  
   E3max = 12 
   iMax = store_3b%num_elems 
   allocate(me_fromfile(10))
@@ -1155,6 +1156,8 @@ subroutine read_me3j(store_3b,jbas)
   endsz=130
   
   i = 1
+  r = 0 
+  w = 0
   spot_in_gz_file = 0 
   do nlj1 = 1, nsp_iso 
      la = jbas%ll(2*nlj1)
@@ -1180,7 +1183,7 @@ subroutine read_me3j(store_3b,jbas)
         ed = 2*jbas%nn(2*nnlj1)+ld 
         if (ed > E3Max) exit
         
-        if ( nlj1 == nnlj1 ) then 
+        if ( nlj1 == nnlj1 ) then
            nnlj2_end = nlj2
         else
            nnlj2_end = nnlj1
@@ -1269,38 +1272,12 @@ subroutine read_me3j(store_3b,jbas)
                                       write(rem,'(I1)') endpoint-1
                                    end if
                                    buf = gzGets(hndle,buffer(1:sz),sz)
-                                   print*, buffer(1:endsz)
+                                   !print*, buffer(1:endsz)
                                    read(buffer(1:endsz),'(f12.7,'//rem//'(f13.7))') me_fromfile 
                                 end if 
                                 
-                                x1=threebody_index(nlj1,nlj2,nlj3)
-                                x2=threebody_index(nnlj1,nnlj2,nnlj3)
-                              
-                                aux1 = (Jab-store_3b%hashmap(x1)%Jij_start)/2 + 1  
-                                aux2 = (JJab-store_3b%hashmap(x2)%Jij_start)/2 + 1  
-                                aux3 = (jtot - store_3b%hashmap(x1)%jhalf_start(aux1))/2+1 & 
-                                     + store_3b%hashmap(x1)%halfsize(aux1)*(ttot-1)/2   
-                                aux4 = (jtot - store_3b%hashmap(x2)%jhalf_start(aux2))/2+1 & 
-                                     + store_3b%hashmap(x2)%halfsize(aux2)*(ttot-1)/2
-                                
-                                Tab_indx = (2*Tab+2)/2
-                                TTab_indx = (2*TTab+2)/2
-  
-                                q=store_3b%hashmap(x1)%position(aux1,Tab_indx)%Y(aux3,1)
-                                II=store_3b%hashmap(x1)%position(aux1,Tab_indx)%Y(aux3,2)
-                                JJ=store_3b%hashmap(x2)%position(aux2,TTab_indx)%Y(aux4,3)
-                                
-                                aux = bosonic_tp_index(II,JJ,store_3b%Nsize(q))
-                                
-                               ! print*, II,JJ,nlj1,nlj2,nlj3,nnlj1,nnlj2,nnlj3,Jab,JJab,Tab,TTab,q
-                                !print*, me_fromfile(spot_in_gz_file+1) 
-                                
-                                ! okay for some fucking reason both diagonals are stored in the me3j file
-                                ! god damnit. 
-                                ! dealing with that... 
-                                
-                               ! store_3b%mat(q)%XX(aux) = me_fromfile(spot_in_gz_file+1) 
-                                read*, ass
+                                call SetME(Jab,JJab,jtot,2*Tab,2*TTab,ttot,2*nlj1,2*nlj2,2*nlj3,2*nnlj1&
+                                     ,2*nnlj2,2*nnlj3,me_fromfile(spot_in_gz_file+1),store_3b,jbas)
                                 
                                 i = i + 1
                                 spot_in_gz_file = mod(spot_in_gz_file + 1, 10) 
