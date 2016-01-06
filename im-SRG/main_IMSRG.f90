@@ -63,12 +63,12 @@ program main_IMSRG
 
   call allocate_blocks(jbasis,HS)
   
-  ! three body playground
-  call allocate_three_body_storage(jbasis,threebod)
-  threebody_file = 'chi2b_srg0625ho40C_eMax04_hwHO020.me3j.gz' 
-  call read_me3j(threebod,jbasis)
-  ! end playground
- 
+!  three body playground
+ call allocate_three_body_storage(jbasis,threebod)
+ threebody_file = 'chi2b_srg0625ho40C_eMax04_hwHO020.me3j.gz' 
+ call read_me3j(threebod,jbasis)
+!  end playground
+ print*, 'read three body force...'
  
   HS%herm = 1
   HS%hospace = hw
@@ -134,16 +134,16 @@ program main_IMSRG
   if (hartree_fock) then 
   
     if (COM_calc) then 
-       call calc_HF(HS,jbasis,coefs,pipj,rirj)
+       call calc_HF(HS,threebod,jbasis,coefs,pipj,rirj)
        call normal_order(pipj,jbasis)
        call normal_order(rirj,jbasis)
      else if (r2rms_calc) then 
-        call calc_HF(HS,jbasis,coefs,r2_rms)
+        call calc_HF(HS,threebod,jbasis,coefs,r2_rms)
         call normal_order(r2_rms,jbasis)
      else if (trans_calc) then 
-        call calc_HF(HS,jbasis,coefs,Otrans)
+        call calc_HF(HS,threebod,jbasis,coefs,Otrans)
      else
-        call calc_HF(HS,jbasis,coefs)
+        call calc_HF(HS,threebod,jbasis,coefs)
      end if 
     ! calc_HF normal orders the hamiltonian
   

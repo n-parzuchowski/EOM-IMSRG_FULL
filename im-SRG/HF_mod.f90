@@ -1,14 +1,17 @@
 module HF_mod
   use basic_IMSRG 
+  use three_body_routines
   ! J-scheme Hartree-Fockery. 
   implicit none 
   
 contains
 !====================================================
-subroutine calc_HF(H,jbas,D,O1,O2,O3)
+subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
   ! returns H in the normal orderd Hartree Fock basis
   implicit none 
   
+  type(three_body_force) :: THREEBOD
+  type(mono_3b) :: THREEBOD_MONO
   type(spd) :: jbas
   type(sq_op) :: H 
   type(sq_op),optional :: O1,O2,O3 ! other observables
@@ -18,7 +21,8 @@ subroutine calc_HF(H,jbas,D,O1,O2,O3)
   real(8),allocatable,dimension(:,:) :: TRANS_MAT,OPERATOR
 
   ! allocate the workspace  
-
+  
+ ! call get_mono_3b_elems(THREEBOD,THREEBOD_MONO,jbas) 
   call allocate_sp_mat(jbas,T) 
   call duplicate_sp_mat(T,F) 
   call duplicate_sp_mat(T,Vgam) 
@@ -43,8 +47,8 @@ subroutine calc_HF(H,jbas,D,O1,O2,O3)
   do while (crit > 1e-6) 
      
      call density_matrix(rho,D,DX,jbas)      
-     call gamma_matrix(Vgam,H,rho,jbas)
-
+     call gamma_matrix_three_body(Vgam,H,rho,THREEBOD,jbas)
+!     call gamma_matrix(Vgam,H,rho,jbas)
      ! fock matrix
      do q = 1,T%blocks
         F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix
@@ -62,7 +66,7 @@ subroutine calc_HF(H,jbas,D,O1,O2,O3)
         crit = crit + sqrt(sum((D%blkM(q)%eigval-F%blkM(q)%eigval)**2))
         D%blkM(q)%eigval = F%blkM(q)%eigval       
      end do
-      
+      print*, crit, F%blkM(1)%eigval(1)
  end do 
 
  do q = 1,T%blocks
@@ -70,6 +74,9 @@ subroutine calc_HF(H,jbas,D,O1,O2,O3)
     T%blkM(q)%eigval = F%blkM(q)%eigval    
  end do
  
+
+
+stop
  call transform_1b_to_HF(D,Dx,F,H,jbas,T) 
   
  ! this needs to come after the transformation
@@ -187,13 +194,18 @@ subroutine gamma_matrix(gam,int,rho,jbas)
                        sm = sm + rho%blkM(qrho)%matrix(hrho,grho) &
                             * v_elem(n1,n2,n3,n4,JJ,int,jbas) &
                             * (JJ + 1.d0)/(jrho + 1.d0)
-                             
+                             ! this (jrho+1.d0) comes from the density matrix
+                       ! because the m-scheme density matrix has 1's instead
+                       ! of 2j+1's 
                     end do 
                     
                  end do 
               end do 
            end do 
-   
+           
+           
+           
+           
            ! the matrix elements are multiplied by (2J+1)/(2j+1)/(2j'+1) 
            ! which amounts to averaging over J 
           
@@ -205,6 +217,115 @@ subroutine gamma_matrix(gam,int,rho,jbas)
 
   end do 
   
+end subroutine
+!==================================================== 
+!====================================================
+subroutine gamma_matrix_three_body(gam,int,rho,THREEBOD,jbas) 
+  ! hartree fock potential matrix
+  implicit none
+  
+  type(three_body_force) :: THREEBOD
+  type(full_sp_block_mat) :: gam,rho
+  type(sq_op) :: int
+  type(spd) :: jbas
+  integer :: q,r,i,jmax,lmax,n1,n2,j,JJ,n3,n4,tzrho,tzfoc
+  integer :: grho,hrho,qrho,jrho
+  integer :: g1rho,h1rho,q1rho,j1rho,jtot,n22,n44
+  integer :: g2rho,h2rho,q2rho,j2rho,lrho,PAR,jfoc,lfoc,TZ
+  real(8) :: sm
+
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(rho,int,threebod,gam,jbas)
+  do q = 1, gam%blocks
+
+     gam%blkM(q)%matrix = 0.d0 
+     jfoc = rho%blkM(q)%lmda(2)
+     
+     ! loop over states in this block
+     do i = 1, gam%map(q)
+        do j = i,gam%map(q) 
+        
+           n1 = rho%blkM(q)%states(i) 
+           n3 = rho%blkM(q)%states(j) 
+           
+           ! sum over blocks of the density matrix
+           sm = 0.d0 
+           do qrho =  1, rho%blocks
+           
+              jrho = rho%blkM(qrho)%lmda(2) 
+                  
+              ! sum over elements of the block
+              do grho = 1,rho%map(qrho) 
+                 do hrho = 1,rho%map(qrho) 
+                    
+                    n2 = rho%blkM(qrho)%states(grho) 
+                    n4 = rho%blkM(qrho)%states(hrho) 
+                       
+                    ! sum over allowed JJ values
+                    
+                    do JJ = abs(jrho - jfoc),jrho+jfoc,2
+                       
+                       sm = sm + rho%blkM(qrho)%matrix(hrho,grho) &
+                            * v_elem(n1,n2,n3,n4,JJ,int,jbas) &
+                            * (JJ + 1.d0)/(jrho + 1.d0)
+                             
+                    end do 
+                    
+                 end do 
+              end do 
+           end do 
+   
+           
+           do q1rho =  1, rho%blocks              
+              j1rho = rho%blkM(q1rho)%lmda(2) 
+                  
+              ! sum over elements of the block
+              do g1rho = 1,rho%map(q1rho) 
+                 do h1rho = 1,rho%map(q1rho) 
+                    
+                    n2 = rho%blkM(q1rho)%states(g1rho) 
+                    n4 = rho%blkM(q1rho)%states(h1rho) 
+                             
+                    do q2rho = 1,rho%blocks
+                       j2rho = rho%blkM(q2rho)%lmda(2) 
+                 
+                       ! sum over elements of the block
+                       do g2rho = 1,rho%map(q2rho) 
+                          do h2rho = 1,rho%map(q2rho) 
+                             
+                             n22 = rho%blkM(q2rho)%states(g2rho) 
+                             n44 = rho%blkM(q2rho)%states(h2rho) 
+                             
+                             ! sum over allowed JJ values
+                             
+                             do JJ = abs(j1rho - j2rho),j1rho+j2rho,2
+                                
+                                do jtot = abs(JJ-jfoc) , JJ+jfoc , 2 
+                                   
+                                   sm = sm +0.5*rho%blkM(q1rho)%matrix(h1rho,g1rho) &
+                                        *rho%blkM(q2rho)%matrix(h2rho,g2rho) &
+                                        * GetME_pn(JJ,JJ,jtot,n2,n22,n1,n4,n44,n3,THREEBOD,jbas) &
+                                        * (jtot + 1.d0)/(j1rho+1.d0)/(j2rho+1.d0) 
+                                   
+                                end do
+                             end do
+                          end do
+                       end do
+                    end do
+                 end do
+              end do
+           end do
+           
+           ! the matrix elements are multiplied by (2J+1)/(2j+1)/(2j'+1) 
+           ! which amounts to averaging over J 
+          
+           gam%blkM(q)%matrix(i,j) = sm/(jfoc + 1.d0)
+           gam%blkM(q)%matrix(j,i) = sm/(jfoc + 1.d0)
+
+        end do 
+     end do 
+
+  end do 
+!$OMP END PARALLEL DO  
 end subroutine
 !===========================================================
 !===========================================================
@@ -529,6 +650,7 @@ subroutine transform_1b_to_HF_tensor(D,O1,jbas)
 
 
 end subroutine transform_1b_to_HF_tensor
+
 end module         
                 
               

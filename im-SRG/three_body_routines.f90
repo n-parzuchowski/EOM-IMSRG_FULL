@@ -1,9 +1,126 @@
 module three_body_routines 
   use basic_IMSRG
   
-  
-  contains
+type mono_3b
+   type(real_vec),dimension(8) :: mat
+   integer,dimension(8,2) :: lam
+   integer,allocatable,dimension(:,:) :: hash
+   integer,dimension(8) :: dm
+end type mono_3b  
+ 
+contains
 
+subroutine get_mono_3b_elems(STOR,monoSTOR,jbas) 
+   implicit none 
+  
+   type(three_body_force) :: STOR
+   type(mono_3b) :: monoSTOR
+   type(spd) :: jbas
+   real(8) :: mem,sm
+   integer :: ta,tb,tc,la,lb,lc,N,x1,x2
+   integer :: ja,jb,jc,jaa,jbb,jcc,II,JJ,jtot,Jab
+   integer :: Jab_min,Jab_max,j_min,j_max,aux
+   integer :: q,Tz,PAR,a,b,c,aa,bb,cc,items
+   ! i'm too lazy right now. 
+   ! monopoles --- 
+   
+   N = size(jbas%con) 
+   allocate(monoSTOR%hash(N*N*N,2))
+   mem = 0.d0 
+   q = 1
+   do Tz=-3,3,2
+      do PAR=0,1
+         
+         monoSTOR%lam(q,1) = Tz 
+         monoSTOR%lam(q,2) = PAR 
+
+         items = 0 
+         do a=1,N
+            ta = jbas%itzp(a) 
+            la = jbas%ll(a)
+            do b=1,N
+               tb = jbas%itzp(a) 
+               lb = jbas%ll(a)
+               do c=1,N
+                  tc = jbas%itzp(a) 
+                  lc = jbas%ll(a)
+   
+                  if (ta+tb+tc .ne. Tz) cycle
+                  if (mod(la+lb+lc,2) .ne.PAR) cycle
+                  
+                  !!! member of this block 
+                  items=items + 1
+                  monoSTOR%hash(N*N*(a-1)+N*(b-1)+c,1) = q
+                  monoSTOR%hash(N*N*(a-1)+N*(b-1)+c,2) = items
+               end do 
+            end do 
+         end do 
+      
+         allocate(monoSTOR%mat(q)%XX(items*(items+1)/2)) 
+         monoSTOR%dm(q) = items
+         mem = mem +sizeof(monoSTOR%mat(q)%XX)
+         q=q+1
+      end do 
+   end do 
+   mem = mem+sizeof(monoSTOR%hash)
+   mem = mem/1024./1024./1024.
+   print*, 'monopole storage: ',mem,'GB'
+
+ !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(STOR,monoSTOR,jbas)
+   do x1 = 1, N**3 
+      c = mod(x1-1,N)+1
+      a = (x1-1)/(N**2)+1
+      b = (x1-c-N*N*(a-1))/N+1 
+
+      q   = monoSTOR%hash(x1,1)
+      II  = monoSTOR%hash(x1,2)
+      
+      Tz  = monoSTOR%lam(q,1)      
+      PAR = monoSTOR%lam(q,2)
+      
+      ja = jbas%jj(a) 
+      jb = jbas%jj(b)
+      jc = jbas%jj(c) 
+      print*, x1,N**3
+      do x2 = x1,N**3 
+         
+         if (monoSTOR%hash(x2,1) .ne. q) cycle
+         JJ  = monoSTOR%hash(x2,2)
+         
+         cc = mod(x2-1,N)+1          
+         aa = (x2-1)/(N**2)+1
+         bb = (x2-cc-N*N*(aa-1))/N+1
+         
+         jaa = jbas%jj(aa) 
+         jbb = jbas%jj(bb)
+         jcc = jbas%jj(cc) 
+      
+         aux = bosonic_tp_index(II,JJ,monoSTOR%dm(q)) 
+         
+         sm = 0.d0 
+         Jab_min = max(abs(ja-jb),abs(jaa-jbb))
+         Jab_max = min(ja+jb,jaa+jbb) 
+         
+         do Jab = Jab_min,Jab_max,2
+            
+            j_min = max(abs(Jab-jc),abs(Jab-jcc))
+            j_max = min(Jab+jc,Jab+jcc) 
+            
+            do jtot = j_min,j_max,2
+               
+               sm = sm + (jtot+1.d0)&
+                    *GetME_pn(Jab,Jab,jtot,a,b,c,aa,bb,cc,STOR,jbas)
+            end do
+         end do 
+         
+         monoSTOR%mat(q)%XX(aux) = sm 
+      end do
+   end do
+!$OMP END PARALLEL DO
+end subroutine           
+                  
+   
+  
 
 real(8) function overlap_3b(a1,b1,c1,Jab1,Tab1,a2,b2,c2,Jab2,Tab2,jtot,ttot,jbas) 
   ! INCLUDES ANTI-SYMMETRY FACTOR
@@ -699,6 +816,16 @@ AddToME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in
 
   V_out = 0.d0 
   
+   if (abc_recoup == 0) then 
+      Jab_min = Jab_in;Jab_max = Jab_in
+      Tab_min = Tab_in;Tab_max = Tab_in
+   end if 
+  
+  if (def_recoup == 0) then 
+     Jde_min = Jde_in;Jde_max = Jde_in
+     Tde_min = Tde_in;Tde_max = Tde_in
+  end if 
+  
   do Jab = Jab_min,Jab_max,2
      Cj_abc = Recoupling_Coef(abc_recoup,ja,jb,jc,Jab_in,Jab,jtot) 
      if (abc_recoup>2) Cj_abc = Cj_abc*(-1) 
@@ -751,7 +878,7 @@ AddToME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in
         end if
      end do
   end do
-
+ ! end if 
   AddToME = V_out 
 
 end function 
@@ -823,11 +950,11 @@ real(8) function Recoupling_Coef(recoup_case,ja,jb,jc,Jab_in,Jab,jtot)
        end if 
     
     case (1) 
-       coeff= (-1)**((jb-jc+Jab_in)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * d6ji(ja, jb, Jab, jc, jtot, Jab_in)
+       coeff= (-1)**((jb-jc+Jab_in)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * sixj(ja, jb, Jab, jc, jtot, Jab_in)
     case (2) 
-       coeff= (-1)**((ja-jb-Jab)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * d6ji(jb, ja, Jab, jc, jtot, Jab_in)
+       coeff= (-1)**((ja-jb-Jab)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * sixj(jb, ja, Jab, jc, jtot, Jab_in)
     case (3) 
-       coeff = (-1)**((jb+jc+Jab_in-Jab)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * d6ji(jb, ja, Jab, jc, jtot, Jab_in)
+       coeff = (-1)**((jb+jc+Jab_in-Jab)/2) * sqrt((Jab_in+1.d0)*(Jab+1.d0)) * sixj(jb, ja, Jab, jc, jtot, Jab_in)
     case (4) 
        if (Jab==Jab_in) then 
          coeff = (-1)**((ja+jb-Jab)/2)  
@@ -835,16 +962,19 @@ real(8) function Recoupling_Coef(recoup_case,ja,jb,jc,Jab_in,Jab,jtot)
          coeff = 0.d0 
        end if 
     case (5) 
-       coeff = -sqrt((Jab_in+1.d0)*(Jab+1.d0)) * d6ji(ja, jb, Jab, jc,jtot, Jab_in)
+       coeff = -sqrt((Jab_in+1.d0)*(Jab+1.d0)) * sixj(ja, jb, Jab, jc,jtot, Jab_in)
     case default
        coeff = 0.d0 
     end select
     
     Recoupling_Coef = coeff
 end function
-
+!==================================================================
+!==================================================================
 real(8) function iso_clebsch_halfhalf(T1,T2,T3,m1,m2,m3) 
   !dangerous, this does not check very many things. 
+  ! don't actually use these for anything important. They aren't nice. 
+  ! they are only used in the iso to pn conversion routines. 
   implicit none 
   
   integer :: T1,T2,T3,m1,m2,m3 
@@ -868,8 +998,11 @@ real(8) function iso_clebsch_halfhalf(T1,T2,T3,m1,m2,m3)
   end if
   
 end function 
-
+!==================================================================
+!==================================================================
 real(8) function iso_clebsch_wholehalf(T1,T2,T3,m1,m2,m3) 
+  ! don't actually use these for anything important. They aren't nice. 
+  ! they are only used in the iso to pn conversion routines. 
   implicit none 
   
   integer :: T1,T2,T3,m1,m2,m3 
