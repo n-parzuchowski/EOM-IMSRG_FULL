@@ -67,14 +67,6 @@ program main_IMSRG
   call allocate_three_body_storage(jbasis,threebod)
   threebody_file = 'chi2b_srg0625ho40C_eMax04_hwHO020.me3j.gz' 
   call read_me3j(threebod,jbasis)
-  global_counter1=10
-  print*, GetME(6,4,3,0,0,1,5,9,15,7,17,19,threebod,jbasis)
-  print*, GetME(6,4,3,0,2,1,5,9,15,7,17,19,threebod,jbasis)
-  print*, GetME(6,4,3,2,0,1,5,9,15,7,17,19,threebod,jbasis)
-  print*, GetME(6,4,3,2,2,1,5,9,15,7,17,19,threebod,jbasis)
-  print*, GetME(6,4,3,2,2,3,5,9,15,7,17,19,threebod,jbasis)
-
-  stop
   ! end playground
  
  

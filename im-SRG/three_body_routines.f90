@@ -553,8 +553,49 @@ subroutine allocate_three_body_storage(jbas,store_3b)
   print*, 'slots:', elems
 end subroutine allocate_three_body_storage
 
-
-
+ 
+real(8) function GetME_pn(Jab,Jde,jtot,a,b,c,d,e,f,STOR,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(three_body_force) :: STOR
+  integer :: Jab,Jde,jtot,a,b,c,d,e,f
+  integer :: Tab,Tde,ttot,Tmin,Tmax
+  integer :: ta,tb,tc,td,te,tf
+  real(8) :: sm,CG1,CG2,CG3,CG4,d6ji
+  
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)  
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)  
+  te = jbas%itzp(e)
+  tf = jbas%itzp(f)
+  
+  if ((ta+tb+tc-td-te-tf).ne.0) then 
+     GetME_pn = 0.d0 
+     return
+  end if 
+  
+  sm = 0.d0  
+  Tmin = min(abs(ta+tb+tc),abs(td+te+tf)) 
+  do Tab = abs(ta+tb),2,2 
+     CG1 = iso_clebsch_halfhalf(1,1,Tab,ta,tb,ta+tb)        
+     do Tde = abs(td+te),2,2        
+        CG2 = iso_clebsch_halfhalf(1,1,Tde,td,te,td+te)        
+        do ttot = Tmin,3,2
+           
+           CG3 = iso_clebsch_wholehalf(Tab,1,ttot,ta+tb,tc,ta+tb+tc)
+           CG4 = iso_clebsch_wholehalf(Tde,1,ttot,td+te,tf,td+te+tf)
+           if (CG3*CG4 == 0) cycle
+           sm = sm + CG1*CG2*CG3*CG4 *&
+                GetME(Jab,Jde,jtot,Tab,Tde,ttot,a,b,c,d,e,f,STOR,jbas) 
+        end do
+     end do
+  end do
+  
+  GetME_pn = sm 
+end function GetME_pn
+  
 subroutine SetME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in,STOR,jbas)
   ! here we accept pn basis indeces, but treat them as iso-spin coupled. 
   ! e.g. 1==2, 3==4, 5==6 ...   
@@ -802,6 +843,82 @@ real(8) function Recoupling_Coef(recoup_case,ja,jb,jc,Jab_in,Jab,jtot)
     Recoupling_Coef = coeff
 end function
 
+real(8) function iso_clebsch_halfhalf(T1,T2,T3,m1,m2,m3) 
+  !dangerous, this does not check very many things. 
+  implicit none 
+  
+  integer :: T1,T2,T3,m1,m2,m3 
+  
+  if ((m1 + m2).ne.m3) then 
+     iso_clebsch_halfhalf =0.d0
+     return
+  end if 
+  
+  if (T3 == 0) then 
+     iso_clebsch_halfhalf = sign(1,m1)*1.d0/sqrt(2.d0)    
+  else 
+     select case (abs(m3)) 
+     case (0) 
+        iso_clebsch_halfhalf = 1.d0 /sqrt(2.d0) 
+     case (2) 
+        iso_clebsch_halfhalf = 1.d0 
+     case default
+        iso_clebsch_halfhalf = 0.d0 
+     end select
+  end if
+  
+end function 
+
+real(8) function iso_clebsch_wholehalf(T1,T2,T3,m1,m2,m3) 
+  implicit none 
+  
+  integer :: T1,T2,T3,m1,m2,m3 
+  
+  if ((m1 + m2).ne.m3) then 
+     iso_clebsch_wholehalf =0.d0
+     return
+  end if 
+
+     !Tab 1/2 t
+  if (T1 == 0) then 
+     if (T3 == 1) then 
+        iso_clebsch_wholehalf = 1.d0 
+     else 
+        iso_clebsch_wholehalf = 0.d0 
+     end if
+  else if (T1 == 2) then 
+  
+     if (T3 == 1) then  
+        select case (abs(m1))   
+        case (0) 
+           iso_clebsch_wholehalf = -1.d0*sign(1,m2)/sqrt(3.d0) 
+        case (2) 
+           iso_clebsch_wholehalf = -sqrt(2.d0/3.d0)*sign(1,m2)
+        case default 
+           iso_clebsch_wholehalf = 0.d0
+        end select
+     else if (T3 == 3) then 
+
+        select case (abs(m3) ) 
+        case (1) 
+           if ( abs(m1) == 2) then 
+              iso_clebsch_wholehalf = sqrt(1.d0/3.d0)
+           else
+              iso_clebsch_wholehalf = sqrt(2.d0/3.d0)
+           end if 
+        case (3) 
+           iso_clebsch_wholehalf = 1.d0
+        case default
+           iso_clebsch_wholehalf = 0.d0 
+        end select
+     else
+        iso_clebsch_wholehalf = 0.d0
+     end if
+  end if
+  
+end function 
+           
+  
 end module
         
            
