@@ -89,6 +89,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  ! e_HF is calculated in the hartree fock basis
  H%E0 = e_HF(T,Vgam,V3gam,jbas)
 
+ if ( tbforce ) call meanfield_2b(rho,H,THREEBOD,jbas) 
  call transform_2b_to_HF(D,H,jbas) 
 
 ! now we transform any other observables 
@@ -376,19 +377,8 @@ real(8) function e_HF(T,V,V3,jbas)
   
  
   sm = 0.d0
-  
- !  do q = 1, T%blocks
- !     ! sum over eigenvalues scaled by degeneracy
- !     do i = 1, T%map(q) 
- !        sm = sm + (T%blkM(q)%eigval(i) + &
- !             T%blkM(q)%matrix(i,i))&
- !             * jbas%con(T%blkm(q)%states(i)) * &
- !             (T%blkM(q)%lmda(2) + 1.d0) 
-                  
- !     end do   
- ! end do 
 
-   do q = 1, T%blocks
+  do q = 1, T%blocks
      ! sum over eigenvalues scaled by degeneracy
      do i = 1, T%map(q) 
         sm = sm + (T%blkM(q)%matrix(i,i) + &
@@ -686,6 +676,84 @@ subroutine transform_1b_to_HF_tensor(D,O1,jbas)
 
 end subroutine transform_1b_to_HF_tensor
 
+subroutine meanfield_2b(rho,H,TB,jbas) 
+  ! normal ordering the three body force into the two body force. 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H
+  type(full_sp_block_mat) :: rho
+  type(three_body_force) :: TB
+  integer :: q, II,JJ ,i,j,k,l,g,qrho,hrho,grho,n3,n6
+  integer :: bigJ,jtot,jmin,jmax,jrho,c1,c2,jxstart
+  real(8) :: sm,sm_x,den,pre1,pre2
+  logical :: square
+  
+  do q = 1, H%nblocks
+     bigJ = H%mat(q)%lam(1) 
+     print*, q
+     do g = 1, 6
+       
+        c1 = sea1(g) 
+        c2 = sea2(g) 
+        square = sqs(g) 
+        jxstart = jst(g) 
+          
+        do II = 1,size(H%mat(q)%gam(g)%X(:,1))
+           
+           i = H%mat(q)%qn(c1)%Y(II,1)
+           j = H%mat(q)%qn(c1)%Y(II,2)
+           pre1 = 1.d0
+           if (i == j ) pre1 = 1/sqrt(2.d0)
+           
+           do JJ = min(jxstart,II),size(H%mat(q)%gam(g)%X(1,:))  
+              
+              k = H%mat(q)%qn(c2)%Y(JJ,1)
+              l = H%mat(q)%qn(c2)%Y(JJ,2)
+              pre2 = 1.d0
+              if (k == l ) pre2 = 1/sqrt(2.d0)
+           
+              sm = 0.d0 
+                            
+              do qrho =  1, rho%blocks
+                 
+                 jrho = rho%blkM(qrho)%lmda(2) 
+                  
+                 jmin = abs(bigJ - jrho) 
+                 jmax = bigJ + jrho 
+                 
+                 ! sum over elements of the block
+                 do grho = 1,rho%map(qrho) 
+                    do hrho = 1,rho%map(qrho) 
+                       
+                       den = rho%blkM(qrho)%matrix(grho,hrho)
+                       
+                       if (abs(den) < 1e-6) cycle
+                       
+                       n3 = rho%blkM(qrho)%states(grho) 
+                       n6 = rho%blkM(qrho)%states(hrho) 
+                       
+                       sm_x = 0.d0 
+                       do jtot = jmin,jmax,2
+                          sm_x = sm_x + (jtot+1.d0) * &
+                               GetME_pn(bigJ,bigJ,jtot,i,j,n3,k,l,n6,TB,jbas) 
+                       end do 
+                       
+                       sm = sm + den * sm_x /(jrho+1.d0) ! again we divide by jrho
+                       ! because of how I've defined the density matrix.
+                    end do
+                 end do
+              end do
+              H%mat(q)%gam(g)%X(II,JJ)=H%mat(q)%gam(g)%X(II,JJ) + sm /(bigJ+1.d0)*pre1*pre2
+              if (square) H%mat(q)%gam(g)%X(JJ,II) = H%mat(q)%gam(g)%X(II,JJ) 
+           end do
+        end do
+     end do
+  end do
+
+end subroutine
+  
+  
 end module         
                 
               
