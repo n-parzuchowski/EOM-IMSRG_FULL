@@ -15,20 +15,26 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
   type(spd) :: jbas
   type(sq_op) :: H 
   type(sq_op),optional :: O1,O2,O3 ! other observables
-  type(full_sp_block_mat) :: T,F,Vgam,rho,D,Dx
+  type(full_sp_block_mat) :: T,F,Vgam,V3gam,rho,D,Dx
   integer :: q,r,i,j,k,l
   real(8) :: crit,sm
   real(8),allocatable,dimension(:,:) :: TRANS_MAT,OPERATOR
-
-  ! allocate the workspace  
+  logical :: tbforce=.false. 
   
- ! call get_mono_3b_elems(THREEBOD,THREEBOD_MONO,jbas) 
+  if ( allocated( THREEBOD%mat) ) tbforce = .true.  
+     
+  ! allocate the workspace   
   call allocate_sp_mat(jbas,T) 
   call duplicate_sp_mat(T,F) 
   call duplicate_sp_mat(T,Vgam) 
   call duplicate_sp_mat(T,rho)
   call duplicate_sp_mat(T,D)
   call duplicate_sp_mat(T,Dx)
+  call duplicate_sp_mat(T,V3gam)
+  
+  if ( tbforce ) then
+     call allocate_mono(THREEBOD,THREEBOD_MONO,jbas)      
+  end if 
   
   call write_kin_matrix(T,H,jbas) 
 
@@ -47,11 +53,13 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
   do while (crit > 1e-6) 
      
      call density_matrix(rho,D,DX,jbas)      
-     call gamma_matrix_three_body(Vgam,H,rho,THREEBOD,jbas)
-!     call gamma_matrix(Vgam,H,rho,jbas)
+     call gamma_matrix(Vgam,H,rho,jbas)
+     if (tbforce) call gamma_matrix_three_body(V3gam,rho,THREEBOD,THREEBOD_MONO,jbas)
+     
      ! fock matrix
      do q = 1,T%blocks
-        F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix
+        F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix&
+             + V3gam%blkM(q)%matrix
      end do
       
      call diagonalize_blocks(F) 
@@ -70,18 +78,16 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  end do 
 
  do q = 1,T%blocks
-    F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix
+    F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix &
+         + V3gam%blkM(q)%matrix
     T%blkM(q)%eigval = F%blkM(q)%eigval    
  end do
- 
 
-
-stop
- call transform_1b_to_HF(D,Dx,F,H,jbas,T) 
+ call transform_1b_to_HF(D,Dx,F,H,jbas,T,Vgam,V3gam) 
   
  ! this needs to come after the transformation
  ! e_HF is calculated in the hartree fock basis
- H%E0 = e_HF(T,jbas)
+ H%E0 = e_HF(T,Vgam,V3gam,jbas)
 
  call transform_2b_to_HF(D,H,jbas) 
 
@@ -202,10 +208,7 @@ subroutine gamma_matrix(gam,int,rho,jbas)
                  end do 
               end do 
            end do 
-           
-           
-           
-           
+                      
            ! the matrix elements are multiplied by (2J+1)/(2j+1)/(2j'+1) 
            ! which amounts to averaging over J 
           
@@ -220,26 +223,29 @@ subroutine gamma_matrix(gam,int,rho,jbas)
 end subroutine
 !==================================================== 
 !====================================================
-subroutine gamma_matrix_three_body(gam,int,rho,THREEBOD,jbas) 
+subroutine gamma_matrix_three_body(gam,rho,THREEBOD,TB_MONO,jbas) 
   ! hartree fock potential matrix
   implicit none
   
   type(three_body_force) :: THREEBOD
+  type(mono_3b) :: TB_MONO
   type(full_sp_block_mat) :: gam,rho
   type(sq_op) :: int
   type(spd) :: jbas
   integer :: q,r,i,jmax,lmax,n1,n2,j,JJ,n3,n4,tzrho,tzfoc
-  integer :: grho,hrho,qrho,jrho
-  integer :: g1rho,h1rho,q1rho,j1rho,jtot,n22,n44
+  integer :: grho,hrho,qrho,jrho,IImono,JJmono,qmono,x1,x2,N
+  integer :: g1rho,h1rho,q1rho,j1rho,jtot,n22,n44,aux
   integer :: g2rho,h2rho,q2rho,j2rho,lrho,PAR,jfoc,lfoc,TZ
-  real(8) :: sm
+  real(8) :: sm,sm_x,den1,den2
 
-!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(rho,int,threebod,gam,jbas)
+  N = size(jbas%con)
+!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(rho,int,threebod,gam,jbas)
   do q = 1, gam%blocks
 
      gam%blkM(q)%matrix = 0.d0 
      jfoc = rho%blkM(q)%lmda(2)
      
+
      ! loop over states in this block
      do i = 1, gam%map(q)
         do j = i,gam%map(q) 
@@ -247,67 +253,67 @@ subroutine gamma_matrix_three_body(gam,int,rho,THREEBOD,jbas)
            n1 = rho%blkM(q)%states(i) 
            n3 = rho%blkM(q)%states(j) 
            
-           ! sum over blocks of the density matrix
-           sm = 0.d0 
-           do qrho =  1, rho%blocks
-           
-              jrho = rho%blkM(qrho)%lmda(2) 
-                  
-              ! sum over elements of the block
-              do grho = 1,rho%map(qrho) 
-                 do hrho = 1,rho%map(qrho) 
-                    
-                    n2 = rho%blkM(qrho)%states(grho) 
-                    n4 = rho%blkM(qrho)%states(hrho) 
-                       
-                    ! sum over allowed JJ values
-                    
-                    do JJ = abs(jrho - jfoc),jrho+jfoc,2
-                       
-                       sm = sm + rho%blkM(qrho)%matrix(hrho,grho) &
-                            * v_elem(n1,n2,n3,n4,JJ,int,jbas) &
-                            * (JJ + 1.d0)/(jrho + 1.d0)
-                             
-                    end do 
-                    
-                 end do 
-              end do 
-           end do 
-   
-           
+           sm = 0.d0
+           ! sum over density matrices
            do q1rho =  1, rho%blocks              
               j1rho = rho%blkM(q1rho)%lmda(2) 
-                  
-              ! sum over elements of the block
-              do g1rho = 1,rho%map(q1rho) 
-                 do h1rho = 1,rho%map(q1rho) 
-                    
-                    n2 = rho%blkM(q1rho)%states(g1rho) 
-                    n4 = rho%blkM(q1rho)%states(h1rho) 
-                             
-                    do q2rho = 1,rho%blocks
-                       j2rho = rho%blkM(q2rho)%lmda(2) 
+              do q2rho = 1,rho%blocks
+                 j2rho = rho%blkM(q2rho)%lmda(2) 
                  
+                 ! sum over elements of the block
+                 do g1rho = 1,rho%map(q1rho) 
+                    do h1rho = 1,rho%map(q1rho) 
+                       
+                       den1 = rho%blkM(q1rho)%matrix(g1rho,h1rho)
+                       if ( abs(den1) <1e-6) cycle 
+                       
+                       n2 = rho%blkM(q1rho)%states(g1rho) 
+                       n4 = rho%blkM(q1rho)%states(h1rho) 
+                          
                        ! sum over elements of the block
                        do g2rho = 1,rho%map(q2rho) 
                           do h2rho = 1,rho%map(q2rho) 
+                             den2 = rho%blkM(q2rho)%matrix(g2rho,h2rho)
+                             if ( abs(den2) <1e-6) cycle       
                              
                              n22 = rho%blkM(q2rho)%states(g2rho) 
                              n44 = rho%blkM(q2rho)%states(h2rho) 
                              
-                             ! sum over allowed JJ values
+                             ! calculated monopole matrix elements on the fly
+                             x1 = N*N*(n2-1)+N*(n22-1)+n1
+                             x2 = N*N*(n4-1)+N*(n44-1)+n3 
+                             qmono = TB_MONO%hash(x1,1)
+                             IImono = TB_MONO%hash(x1,2)
+                             JJmono = TB_MONO%hash(x2,2)
                              
-                             do JJ = abs(j1rho - j2rho),j1rho+j2rho,2
+                             if ( IImono > JJmono ) then 
+                                aux = bosonic_tp_index(JJmono,IImono,TB_MONO%dm(qmono))
+                             else
+                                aux = bosonic_tp_index(IImono,JJmono,TB_MONO%dm(qmono))
+                             end if 
+                             
+                             IF (TB_MONO%mat(qmono)%XX(aux) < -99998.d0) then
+                                ! first step in here... (takes a long time) 
+                                ! sum over allowed JJ values
+                                sm_x = 0.d0 
                                 
-                                do jtot = abs(JJ-jfoc) , JJ+jfoc , 2 
+                                do JJ = abs(j1rho - j2rho),j1rho+j2rho,2                                
+                                   do jtot = abs(JJ-jfoc) , JJ+jfoc , 2 
                                    
-                                   sm = sm +0.5*rho%blkM(q1rho)%matrix(h1rho,g1rho) &
-                                        *rho%blkM(q2rho)%matrix(h2rho,g2rho) &
-                                        * GetME_pn(JJ,JJ,jtot,n2,n22,n1,n4,n44,n3,THREEBOD,jbas) &
-                                        * (jtot + 1.d0)/(j1rho+1.d0)/(j2rho+1.d0) 
-                                   
+                                      sm_x = sm_x + (jtot + 1.d0) &
+                                           * GetME_pn(JJ,JJ,jtot,n2,n22,n1,n4,n44,n3,THREEBOD,jbas)
+                                      
+                                   end do
                                 end do
-                             end do
+                                
+                                TB_MONO%mat(qmono)%XX(aux) = sm_x 
+                             else
+                                !additional steps out here. (fast)
+                                sm_x = TB_MONO%mat(qmono)%XX(aux) 
+                             end if 
+                             
+                             sm = sm + 0.5*den1*den2*sm_x/(j1rho+1.d0)/(j2rho+1.d0) 
+                             
                           end do
                        end do
                     end do
@@ -325,7 +331,7 @@ subroutine gamma_matrix_three_body(gam,int,rho,THREEBOD,jbas)
      end do 
 
   end do 
-!$OMP END PARALLEL DO  
+!!$OMP END PARALLEL DO  
 end subroutine
 !===========================================================
 !===========================================================
@@ -359,44 +365,57 @@ subroutine density_matrix(rho,D,DX,jbas)
 end subroutine
 !===========================================================
 !===========================================================
-real(8) function e_HF(T,jbas)
+real(8) function e_HF(T,V,V3,jbas)
   ! calculate the hartree fock energy
   implicit none 
   
   real(8) :: sm
   integer :: q,i
   type(spd) :: jbas
-  type(full_sp_block_mat) :: T
+  type(full_sp_block_mat) :: T,V,V3
   
  
   sm = 0.d0
   
-  do q = 1, T%blocks
+ !  do q = 1, T%blocks
+ !     ! sum over eigenvalues scaled by degeneracy
+ !     do i = 1, T%map(q) 
+ !        sm = sm + (T%blkM(q)%eigval(i) + &
+ !             T%blkM(q)%matrix(i,i))&
+ !             * jbas%con(T%blkm(q)%states(i)) * &
+ !             (T%blkM(q)%lmda(2) + 1.d0) 
+                  
+ !     end do   
+ ! end do 
+
+   do q = 1, T%blocks
      ! sum over eigenvalues scaled by degeneracy
      do i = 1, T%map(q) 
-        sm = sm + (T%blkM(q)%eigval(i) + &
-             T%blkM(q)%matrix(i,i))&
+        sm = sm + (T%blkM(q)%matrix(i,i) + &
+        0.5d0 * V%blkM(q)%matrix(i,i)+ &
+        (1.d0/3.d0) * V3%blkM(q)%matrix(i,i)) &
              * jbas%con(T%blkm(q)%states(i)) * &
              (T%blkM(q)%lmda(2) + 1.d0) 
                   
      end do   
  end do 
+
  
- e_HF = sm*0.5d0
+ e_HF = sm
  
  
      
 end function 
 !===========================================================
 !===========================================================
-subroutine transform_1b_to_HF(D,Dx,F,H,jbas,T) 
+subroutine transform_1b_to_HF(D,Dx,F,H,jbas,T,V,V3) 
   ! typical transformation, remap to fancy array
   implicit none 
   
   type(sq_op) :: H
   type(spd) :: jbas
   type(full_sp_block_mat) :: D,F,Dx
-  type(full_sp_block_mat),optional :: T ! for HF calculation
+  type(full_sp_block_mat),optional :: T,V,V3 ! for HF calculation
   integer :: q,dm,i,j,a,b,c1,c2,cx
   
   do q = 1, F%blocks
@@ -417,6 +436,22 @@ subroutine transform_1b_to_HF(D,Dx,F,H,jbas,T)
           ,dm,D%blkM(q)%matrix,dm,bet,Dx%blkM(q)%matrix,dm) 
      call dgemm('T','N',dm,dm,dm,al,D%blkM(q)%matrix&
           ,dm,Dx%blkM(q)%matrix,dm,bet,T%blkM(q)%matrix,dm) 
+     end if 
+
+     if (present(V)) then 
+     ! transform the KE matrix
+     call dgemm('N','N',dm,dm,dm,al,V%blkM(q)%matrix&
+          ,dm,D%blkM(q)%matrix,dm,bet,Dx%blkM(q)%matrix,dm) 
+     call dgemm('T','N',dm,dm,dm,al,D%blkM(q)%matrix&
+          ,dm,Dx%blkM(q)%matrix,dm,bet,V%blkM(q)%matrix,dm) 
+     end if 
+
+     if (present(V3)) then 
+     ! transform the KE matrix
+     call dgemm('N','N',dm,dm,dm,al,V3%blkM(q)%matrix&
+          ,dm,D%blkM(q)%matrix,dm,bet,Dx%blkM(q)%matrix,dm) 
+     call dgemm('T','N',dm,dm,dm,al,D%blkM(q)%matrix&
+          ,dm,Dx%blkM(q)%matrix,dm,bet,V3%blkM(q)%matrix,dm) 
      end if 
 
      do a=1,dm

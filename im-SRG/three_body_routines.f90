@@ -10,7 +10,7 @@ end type mono_3b
  
 contains
 
-subroutine get_mono_3b_elems(STOR,monoSTOR,jbas) 
+subroutine allocate_mono(STOR,monoSTOR,jbas) 
    implicit none 
   
    type(three_body_force) :: STOR
@@ -57,6 +57,7 @@ subroutine get_mono_3b_elems(STOR,monoSTOR,jbas)
          end do 
       
          allocate(monoSTOR%mat(q)%XX(items*(items+1)/2)) 
+         monoSTOR%mat(q)%XX = -99999.d0 
          monoSTOR%dm(q) = items
          mem = mem +sizeof(monoSTOR%mat(q)%XX)
          q=q+1
@@ -66,57 +67,6 @@ subroutine get_mono_3b_elems(STOR,monoSTOR,jbas)
    mem = mem/1024./1024./1024.
    print*, 'monopole storage: ',mem,'GB'
 
- !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(STOR,monoSTOR,jbas)
-   do x1 = 1, N**3 
-      c = mod(x1-1,N)+1
-      a = (x1-1)/(N**2)+1
-      b = (x1-c-N*N*(a-1))/N+1 
-
-      q   = monoSTOR%hash(x1,1)
-      II  = monoSTOR%hash(x1,2)
-      
-      Tz  = monoSTOR%lam(q,1)      
-      PAR = monoSTOR%lam(q,2)
-      
-      ja = jbas%jj(a) 
-      jb = jbas%jj(b)
-      jc = jbas%jj(c) 
-      print*, x1,N**3
-      do x2 = x1,N**3 
-         
-         if (monoSTOR%hash(x2,1) .ne. q) cycle
-         JJ  = monoSTOR%hash(x2,2)
-         
-         cc = mod(x2-1,N)+1          
-         aa = (x2-1)/(N**2)+1
-         bb = (x2-cc-N*N*(aa-1))/N+1
-         
-         jaa = jbas%jj(aa) 
-         jbb = jbas%jj(bb)
-         jcc = jbas%jj(cc) 
-      
-         aux = bosonic_tp_index(II,JJ,monoSTOR%dm(q)) 
-         
-         sm = 0.d0 
-         Jab_min = max(abs(ja-jb),abs(jaa-jbb))
-         Jab_max = min(ja+jb,jaa+jbb) 
-         
-         do Jab = Jab_min,Jab_max,2
-            
-            j_min = max(abs(Jab-jc),abs(Jab-jcc))
-            j_max = min(Jab+jc,Jab+jcc) 
-            
-            do jtot = j_min,j_max,2
-               
-               sm = sm + (jtot+1.d0)&
-                    *GetME_pn(Jab,Jab,jtot,a,b,c,aa,bb,cc,STOR,jbas)
-            end do
-         end do 
-         
-         monoSTOR%mat(q)%XX(aux) = sm 
-      end do
-   end do
-!$OMP END PARALLEL DO
 end subroutine           
                   
    

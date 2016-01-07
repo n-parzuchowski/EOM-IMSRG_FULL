@@ -63,12 +63,12 @@ program main_IMSRG
 
   call allocate_blocks(jbasis,HS)
   
-!  three body playground
- call allocate_three_body_storage(jbasis,threebod)
- threebody_file = 'chi2b_srg0625ho40C_eMax04_hwHO020.me3j.gz' 
- call read_me3j(threebod,jbasis)
-!  end playground
- print*, 'read three body force...'
+  !  three body playground
+  !call allocate_three_body_storage(jbasis,threebod)
+  !threebody_file = 'chi2b_srg0625ho40C_eMax04_hwHO020.me3j.gz' 
+  !call read_me3j(threebod,jbasis)
+  !  end playground
+  print*, 'read three body force...'
  
   HS%herm = 1
   HS%hospace = hw
