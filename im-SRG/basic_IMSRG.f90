@@ -88,20 +88,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
      integer :: nblocks,Nsp,rank,herm,dpar
   end type cross_coupled_31_mat  
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
-  type extendable_hash
-     type(int_mat),allocatable,dimension(:,:) :: position
-     integer,allocatable,dimension(:) :: jhalf_start,halfsize
-     integer :: Jij_start
-  end type extendable_hash
-     
-  type three_body_force
-     integer :: num_elems,E3max 
-     integer,allocatable,dimension(:) :: kets,bras,Nsize
-     integer,allocatable,dimension(:,:) :: lam
-     type(real_vec),allocatable,dimension(:) :: mat
-     type(extendable_hash),allocatable,dimension(:) :: hashmap
-  end type three_body_force
+
 
   ! to swap two variables. 
   ! works for real,real(8),integer
@@ -157,101 +144,6 @@ module basic_IMSRG
                         '/home/nathan/nuclear_IMSRG/inifiles/               '                /)
   !======================================================================================
 contains
-
-
-! real(8) function WT_elem(ix,jx,kx,lx,mx,nx,Jij,Jlm,jtot,Tij,Tlm,ttot,store_3b,jbas) 
-!   ! right now this only works for hermitian things
-!   ! make sure you enter the isopsin-coupled basis states. 
-!   ! iso( 1,2,3,4,5,6 ) == pn(2,4,6,8,10,12), (use the 1,2,3,4,5...)  
-!   implicit none 
-  
-!   type(spd) :: jbas
-!   type(three_body_force) :: store_3b 
-!   integer :: i,j,k,l,m,n,Jij,Jlm,jtot,Tz,PAR
-!   integer :: ix,jx,kx,lx,mx,nx,Tij_indx,Tlm_indx
-!   integer :: aux1,aux2,aux3,aux4,x1,x2
-!   integer :: q,II,JJ,Nsp,aux,NN,Tij,Tlm,ttot
-!   real(8) :: pre1,pre2,szofblock
-  
-!   if (ttot == 3) then 
-!      if ((Tij==0).or.(Tlm==0)) then 
-!         WT_elem=0.d0 
-!      end if 
-!   end if 
-  
-!   PAR = mod(jbas%ll(ix)+jbas%ll(jx)+jbas%ll(kx),2)
-!   if (  PAR .ne. mod(jbas%ll(lx)+jbas%ll(mx)+jbas%ll(nx),2) ) then 
-!      WT_elem = 0.d0 
-!      return
-!   end if 
-  
-!   if (.not. (triangle(jbas%jj(kx),Jij,jtot))) then 
-!      WT_elem = 0.d0 
-!      return 
-!   end if 
-!   if (.not. (triangle(jbas%jj(nx),Jlm,jtot))) then 
-!      WT_elem = 0.d0 
-!      return 
-!   end if 
-  
-!   IF (ix > jx) then 
-!      i = jx
-!      j = ix 
-!      k = kx 
-     
-!      pre1=(-1.d0) ** ((jbas%jj(i) -jbas%jj(j) - Jij)/2)  
-!   else   
-!      i = ix
-!      j = jx 
-!      k = kx 
-!      pre1 = 1.d0
-!   end if 
-
-
-!   IF (lx > mx) then 
-!      l = mx
-!      m = lx 
-!      n = nx 
-     
-!      pre2=(-1.d0) ** ((jbas%jj(l) -jbas%jj(m) - Jlm)/2)  
-!   else   
-!      l = lx
-!      m = mx 
-!      n = nx 
-!      pre2 = 1.d0
-!   end if 
-
-  
-!   Nsp = jbas%total_orbits/2 ! isospin coupled
-!   x1=threebody_index(i,j,k,Nsp)
-!   x2=threebody_index(l,m,n,Nsp)
-  
-!   aux1 = (Jij-store_3b%hashmap(x1)%Jij_start)/2 + 1  
-!   aux2 = (Jlm-store_3b%hashmap(x2)%Jij_start)/2 + 1  
-!   aux3 = (jtot - store_3b%hashmap(x1)%jhalf_start(aux1))/2+1 & 
-!        + store_3b%hashmap(x1)%halfsize(aux1)*(ttot-1)/2    
-!   aux4 = (jtot - store_3b%hashmap(x2)%jhalf_start(aux2))/2+1 & 
-!        + store_3b%hashmap(x2)%halfsize(aux2)*(ttot-1)/2
-  
-!   Tij_indx = (Tij+2)/2
-!   Tlm_indx = (Tlm+2)/2
-!   ! that sucked
-!   q = store_3b%hashmap(x1)%position(aux1,Tij_indx)%Y(aux3,1) 
-!   ! if (q .ne. store_3b%hashmap(x2)%position(aux2)%Y(aux4,1) ) then 
-!   !    print*, q, store_3b%hashmap(x2)%position(aux2)%Y(aux4,1)
-!   ! end if 
-  
-!   II = store_3b%hashmap(x1)%position(aux1,Tij_indx)%Y(aux3,2) 
-!   JJ = store_3b%hashmap(x2)%position(aux2,Tlm_indx)%Y(aux4,1) 
-  
-!   szofblock = size(store_3b%mat(q)%XX)
-!   NN = (sqrt(1+8*szofblock)-1)/2
-  
-!   aux = bosonic_tp_index(min(II,JJ),max(II,JJ),NN) 
-  
-!   WT_elem = store_3b%mat(q)%XX(aux)*pre1*pre2
-
-! end function
 !====================================================
 !====================================================
 subroutine read_sp_basis(jbas,hp,hn,method)
@@ -499,7 +391,8 @@ subroutine allocate_blocks(jbas,op)
   type(sq_op) :: op
   integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x
   integer :: Jtot,Tz,Par,nph,npp,nhh,CX,j_min,j_max,numJ
-  
+  real(8) :: mem
+
   AX = sum(jbas%con) !number of shells under eF 
   op%belowEF = AX
   op%Nsp = jbas%total_orbits
@@ -507,7 +400,7 @@ subroutine allocate_blocks(jbas,op)
   op%dPar = 0 
   op%pphh_ph = .false. 
   N = op%Nsp  !number of sp shells
-  
+  mem = 0.d0 
   op%nblocks =  (jbas%Jtotal_max + 1) * 6 ! -3  ! 6 possible values of par * Tz  
                                                ! except for Jtot=Jmax has 3
   allocate(op%mat(op%nblocks)) 
@@ -585,6 +478,7 @@ subroutine allocate_blocks(jbas,op)
      op%mat(q)%npp = npp
      op%mat(q)%nph = nph
      op%mat(q)%nhh = nhh
+    
      
      allocate(op%mat(q)%qn(1)%Y(npp,2)) !qnpp
      allocate(op%mat(q)%qn(2)%Y(nph,2)) !qnph
@@ -596,6 +490,15 @@ subroutine allocate_blocks(jbas,op)
      allocate(op%mat(q)%gam(4)%X(nph,nph)) !Vphph
      allocate(op%mat(q)%gam(2)%X(npp,nph)) !Vppph
      allocate(op%mat(q)%gam(6)%X(nph,nhh)) !Vphhh
+   
+     mem = mem + sizeof(op%mat(q)%gam(1)%X)
+     mem = mem + sizeof(op%mat(q)%gam(2)%X)
+     mem = mem + sizeof(op%mat(q)%gam(3)%X)
+     mem = mem + sizeof(op%mat(q)%gam(4)%X)
+     mem = mem + sizeof(op%mat(q)%gam(5)%X)
+     mem = mem + sizeof(op%mat(q)%gam(6)%X)
+
+
      do i = 1,6
         op%mat(q)%gam(i)%X = 0.d0
      end do 
@@ -645,7 +548,8 @@ subroutine allocate_blocks(jbas,op)
         end do
      end do
   end do
-  
+  mem= mem/1024./1024.
+  print*, 'MEMORY OF 2 BODY STORAGE IS: ',mem,'MB'
   call divide_work(op) 
 end subroutine
 !==================================================================
@@ -3370,7 +3274,7 @@ subroutine print_matrix(matrix)
 end subroutine print_matrix
 !===============================================  
 subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
-     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips,trans_type,trans_rank)
+     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips,trans_type,trans_rank,e3max)
   !read inputs from file
   implicit none 
   
@@ -3379,7 +3283,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   character(1) :: quads,trips,trans_type
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
-  integer :: method,Exint,ISTAT ,i,trans_rank
+  integer :: method,Exint,ISTAT ,i,trans_rank,e3max
   logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN, found
   real(8) :: hw
 
@@ -3414,6 +3318,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*) intfile
   read(22,*)
   read(22,*) threebody_file
+  read(22,*) 
+  read(22,*) e3max
   read(22,*) 
   read(22,*) spfile
   read(22,*);read(22,*)
@@ -3470,7 +3376,11 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
         stop 'valence space not listed in database, SEE basic_IMSRG.f90' 
   end select 
         
-  if (trim(adjustl(threebody_file)) .ne. 'none') then  
+  if (trim(adjustl(threebody_file))=='none') then 
+     e3Max = 0
+  end if 
+
+  if (e3max .ne. 0) then  
      if( threebody_file(len(trim(threebody_file))-6:len(trim(threebody_file))) == '.me3j.gz') then 
         STOP "Threebody format not implemented yet..."
      end if

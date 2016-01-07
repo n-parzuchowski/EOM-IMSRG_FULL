@@ -1,14 +1,40 @@
 module three_body_routines 
   use basic_IMSRG
   
-type mono_3b
-   type(real_vec),dimension(8) :: mat
-   integer,dimension(8,2) :: lam
-   integer,allocatable,dimension(:,:) :: hash
-   integer,dimension(8) :: dm
-end type mono_3b  
- 
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
+  type extendable_hash
+     type(int_mat),allocatable,dimension(:,:) :: position
+     integer,allocatable,dimension(:) :: jhalf_start,halfsize
+     integer :: Jij_start
+  end type extendable_hash
+     
+  type three_body_force
+     integer :: num_elems,E3max 
+     integer,allocatable,dimension(:) :: kets,bras,Nsize
+     integer,allocatable,dimension(:,:) :: lam
+     type(real_vec),allocatable,dimension(:) :: mat
+     type(extendable_hash),allocatable,dimension(:) :: hashmap
+  end type three_body_force
+
+  type mono_3b
+     type(real_vec),dimension(8) :: mat
+     integer,dimension(8,2) :: lam
+     integer,allocatable,dimension(:,:) :: hash
+     integer,dimension(8) :: dm
+  end type mono_3b
+  
 contains
+
+subroutine deallocate_3b(tb)
+  implicit none 
+  
+  type(three_body_force) :: tb
+  
+  if ( allocated(tb%mat) ) then 
+     deallocate(tb%hashmap,tb%mat,tb%kets,tb%bras)
+     deallocate(tb%lam,tb%Nsize) 
+  end if 
+end subroutine
 
 subroutine allocate_mono(STOR,monoSTOR,jbas) 
    implicit none 
@@ -396,7 +422,8 @@ subroutine allocate_three_body_storage(jbas,store_3b)
   nsp_iso = Nsp/2  ! isospin coupled
   num_3b = (Nsp_iso+Nsp_iso**2)/2 + (Nsp_iso**3 - Nsp_iso)/6
   num_blocks = ((jtot_max-1)/2+1)*4
- 
+  E3Max = store_3b%e3max
+
   allocate(store_3b%mat(num_blocks),store_3b%hashmap(num_3b))
   allocate(store_3b%lam(num_blocks,3),store_3b%kets(num_blocks))
   allocate(store_3b%Nsize(num_blocks), store_3b%bras(num_blocks)) 
@@ -411,9 +438,7 @@ subroutine allocate_three_body_storage(jbas,store_3b)
         jj = jbas%jj(2*j)
         do k= 1,j 
            jk = jbas%jj(2*k)
-           
-           if ( l .ne. threebody_index(i,j,k) ) print*, 'fuck' 
-           
+             
            Jij_min = abs(ji-jj)
            Jij_max = ji+jj
            aux = (Jij_max-Jij_min)/2+1
@@ -448,10 +473,7 @@ subroutine allocate_three_body_storage(jbas,store_3b)
         end do
      end do
   end do
-  
-  E3max = 12
-  store_3b%E3max = 12
-  
+   
   elems = 0
   mem = 0.d0 
 

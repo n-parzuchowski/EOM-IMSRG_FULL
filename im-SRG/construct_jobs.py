@@ -35,6 +35,15 @@ lam = raw_input( 'Momentum cutoff in inverse fermi: ')
 if (lam=='me2j'):
     print 'USING ME2J MATRIX ELEMENTS NOW'
     me2jlam = raw_input( 'Enter four digit srg cutoff 1/lamda^4: (0625) ')
+
+
+threebodyfile = raw_input('enter a threebody file, or type "none": ')
+
+if threebodyfile=="none": 
+    E3Max = '0'
+else:
+    E3Max = raw_input('enter E3Max cutoff: ')
+
  
 hamtype = raw_input('For intrinsic hamiltonian type: "1" for harmonic trap: "2", full: "3": ') 
 hf = raw_input( 'For HF type: "HF". Otherwise type: "HO": ') 
@@ -215,6 +224,10 @@ for R in Rlist:
         fx.write(jobname +'\n') 
         fx.write('# ENTER INTERACTION FILE NAME\n')
         fx.write(TBMEfile + '\n') 
+        fx.write('# ENTER 3B INTERACTION FILE NAME\n')
+        fx.write(threebodyfile + '\n') 
+        fx.write('# ENTER E3Max (enter "0" for no three body force)\n')
+        fx.write(E3Max + '\n') 
         fx.write('# ENTER SINGLE PARTICLE INPUT FILE NAME\n')
         fx.write(spfile + '\n')
         fx.write('# ENTER HAMILTONIAN TYPE\n')

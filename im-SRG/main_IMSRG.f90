@@ -47,7 +47,7 @@ program main_IMSRG
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
        me2b,mortbin,hw,skip_setup,skip_gs,quads,trips,&
-       trans_type,trans_rank)
+       trans_type,trans_rank,threebod%e3max)
 
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
   
@@ -63,15 +63,12 @@ program main_IMSRG
 
   call allocate_blocks(jbasis,HS)
   
-  !  three body playground
-  if (trim(adjustl(threebody_file)).ne.'none') then 
+
+  if (threebod%e3Max.ne.0) then 
     print*, 'Reading Three Body Force'
     call allocate_three_body_storage(jbasis,threebod)
-    !  threebody_file = 'chi2b_srg0625ho40C_eMax04_hwHO020.me3j.gz' 
     call read_me3j(threebod,jbasis)
   end if 
-
-
  
   HS%herm = 1
   HS%hospace = hw
@@ -161,6 +158,7 @@ program main_IMSRG
      call normal_order(HS,jbasis) 
   end if
 
+  call deallocate_3b(threebod)
   ! lawson 0b term
 12  HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
 !============================================================
