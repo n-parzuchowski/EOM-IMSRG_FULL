@@ -3413,6 +3413,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*) 
   read(22,*) intfile
   read(22,*)
+  read(22,*) threebody_file
+  read(22,*) 
   read(22,*) spfile
   read(22,*);read(22,*)
   read(22,*) htype
@@ -3468,6 +3470,11 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
         stop 'valence space not listed in database, SEE basic_IMSRG.f90' 
   end select 
         
+  if (trim(adjustl(threebody_file)) .ne. 'none') then  
+     if( threebody_file(len(trim(threebody_file))-6:len(trim(threebody_file))) == '.me3j.gz') then 
+        STOP "Threebody format not implemented yet..."
+     end if
+  end if 
   me2j = .true.
   me2b = .false. 
   MORTBIN=.false.

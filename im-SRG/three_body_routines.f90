@@ -65,7 +65,7 @@ subroutine allocate_mono(STOR,monoSTOR,jbas)
    end do 
    mem = mem+sizeof(monoSTOR%hash)
    mem = mem/1024./1024./1024.
-   print*, 'monopole storage: ',mem,'GB'
+   print*, 'Temporary 3B Monopole Storage: ',mem,'GB'
 
 end subroutine           
                   
@@ -603,7 +603,7 @@ subroutine allocate_three_body_storage(jbas,store_3b)
   end do !nlj1
    
   
-  print*, 'number of matrix elements: ',elems
+  print*, 'Number of 3b matrix elements: ',elems
   store_3b%num_elems = elems
   elems = 0
   do q = 1, num_blocks     
@@ -617,7 +617,7 @@ subroutine allocate_three_body_storage(jbas,store_3b)
   
   mem = mem/1024.d0/1024.d0/1024.d0
   print*, 'MEMORY OF 3 BODY STORAGE IS: ',mem,'GB' 
-  print*, 'slots:', elems
+!  print*, 'slots:', elems
 end subroutine allocate_three_body_storage
 
  
@@ -1003,17 +1003,3 @@ end function
            
   
 end module
-        
-           
-           
-     
-     
-        
-        
-  
-   
-  
-  
-
-
-

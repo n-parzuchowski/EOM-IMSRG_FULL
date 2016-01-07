@@ -50,6 +50,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
   crit = 10.d0 
   r = 0
   !!! HARTREE FOCK MAIN LOOP 
+  print*, 'Computing Hartree Fock Basis...'
   do while (crit > 1e-6) 
      
      call density_matrix(rho,D,DX,jbas)      
@@ -74,7 +75,6 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
         crit = crit + sqrt(sum((D%blkM(q)%eigval-F%blkM(q)%eigval)**2))
         D%blkM(q)%eigval = F%blkM(q)%eigval       
      end do
-      print*, crit, F%blkM(1)%eigval(1)
  end do 
 
  do q = 1,T%blocks
@@ -88,7 +88,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  ! this needs to come after the transformation
  ! e_HF is calculated in the hartree fock basis
  H%E0 = e_HF(T,Vgam,V3gam,jbas)
-
+ write(*,'(A22,f12.7)') ' Hartree Fock Energy: ',H%E0
  if ( tbforce ) call meanfield_2b(rho,H,THREEBOD,jbas) 
  call transform_2b_to_HF(D,H,jbas) 
 
@@ -238,9 +238,9 @@ subroutine gamma_matrix_three_body(gam,rho,THREEBOD,TB_MONO,jbas)
   integer :: g1rho,h1rho,q1rho,j1rho,jtot,n22,n44,aux
   integer :: g2rho,h2rho,q2rho,j2rho,lrho,PAR,jfoc,lfoc,TZ
   real(8) :: sm,sm_x,den1,den2
-
+  
   N = size(jbas%con)
-!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(rho,int,threebod,gam,jbas)
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(rho,int,threebod,gam,jbas)
   do q = 1, gam%blocks
 
      gam%blkM(q)%matrix = 0.d0 
@@ -332,7 +332,7 @@ subroutine gamma_matrix_three_body(gam,rho,THREEBOD,TB_MONO,jbas)
      end do 
 
   end do 
-!!$OMP END PARALLEL DO  
+!$OMP END PARALLEL DO  
 end subroutine
 !===========================================================
 !===========================================================
@@ -675,7 +675,8 @@ subroutine transform_1b_to_HF_tensor(D,O1,jbas)
 
 
 end subroutine transform_1b_to_HF_tensor
-
+!=======================================================================
+!=======================================================================
 subroutine meanfield_2b(rho,H,TB,jbas) 
   ! normal ordering the three body force into the two body force. 
   implicit none 
@@ -688,10 +689,12 @@ subroutine meanfield_2b(rho,H,TB,jbas)
   integer :: bigJ,jtot,jmin,jmax,jrho,c1,c2,jxstart
   real(8) :: sm,sm_x,den,pre1,pre2
   logical :: square
-  
+
+  print*, 'Normal ordering three-body force...'
+
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(rho,TB,jbas,H)
   do q = 1, H%nblocks
      bigJ = H%mat(q)%lam(1) 
-     print*, q
      do g = 1, 6
        
         c1 = sea1(g) 
@@ -721,7 +724,7 @@ subroutine meanfield_2b(rho,H,TB,jbas)
                   
                  jmin = abs(bigJ - jrho) 
                  jmax = bigJ + jrho 
-                 
+!                 if (jmin > jmax) cycle
                  ! sum over elements of the block
                  do grho = 1,rho%map(qrho) 
                     do hrho = 1,rho%map(qrho) 
@@ -750,7 +753,7 @@ subroutine meanfield_2b(rho,H,TB,jbas)
         end do
      end do
   end do
-
+!$OMP END PARALLEL DO
 end subroutine
   
   
