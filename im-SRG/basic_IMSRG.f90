@@ -133,9 +133,10 @@ module basic_IMSRG
   character(500),dimension(2) :: OUTPUT_DIRECTORY_LIST=& 
        (/               '/home/nathan/nuclear_IMSRG/output/                 '              , &
                         '/mnt/home/parzuch6/nuclear_IMSRG/output/           '                /) 
-  character(500),dimension(2) :: TBME_DIRECTORY_LIST=&
+  character(500),dimension(3) :: TBME_DIRECTORY_LIST=&
        (/               '/mnt/home/parzuch6/nuclear_IMSRG/TBME_input/       '              , &
-                        '/home/nathan/nuclear_IMSRG/TBME_input/             '                /)  
+                        '/home/nathan/nuclear_IMSRG/TBME_input/             '              , &
+                        '/mnt/research/imsrg/nsuite/me/                     '                /)  
   character(500),dimension(2) :: SP_DIRECTORY_LIST=&
        (/               '/mnt/home/parzuch6/nuclear_IMSRG/sp_inputs/        '              , &
                         '/home/nathan/nuclear_IMSRG/sp_inputs/              '                /)  
@@ -3437,8 +3438,14 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   found = .false. 
   do while (.not. (found))   
      OUTPUT_DIR = OUTPUT_DIRECTORY_LIST(i) 
-     inquire(file=trim(OUTPUT_DIR),exist=found)      
-     i = i + 1
+     !!! NOTE: IFORT IS TOO STUPID TO EXECUTE THIS NEXT INQUIRE 
+     !!! IN A PORTABLE WAY... 
+     
+     open(unit=78,file=trim(OUTPUT_DIR)//'ifort_sucks.fail',status='replace',err=1234)
+     close(78)
+     exit
+!     inquire(file=trim(OUTPUT_DIR),exist=found)      
+1234 i = i + 1     
   end do
 
 end subroutine

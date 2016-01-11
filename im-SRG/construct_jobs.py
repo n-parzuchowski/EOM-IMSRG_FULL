@@ -50,6 +50,8 @@ hf = raw_input( 'For HF type: "HF". Otherwise type: "HO": ')
 mag = raw_input( 'For magnus type: "mag". Otherwise type: "trad" or "disc": ' ) 
 tda = raw_input( 'select calculation: GS,EOM,TDA: ' )
 
+leveltag = 'x'
+
 if tda.lower() == 'tda':
     tdaint = '2'
     Jtarg = raw_input( 'Input target total 2J: ')
@@ -58,10 +60,19 @@ if tda.lower() == 'tda':
     lawbeta = raw_input('Lawson beta factor: ')
 elif tda.lower() == 'eom':
     tdaint = '1'
-    Jtarg = raw_input( 'Input target total 2J: ')
+    Jtarg = raw_input( 'Input target total J: ')
     Ptarg = raw_input( 'For even parity enter "0", for odd enter "1": ')
     valshell = '1s0d' #default
     lawbeta = raw_input('Lawson beta factor: ')
+    if Ptarg == '0':
+        par="+"
+    else:
+        par="-"
+    
+    leveltag = Jtarg+par    
+    
+    Jtarg = str(2*int(Jtarg))
+        
 else:
     tdaint = '0'
     Ptarg = '0'
@@ -73,6 +84,9 @@ hw_com = '0.0'
 
 contin = raw_input('For other observable options, type "more", else press enter: ') 
 
+transtype = '0'
+transval = '0'
+
 CMint = '0'
 RRMSint = '0'
 if contin.lower() ==  'more':
@@ -81,12 +95,26 @@ if contin.lower() ==  'more':
     if CMint != '1':
         print 'To calculate Point Nucleon RMS radius,' 
         RRMSint = raw_input('enter 1, otherwise enter 0: ') 
+
+        transint = raw_input('enter 1, otherwise enter 0: ')
+        if transint == '1':
+            transtype=raw_input('enter transition type: (E,M,GT,F): ')
+            transval=raw_input('enter transition rank: (0,1,2...): ')
+            
+            if transtype != 'E':
+                print 'unavailable...' 
+                transtype = '0'
+                transval = '0'
+
 elif contin.lower() == 'com':
     print 'Including COM factorization calculation' 
     CMint = 1 
 elif contin.lower() == 'rsq':
     print 'Including RMS radius calculation' 
     RRMSint = 1
+
+print 'To calculate transition matrix elements'
+
 
     
 fq = open('run_all.bat','w')
@@ -144,17 +172,29 @@ for R in Rlist:
                 
         memreq = mem[Rx - 3] 
         timreq = wtime[Rx-3]
-        
-        if (lam == 'me2j'):
-            TBMEfile = 'chi2b_srg'+me2jlam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
-            spfile = 'hk'+R+'.sps'
-            jobname = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw 
-            initfile = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw+'.ini'
-        else:    
-            TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
-            spfile = 'nl'+R+'.sps'
-            jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw 
-            initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'.ini'
+  
+        if (leveltag=='x'):
+            if (lam == 'me2j'):
+                TBMEfile = 'chi2b_srg'+me2jlam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
+                spfile = 'hk'+R+'.sps'
+                jobname = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw 
+                initfile = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw+'.ini'
+            else:    
+                TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
+                spfile = 'nl'+R+'.sps'
+                jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw 
+                initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'.ini'
+        else:
+            if (lam == 'me2j'):
+                TBMEfile = 'chi2b_srg'+me2jlam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
+                spfile = 'hk'+R+'.sps'
+                jobname = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw+'_'+leveltag 
+                initfile = nuc+'_'+mag+'_srg'+me2jlam+'_eMax'+R+'_hw'+hw+'_'+leveltag+'.ini'
+            else:    
+                TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
+                spfile = 'nl'+R+'.sps'
+                jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'_'+leveltag
+                initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'_'+leveltag+'.ini'
 
         # write pbs file ===========================        
         fx = open('pbs_'+jobname,'w') 
@@ -212,7 +252,16 @@ for R in Rlist:
                 else:
                     TBMEfile = TBMEfile[:-3]+'bin'
 
-
+                    
+        if (magint=='4'):
+            magout = "1,'y','n'"
+        elif (magint=='5'):
+            magout = "1,'y','y'"
+        elif (magint=='6'):
+            magout = "1,'y','y'"
+        else:
+            magout = magint+",'n','n'"
+                    
         fx = open('inifiles/'+initfile,'w') 
         
         fx.write('##########################\n')
@@ -244,7 +293,7 @@ for R in Rlist:
         fx.write(HFint+'\n')
         fx.write('# ENTER 1 for magnus method\n')
         fx.write('# or 2 for traditional ode\n') 
-        fx.write(magint+'\n') 
+        fx.write(magout+'\n') 
         fx.write('# 0: gs only, 1: EOM, 2: TDA\n')
         fx.write('# ENTER 0 for ground state only\n') 
         fx.write(tdaint+'\n')
@@ -258,6 +307,8 @@ for R in Rlist:
         fx.write(CMint+'\n')
         fx.write('# ENTER 1 TO CALCULATE Rrms, 0 otherwise\n') 
         fx.write(RRMSint+'\n') 
+        fx.write('# Transition\n') 
+        fx.write("'"+transtype+"',"+transval+"\n") 
         fx.write('# Lawson beta value\n') 
         fx.write(lawbeta+','+hw_com+'\n') 
         fx.write('########################################################\n')
