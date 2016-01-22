@@ -279,6 +279,13 @@ subroutine find_holes(jbas,pholes,nholes,hk)
 
      if (pholes == 2) then 
         jbas%con(1:2) = 1
+     else if (pholes == 6) then 
+        jbas%con(1:2) = 1
+        if (hk=='hk') then 
+           jbas%con(5:6) = 1
+        else
+           jbas%con(3:4) = 1
+        end if 
      else if (pholes == 8) then 
         jbas%con(1:6) = 1
      else if (pholes == 20) then 
@@ -297,6 +304,20 @@ subroutine find_holes(jbas,pholes,nholes,hk)
    else
      if (pholes == 2) then 
         jbas%con(1:2) = 1
+     else if (pholes == 6) then 
+        jbas%con(1:2) = 1
+        
+        if (nholes == 8) then 
+           if (hk=='hk') then 
+              jbas%con(5:6) = 1
+              jbas%con(4) = 1
+           else
+              jbas%con(3:4) = 1
+              jbas%con(6) = 1
+           end if
+        else 
+           STOP 'this nucleus is not available'
+        end if 
      else if (pholes == 8) then 
         jbas%con(1:6) = 1
         
@@ -3026,17 +3047,23 @@ subroutine copy_sq_op(H,op)
 end subroutine 
 !======================================================
 !======================================================
-subroutine write_binary_operator(H,stage) 
+subroutine write_twobody_operator(H,stage) 
   ! first figure out how many equations there are:
  
   type(sq_op) :: H 
   integer Atot,Ntot,q
   real(8),allocatable,dimension(:):: outvec 
   character(*),intent(in) :: stage 
-  character(200) :: input
-
+  character(200) :: input,stringout
+  integer(c_int) :: rx,filehandle
+  logical :: isthere
   
   if (prefix(1:8) == 'testcase') return  
+
+  print*, 'Writing normal ordered interaction to ',&
+       trim(TBME_DIR)//trim(adjustl(prefix))//&
+       '_'//stage//'_normal_ordered.gz'
+  
   Atot = H%belowEF
   Ntot = H%Nsp
   
@@ -3056,19 +3083,21 @@ subroutine write_binary_operator(H,stage)
   
   call vectorize(H,outvec) 
   
-  open(unit=55,file='../../hamiltonians/'//&
-       trim(adjustl(prefix))//'_'//trim(adjustl(stage)),&
-       form='unformatted')
+  
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix))//&
+       '_'//stage//'_normal_ordered.gz'//achar(0),'w'//achar(0)) 
   
   do q =1,neq
-     write(55) outvec(q)
+     write(stringout(1:20),'(e20.14)') outvec(q)
+     stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
+     call write_gz(filehandle,stringout)    
   end do
-  close(55) 
-  
+   
+  rx = gzClose(filehandle) 
 end subroutine
 !======================================================
 !======================================================
-subroutine read_binary_operator(H,stage) 
+logical function read_twobody_operator(H,stage) 
   ! first figure out how many equations there are:
  
   type(sq_op) :: H 
@@ -3076,8 +3105,24 @@ subroutine read_binary_operator(H,stage)
   real(8),allocatable,dimension(:):: outvec 
   character(*),intent(in) :: stage 
   character(200) :: input
+  character(20) :: instring
+  integer(c_int) :: rx,filehandle
+  logical :: isthere
 
+  read_twobody_operator = .true.   
+  if (prefix(1:8) == 'testcase') return  
+  inquire(file=trim(TBME_DIR)//trim(adjustl(prefix))//&
+       '_'//stage//'_normal_ordered.gz',exist=isthere)
   
+  if ( .not. isthere ) then 
+     return
+  end if 
+  
+  print*, 'Bypassing Hartree Fock and normal odering.' 
+  print*, 'Reading normal ordered output from ',&
+       trim(TBME_DIR)//trim(adjustl(prefix))//&
+       '_'//stage//'_normal_ordered.gz'
+
   Atot = H%belowEF
   Ntot = H%Nsp
   
@@ -3094,16 +3139,19 @@ subroutine read_binary_operator(H,stage)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  open(unit=55,file='../../hamiltonians/'//&
-       trim(adjustl(prefix))//'_'//trim(adjustl(stage)),&
-       form='unformatted')
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix))//&
+       '_'//stage//'_normal_ordered.gz'//achar(0),'r'//achar(0)) 
   
   do q =1,neq
-     read(55) outvec(q) 
+     instring = read_normal_gz(filehandle) 
+     read(instring,'(e20.14)') outvec(q)
   end do
-  close(55) 
+  
+  rx = gzClose(filehandle) 
+  
   call repackage(H,outvec) 
-end subroutine
+  read_twobody_operator = .false. 
+end function read_twobody_operator
 !======================================================
 !======================================================
 subroutine split_1b_2b(Op,onebd,twobd) 
@@ -5382,6 +5430,7 @@ real(8) function reduced_r( a, b , jbas )
   reduced_r = p1*c1
   
 end function
+
 subroutine swap_d(a,b) 
   implicit none
   real(8) :: a,b,ax,bx

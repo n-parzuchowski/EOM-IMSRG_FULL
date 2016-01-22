@@ -62,20 +62,13 @@ program main_IMSRG
   end if
 
   call allocate_blocks(jbasis,HS)
-  
-
-  if (threebod%e3Max.ne.0) then 
-    print*, 'Reading Three Body Force'
-    call allocate_three_body_storage(jbasis,threebod)
-    call read_me3j(threebod,jbasis)
-  end if 
- 
+   
   HS%herm = 1
   HS%hospace = hw
 
   call initialize_transition_operator&
        (trans_type,trans_rank,Otrans,HS,jbasis,trans_calc)  
-     
+
   ! for calculating COM expectation value
   if (COM_calc) then  
      
@@ -128,9 +121,21 @@ program main_IMSRG
 !============================================================
 ! BUILD BASIS
 !============================================================
- 
+  
   call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
 
+  if (threebod%e3Max.ne.0) then 
+     writing = read_twobody_operator( HS,'bare' )
+     if ( writing.or.COM_calc.or.r2rms_calc.or.trans_calc ) then 
+        print*, 'Reading Three Body Force'
+        call allocate_three_body_storage(jbasis,threebod)
+        call read_me3j(threebod,jbasis)
+     else 
+        goto 77 
+     end if
+  end if 
+
+  
   if (hartree_fock) then 
   
     if (COM_calc) then 
@@ -159,8 +164,10 @@ program main_IMSRG
   end if
 
   call deallocate_3b(threebod)
+
   ! lawson 0b term
-12  HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
+12 HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
+77 if (writing) call write_twobody_operator(HS,'bare')
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
@@ -171,7 +178,6 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
   call print_header
   select case (method_int) 
   
@@ -241,12 +247,14 @@ program main_IMSRG
 ! excited state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (ex_calc_int==2) then 
-     
+
      call initialize_TDA(TDA,jbasis,HS%Jtarg,HS%Ptarg,HS%valcut)
+
      deallocate(HS%exlabels) 
+
      allocate(HS%exlabels(TDA%map(1),2))
      HS%exlabels=TDA%blkM(1)%labels
-    
+
      select case (method_int) 
         case(1) !magnus
            

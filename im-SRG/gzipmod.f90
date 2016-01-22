@@ -56,6 +56,23 @@ character(52) function read_morten_gz(handle)
 
 end function 
 
+character(20) function read_normal_gz(handle) 
+  ! THE FORMAT HERE IS   
+  !  Tz  Pi  J  a b c d     V_{abcd}^J
+  ! THAT'S IT. IT's 52 CHARACTERS LONG.   
+  implicit none
+  
+  integer(c_int) :: handle,sz
+  type(c_ptr) :: buf
+  character(kind=C_CHAR,len=200) :: buffer
+  
+  sz=200 
+  buf = gzGets( handle, buffer, sz ) 
+  read_normal_gz = buffer(1:20) 
+
+end function read_normal_gz
+
+
 subroutine write_gz(handle,string)
   implicit none
   

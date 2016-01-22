@@ -52,9 +52,12 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
   Jmax = jbas%Jtotal_max
   nh = sum(jbas%con) 
   np = jbas%total_orbits - nh 
-  TDA%blocks = 1    ! (Jmax+1)*2
-  !allocate(TDA%blkM((Jmax+1)*2)) 
-  !allocate(TDA%map((Jmax+1)*2))
+  TDA%blocks = 1   
+  
+  if (allocated(TDA%blkM)) then 
+     deallocate(TDA%blkM,TDA%map) 
+  end if 
+  
   allocate(TDA%blkM(1))
   allocate(TDA%map(1)) 
   
