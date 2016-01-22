@@ -49,23 +49,23 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   
   
   
-  if ( present(O1) ) then 
+  ! if ( present(O1) ) then 
      
-     print*
-     write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
-     print*
-     print*, 'EXCITED STATE ENERGIES:'
-     print*, '================================================='
-     print*, '      dE             E_0 + dE        BE(2)       '
-     print*, '================================================='
+  !    print*
+  !    write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
+  !    print*
+  !    print*, 'EXCITED STATE ENERGIES:'
+  !    print*, '================================================='
+  !    print*, '      dE             E_0 + dE        BE(2)       '
+  !    print*, '================================================='
   
-     do i = 1, Numstates
-        Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
-        BE2 = Mfi**2/(J+1.d0) 
-        write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2 
-     end do
+  !    do i = 1, Numstates
+  !       Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
+  !       BE2 = Mfi**2/(J+1.d0) 
+  !       write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2 
+  !    end do
   
-  else
+!  else
      
      print*
      write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
@@ -77,7 +77,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      do i = 1, Numstates
         write(*,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
      end do
-  end if 
+ ! end if 
   
   ! WRITE STUFF TO FILES. 
   write( Jlabel ,'(I2)') HS%Jtarg
@@ -92,7 +92,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   Plabel = adjustl(Plabel)
   betalabel = adjustl(betalabel)
   open(unit=72,file=trim(OUTPUT_DIR)//&
-       trim(adjustl(prefix))//'_'//trim(Jlabel)//trim(Plabel)//&
+       trim(adjustl(prefix))//&
        '_EOM_spec_law'//trim(betalabel)//'.dat')
   
   do i = 1, Numstates
@@ -102,7 +102,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   close(72)
   
   open(unit=75,file=trim(OUTPUT_DIR)//&
-       trim(adjustl(prefix))//'_'//trim(Jlabel)//trim(Plabel)//'_lawson_check.dat'&
+       trim(adjustl(prefix))//'_lawson_check.dat'&
        ,position='append')
   write(75,*) HS%lawson_beta, HS%E0,ladder_ops(1:5)%E0+HS%E0
   close(75)

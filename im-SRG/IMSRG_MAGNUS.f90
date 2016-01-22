@@ -132,7 +132,6 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
   
   call duplicate_sq_op(HS,H) !evolved hamiltonian
   call duplicate_sq_op(HS,AD) !workspace
-  call duplicate_sq_op(HS,G) !magnus operator
   call duplicate_sq_op(HS,DG) !magnus operator
 
   G%herm = -1 
