@@ -3017,6 +3017,27 @@ subroutine duplicate_sq_op(H,op)
 end subroutine 
 !=====================================================
 !=====================================================
+subroutine deallocate_non_excitation(Op,yes)
+  implicit none 
+  
+  type(sq_op) :: Op 
+  integer ::  q
+  character(1),optional :: yes
+
+ 
+  do q = 1, Op%nblocks
+     deallocate(Op%tblck(q)%tgam(1)%X)
+     deallocate(Op%tblck(q)%tgam(4)%X)
+     deallocate(Op%tblck(q)%tgam(5)%X)
+     if (present(yes)) cycle
+     deallocate(Op%tblck(q)%tgam(2)%X)
+     deallocate(Op%tblck(q)%tgam(6)%X)
+     deallocate(Op%tblck(q)%tgam(8)%X)
+     deallocate(Op%tblck(q)%tgam(9)%X)
+  end do
+end subroutine
+!=====================================================
+!=====================================================
 subroutine copy_sq_op(H,op) 
   ! make a copy of H onto op
   implicit none 

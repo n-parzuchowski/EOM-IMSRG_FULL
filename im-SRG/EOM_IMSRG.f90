@@ -32,15 +32,16 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      do q = 1,ladder_ops(1)%nblocks
         ladder_ops(1)%tblck(q)%lam(1) = 1 
      end do
-    
+     call deallocate_non_excitation(ladder_ops(1))
   else 
      call duplicate_sq_op(HS,ladder_ops(1)) 
   end if
 
   do i = 2, Numstates
      call duplicate_sq_op(ladder_ops(1),ladder_ops(i))
+     call deallocate_non_excitation(ladder_ops(i))
   end do 
-  
+   
   print* 
   write(*,'((A55),(I1),(A3),(I1))') 'EXECUTING EOM CALCULATION'// &
        ' FOR EXCITED STATES: J=',J/2,' P=',PAR  
@@ -140,6 +141,10 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   else 
      call allocate_tensor_CCMAT(vecs(1),QCC,jbas) !cross coupled ME
      call allocate_CCtensor_wkspc(QCC,WCC) 
+     call deallocate_non_excitation(Q1)
+     call deallocate_non_excitation(Q2)
+     ! call deallocate_non_excitation(w1,'y')
+     ! call deallocate_non_excitation(w2,'y')
   end if
 
   h = OP%belowEF !holes
@@ -371,7 +376,6 @@ subroutine matvec_nonzeroX_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   ! FIRST WE NEED TO CONVERT v TO a (SQ_OP) variable
   
   call unwrap_tensor(v,Q_op,N,jbas)
-  
   ! now we have two sq_op operators which can be used with my commutator expressions. Noice. 
   
   call EOM_generalized_pandya(Q_op,QCC,jbas,.false.)
