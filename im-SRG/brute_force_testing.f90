@@ -299,12 +299,13 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
   type(cross_coupled_31_mat) :: AACC,BBCC,WCC
-  integer :: a,b,c,d,ja,jb,jc,jd,jmin,jmax,PAR,TZ,Jtot
+  integer :: a,b,c,d,ja,jb,jc,jd,jmin,jmax,PAR,TZ,Jtot,dick
+  integer :: hole,part
   integer,intent(in) :: h1,h2
-  real(8) :: val
+  real(8) :: val,sm
   
   
-  call seed_random_number
+!  call seed_random_number
   
   call allocate_blocks(jbas,AA)
   call duplicate_sq_op(AA,BB)
@@ -337,12 +338,13 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
   call commutator_111(AA,BB,OUT,jbas) 
   call commutator_121(AA,BB,OUT,jbas)
   call commutator_122(AA,BB,OUT,jbas)
-  
+ 
   call commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)
-  
+ 
   call commutator_221(AA,BB,OUT,w1,w2,jbas)
   call commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
-  
+ 
+ 
   do a = 1, jbas%total_orbits
      do b = 1, jbas%total_orbits
         
@@ -386,6 +388,7 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
                     print*, val,v_elem(a,b,c,d,Jtot,OUT,jbas)
                     STOP 'TWO BODY FAILURE'  
                  end if
+                 
               end do 
               
               print*, 'success:', a,b,c,d
@@ -540,6 +543,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   BB%rank = rank
   BB%dpar = par
   AA%rank = 0
+  BB%pphh_ph = .false.
  
   call allocate_blocks(jbas,AA)
   call allocate_tensor(jbas,BB,AA)
@@ -557,9 +561,9 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   OUT%herm = -1* AA%herm * BB%herm 
   
   print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
-  t1 = OMP_get_wtime()
+!  t1 = OMP_get_wtime()
   call calculate_generalized_pandya(BB,BBCC,jbas,.false.)
-  t2 = OMP_get_wtime()
+!  t2 = OMP_get_wtime()
   call calculate_cross_coupled(AA,AACC,jbas,.false.) 
   
   call TS_commutator_111(AA,BB,OUT,jbas) 
@@ -571,9 +575,9 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)
   
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
-  t4 = OMP_get_wtime()
+!  t4 = OMP_get_wtime()
   call TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
-  t3 = OMP_get_wtime()
+!  t3 = OMP_get_wtime()
   
   print*, 'time:', t3-t1,t2-t1,t3-t4
  
@@ -656,9 +660,11 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   
   BB%rank = rank
   BB%dpar = dpar
+  BB%pphh_ph = .false.
   AA%rank = 0
   call allocate_blocks(jbas,AA)
   call allocate_tensor(jbas,BB,AA)
+
   BB%herm = 1 
   call construct_random_rank0(AA,h1,jbas) 
   call construct_random_rankX(BB,h2,jbas) 
@@ -1033,6 +1039,7 @@ real(8) function scalar_scalar_2body_comm(AA,BB,a,b,c,d,Jtot,jbas)
         jj = jbas%jj(j) 
         
         if ((jbas%con(i)-jbas%con(j)) == 0) cycle 
+        
         do J1 = 0, JTM,2
            do J2 = 0, JTM,2 
               
@@ -1050,14 +1057,38 @@ real(8) function scalar_scalar_2body_comm(AA,BB,a,b,c,d,Jtot,jbas)
                    * coef9(jj,J1,ja,J2,ji,jb,jd,jc,Jtot) * v_elem(j,a,i,c,J1,AA,jbas) &
                    * v_elem(i,b,j,d,J2,BB,jbas) * (-1)**((jc+jd-Jtot)/2) &
                    
-                   + (-1)** ((J1+J2 + jb-jd)/2) * (J1+1.d0) * (J2+1.d0) &
-                   * coef9(jj,J1,jb,J2,ji,ja,jd,jc,Jtot) * v_elem(j,b,i,c,J1,AA,jbas) &
+                    + (-1)** ((J1+J2 + jb-jd)/2) * (J1+1.d0) * (J2+1.d0) &
+                    * coef9(jj,J1,jb,J2,ji,ja,jd,jc,Jtot) * v_elem(j,b,i,c,J1,AA,jbas) &
                    * v_elem(i,a,j,d,J2,BB,jbas) *(-1)**((ja+jb+jc+jd)/2)  )
-              
+              ! FUCK
            end do
         end do
+        
+       
+        
      end do
   end do
+  
+  
+  ! do J2= 0,4,2
+  !    do i = 1, totorb
+  !       ji =jbas%jj(i)
+  !       do j = 1,totorb
+  !          jj = jbas%jj(j) 
+           
+  !          if ((jbas%con(i)-jbas%con(j)) == 0) cycle 
+
+  !          sm = sm + (jbas%con(i)-jbas%con(j)) * (J2+1.d0)* ( & 
+  !               sixj(ja,jb,Jtot,jc,jd,J2) * &
+  !                ( Vpandya(a,d,i,j,J2,AA,jbas) * Vpandya(i,j,c,b,J2,BB,jbas) - &
+  !               Vpandya(a,d,i,j,J2,BB,jbas) * Vpandya(i,j,c,b,J2,AA,jbas)  ) - &
+  !               (-1)**((ja+jb-Jtot)/2) * sixj(jb,ja,Jtot,jc,jd,J2) * &
+  !               ( Vpandya(b,d,i,j,J2,AA,jbas) * Vpandya(i,j,c,a,J2,BB,jbas) - &
+  !               Vpandya(b,d,i,j,J2,BB,jbas) * Vpandya(i,j,c,a,J2,AA,jbas)  ) )
+  !       end do
+  !    end do
+     
+  ! end do
   
   scalar_scalar_2body_comm = sm 
   

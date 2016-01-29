@@ -24,7 +24,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   ladder_ops%rank = J 
   ladder_ops%dpar = 2*PAR
   
-  
+  ladder_ops%pphh_ph = .true. 
   if ( ladder_ops(1)%rank .ne. 0 ) then 
     
      call allocate_tensor(jbas,ladder_ops(1),HS)   
@@ -32,16 +32,14 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      do q = 1,ladder_ops(1)%nblocks
         ladder_ops(1)%tblck(q)%lam(1) = 1 
      end do
-     call deallocate_non_excitation(ladder_ops(1))
   else 
      call duplicate_sq_op(HS,ladder_ops(1)) 
   end if
-
+  
   do i = 2, Numstates
-     call duplicate_sq_op(ladder_ops(1),ladder_ops(i))
-     call deallocate_non_excitation(ladder_ops(i))
-  end do 
-   
+     call duplicate_sq_op(ladder_ops(1),ladder_ops(i),'y')
+  end do
+  
   print* 
   write(*,'((A55),(I1),(A3),(I1))') 'EXECUTING EOM CALCULATION'// &
        ' FOR EXCITED STATES: J=',J/2,' P=',PAR  
@@ -105,7 +103,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   open(unit=75,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_lawson_check.dat'&
        ,position='append')
-  write(75,*) HS%lawson_beta, HS%E0,ladder_ops(1:5)%E0+HS%E0
+  write(75,*) HS%lawson_beta, HS%E0,ladder_ops(1:3)%E0+HS%E0
   close(75)
   
 end subroutine 
@@ -128,11 +126,14 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   logical :: rvec
   logical,allocatable,dimension(:) :: selct
 
-  call duplicate_sq_op(vecs(1),w1) !workspace
-  call duplicate_sq_op(vecs(1),w2) !workspace
-  call duplicate_sq_op(vecs(1),Q1) !workspace
-  call duplicate_sq_op(vecs(1),Q2) !workspace
+  Q1%pphh_ph=.true.
+  Q2%pphh_ph=.true.
 
+  call duplicate_sq_op(vecs(1),w1,'w') !workspace
+  call duplicate_sq_op(vecs(1),w2,'w') !workspace
+  call duplicate_sq_op(vecs(1),Q1,'y') !workspace
+  call duplicate_sq_op(vecs(1),Q2,'y') !workspace
+ 
   call allocate_CCMAT(Op,OpCC,jbas) !cross coupled ME
   
   if (vecs(1)%rank == 0) then 
@@ -141,10 +142,6 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   else 
      call allocate_tensor_CCMAT(vecs(1),QCC,jbas) !cross coupled ME
      call allocate_CCtensor_wkspc(QCC,WCC) 
-     call deallocate_non_excitation(Q1)
-     call deallocate_non_excitation(Q2)
-     ! call deallocate_non_excitation(w1,'y')
-     ! call deallocate_non_excitation(w2,'y')
   end if
 
   h = OP%belowEF !holes
@@ -251,7 +248,7 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   mode = 1
    
   allocate(eigs(N),resid(N),work(10*N),workD(3*N)) 
-  
+
   iparam(1) = ishift
   iparam(3) = mxiter
   iparam(7) = mode

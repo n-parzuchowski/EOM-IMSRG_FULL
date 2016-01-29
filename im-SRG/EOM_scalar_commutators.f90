@@ -436,7 +436,7 @@ end subroutine
    type(spd) :: jbas
    type(sq_op) :: RES
    type(cross_coupled_31_mat) :: LCC,RCC,WCC
-   integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM
+   integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM,gik,gjl,gil,gjk
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
    integer :: JP, Jtot,Ntot,qx,jmin,jmax,rik,rjl,ril,rjk,g_ix,thread,total_threads
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2
@@ -458,10 +458,6 @@ end subroutine
       
       call dgemm('N','N',rinx,rinx,nb,al,LCC%CCX(q)%X,rinx,&
            RCC%CCR(q)%X,nb,bet,WCC%CCX(q)%X,rinx) 
-     
-   !   call dgemm('N','N',rinx,rinx,nb,al,RCC%CCX(q)%X,rinx,&
-    !       LCC%CCR(q)%X,nb,bet,WCC%CCR(q)%X,rinx) 
-   
    end do 
 
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
@@ -532,11 +528,10 @@ end subroutine
                   qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                   rjl = EOM_rval(j,l,Ntot,qx,LCC)
                   rik = EOM_rval(i,k,Ntot,qx,LCC)
-                  
-                  sm = sm - (1.d0*WCC%CCX(qx)%X(rjl,rik) + & ! changed from -
-                      ! WCC%CCR(qx)%X(rjl,rik) - &
-                      ! 1.d0*WCC%CCR(qx)%X(rik,rjl) + &
-                       WCC%CCX(qx)%X(rik,rjl) ) * &
+                  gjl = EOM_rval(l,j,Ntot,qx,LCC)
+                  gik = EOM_rval(k,i,Ntot,qx,LCC)
+                  sm = sm - (WCC%CCX(qx)%X(rjl,gik) + & ! changed from -
+                       WCC%CCX(qx)%X(rik,gjl) ) * &
                        sixj(jk,jl,Jtot,jj,ji,JP) * &
                        (-1)**((ji + jl + Jtot)/2) 
             
@@ -552,16 +547,16 @@ end subroutine
                
                do JP = jmin,jmax,2
                   
-                  !qx = JP/2 + 1
+                  
                   qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                 
                   ril = EOM_rval(i,l,Ntot,qx,LCC)
                   rjk = EOM_rval(j,k,Ntot,qx,LCC)
+                  gil = EOM_rval(l,i,Ntot,qx,LCC)
+                  gjk = EOM_rval(k,j,Ntot,qx,LCC)
                   
-                  sm = sm + ( &!WCC%CCR(qx)%X(ril,rjk) - &
-                      -1.d0*WCC%CCX(qx)%X(ril,rjk) - &
-                       WCC%CCX(qx)%X(rjk,ril) )* &!+ &
-                      ! 1.d0*WCC%CCR(qx)%X(rjk,ril) ) * &
+                  sm = sm - (WCC%CCX(qx)%X(ril,gjk) + &
+                       WCC%CCX(qx)%X(rjk,gil) )* &
                        sixj(jk,jl,Jtot,ji,jj,JP) * &
                        (-1)**((ji + jl)/2)
             
@@ -569,8 +564,6 @@ end subroutine
 
            RES%mat(q)%gam(g_ix)%X(IX,JX) = &
                 RES%mat(q)%gam(g_ix)%X(IX,JX) + sm * pre * pre2 
-        !   if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) =  &
-         !       RES%mat(q)%gam(g_ix)%X(IX,JX) * RES%herm
            
          end do 
       end do

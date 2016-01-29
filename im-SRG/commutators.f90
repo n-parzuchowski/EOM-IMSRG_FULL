@@ -417,7 +417,7 @@ real(8) function commutator_220(L,R,jbas)
      do IX = 1, np 
         do JX = 1,nh
            
-           smx = smx - L%mat(q)%gam(3)%X(IX,JX) * R%mat(q)%gam(3)%X(IX,JX) 
+           smx = smx - L%mat(q)%gam(3)%X(IX,JX) * R%mat(q)%gam(3)%X(IX,JX) * R%herm
         end do
      end do 
      
@@ -771,8 +771,174 @@ end subroutine
    type(sq_op) :: RES
    type(cross_coupled_31_mat) :: LCC,RCC,WCC
    integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM
+   integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,hole,part
+   integer :: JP, Jtot,Ntot,qx,jmin,jmax,rik,rjl,ril,rjk,g_ix,thread,total_threads
+   integer :: gik,gjl,gil,gjk,phase
+   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2
+   logical :: square
+   
+
+  Ntot = RES%Nsp
+  JTM = jbas%Jtotal_max
+  total_threads = size(RES%direct_omp) - 1
+   ! construct intermediate matrices
+ 
+   do q = 1,LCC%nblocks
+      
+      nb = LCC%nph(q)
+      
+      rinx = LCC%rlen(q)  
+      
+      if (nb * rinx == 0) cycle
+      
+      call dgemm('N','T',rinx,rinx,nb,al,LCC%CCX(q)%X,rinx,&
+           RCC%CCX(q)%X,rinx,bet,WCC%CCX(q)%X,rinx) 
+      
+      call dgemm('N','T',rinx,rinx,nb,al,RCC%CCX(q)%X,rinx,&
+           LCC%CCX(q)%X,rinx,bet,WCC%CCR(q)%X,rinx) 
+      
+   end do 
+
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
+   do thread = 1, total_threads
+   do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
+     
+     Jtot = RES%mat(q)%lam(1)
+     
+     nh = RES%mat(q)%nhh
+     np = RES%mat(q)%npp
+     nb = RES%mat(q)%nph
+          
+     do g_ix = 1,6 
+   
+        ! figure out how big the array is
+        n1 = size(RES%mat(q)%gam(g_ix)%X(:,1))
+        n2 = size(RES%mat(q)%gam(g_ix)%X(1,:))
+        if ((n1*n2) == 0) cycle 
+        
+        ! read in information about which 
+        ! array we are using from public arrays
+        c1 = sea1(g_ix) 
+        c2 = sea2(g_ix) 
+        square = sqs(g_ix) 
+        jxstart = jst(g_ix) 
+        
+      do  IX =  1, n1 
+         pre = 1.d0 
+
+         i = RES%mat(q)%qn(c1)%Y(IX,1)
+         j = RES%mat(q)%qn(c1)%Y(IX,2)
+ 
+         if (i == j )  pre  = .70710678118d0
+         ji = jbas%jj(i) 
+         jj = jbas%jj(j) 
+         li = jbas%ll(i) 
+         lj = jbas%ll(j)
+         ti = jbas%itzp(i) 
+         tj = jbas%itzp(j)
+         
+         do JX =min(jxstart,IX),n2
+            pre2 = 1.d0 
+            k = RES%mat(q)%qn(c2)%Y(JX,1)
+            l = RES%mat(q)%qn(c2)%Y(JX,2)
+            
+            if (k == l )  pre2 = .70710678118d0
+            jk = jbas%jj(k) 
+            jl = jbas%jj(l) 
+            lk = jbas%ll(k) 
+            ll = jbas%ll(l)
+            tk = jbas%itzp(k) 
+            tl = jbas%itzp(l)
+            
+            sm = 0.d0 
+                       
+            jmin = max( abs(jj - jl) , abs(ji - jk )) 
+            jmax = min( jj + jl , ji + jk ) 
+            
+            
+            Tz = abs(ti -tk)/2 
+            if (abs(tl - tj) .ne. Tz*2)  cycle 
+            PAR = mod(li+lk,2) 
+            if (mod(ll+lj,2) .ne. PAR) cycle 
+            
+            phase = (-1)**((ji+jj+jk+jl)/2)
+            do JP = jmin,jmax,2
+                 
+                  qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
+                  rjl = specific_rval(j,l,Ntot,qx,LCC)
+                  rik = specific_rval(i,k,Ntot,qx,LCC)
+                  gjl = specific_rval(l,j,Ntot,qx,LCC)
+                  gik = specific_rval(k,i,Ntot,qx,LCC)
+                  
+                  !inside
+                 sm = sm - (-1)**((jl +jk + Jtot)/2)* &
+                      ( (WCC%CCX(qx)%X(gik,rjl) + &
+                     phase*WCC%CCX(qx)%X(gjl,rik))*LCC%herm &
+!                      - (phase*WCC%CCR(qx)%X(gjl,rik) + &
+ !                     WCC%CCR(qx)%X(gik,rjl))*RCC%herm) * &
+                      - (phase*WCC%CCX(qx)%X(rik,gjl) + &
+                      WCC%CCX(qx)%X(rjl,gik))*RCC%herm) * &
+                      sixj(ji,jj,Jtot,jl,jk,JP) 
+            end do 
+
+            Tz = abs(ti -tl)/2 
+            if (abs(tk - tj) .ne. Tz*2) cycle 
+            PAR = mod(li+ll,2) 
+            if (mod(lk+lj,2) .ne. PAR) cycle 
+            
+            jmin = max( abs(ji - jl) , abs(jj - jk )) 
+            jmax = min( ji + jl , jj + jk ) 
+            phase = (-1)**((ji+jj+jk+jl)/2)               
+            
+            do JP = jmin,jmax,2
+                            
+               !qx = JP/2 + 1
+               qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
+               
+               ril = specific_rval(i,l,Ntot,qx,LCC)
+               rjk = specific_rval(j,k,Ntot,qx,LCC)
+               gil = specific_rval(l,i,Ntot,qx,LCC)
+               gjk = specific_rval(k,j,Ntot,qx,LCC)
+               
+               !outside
+               sm = sm + ( (WCC%CCX(qx)%X(gil,rjk) + &
+                    phase*WCC%CCX(qx)%X(gjk,ril)) * LCC%Herm &
+!                    - ( phase*WCC%CCR(qx)%X(gjk,ril) + &
+ !                   WCC%CCR(qx)%X(gil,rjk) )* RCC%herm )* &
+                    - ( phase*WCC%CCX(qx)%X(ril,gjk) + &
+                    WCC%CCX(qx)%X(rjk,gil) )* RCC%herm )* &
+                    sixj(ji,jj,Jtot,jk,jl,JP) 
+                 
+            end do
+
+            RES%mat(q)%gam(g_ix)%X(IX,JX) = &
+                 RES%mat(q)%gam(g_ix)%X(IX,JX) + sm * pre * pre2 
+            if (square) RES%mat(q)%gam(g_ix)%X(JX,IX) =  &
+                 RES%mat(q)%gam(g_ix)%X(IX,JX) * RES%herm
+            
+         end do
+      end do
+   end do
+end do
+end do
+ 
+!$OMP END PARALLEL DO 
+   
+ end subroutine commutator_222_ph
+!=====================================================
+!=================================================================
+!=================================================================
+ subroutine commutator_222_phxxx(LCC,RCC,RES,WCC,jbas) 
+   ! VERIFIED ph channel 2body commutator. DFWT! 
+   implicit none 
+  
+   type(spd) :: jbas
+   type(sq_op) :: RES
+   type(cross_coupled_31_mat) :: LCC,RCC,WCC
+   integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
    integer :: JP, Jtot,Ntot,qx,jmin,jmax,rik,rjl,ril,rjk,g_ix,thread,total_threads
+   integer :: gik,gjl,gil,gjk
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2
    logical :: square
    
@@ -866,11 +1032,13 @@ end subroutine
                   qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                   rjl = specific_rval(j,l,Ntot,qx,LCC)
                   rik = specific_rval(i,k,Ntot,qx,LCC)
+                  gjl = specific_rval(l,j,Ntot,qx,LCC)
+                  gik = specific_rval(k,i,Ntot,qx,LCC)
                   
-                  sm = sm - (1.d0*WCC%CCX(qx)%X(rjl,rik) - &
-                       WCC%CCR(qx)%X(rjl,rik) - &
-                       1.d0*WCC%CCR(qx)%X(rik,rjl) + &
-                       WCC%CCX(qx)%X(rik,rjl) ) * &
+                  sm = sm - (1.d0*WCC%CCX(qx)%X(rjl,gik) - &
+                       WCC%CCR(qx)%X(rjl,gik) - &
+                       1.d0*WCC%CCR(qx)%X(rik,gjl) + &
+                       WCC%CCX(qx)%X(rik,gjl) ) * &
                        sixj(jk,jl,Jtot,jj,ji,JP) * &
                        (-1)**((ji + jl + Jtot)/2) 
             
@@ -891,11 +1059,14 @@ end subroutine
                 
                   ril = specific_rval(i,l,Ntot,qx,LCC)
                   rjk = specific_rval(j,k,Ntot,qx,LCC)
+                  gil = specific_rval(l,i,Ntot,qx,LCC)
+                  gjk = specific_rval(k,j,Ntot,qx,LCC)
+
                   
-                  sm = sm + ( WCC%CCR(qx)%X(ril,rjk) - &
-                       1.d0*WCC%CCX(qx)%X(ril,rjk) - &
-                       WCC%CCX(qx)%X(rjk,ril) + &
-                       1.d0*WCC%CCR(qx)%X(rjk,ril) ) * &
+                  sm = sm + ( WCC%CCR(qx)%X(ril,gjk) - &
+                       1.d0*WCC%CCX(qx)%X(ril,gjk) - &
+                       WCC%CCX(qx)%X(rjk,gil) + &
+                       1.d0*WCC%CCR(qx)%X(rjk,gil) ) * &
                        sixj(jk,jl,Jtot,ji,jj,JP) * &
                        (-1)**((ji + jl)/2)
             
@@ -914,8 +1085,7 @@ end subroutine
  
 !$OMP END PARALLEL DO 
    
-end subroutine 
-!=====================================================
+end subroutine
 !=====================================================      
 integer function specific_rval(i,l,Ntot,q,LCC) 
   implicit none 

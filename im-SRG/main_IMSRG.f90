@@ -31,7 +31,7 @@ program main_IMSRG
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
  
-  t1 = omp_get_wtime()
+!  t1 = omp_get_wtime()
   heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
        13,14,29,30,27,28,25,26,23,24,21,22/)   
 
@@ -55,9 +55,9 @@ program main_IMSRG
      ! run this by typing ' X' after the input file in the command line
      ! This takes forever, you might want to comment some of this out. 
      call test_scalar_scalar_commutator(jbasis,-1,1) 
-     call test_EOM_scalar_scalar_commutator(jbasis,1,1)
-     call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
-     call test_scalar_tensor_commutator(jbasis,1,1,2,0) 
+    ! call test_EOM_scalar_scalar_commutator(jbasis,1,1)
+    ! call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
+   !  call test_scalar_tensor_commutator(jbasis,1,1,2,0) 
      stop
   end if
 
@@ -235,12 +235,12 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  equation of motion calculation 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  t2 = omp_get_wtime() 
+!  t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
 
   if (ex_calc_int==1) then 
      call calculate_excited_states(HS%Jtarg,HS%Ptarg,3,HS,jbasis,Otrans) 
-     t2 = omp_get_wtime() 
+ !    t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -296,7 +296,7 @@ program main_IMSRG
       
      end select
      
-     t2 = omp_get_wtime() 
+!     t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   
   end if 

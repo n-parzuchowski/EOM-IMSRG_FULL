@@ -382,7 +382,7 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               rqp = TS_rval(qk,pk,Ntot,qx,LCC)
 
               sm = sm + (-1)**(( jp + jq + rank)/2) * R%fph(a,i) & 
-                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rpq) &
+                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rqp) &
                 - LCC%CCX(qx)%X(rpq,rai) ) / sqrt(rank + 1.d0 ) 
 
               ! the last (rank + 1) is divided out because
@@ -457,7 +457,7 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               rqp = TS_rval(qk,pk,Ntot,qx,LCC)
  
               sm = sm + (-1)**(( jp + jq + rank)/2) * R%fph(a,i) & 
-                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rpq) &
+                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rqp) &
                 - LCC%CCX(qx)%X(rpq,rai) ) / sqrt(rank + 1.d0 ) 
               ! the last (rank + 1) is divided out because
               ! the CC matrix elements are scaled by that, 
@@ -530,7 +530,7 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               rqp = TS_rval(qk,pk,Ntot,qx,LCC)
 
               sm = sm + (-1)**(( jp + jq + rank)/2) * R%fph(a,i) & 
-                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rpq) &
+                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rqp) &
                 - LCC%CCX(qx)%X(rpq,rai) ) / sqrt(rank + 1.d0 ) 
 
               ! the last (rank + 1) is divided out because
@@ -1592,10 +1592,10 @@ end subroutine
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                        ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-                       WCC%CCX(qx)%X(ril,rkj)*(-1)**((J3+J4)/2)  &
+                       WCC%CCX(qx)%X(rli,rkj)*(-1)**((J3+J4)/2)  &
                       + WCC%CCR(qx)%X(ril,rkj) * phase1 * LCC%herm &
                       - (-1)**(rank/2)*phase1*RCC%herm*LCC%herm * &
-                      WCC%CCX(qx)%X(rli,rjk) - (-1)**(( J3+J4+rank)/2) &
+                      WCC%CCX(qx)%X(ril,rjk) - (-1)**(( J3+J4+rank)/2) &
                       * RCC%herm * WCC%CCR(qx)%X(rli,rjk) )
 
                 end do 
@@ -1614,10 +1614,10 @@ end subroutine
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                        ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
                        WCC%CCR(qx)%X(rjk,rli)*phase1*(-1)**((rank+J3+J4)/2)*LCC%herm &
-                       + WCC%CCX(qx)%X(rjk,rli) * (-1)**(rank/2) &
+                       + WCC%CCX(qx)%X(rkj,rli) * (-1)**(rank/2) &
                         - RCC%herm * WCC%CCR(qx)%X(rkj,ril) &
                      - phase1*(-1)**((J3+J4)/2) * RCC%herm *LCC%herm * &
-                          WCC%CCX(qx)%X(rkj,ril) )
+                          WCC%CCX(qx)%X(rjk,ril) )
                       
                end do
                
@@ -1661,9 +1661,9 @@ end subroutine
                
                   sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
                        ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
-                       (-1)**((J3+J4)/2) * WCC%CCX(qx)%X(rjl,rki)  & 
+                       (-1)**((J3+J4)/2) * WCC%CCX(qx)%X(rlj,rki)  & 
                        - phase1*RCC%herm*LCC%herm*(-1)**(rank/2)* &
-                       WCC%CCX(qx)%X(rlj,rik) + phase1*LCC%herm * &
+                       WCC%CCX(qx)%X(rjl,rik) + phase1*LCC%herm * &
                        WCC%CCR(qx)%X(rjl,rki) - (-1)**((J3+J4+rank)/2)* &
                        RCC%herm * WCC%CCR(qx)%X(rlj,rik) )
                   
@@ -1685,9 +1685,9 @@ end subroutine
                        (-1)**((J3+J4+rank)/2) *phase1*LCC%herm &
                        * WCC%CCR(qx)%X(rik,rlj)  & 
                        - RCC%herm*WCC%CCR(qx)%X(rki,rjl) &
-                       + (-1)**(rank/2) * WCC%CCX(qx)%X(rik,rlj) &
+                       + (-1)**(rank/2) * WCC%CCX(qx)%X(rki,rlj) &
                        - phase1*(-1)**((J3+J4)/2) * LCC%herm * RCC%herm * &
-                       WCC%CCX(qx)%X(rki,rjl) ) 
+                       WCC%CCX(qx)%X(rik,rjl) ) 
                   
                end do
                

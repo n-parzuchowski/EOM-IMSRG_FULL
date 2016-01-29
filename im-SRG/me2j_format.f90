@@ -329,30 +329,30 @@ do a = nlj1,nlj1+1
      if ( a > b )  then 
         
         x = bosonic_tp_index(b,a,Ntot*2) 
-        j_min = H%xmap(x)%Z(1)  
-        i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -JT)/2 ) 
      else
        ! if (a == b) pre = pre * sqrt( 2.d0 )
        
         x = bosonic_tp_index(a,b,Ntot*2) 
-        j_min = H%xmap(x)%Z(1)  
-        i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
      end if
   
      if (c > d)  then     
         
         x = bosonic_tp_index(d,c,Ntot*2) 
-        j_min = H%xmap(x)%Z(1)  
-        i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
         
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
      else 
        ! if (c == d) pre = pre * sqrt( 2.d0 )
       
         x = bosonic_tp_index(c,d,Ntot*2) 
-        j_min = H%xmap(x)%Z(1)  
-        i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
      end if
 
      ! kets/bras are pre-scaled by sqrt(2) if they 
@@ -912,8 +912,8 @@ do Tz = 1 , -1, -1
      if ( a > b )  then 
         
         x = bosonic_tp_index(b,a,Ntot) 
-        j_min = H%xmap(x)%Z(1)  
-        i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
         pre = pre * (-1.)**( 1 + (jbas%jj(a) + jbas%jj(b) -JT)/2 ) 
      
      else
@@ -921,15 +921,15 @@ do Tz = 1 , -1, -1
         
         x = bosonic_tp_index(a,b,Ntot) 
         
-        j_min = H%xmap(x)%Z(1)  
-        i1 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
      end if
   
      if (c > d)  then     
         
         x = bosonic_tp_index(d,c,Ntot) 
-        j_min = H%xmap(x)%Z(1)  
-        i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
         
         pre = pre * (-1.)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
     
@@ -937,8 +937,8 @@ do Tz = 1 , -1, -1
         if (c == d) pre = pre / sqrt( 2.d0 )
        
         x = bosonic_tp_index(c,d,Ntot) 
-        j_min = H%xmap(x)%Z(1)  
-        i2 = H%xmap(x)%Z( (JT-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
      end if
 
      ! kets/bras are pre-scaled by sqrt(2) if they 

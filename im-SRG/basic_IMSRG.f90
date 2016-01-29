@@ -23,6 +23,7 @@ module basic_IMSRG
      INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
      INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holesb4,partsb4,holes,parts 
      type(int_vec), allocatable,dimension(:) :: states
+     type(int_vec),allocatable,dimension(:) :: xmap,xmap_tensor
      ! for clarity:  nn, ll, nshell are all the true value
      ! jj is j+1/2 (so it's an integer) 
      ! likewise itzp is 2*tz  
@@ -58,7 +59,6 @@ module basic_IMSRG
   TYPE :: sq_op !second quantized operator 
      type(sq_block),allocatable,dimension(:) :: mat
      type(tensor_block),allocatable,dimension(:) :: tblck
-     type(int_vec),allocatable,dimension(:) :: xmap 
      real(8),allocatable,dimension(:,:) :: fph,fpp,fhh
      integer,allocatable,dimension(:,:) :: exlabels
      integer,allocatable,dimension(:) :: direct_omp 
@@ -430,12 +430,13 @@ subroutine allocate_blocks(jbas,op)
   allocate(op%fph(N-AX,AX))
   allocate(op%fhh(AX,AX)) 
   
+  mem = 1 + (N-AX)**2 + (N-AX)*AX + AX**2 
   op%fpp=0.d0
   op%fhh=0.d0
   op%fph=0.d0
   q = 1  ! block index
 
-  allocate(op%xmap(N*(N+1)/2)) 
+  allocate(jbas%xmap(N*(N+1)/2)) 
  
   ! allocate the map array, which is used by 
   ! v_elem to find matrix elements
@@ -448,9 +449,9 @@ subroutine allocate_blocks(jbas,op)
         numJ = (j_max - j_min)/2 + 2
   
         x = bosonic_tp_index(i,j,N) 
-        allocate(op%xmap(x)%Z(numJ)) 
-        op%xmap(x)%Z = 0
-        op%xmap(x)%Z(1) = j_min
+        allocate(jbas%xmap(x)%Z(numJ)) 
+        jbas%xmap(x)%Z = 0
+        jbas%xmap(x)%Z(1) = j_min
         
      end do 
   end do 
@@ -513,13 +514,8 @@ subroutine allocate_blocks(jbas,op)
      allocate(op%mat(q)%gam(2)%X(npp,nph)) !Vppph
      allocate(op%mat(q)%gam(6)%X(nph,nhh)) !Vphhh
    
-     mem = mem + sizeof(op%mat(q)%gam(1)%X)
-     mem = mem + sizeof(op%mat(q)%gam(2)%X)
-     mem = mem + sizeof(op%mat(q)%gam(3)%X)
-     mem = mem + sizeof(op%mat(q)%gam(4)%X)
-     mem = mem + sizeof(op%mat(q)%gam(5)%X)
-     mem = mem + sizeof(op%mat(q)%gam(6)%X)
-
+     mem = mem + npp**2 + nph**2 + nhh **2 
+     mem = mem + npp*nph + nhh*nph + nhh*npp 
 
      do i = 1,6
         op%mat(q)%gam(i)%X = 0.d0
@@ -545,23 +541,23 @@ subroutine allocate_blocks(jbas,op)
            cX = jbas%con(i) + jbas%con(j)
            
            x = bosonic_tp_index(i,j,N) 
-           j_min = op%xmap(x)%Z(1) 
+           j_min = jbas%xmap(x)%Z(1) 
            select case (CX)
               case (0) 
                  npp = npp + 1
                  op%mat(q)%qn(1)%Y(npp,1) = i
                  op%mat(q)%qn(1)%Y(npp,2) = j
-                 op%xmap(x)%Z((Jtot-j_min)/2+2) = npp 
+                 jbas%xmap(x)%Z((Jtot-j_min)/2+2) = npp 
               case (1)                      
                  nph = nph + 1
                  op%mat(q)%qn(2)%Y(nph,1) = i
                  op%mat(q)%qn(2)%Y(nph,2) = j 
-                 op%xmap(x)%Z((Jtot-j_min)/2+2) = nph
+                 jbas%xmap(x)%Z((Jtot-j_min)/2+2) = nph
               case (2) 
                  nhh = nhh + 1
                  op%mat(q)%qn(3)%Y(nhh,1) = i
                  op%mat(q)%qn(3)%Y(nhh,2) = j 
-                 op%xmap(x)%Z((Jtot-j_min)/2+2) = nhh
+                 jbas%xmap(x)%Z((Jtot-j_min)/2+2) = nhh
            end select
                      
         end do 
@@ -600,7 +596,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
   op%Aneut = zerorank%Aneut
   ! allocate the map array, which is used by 
   ! v_elem to find matrix elements
-  allocate(op%xmap(N*(N+1)/2)) 
+  allocate(jbas%xmap_tensor(N*(N+1)/2)) 
   do i = 1,N
      do j = i,N
         
@@ -610,9 +606,9 @@ subroutine allocate_tensor(jbas,op,zerorank)
         numJ = (j_max - j_min)/2 + 2
   
         x = bosonic_tp_index(i,j,N) 
-        allocate(op%xmap(x)%Z(numJ)) 
-        op%xmap(x)%Z = 0
-        op%xmap(x)%Z(1) = j_min
+        allocate(jbas%xmap_tensor(x)%Z(numJ)) 
+        jbas%xmap_tensor(x)%Z = 0
+        jbas%xmap_tensor(x)%Z(1) = j_min
         
      end do 
   end do 
@@ -625,14 +621,17 @@ subroutine allocate_tensor(jbas,op,zerorank)
   op%nblocks =  tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par1)               
  
   allocate(op%tblck(op%nblocks)) 
-  allocate(op%fpp(N-AX,N-AX))
-  allocate(op%fph(N-AX,AX))
-  allocate(op%fhh(AX,AX)) 
  
-  op%fpp = 0.d0
+  allocate(op%fph(N-AX,AX))
   op%fph = 0.d0
-  op%fhh = 0.d0 
 
+  if (.not. op%pphh_ph ) then 
+     allocate(op%fpp(N-AX,N-AX))
+     allocate(op%fhh(AX,AX)) 
+     op%fpp = 0.d0     
+     op%fhh = 0.d0 
+  end if 
+  
   q = 1
   do Jtot1 = 0,2*jbas%Jtotal_max,2 
      do Jtot2 = max(abs(Jtot1 - rank),Jtot1), Jtot1+rank, 2   
@@ -704,23 +703,24 @@ subroutine allocate_tensor(jbas,op,zerorank)
               op%tblck(q)%tensor_qn(3,2)%Y = zerorank%mat(q2)%qn(3)%Y
               
               end if 
-              
-              allocate(op%tblck(q)%tgam(1)%X(npp1,npp2)) !Vpppp
-              allocate(op%tblck(q)%tgam(5)%X(nhh1,nhh2)) !Vhhhh
               allocate(op%tblck(q)%tgam(3)%X(npp1,nhh2)) !Vpphh
-              allocate(op%tblck(q)%tgam(4)%X(nph1,nph2)) !Vphph
-              allocate(op%tblck(q)%tgam(2)%X(npp1,nph2)) !Vppph
-              allocate(op%tblck(q)%tgam(6)%X(nph1,nhh2)) !Vphhh
-             
               allocate(op%tblck(q)%tgam(7)%X(nhh1,npp2)) !Vhhpp
-              allocate(op%tblck(q)%tgam(8)%X(nph1,npp2)) !Vphpp
-              allocate(op%tblck(q)%tgam(9)%X(nhh1,nph2)) !Vhhph
-        
-               do i = 1,9
-                  op%tblck(q)%tgam(i)%X = 0.d0
-               end do
-  
-               q = q + 1
+              if (.not. op%pphh_ph ) then 
+                 allocate(op%tblck(q)%tgam(1)%X(npp1,npp2)) !Vpppp
+                 allocate(op%tblck(q)%tgam(5)%X(nhh1,nhh2)) !Vhhhh              
+                 allocate(op%tblck(q)%tgam(4)%X(nph1,nph2)) !Vphph
+                 allocate(op%tblck(q)%tgam(2)%X(npp1,nph2)) !Vppph
+                 allocate(op%tblck(q)%tgam(6)%X(nph1,nhh2)) !Vphhh
+                 allocate(op%tblck(q)%tgam(8)%X(nph1,npp2)) !Vphpp
+                 allocate(op%tblck(q)%tgam(9)%X(nhh1,nph2)) !Vhhph
+              end if 
+            
+              do i = 1,9
+                 if (op%pphh_ph.and.(i.ne.3).and.(i.ne.7)) cycle 
+                 op%tblck(q)%tgam(i)%X = 0.d0
+              end do
+              
+              q = q + 1
             
             end do
          end do
@@ -754,19 +754,19 @@ subroutine allocate_tensor(jbas,op,zerorank)
          cX = jbas%con(i) + jbas%con(j)
          
          x = bosonic_tp_index(i,j,N) 
-         j_min = op%xmap(x)%Z(1) 
+         j_min = jbas%xmap_tensor(x)%Z(1) 
        
       
          select case (CX)
          case (0) 
             npp1 = npp1 + 1
-            op%xmap(x)%Z((Jtot-j_min)/2+2) = npp1 
+            jbas%xmap_tensor(x)%Z((Jtot-j_min)/2+2) = npp1 
          case (1)                      
             nph1 = nph1 + 1
-            op%xmap(x)%Z((Jtot-j_min)/2+2) = nph1
+            jbas%xmap_tensor(x)%Z((Jtot-j_min)/2+2) = nph1
          case (2) 
             nhh1 = nhh1 + 1
-            op%xmap(x)%Z((Jtot-j_min)/2+2) = nhh1
+            jbas%xmap_tensor(x)%Z((Jtot-j_min)/2+2) = nhh1
          end select
         
       end do
@@ -820,9 +820,9 @@ subroutine divide_work(r1)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+!  threads=omp_get_num_threads() 
 !$omp end parallel
-!threads = 1
+threads = 1
   b = 0.d0
   do q = 1, r1%nblocks
      b = b + r1%mat(q)%nhh +r1%mat(q)%npp + r1%mat(q)%nph 
@@ -864,9 +864,9 @@ subroutine divide_work_tensor(r1)
   integer :: i ,g,q,k,b,j,spot
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+!  threads=omp_get_num_threads() 
 !$omp end parallel
-!threads = 1
+threads = 1
   b = 0.d0
   do q = 1, r1%nblocks
      do spot = 1, 9
@@ -912,9 +912,9 @@ subroutine divide_work_tpd(threebas)
   integer :: i ,g,q,k,b,j,blocks
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+!  threads=omp_get_num_threads() 
 !$omp end parallel
-!threads = 1
+threads = 1
 
   blocks =size(threebas) 
   b = 0.d0
@@ -1012,30 +1012,30 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
      if ( a > b )  then 
         
         x = bosonic_tp_index(b,a,N) 
-        j_min = H%xmap(x)%Z(1)  
-        i1 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
      else
        ! if (a == b) pre = pre * sqrt( 2.d0 )
        
         x = bosonic_tp_index(a,b,N) 
-        j_min = H%xmap(x)%Z(1)  
-        i1 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
      end if
   
      if (c > d)  then     
         
         x = bosonic_tp_index(d,c,N) 
-        j_min = H%xmap(x)%Z(1)  
-        i2 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
         
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
      else 
        ! if (c == d) pre = pre * sqrt( 2.d0 )
       
         x = bosonic_tp_index(c,d,N) 
-        j_min = H%xmap(x)%Z(1)  
-        i2 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
      end if
      ! kets/bras are pre-scaled by sqrt(2) if they 
      ! have two particles in the same sp-shell
@@ -1173,30 +1173,30 @@ subroutine read_gz(H,jbas,htype,hw,rr,pp)
      if ( a > b )  then 
         
         x = bosonic_tp_index(b,a,N) 
-        j_min = H%xmap(x)%Z(1)  
-        i1 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
      else
        ! if (a == b) pre = pre * sqrt( 2.d0 )
        
         x = bosonic_tp_index(a,b,N) 
-        j_min = H%xmap(x)%Z(1)  
-        i1 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
      end if
   
      if (c > d)  then     
         
         x = bosonic_tp_index(d,c,N) 
-        j_min = H%xmap(x)%Z(1)  
-        i2 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
         
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
      else 
        ! if (c == d) pre = pre * sqrt( 2.d0 )
       
         x = bosonic_tp_index(c,d,N) 
-        j_min = H%xmap(x)%Z(1)  
-        i2 = H%xmap(x)%Z( (J-j_min)/2 + 2) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
      end if
      ! kets/bras are pre-scaled by sqrt(2) if they 
      ! have two particles in the same sp-shell
@@ -1553,26 +1553,26 @@ real(8) function v_elem(a,b,c,d,J,op,jbas)
   ! get the indeces in the correct order
   if ( a > b )  then 
      x = bosonic_tp_index(b,a,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     j_min = jbas%xmap(x)%Z(1)  
+     i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
      pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
   else
      if (a == b) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(a,b,N)
-     j_min = op%xmap(x)%Z(1)  
-     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     j_min = jbas%xmap(x)%Z(1)  
+     i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
   end if 
   
   if (c > d)  then     
      x = bosonic_tp_index(d,c,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     j_min = jbas%xmap(x)%Z(1)  
+     i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
      pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
   else 
      if (c == d) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(c,d,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2)  
+     j_min = jbas%xmap(x)%Z(1)  
+     i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2)  
   end if 
  
   ! grab the matrix element
@@ -1672,26 +1672,26 @@ real(8) function pphh_elem(a,b,c,d,J,op,jbas)
   ! get the indeces in the correct order
   if ( a > b )  then 
      x = bosonic_tp_index(b,a,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     j_min = jbas%xmap(x)%Z(1)  
+     i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
      pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
   else
      if (a == b) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(a,b,N)
-     j_min = op%xmap(x)%Z(1)  
-     i1 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     j_min = jbas%xmap(x)%Z(1)  
+     i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
   end if 
   
   if (c > d)  then     
      x = bosonic_tp_index(d,c,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2) 
+     j_min = jbas%xmap(x)%Z(1)  
+     i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
      pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
   else 
      if (c == d) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(c,d,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i2 = op%xmap(x)%Z( (J-j_min)/2 + 2)  
+     j_min = jbas%xmap(x)%Z(1)  
+     i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2)  
   end if 
  
   ! grab the matrix element
@@ -1808,26 +1808,26 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   ! get the indeces in the correct order
   if ( a > b )  then 
      x = bosonic_tp_index(b,a,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
      pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J1)/2 ) 
   else
      if (a == b) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(a,b,N)
-     j_min = op%xmap(x)%Z(1)  
-     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
   end if 
   
   if (c > d)  then     
      x = bosonic_tp_index(d,c,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2) 
      pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J2)/2 ) 
   else 
      if (c == d) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(c,d,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2)  
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2)  
   end if 
  
   ! grab the matrix element
@@ -1959,26 +1959,26 @@ real(8) function pphh_tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   ! get the indeces in the correct order
   if ( a > b )  then 
      x = bosonic_tp_index(b,a,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
      pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J1)/2 ) 
   else
      if (a == b) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(a,b,N)
-     j_min = op%xmap(x)%Z(1)  
-     i1 = op%xmap(x)%Z( (J1-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
   end if 
   
   if (c > d)  then     
      x = bosonic_tp_index(d,c,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2) 
      pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J2)/2 ) 
   else 
      if (c == d) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(c,d,N) 
-     j_min = op%xmap(x)%Z(1)  
-     i2 = op%xmap(x)%Z( (J2-j_min)/2 + 2)  
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2)  
   end if 
  
   ! grab the matrix element
@@ -2818,7 +2818,7 @@ subroutine deallocate_sq_op(op)
   if (allocated(op%tblck)) then 
      deallocate(op%tblck)
   end if 
-  deallocate(op%xmap,op%fph,op%fpp,op%fhh,op%exlabels,op%direct_omp) 
+  deallocate(op%fph,op%fpp,op%fhh,op%exlabels,op%direct_omp) 
 end subroutine deallocate_sq_op
 !=====================================================
 subroutine deallocate_31_mat(op)
@@ -2848,13 +2848,14 @@ subroutine deallocate_31_mat(op)
   end if 
 end subroutine deallocate_31_mat
 !======================================================
-subroutine duplicate_sq_op(H,op) 
+subroutine duplicate_sq_op(H,op,dont) 
   ! make a copy of the shape of H onto op
   implicit none 
   
   type(sq_op) :: H,op
   integer :: q,i,j,holes,parts,nh,np,nb,N,nh2,np2,nb2
-
+  character(1), optional :: dont 
+  
   op%herm = 1 ! default, change it in the calling program
              ! if you want anti-herm (-1) 
   op%Aprot = H%Aprot
@@ -2869,20 +2870,23 @@ subroutine duplicate_sq_op(H,op)
   op%valcut = H%valcut 
   op%rank = H%rank 
   op%dpar = H%dpar
-  op%pphh_ph = .false. 
+  
+  if (.not. present(dont)) op%pphh_ph = .false. 
 
   holes = op%belowEF ! number of shells below eF 
   parts = op%Nsp - holes 
 
-  allocate(op%fhh(holes,holes)) 
-  allocate(op%fpp(parts,parts)) 
   allocate(op%fph(parts,holes)) 
-
+  op%fph = 0.d0 
   ! everything is initialized to zero
   op%E0 = 0.d0 
-  op%fhh = 0.d0
-  op%fpp = 0.d0
-  op%fph = 0.d0 
+
+  if (.not. op%pphh_ph) then 
+     allocate(op%fhh(holes,holes)) 
+     allocate(op%fpp(parts,parts)) 
+     op%fhh = 0.d0
+     op%fpp = 0.d0
+  end if 
 
   if (allocated(H%mat)) then ! scalar operator. 
      
@@ -2891,11 +2895,6 @@ subroutine duplicate_sq_op(H,op)
      op%direct_omp = H%direct_omp
 
      N = op%nsp
-     allocate(op%xmap(N*(N+1)/2))
-     do q = 1, N*(N+1)/2 
-        allocate(op%xmap(q)%Z(size(H%xmap(q)%Z)))
-        op%xmap(q)%Z = H%xmap(q)%Z
-     end do
   
      if ( allocated( H%exlabels ) ) then 
         allocate(op%exlabels(size(H%exlabels(:,1)),2)) 
@@ -2948,11 +2947,6 @@ subroutine duplicate_sq_op(H,op)
      op%direct_omp = H%direct_omp
 
      N = op%nsp
-     allocate(op%xmap(N*(N+1)/2))
-     do q = 1, N*(N+1)/2 
-        allocate(op%xmap(q)%Z(size(H%xmap(q)%Z)))
-        op%xmap(q)%Z = H%xmap(q)%Z
-     end do
   
      if ( allocated( H%exlabels ) ) then 
         allocate(op%exlabels(size(H%exlabels(:,1)),2)) 
@@ -2996,25 +2990,44 @@ subroutine duplicate_sq_op(H,op)
               op%tblck(q)%tensor_qn(j,i)%Y = H%tblck(q)%tensor_qn(j,i)%Y
            end do 
         end do
-    
-        allocate(op%tblck(q)%tgam(1)%X(np,np2)) !Vpppp
-        allocate(op%tblck(q)%tgam(5)%X(nh,nh2)) !Vhhhh
+
         allocate(op%tblck(q)%tgam(3)%X(np,nh2)) !Vpphh
-        allocate(op%tblck(q)%tgam(4)%X(nb,nb2)) !Vphph
-        allocate(op%tblck(q)%tgam(2)%X(np,nb2)) !Vppph
-        allocate(op%tblck(q)%tgam(6)%X(nb,nh2)) !Vphhh
         allocate(op%tblck(q)%tgam(7)%X(nh,np2)) !Vhhpp
-        allocate(op%tblck(q)%tgam(8)%X(nb,np2)) !Vphpp
-        allocate(op%tblck(q)%tgam(9)%X(nh,nb2)) !Vhhph
+
+        if (present(dont) ) then
+           
+           if (dont == 'w') then 
+              allocate(op%tblck(q)%tgam(2)%X(np,nb2)) !Vppph
+              allocate(op%tblck(q)%tgam(6)%X(nb,nh2)) !Vphhh           
+              allocate(op%tblck(q)%tgam(8)%X(nb,np2)) !Vphpp
+              allocate(op%tblck(q)%tgam(9)%X(nh,nb2)) !Vhhph
+              do i = 1,9
+                 if ((i==1).or.(i==4).or.(i==5)) cycle 
+                 op%tblck(q)%tgam(i)%X = 0.0
+              end do
+           else
+              op%tblck(q)%tgam(3)%X = 0.0
+              op%tblck(q)%tgam(7)%X = 0.0
+           end if 
+              
+       else   
+          allocate(op%tblck(q)%tgam(1)%X(np,np2)) !Vpppp
+          allocate(op%tblck(q)%tgam(5)%X(nh,nh2)) !Vhhhh           
+          allocate(op%tblck(q)%tgam(4)%X(nb,nb2)) !Vphph
+          allocate(op%tblck(q)%tgam(2)%X(np,nb2)) !Vppph
+          allocate(op%tblck(q)%tgam(6)%X(nb,nh2)) !Vphhh           
+          allocate(op%tblck(q)%tgam(8)%X(nb,np2)) !Vphpp
+          allocate(op%tblck(q)%tgam(9)%X(nh,nb2)) !Vhhph
+          do i = 1,9
+             op%tblck(q)%tgam(i)%X = 0.0
+          end do
+        end if
         
-        do i = 1,9
-           op%tblck(q)%tgam(i)%X = 0.0
-        end do
-   
+        
      end do
 
   end if 
-end subroutine 
+end subroutine duplicate_sq_op
 !=====================================================
 !=====================================================
 subroutine deallocate_non_excitation(Op,yes)
@@ -3601,7 +3614,7 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
      
      allocate( CCME%CCX(q1)%X(r,nb) ) 
      allocate( CCME%CCR(q1)%X(nb,r) ) 
-     
+    
      nb = 0 
      r = 0 
      do i = 1, NX
@@ -3757,7 +3770,6 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
               allocate( CCME%CCX(q1)%X(r1,nb2) ) 
               allocate( CCME%CCR(q1)%X(nb1,r2) ) 
 
-
               CCME%nph(q1) = nb1
               CCME%rlen(q1) = r1
 
@@ -3809,7 +3821,7 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
         end do
      end do
   end do
-
+  
 end subroutine  
 !=======================================================  
 !=======================================================
@@ -3931,7 +3943,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
               
            NBindx = CCME%nbmap(x)%Z(gnb) 
 
-           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
+          ! if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
            ! for the ph  channel 2body derivative 
         
            do a = 1, HS%nsp
@@ -3981,13 +3993,13 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                             v_elem(h,a,p,b,JT,HS,jbas) 
                     end do
                  
-                    ! store  < h a | v | p b>    Pandya ( V )_h(p)b(a)
+                    ! store  < h a | v | p b>    Pandya ( V )_b(a)h(p)
                     CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
                          (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
-
+                    
                     ! store < p b | v | h a>     Pandya ( V )_p(h)a(b)
-                    CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
+                    CCME%CCR(q1)%X(NBindx,Rindx) = sm * HS%herm * &
                          (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
                  
                  end if
@@ -3999,7 +4011,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
   end do 
 !$omp end parallel do
 
-end subroutine 
+end subroutine calculate_cross_coupled
 !=======================================================  
 !=======================================================          
 subroutine calculate_cross_coupled_pphh(HS,CCME,jbas,phase) 
@@ -4690,7 +4702,7 @@ subroutine EOM_scalar_cross_coupled(HS,CCME,jbas,phase)
                     ! store  < p b | v | h a> 
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
                              
-                    CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
+                    CCME%CCR(q1)%X(NBindx,Rindx) = sm * HS%herm * &
                          (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
                  
                  end if
@@ -4719,20 +4731,25 @@ subroutine allocate_CC_wkspc(CCHS,WCC)
   
   type(cross_coupled_31_mat) :: CCHS,WCC 
   integer :: q,r
+  real(8) :: mem
   
   allocate(WCC%CCX(CCHS%nblocks))
   allocate(WCC%CCR(CCHS%nblocks))
-  
+  mem = 0.d0
   do q = 1,CCHS%nblocks
      
      r = CCHS%rlen(q) 
      
      allocate(WCC%CCX(q)%X(r,r)) 
-     allocate(WCC%CCR(q)%X(r,r)) 
+     allocate(WCC%CCR(q)%X(r,r))
+     
+     mem = mem + 2*r*r
      WCC%CCX(q)%X = 0.d0
      WCC%CCR(q)%X = 0.d0
      
   end do
+  
+!  print*, 'cc wkspc: ', mem*8.0
 end subroutine 
 !===========================================================
 !===========================================================  
@@ -5468,6 +5485,65 @@ subroutine swap_i(a,b)
   ax = a;bx = b;b = ax;a = bx
 end subroutine
 
+real(8) function Vcc(a,b,c,d,J,Op,jbas)
+  ! \overleftarrow{V}^J_{ a \bar{b} c \bar{d} } 
+  implicit none 
+  
+  integer :: a,b,c,d,J
+  integer :: ja,jb,jc,jd,J_int,jmin,jmax
+  type(spd) :: jbas
+  type(sq_op) :: Op
+  real(8) :: sm 
+  
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+  jmin = max(abs(ja-jc),abs(jb-jd)) 
+  jmax = min(ja+jc,jb+jd)  
+  
+  sm = 0.d0 
+  
+  do J_int = jmin,jmax,2
+     sm = sm + sqrt(J+1.d0) * (J_int+1.d0) * &
+          (-1)**((ja+jd + J + J_int)/2) * &
+          sixj(jb,ja,J,jc,jd,J_int) * &
+          v_elem(a,c,b,d,J_int,Op,jbas) 
+  end do 
+  
+  Vcc = sm 
+end function
+
+real(8) function Vpandya(a,d,c,b,J,Op,jbas)
+  ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
+  implicit none 
+  
+  integer :: a,b,c,d,J
+  integer :: ja,jb,jc,jd,J_int,jmin,jmax
+  type(spd) :: jbas
+  type(sq_op) :: Op
+  real(8) :: sm 
+  
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+  jmin = max(abs(ja-jb),abs(jd-jd)) 
+  jmax = min(ja+jb,jd+jd)  
+  
+  sm = 0.d0 
+  
+  do J_int = jmin,jmax,2
+     sm = sm - (J_int+1.d0) * &
+          sixj(ja,jd,J,jc,jb,J_int) * &
+          v_elem(a,b,c,d,J_int,Op,jbas) 
+  end do 
+  
+  Vpandya = sm 
+end function
+     
 end module       
 
 
