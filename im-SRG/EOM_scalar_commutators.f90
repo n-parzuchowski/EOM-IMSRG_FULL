@@ -285,7 +285,7 @@ real(8) function EOM_scalar_commutator_220(L,R,jbas)
      do IX = 1, np 
         do JX = 1,nh
            
-           smx = smx + L%mat(q)%gam(3)%X(IX,JX) * R%mat(q)%gam(3)%X(IX,JX) 
+           smx = smx + L%mat(q)%gam(3)%X(IX,JX) * R%mat(q)%gam(3)%X(IX,JX) * L%herm
         end do
      end do 
      
@@ -456,9 +456,10 @@ end subroutine
       
       if (nb * rinx == 0) cycle
       
-      call dgemm('N','N',rinx,rinx,nb,al,LCC%CCX(q)%X,rinx,&
-           RCC%CCR(q)%X,nb,bet,WCC%CCX(q)%X,rinx) 
-   end do 
+      call dgemm('N','T',rinx,rinx,nb,al,LCC%CCX(q)%X,rinx,&
+           RCC%CCX(q)%X,rinx,bet,WCC%CCX(q)%X,rinx) 
+   
+   end do
 
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
    do thread = 1, total_threads

@@ -2824,7 +2824,7 @@ end subroutine deallocate_sq_op
 subroutine deallocate_31_mat(op)
   implicit none 
   type(cross_coupled_31_mat) :: op
-  deallocate(op%CCX,op%CCR)
+  deallocate(op%CCX)
   if (allocated(op%rmap)) then 
      deallocate(op%rmap)
   end if 
@@ -3558,7 +3558,6 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
   CCME%nblocks = (JTM + 1) * 2 * 2
   ! 2 dof for parity, 2 for Tz (i'm only worried about abs(Tz) ) 
   allocate(CCME%CCX(CCME%nblocks)) ! < h a |v | p b> 
-  allocate(CCME%CCR(CCME%nblocks)) ! < p a |v | h b> 
   allocate(CCME%nph(CCME%nblocks)) ! number of ph pairs in block 
   allocate(CCME%rlen(CCME%nblocks)) ! number of total pairs in block
   allocate(CCME%Jval(CCME%nblocks)) ! J value for block
@@ -3613,7 +3612,6 @@ subroutine allocate_CCMAT(HS,CCME,jbas)
      end do 
      
      allocate( CCME%CCX(q1)%X(r,nb) ) 
-     allocate( CCME%CCR(q1)%X(nb,r) ) 
     
      nb = 0 
      r = 0 
@@ -3842,7 +3840,6 @@ subroutine duplicate_CCMAT(C1,CCME)
   CCME%nblocks = C1%nblocks
   CCME%herm = C1%herm
   allocate(CCME%CCX(C1%nblocks))
-  allocate(CCME%CCR(C1%nblocks))
   allocate(CCME%nph(C1%nblocks))
   allocate(CCME%rlen(C1%nblocks)) 
   allocate(CCME%Jval(C1%nblocks)) 
@@ -3880,7 +3877,6 @@ subroutine duplicate_CCMAT(C1,CCME)
      r = CCME%rlen(q1)
      nb = CCME%nph(q1) 
      allocate( CCME%CCX(q1)%X(r,nb) ) 
-     allocate( CCME%CCR(q1)%X(nb,r) ) 
      
   end do 
 end subroutine              
@@ -3914,7 +3910,6 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
      PAR = (q1 - 1) / (2*JTM + 2) 
      TZ = mod(q1-1,(2*JTM+2))/(JTM+1)  
      
-     CCME%CCR(q1)%X = 0.d0
      CCME%CCX(q1)%X = 0.d0
          
      ! ab = ph 
@@ -3943,7 +3938,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
               
            NBindx = CCME%nbmap(x)%Z(gnb) 
 
-          ! if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
+           !if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
            ! for the ph  channel 2body derivative 
         
            do a = 1, HS%nsp
@@ -3978,7 +3973,7 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                  
                  sm = 0.d0 
                
-!                 horse = 0.d0 
+!               
                  if ( (mod(la + lh,2) == mod(lb + lp,2)) .and. &
                       ( (ta + th) == (tb + tp) ) ) then  
                
@@ -3993,15 +3988,11 @@ subroutine calculate_cross_coupled(HS,CCME,jbas,phase)
                             v_elem(h,a,p,b,JT,HS,jbas) 
                     end do
                  
-                    ! store  < h a | v | p b>    Pandya ( V )_b(a)h(p)
+                    ! store  < h a | v | p b>   ( V )_a(b)h(p)
                     CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
                          (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
-                    
-                    ! store < p b | v | h a>     Pandya ( V )_p(h)a(b)
-                    CCME%CCR(q1)%X(NBindx,Rindx) = sm * HS%herm * &
-                         (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
-                 
+                                     
                  end if
               end do
            end do
@@ -4042,7 +4033,7 @@ subroutine calculate_cross_coupled_pphh(HS,CCME,jbas,phase)
      PAR = (q1 - 1) / (2*JTM + 2) 
      TZ = mod(q1-1,(2*JTM+2))/(JTM+1)  
      
-     CCME%CCR(q1)%X = 0.d0
+ !    CCME%CCR(q1)%X = 0.d0
      CCME%CCX(q1)%X = 0.d0
          
      ! ab = ph 
@@ -4071,7 +4062,7 @@ subroutine calculate_cross_coupled_pphh(HS,CCME,jbas,phase)
               
            NBindx = CCME%nbmap(x)%Z(gnb) 
 
-           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
+!           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
            ! for the ph  channel 2body derivative 
         
            do ax = 1, HS%belowEF
@@ -4129,8 +4120,8 @@ subroutine calculate_cross_coupled_pphh(HS,CCME,jbas,phase)
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
 
                     ! store < p b | v | h a>     Pandya ( V )_p(h)a(b)
-                    CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
-                         (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
+                   ! CCME%CCR(q1)%X(NBindx,Gindx) = sm * HS%herm * &
+                    !     (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
                  
                  end if
               end do
@@ -4141,7 +4132,7 @@ subroutine calculate_cross_coupled_pphh(HS,CCME,jbas,phase)
   end do 
 !$omp end parallel do
 
-end subroutine 
+end subroutine calculate_cross_coupled_pphh
 !=======================================================  
 !=======================================================          
 subroutine calculate_generalized_pandya(OP,CCME,jbas,phase) 
@@ -4310,7 +4301,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                      
                           CCME%CCX(q1)%X(Rindx,NBindx2) = sm * & 
                                (-1) **( (jh+jb+Jtot2) / 2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
-
+                          ! NOTE THAT the ph belongs to the LARGER J
                        end if
                     end if
                  end if 
@@ -4347,9 +4338,11 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
                           end do
 
                           ! store  ( V )_h(p)b(a)
-                          
+                          ! NOTE THAT the ph belongs to the SMALLER J
                           CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
-                               (-1) **( (jp+ja+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+                               (-1) **( (jp+ja+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))&
+                               * (-1)**((jp+jh)/2) 
+                                                
                        end if
                     end if
                  end if 
@@ -4362,7 +4355,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas,phase)
   end do 
 !$omp end parallel do
 
-end subroutine 
+end subroutine calculate_generalized_pandya
 !=======================================================  
 !=======================================================          
 subroutine EOM_generalized_pandya(OP,CCME,jbas,phase) 
@@ -4587,10 +4580,10 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas,phase)
   end do 
 !$omp end parallel do
 
-end subroutine 
+end subroutine EOM_generalized_pandya
 !=======================================================  
 !=======================================================          
-subroutine EOM_scalar_cross_coupled(HS,CCME,jbas,phase) 
+subroutine EOM_scalar_cross_coupled(HS,CCME,jbas) 
   ! currently the only CCME of interest are phab terms    |---<---| 
   ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
   !                                                      |---<---|
@@ -4603,7 +4596,6 @@ subroutine EOM_scalar_cross_coupled(HS,CCME,jbas,phase)
   integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,Gindx,g,ta,tb,Atot,hg,pg
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x,JTM
   real(8) :: sm,sm2,pre,horse
-  logical :: phase
 
   Atot = HS%belowEF
   Ntot = HS%Nsp
@@ -4616,8 +4608,7 @@ subroutine EOM_scalar_cross_coupled(HS,CCME,jbas,phase)
      JC = mod(q1-1,JTM+1) * 2 
      PAR = (q1 - 1) / (2*JTM + 2) 
      TZ = mod(q1-1,(2*JTM+2))/(JTM+1)  
-     
-     CCME%CCR(q1)%X = 0.d0
+    
      CCME%CCX(q1)%X = 0.d0
          
      ! ab = ph 
@@ -4646,7 +4637,6 @@ subroutine EOM_scalar_cross_coupled(HS,CCME,jbas,phase)
               
            NBindx = CCME%nbmap(x)%Z(gnb) 
 
-           if (phase) pre = (-1)**((jp +jh)/2) !convenient to have this 
            ! for the ph  channel 2body derivative 
         
            do a = 1, HS%nsp
@@ -4702,8 +4692,8 @@ subroutine EOM_scalar_cross_coupled(HS,CCME,jbas,phase)
                     ! store  < p b | v | h a> 
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
                              
-                    CCME%CCR(q1)%X(NBindx,Rindx) = sm * HS%herm * &
-                         (-1) **( (jp + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
+                    CCME%CCX(q1)%X(Rindx,NBindx) = sm * HS%herm * &
+                         (-1) **( (jh - ja + JC) / 2) * sqrt(JC + 1.d0)
                  
                  end if
               end do
@@ -4714,7 +4704,7 @@ subroutine EOM_scalar_cross_coupled(HS,CCME,jbas,phase)
   end do 
 !$omp end parallel do
 
-end subroutine 
+end subroutine EOM_scalar_cross_coupled
 !===========================================================
 !===========================================================     
 integer function CCindex(a,b,N)
@@ -4734,18 +4724,18 @@ subroutine allocate_CC_wkspc(CCHS,WCC)
   real(8) :: mem
   
   allocate(WCC%CCX(CCHS%nblocks))
-  allocate(WCC%CCR(CCHS%nblocks))
+  !allocate(WCC%CCR(CCHS%nblocks))
   mem = 0.d0
   do q = 1,CCHS%nblocks
      
      r = CCHS%rlen(q) 
      
      allocate(WCC%CCX(q)%X(r,r)) 
-     allocate(WCC%CCR(q)%X(r,r))
+   !  allocate(WCC%CCR(q)%X(r,r))
      
      mem = mem + 2*r*r
      WCC%CCX(q)%X = 0.d0
-     WCC%CCR(q)%X = 0.d0
+  !   WCC%CCR(q)%X = 0.d0
      
   end do
   

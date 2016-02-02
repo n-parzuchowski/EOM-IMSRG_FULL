@@ -414,7 +414,7 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
   real(8) :: val
   
   
-  call seed_random_number
+ ! call seed_random_number
   
   call allocate_blocks(jbas,AA)
   call duplicate_sq_op(AA,BB)
@@ -427,6 +427,7 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
   
   call construct_random_rank0(AA,h1,jbas) 
   call construct_random_rank0(BB,h2,jbas) 
+  
   ! make BB look like an excitation operator. 
   BB%fhh = 0.d0 
   BB%fpp = 0.d0 
@@ -452,8 +453,8 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
      STOP 'ZERO BODY FAILURE' 
   end if 
   
-  call EOM_scalar_cross_coupled(BB,BBCC,jbas,.false.)
-  call calculate_cross_coupled(AA,AACC,jbas,.true.) 
+  call EOM_scalar_cross_coupled(BB,BBCC,jbas)
+  call calculate_cross_coupled(AA,AACC,jbas,.false.) 
   
   call EOM_scalar_commutator_111(AA,BB,OUT,jbas) 
   call EOM_scalar_commutator_121(AA,BB,OUT,jbas)
@@ -538,7 +539,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   real(8) :: val,t1,t2,t3,t4,omp_get_wtime
   
   
-!  call seed_random_number
+  call seed_random_number
   
   BB%rank = rank
   BB%dpar = par

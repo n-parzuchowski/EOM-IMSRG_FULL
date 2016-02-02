@@ -57,7 +57,7 @@ program main_IMSRG
      call test_scalar_scalar_commutator(jbasis,-1,1) 
     ! call test_EOM_scalar_scalar_commutator(jbasis,1,1)
     ! call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
-   !  call test_scalar_tensor_commutator(jbasis,1,1,2,0) 
+    ! call test_scalar_tensor_commutator(jbasis,1,1,4,0) 
      stop
   end if
 

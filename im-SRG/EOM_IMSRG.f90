@@ -330,8 +330,7 @@ subroutine matvec_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   ! now we have two sq_op operators which can be used with my commutator expressions. Noice. 
     
   call calculate_cross_coupled(Op,OpCC,jbas,.true.)
- 
-  call EOM_scalar_cross_coupled(Q_op,QCC,jbas,.false.) 
+  call EOM_scalar_cross_coupled(Q_op,QCC,jbas) 
  
   !print*, EOM_scalar_commutator_110(Op,Q_op,jbas) + &
    !    EOM_scalar_commutator_220(Op,Q_op,jbas) ,sum(v**2)

@@ -20,7 +20,9 @@ elif (nuc == 'Ca40'):
 elif (nuc == 'Ca48'): 
     nprot = 20
     nneut = 28
-
+elif ( nuc == 'C14'):
+    nprot = 6
+    nneut = 8
 else:
     print 'Invalid Entry'
     sys.exit()

@@ -381,9 +381,10 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               rpq = TS_rval(pk,qk,Ntot,qx,LCC)
               rqp = TS_rval(qk,pk,Ntot,qx,LCC)
 
-              sm = sm + (-1)**(( jp + jq + rank)/2) * R%fph(a,i) & 
-                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rqp) &
-                - LCC%CCX(qx)%X(rpq,rai) ) / sqrt(rank + 1.d0 ) 
+              sm = sm +  R%fph(a,i) & 
+                *  ( (-1)**(( jp - jq + rank)/2) * LCC%CCX(qx)%X(rpq,rai) &
+                -R%herm*LCC%herm*(-1)**(rank/2)*LCC%CCX(qx)%X(rqp,rai) ) &
+                / sqrt(rank + 1.d0 )
 
               ! the last (rank + 1) is divided out because
               ! the CC matrix elements are scaled by that, 
@@ -455,10 +456,12 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               rai = ph_rval(ak,ik,Ntot,qx,LCC)
               rpq = TS_rval(pk,qk,Ntot,qx,LCC)
               rqp = TS_rval(qk,pk,Ntot,qx,LCC)
- 
-              sm = sm + (-1)**(( jp + jq + rank)/2) * R%fph(a,i) & 
-                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rqp) &
-                - LCC%CCX(qx)%X(rpq,rai) ) / sqrt(rank + 1.d0 ) 
+
+              sm = sm +  R%fph(a,i) & 
+                *  ( (-1)**(( jp - jq + rank)/2) * LCC%CCX(qx)%X(rpq,rai) &
+                -R%herm*LCC%herm*(-1)**(rank/2)*LCC%CCX(qx)%X(rqp,rai) ) &
+                / sqrt(rank + 1.d0 )
+
               ! the last (rank + 1) is divided out because
               ! the CC matrix elements are scaled by that, 
               ! which is wrong here. 
@@ -529,9 +532,10 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               rpq = TS_rval(pk,qk,Ntot,qx,LCC)
               rqp = TS_rval(qk,pk,Ntot,qx,LCC)
 
-              sm = sm + (-1)**(( jp + jq + rank)/2) * R%fph(a,i) & 
-                *  ( R%herm *(-1)**((ja-ji)/2)*LCC%CCR(qx)%X(rai,rqp) &
-                - LCC%CCX(qx)%X(rpq,rai) ) / sqrt(rank + 1.d0 ) 
+              sm = sm +  R%fph(a,i) & 
+                *  ( (-1)**(( jp - jq + rank)/2) * LCC%CCX(qx)%X(rpq,rai) &
+                -R%herm*LCC%herm*(-1)**(rank/2)*LCC%CCX(qx)%X(rqp,rai) ) &
+                / sqrt(rank + 1.d0 )
 
               ! the last (rank + 1) is divided out because
               ! the CC matrix elements are scaled by that, 
@@ -1483,12 +1487,13 @@ end subroutine
          
      if (nb1 .ne. 0 ) then 
         J1 = RCC%Jval(q) 
-        factor = 1.d0/sqrt(J1+1.d0)
+        factor = 1.0/sqrt(J1+1.d0)*LCC%herm
         q1 = J1/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
         
-        call dgemm('T','N',r1,r2,nb1,factor,LCC%CCR(q1)%X,nb1,&
-             RCC%CCR(q)%X,nb1,bet,WCC%CCX(q)%X,r1) 
-      
+        !call dgemm('T','N',r1,r2,nb1,factor,LCC%CCR(q1)%X,nb1,&
+         !    RCC%CCR(q)%X,nb1,bet,WCC%CCX(q)%X,r1) 
+         call dgemm('N','N',r1,r2,nb1,factor,LCC%CCX(q1)%X,r1,&
+              RCC%CCR(q)%X,nb1,bet,WCC%CCX(q)%X,r1)       
      end if
          
      if (nb2 .ne. 0 ) then 
@@ -1592,10 +1597,10 @@ end subroutine
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                        ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-                       WCC%CCX(qx)%X(rli,rkj)*(-1)**((J3+J4)/2)  &
+                       WCC%CCX(qx)%X(rli,rkj)*(-1)**((J3+J4)/2)*(-1)**((jl+ji)/2)  &
                       + WCC%CCR(qx)%X(ril,rkj) * phase1 * LCC%herm &
                       - (-1)**(rank/2)*phase1*RCC%herm*LCC%herm * &
-                      WCC%CCX(qx)%X(ril,rjk) - (-1)**(( J3+J4+rank)/2) &
+                      WCC%CCX(qx)%X(ril,rjk)*(-1)**((jl+ji)/2) - (-1)**(( J3+J4+rank)/2) &
                       * RCC%herm * WCC%CCR(qx)%X(rli,rjk) )
 
                 end do 
@@ -1614,10 +1619,10 @@ end subroutine
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                        ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
                        WCC%CCR(qx)%X(rjk,rli)*phase1*(-1)**((rank+J3+J4)/2)*LCC%herm &
-                       + WCC%CCX(qx)%X(rkj,rli) * (-1)**(rank/2) &
+                       + WCC%CCX(qx)%X(rkj,rli)*(-1)**((jk+jj)/2) * (-1)**(rank/2) &
                         - RCC%herm * WCC%CCR(qx)%X(rkj,ril) &
                      - phase1*(-1)**((J3+J4)/2) * RCC%herm *LCC%herm * &
-                          WCC%CCX(qx)%X(rjk,ril) )
+                          WCC%CCX(qx)%X(rjk,ril)*(-1)**((jk+jj)/2) )
                       
                end do
                
@@ -1661,9 +1666,9 @@ end subroutine
                
                   sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
                        ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
-                       (-1)**((J3+J4)/2) * WCC%CCX(qx)%X(rlj,rki)  & 
+                       (-1)**((J3+J4)/2) * WCC%CCX(qx)%X(rlj,rki)*(-1)**((jl+jj)/2)  & 
                        - phase1*RCC%herm*LCC%herm*(-1)**(rank/2)* &
-                       WCC%CCX(qx)%X(rjl,rik) + phase1*LCC%herm * &
+                       WCC%CCX(qx)%X(rjl,rik)*(-1)**((jl+jj)/2) + phase1*LCC%herm * &
                        WCC%CCR(qx)%X(rjl,rki) - (-1)**((J3+J4+rank)/2)* &
                        RCC%herm * WCC%CCR(qx)%X(rlj,rik) )
                   
@@ -1685,9 +1690,9 @@ end subroutine
                        (-1)**((J3+J4+rank)/2) *phase1*LCC%herm &
                        * WCC%CCR(qx)%X(rik,rlj)  & 
                        - RCC%herm*WCC%CCR(qx)%X(rki,rjl) &
-                       + (-1)**(rank/2) * WCC%CCX(qx)%X(rki,rlj) &
+                       + (-1)**(rank/2) * WCC%CCX(qx)%X(rki,rlj)*(-1)**((jk+ji)/2) &
                        - phase1*(-1)**((J3+J4)/2) * LCC%herm * RCC%herm * &
-                       WCC%CCX(qx)%X(rik,rjl) ) 
+                       WCC%CCX(qx)%X(rik,rjl)*(-1)**((jk+ji)/2) ) 
                   
                end do
                

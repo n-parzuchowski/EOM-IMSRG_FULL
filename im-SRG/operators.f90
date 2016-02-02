@@ -130,6 +130,7 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
   type(sq_op) :: HS 
   type(cross_coupled_31_mat) :: HSCC
   integer :: q,JT,r1,r2,a,b,i,j,x,g,NBindx,Rindx,q1,Tz,PAR,JTM
+  integer :: ji,jj,ja,jb
   
   JTM = jbas%Jtotal_max
   do q = 1, TDA%blocks
@@ -143,6 +144,8 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
         i = TDA%blkM(q)%labels(r1,1)
         a = TDA%blkM(q)%labels(r1,2)
         
+        ji = jbas%jj(i)
+        ja = jbas%jj(a) 
         ! get CC index for this pair
         x = CCindex(a,i,HS%Nsp)
         g = 1
@@ -156,6 +159,8 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
            j = TDA%blkM(q)%labels(r2,1)
            b = TDA%blkM(q)%labels(r2,2)
            
+           jj = jbas%jj(j)
+           jb = jbas%jj(b)
            ! get CCindex for this pair
            x = CCindex(j,b,HS%Nsp) 
            g = 1
@@ -173,6 +178,11 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
            TDA%blkM(q)%matrix(r1,r2) = TDA%blkM(q)%matrix(r1,r2) - &
                 HSCC%CCR(q1)%X(NBindx,Rindx) * &
                 (-1) ** ((JT)/2) /sqrt(JT+1.d0) 
+         
+           TDA%blkM(q)%matrix(r1,r2) = TDA%blkM(q)%matrix(r1,r2) - &
+                HSCC%CCX(q1)%X(Rindx,NBindx) * HSCC%herm * & !need scaling.
+                (-1) ** ((JT)/2) /sqrt(JT+1.d0) *(-1) **(( ji+jj+ja+jb)/2) 
+         
            ! I have to account for the fact that the CCME are scaled by 
            ! Sqrt[2J+1] * (-1)^(j_i + j_a) 
         
