@@ -2,7 +2,6 @@ module IMSRG_ODE
   use commutators
   use adams_ode 
   use operators
-  use basic_IMSRG
   implicit none 
   
 contains
@@ -19,7 +18,7 @@ subroutine decouple_hamiltonian(H,jbas,build_generator,O1,O2)
   type(spd) :: jbas
   type(sq_op) :: H ,HOD
   type(sq_op),optional :: O1,O2
-  type(cross_coupled_31_mat) :: HCC
+  type(cc_mat) :: HCC
   type(full_sp_block_mat) :: TDA
   integer,dimension(5) :: iwork
   real(8),allocatable,dimension(:) :: cur_vec,work
@@ -190,7 +189,7 @@ subroutine TDA_decouple( H , TDA, jbas,build_generator,O1,O1TDA,O2,O2TDA )
   type(spd) :: jbas
   type(sq_op) :: H ,HOD
   type(sq_op),optional :: O1,O2 
-  type(cross_coupled_31_mat) :: HCC,OeCC
+  type(cc_mat) :: HCC,OeCC
   type(full_sp_block_mat) :: TDA
   type(full_sp_block_mat),optional :: O1TDA,O2TDA
   integer,dimension(5) :: iwork
@@ -244,9 +243,9 @@ subroutine TDA_decouple( H , TDA, jbas,build_generator,O1,O1TDA,O2,O2TDA )
   
   steps = 0 
 
-  call allocate_CCMAT(H,HCC,jbas) 
+  call init_ph_mat(H,HCC,jbas) 
   allocate(E_old(TDA%map(1)))
-  call calculate_cross_coupled(H,HCC,jbas,.true.) 
+  call calculate_cross_coupled(H,HCC,jbas) 
   call calc_TDA(TDA,H,HCC,jbas) 
  
   call diagonalize_blocks(TDA)
@@ -289,7 +288,7 @@ if (present(O1)) then
    
      steps = steps + 1
   
-     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calculate_cross_coupled(H,HCC,jbas) 
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
   
@@ -327,7 +326,7 @@ if (present(O1)) then
      call repackage(O1,cur_vec(H%neq+1:2*H%neq))   
      steps = steps + 1
   
-     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calculate_cross_coupled(H,HCC,jbas) 
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
   
@@ -363,7 +362,7 @@ else
         
      steps = steps + 1
      
-     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calculate_cross_coupled(H,HCC,jbas) 
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
 
@@ -389,13 +388,13 @@ end if
   close(37)
 ! calculate TDA matrices for operators
   if (present(O1)) then 
-     call duplicate_CCMAT(HCC,OeCC)
+     call duplicate_ph_mat(HCC,OeCC)
 
      if (present(O2)) then 
         call duplicate_sp_mat(TDA,O2TDA)
         allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
         O2TDA%blkM(1)%labels = TDA%blkM(1)%labels   
-        call calculate_cross_coupled(O2,OeCC,jbas,.true.)
+        call calculate_cross_coupled(O2,OeCC,jbas)
         call calc_TDA(O2TDA,O2,OeCC,jbas)
      end if 
 
@@ -403,7 +402,7 @@ end if
         call duplicate_sp_mat(TDA,O1TDA)
         allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
         O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-        call calculate_cross_coupled(O1,OeCC,jbas,.true.)
+        call calculate_cross_coupled(O1,OeCC,jbas)
         call calc_TDA(O1TDA,O1,OeCC,jbas)
         
   end if 
@@ -426,7 +425,7 @@ subroutine dHds(t,yy,yp,HS,jbas,build_gen)
   real(8) :: yp(*),yy(*),sm,x,d6ji,coef9,smr1,smr2,smr3,smr4
   type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,w3,w4
-  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC,KCC 
+  type(cc_mat) :: WCC,ETACC,HSCC,KCC 
   external :: build_gen
 
 !!! we need the sq_op structure to compute the derivatives at max speed
@@ -437,14 +436,14 @@ subroutine dHds(t,yy,yp,HS,jbas,build_gen)
   call duplicate_sq_op(HS,DH) !derivative
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
-  call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
-  call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
-  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
+  call init_ph_mat(HS,HSCC,jbas) ! cross coupled ME
+  call duplicate_ph_mat(HSCC,ETACC) !cross coupled ME
+  call init_ph_wkspc(HSCC,WCC) ! workspace for CCME
 
   call build_gen(HS,ETA,jbas) ! constructs generator
   
-  call calculate_cross_coupled(HS,HSCC,jbas,.true.)
-  call calculate_cross_coupled_pphh(ETA,ETACC,jbas,.false.) 
+  call calculate_cross_coupled(HS,HSCC,jbas)
+  call calculate_cross_coupled_pphh(ETA,ETACC,jbas) 
    
   DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
 
@@ -475,7 +474,7 @@ subroutine dHds_1op(t,yy,yp,HS,jbas,build_gen)
   real(8) :: yp(*),yy(*)
   type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,O1,O2
-  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC
+  type(cc_mat) :: WCC,ETACC,HSCC
   external :: build_gen
 
 !!! we need the sq_op structure to compute the derivatives at max speed
@@ -492,14 +491,14 @@ subroutine dHds_1op(t,yy,yp,HS,jbas,build_gen)
   call duplicate_sq_op(HS,O1)   
   call repackage(O1,yy(HS%neq+1:2*HS%neq)) 
   
-  call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
-  call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
-  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
+  call init_ph_mat(HS,HSCC,jbas) ! cross coupled ME
+  call duplicate_ph_mat(HSCC,ETACC) !cross coupled ME
+  call init_ph_wkspc(HSCC,WCC) ! workspace for CCME
 
   call build_gen(HS,ETA,jbas) ! constructs generator
   
-  call calculate_cross_coupled(HS,HSCC,jbas,.true.)
-  call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
+  call calculate_cross_coupled(HS,HSCC,jbas)
+  call calculate_cross_coupled(ETA,ETACC,jbas) 
    
   DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
  
@@ -517,7 +516,7 @@ subroutine dHds_1op(t,yy,yp,HS,jbas,build_gen)
   
 !===================================================================
   
-  call calculate_cross_coupled(O1,HSCC,jbas,.true.)
+  call calculate_cross_coupled(O1,HSCC,jbas)
   
   DH%E0 = commutator_110(ETA,O1,jbas) + commutator_220(ETA,O1,jbas)
  
@@ -548,7 +547,7 @@ subroutine dHds_2op(t,yy,yp,HS,jbas,build_gen)
   real(8) :: yp(*),yy(*)
   type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,O1,O2
-  type(cross_coupled_31_mat) :: WCC,ETACC,HSCC 
+  type(cc_mat) :: WCC,ETACC,HSCC 
   external :: build_gen
   
 !!! we need the sq_op structure to compute the derivatives at max speed
@@ -568,14 +567,14 @@ subroutine dHds_2op(t,yy,yp,HS,jbas,build_gen)
   call duplicate_sq_op(HS,O2)
   call repackage(O2,yy(2*HS%neq+1:3*HS%neq))
   
-  call allocate_CCMAT(HS,HSCC,jbas) ! cross coupled ME
-  call duplicate_CCMAT(HSCC,ETACC) !cross coupled ME
-  call allocate_CC_wkspc(HSCC,WCC) ! workspace for CCME
+  call init_ph_mat(HS,HSCC,jbas) ! cross coupled ME
+  call duplicate_ph_mat(HSCC,ETACC) !cross coupled ME
+  call init_ph_wkspc(HSCC,WCC) ! workspace for CCME
 
   call build_gen(HS,ETA,jbas) ! constructs generator
   
-  call calculate_cross_coupled(HS,HSCC,jbas,.true.)
-  call calculate_cross_coupled(ETA,ETACC,jbas,.false.) 
+  call calculate_cross_coupled(HS,HSCC,jbas)
+  call calculate_cross_coupled(ETA,ETACC,jbas) 
    
   DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
  
@@ -593,7 +592,7 @@ subroutine dHds_2op(t,yy,yp,HS,jbas,build_gen)
   
 !===================================================================
   
-  call calculate_cross_coupled(O1,HSCC,jbas,.true.)
+  call calculate_cross_coupled(O1,HSCC,jbas)
   
   DH%E0 = commutator_110(ETA,O1,jbas) + commutator_220(ETA,O1,jbas)
  
@@ -610,7 +609,7 @@ subroutine dHds_2op(t,yy,yp,HS,jbas,build_gen)
   call vectorize(DH,yp(HS%neq+1:2*HS%neq))
 
 !===================================================================
-  call calculate_cross_coupled(O2,HSCC,jbas,.true.)
+  call calculate_cross_coupled(O2,HSCC,jbas)
    
   DH%E0 = commutator_110(ETA,O2,jbas) + commutator_220(ETA,O2,jbas)
 

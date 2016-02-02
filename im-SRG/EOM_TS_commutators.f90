@@ -1,5 +1,5 @@
 module EOM_TS_commutators
-  use basic_IMSRG
+  use cross_coupled
   ! tensor-scalar commutator functions 
   
   ! THE TENSOR MUST BE THE SECOND ARGUMENT
@@ -124,7 +124,7 @@ subroutine  EOM_TS_commutator_211(LCC,R,RES,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: R,RES
-  type(cross_coupled_31_mat) :: LCC 
+  type(cc_mat) :: LCC 
   integer :: J1,J2,PAR,TZ,ji,ja,jp,jq,a,i,p,q,g,JTM
   integer :: ti,ta,tp,tq,li,la,lp,lq,ak,ik,pk,qk,rank
   integer :: rai,rpq,rqp,qx,Ntot
@@ -708,7 +708,8 @@ end subroutine
   
    type(spd) :: jbas
    type(sq_op) :: RES
-   type(cross_coupled_31_mat) :: LCC,RCC,WCC
+   type(pandya_mat) :: RCC,WCC
+   type(cc_mat) :: LCC
    integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
@@ -831,8 +832,8 @@ end subroutine
                       
                       q1 = block_index(J3,Tz,PAR)
                       
-                      ril = EOMTS_rval(i,l,Ntot,q1,RCC)
-                      rli = EOMTS_rval(l,i,Ntot,q1,RCC)
+                      ril = EOMTS_rval(i,l,Ntot,q1,LCC)
+                      rli = EOMTS_rval(l,i,Ntot,q1,LCC)
 
                       do J4 = max( J3 , J4min ) , J4max,2 
                          
@@ -841,8 +842,8 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2) 
                          q2 = block_index(J4,Tz,PAR2)
                
-                         rjk = EOMTS_rval(j,k,Ntot,q2,RCC)
-                         rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
+                         rjk = EOMTS_rval(j,k,Ntot,q2,LCC)
+                         rkj = EOMTS_rval(k,j,Ntot,q2,LCC)
               
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
@@ -860,8 +861,8 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)                  
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rjk = EOMTS_rval(j,k,Ntot,q2,RCC)     
-                         rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
+                         rjk = EOMTS_rval(j,k,Ntot,q2,LCC)     
+                         rkj = EOMTS_rval(k,j,Ntot,q2,LCC)
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
@@ -895,8 +896,8 @@ end subroutine
                    do J3 = J3min,J3max,2
                       q1 = block_index(J3,Tz,PAR)
 
-                      rjl = EOMTS_rval(j,l,Ntot,q1,RCC)
-                      rlj = EOMTS_rval(l,j,Ntot,q1,RCC)
+                      rjl = EOMTS_rval(j,l,Ntot,q1,LCC)
+                      rlj = EOMTS_rval(l,j,Ntot,q1,LCC)
 
                       do J4 = max( J3 , J4min ) , J4max,2 
 
@@ -906,8 +907,8 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rki = EOMTS_rval(k,i,Ntot,q2,RCC)
-                         rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+                         rki = EOMTS_rval(k,i,Ntot,q2,LCC)
+                         rik = EOMTS_rval(i,k,Ntot,q2,LCC)
 
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
 
@@ -925,8 +926,8 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rki = EOMTS_rval(k,i,Ntot,q2,RCC)
-                         rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+                         rki = EOMTS_rval(k,i,Ntot,q2,LCC)
+                         rik = EOMTS_rval(i,k,Ntot,q2,LCC)
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
@@ -1016,8 +1017,8 @@ end subroutine
                       
                       q1 = block_index(J3,Tz,PAR)
                       
-                      ril = EOMTS_rval(i,l,Ntot,q1,RCC)
-                      rli = EOMTS_rval(l,i,Ntot,q1,RCC)
+                      ril = EOMTS_rval(i,l,Ntot,q1,LCC)
+                      rli = EOMTS_rval(l,i,Ntot,q1,LCC)
 
                       do J4 = max( J3 , J4min ) , J4max,2 
                          
@@ -1026,8 +1027,8 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2) 
                          q2 = block_index(J4,Tz,PAR2)
                
-                         rjk = EOMTS_rval(j,k,Ntot,q2,RCC)
-                         rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
+                         rjk = EOMTS_rval(j,k,Ntot,q2,LCC)
+                         rkj = EOMTS_rval(k,j,Ntot,q2,LCC)
               
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
@@ -1045,8 +1046,8 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)                  
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rjk = EOMTS_rval(j,k,Ntot,q2,RCC)     
-                         rkj = EOMTS_rval(k,j,Ntot,q2,RCC)
+                         rjk = EOMTS_rval(j,k,Ntot,q2,LCC)     
+                         rkj = EOMTS_rval(k,j,Ntot,q2,LCC)
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
@@ -1080,8 +1081,8 @@ end subroutine
                    do J3 = J3min,J3max,2
                       q1 = block_index(J3,Tz,PAR)
 
-                      rjl = EOMTS_rval(j,l,Ntot,q1,RCC)
-                      rlj = EOMTS_rval(l,j,Ntot,q1,RCC)
+                      rjl = EOMTS_rval(j,l,Ntot,q1,LCC)
+                      rlj = EOMTS_rval(l,j,Ntot,q1,LCC)
 
                       do J4 = max( J3 , J4min ) , J4max,2 
 
@@ -1091,8 +1092,8 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rki = EOMTS_rval(k,i,Ntot,q2,RCC)
-                         rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+                         rki = EOMTS_rval(k,i,Ntot,q2,LCC)
+                         rik = EOMTS_rval(i,k,Ntot,q2,LCC)
 
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
 
@@ -1110,8 +1111,8 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rki = EOMTS_rval(k,i,Ntot,q2,RCC)
-                         rik = EOMTS_rval(i,k,Ntot,q2,RCC)
+                         rki = EOMTS_rval(k,i,Ntot,q2,LCC)
+                         rik = EOMTS_rval(i,k,Ntot,q2,LCC)
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
@@ -1148,7 +1149,7 @@ end subroutine
 integer function EOMTS_rval(i,l,Ntot,q,LCC) 
   implicit none 
   
-  type(cross_coupled_31_mat) :: LCC
+  type(cc_mat) :: LCC
   integer :: i,l,Ntot,x,g,q
   
   x = CCindex(i,l,Ntot)
@@ -1165,7 +1166,7 @@ end function
 integer function EOMph_rval(i,l,Ntot,q,LCC) 
   implicit none 
   
-  type(cross_coupled_31_mat) :: LCC
+  type(cc_mat) :: LCC
   integer :: i,l,Ntot,x,g,q
   
   x = CCindex(i,l,Ntot)

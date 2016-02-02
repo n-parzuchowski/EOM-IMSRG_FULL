@@ -15,7 +15,7 @@ program main_IMSRG
   type(spd) :: jbasis
   type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
-  type(cross_coupled_31_mat) :: CCHS,CCETA,WCC
+  type(cc_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   type(three_body_force) :: threebod
   character(200) :: inputs_from_command
@@ -54,9 +54,9 @@ program main_IMSRG
   if (TEST_COMMUTATORS)  then 
      ! run this by typing ' X' after the input file in the command line
      ! This takes forever, you might want to comment some of this out. 
-     call test_scalar_scalar_commutator(jbasis,-1,1) 
+    ! call test_scalar_scalar_commutator(jbasis,-1,1) 
     ! call test_EOM_scalar_scalar_commutator(jbasis,1,1)
-    ! call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
+     call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
     ! call test_scalar_tensor_commutator(jbasis,1,1,4,0) 
      stop
   end if

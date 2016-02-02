@@ -2,7 +2,6 @@ module IMSRG_MAGNUS
   use commutators
   use TS_commutators
   use operators
-  use basic_IMSRG
   use HF_mod 
   implicit none 
   
@@ -17,7 +16,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   type(tpd),allocatable,dimension(:) :: threebas
   type(sq_op) :: H,G,HS,AD
   type(sq_op) :: DG,CR
-  type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
+  type(cc_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
   character(1) :: quads,trips
@@ -122,7 +121,7 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
   type(spd) :: jbas
   type(full_sp_block_mat) :: TDA
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
-  type(cross_coupled_31_mat) :: GCC,ADCC,WCC,HCC,OeCC
+  type(cc_mat) :: GCC,ADCC,WCC,HCC,OeCC
   real(8) :: ds,s,crit,nrm1,nrm2,wTs(2),Ecm(3)
   real(8),allocatable,dimension(:) :: E_old,wTvec
   character(3) :: args
@@ -137,10 +136,10 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
   G%herm = -1 
   DG%herm = -1
     
-  call allocate_CCMAT(HS,HCC,jbas) !cross coupled ME
+  call init_ph_mat(HS,HCC,jbas) !cross coupled ME
   
   ! TDA stuff
-  call calculate_cross_coupled(HS,HCC,jbas,.true.)
+  call calculate_cross_coupled(HS,HCC,jbas)
   call calc_TDA(TDA,HS,HCC,jbas)
   call diagonalize_blocks(TDA)
   allocate(E_old(TDA%map(1)))
@@ -178,7 +177,7 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
          
      call build_generator(HS,DG,jbas)
     
-     call calculate_cross_coupled(HS,HCC,jbas,.true.) 
+     call calculate_cross_coupled(HS,HCC,jbas) 
      call calc_TDA(TDA,HS,HCC,jbas) 
      call diagonalize_blocks(TDA)
   
@@ -196,7 +195,7 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
   
   ! if (present(O1)) then 
   !    call duplicate_sq_op(O1,Oevolv) 
-  !    call duplicate_CCMAT(HCC,OeCC)
+  !    call duplicate_ph_mat(HCC,OeCC)
 
   !    if (present(O2)) then 
         
@@ -205,7 +204,7 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
   !       call duplicate_sp_mat(TDA,O2TDA) 
   !       allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
   !       O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-  !       call calculate_cross_coupled(Oevolv,OeCC,jbas,.true.) 
+  !       call calculate_cross_coupled(Oevolv,OeCC,jbas) 
   !       call calc_TDA(O2TDA,Oevolv,OeCC,jbas)
   !       call copy_sq_op(Oevolv,O2)
   !    end if 
@@ -215,7 +214,7 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
   !    call duplicate_sp_mat(TDA,O1TDA)
   !    allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
   !    O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-  !    call calculate_cross_coupled(Oevolv,OeCC,jbas,.true.) 
+  !    call calculate_cross_coupled(Oevolv,OeCC,jbas) 
   !    call calc_TDA(O1TDA,Oevolv,OeCC,jbas) 
   !    call copy_sq_op(Oevolv,O1) 
   ! end if 
@@ -234,7 +233,7 @@ subroutine magnus_HF(HS,G,jbas,build_generator)
   type(tpd),allocatable,dimension(:) :: threebas
   type(sq_op) :: H,G,HS,AD
   type(sq_op) :: DG,CR
-  type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
+  type(cc_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
   character(1) :: quads,trips
@@ -326,7 +325,7 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
-  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  type(cc_mat) :: WCC,ADCC,GCC
   real(8) :: adnorm,fullnorm,s,advals(15),sm,sm2,coef
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
@@ -339,9 +338,9 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
   INT2%herm = 1
   INT1%herm = 1 
   AD%herm = 1
-  call allocate_CCMAT(AD,ADCC,jbas) !cross coupled ME
-  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
-  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+  call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
+  call duplicate_ph_mat(ADCC,GCC) !cross coupled ME
+  call init_ph_wkspc(ADCC,WCC) ! workspace for CCME
 
   advals = 0.d0 
   coef = 1.d0 
@@ -373,8 +372,8 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
      !now: INT2 = [ G , AD ]  
         
 ! zero body commutator 
-     call calculate_cross_coupled(AD,ADCC,jbas,.true.)
-     call calculate_cross_coupled(G,GCC,jbas,.false.) 
+     call calculate_cross_coupled(AD,ADCC,jbas)
+     call calculate_cross_coupled(G,GCC,jbas) 
   
      INT2%E0 = commutator_110(G,AD,jbas) + commutator_220(G,AD,jbas)
      
@@ -413,7 +412,7 @@ subroutine BCH_EXPAND_1b(HS,G,H,jbas,quads)
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
-  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  type(cc_mat) :: WCC,ADCC,GCC
   real(8) :: adnorm,fullnorm,s,advals(15),sm,sm2,coef
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
@@ -480,7 +479,8 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
-  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  type(pandya_mat) :: WCC,ADCC
+  type(cc_mat) :: GCC 
   real(8) ::  coef,adnorm,fullnorm,s,advals(15),sm,sm2,dcgi,dcgi00
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
@@ -493,9 +493,9 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
   INT2%herm = 1
   INT1%herm = 1 
   AD%herm = 1
-  call allocate_tensor_CCMAT(AD,ADCC,jbas) !cross coupled ME
-  call allocate_CCMAT(G,GCC,jbas) !cross coupled ME
-  call allocate_CCtensor_wkspc(ADCC,WCC) ! workspace for CCME
+  call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
+  call init_ph_mat(G,GCC,jbas) !cross coupled ME
+  call init_ph_wkspc(ADCC,WCC) ! workspace for CCME
   
   advals = 0.d0 
   coef = 1.d0
@@ -525,8 +525,8 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
      !now: INT2 = [ G , AD ]  
         
 ! zero body commutator 
-     call calculate_generalized_pandya(AD,ADCC,jbas,.false.)
-     call calculate_cross_coupled(G,GCC,jbas,.false.) 
+     call calculate_generalized_pandya(AD,ADCC,jbas)
+     call calculate_cross_coupled(G,GCC,jbas) 
        
      call TS_commutator_111(G,AD,INT2,jbas) 
      call TS_commutator_121(G,AD,INT2,jbas)
@@ -559,7 +559,7 @@ subroutine CR_EXPAND(HS,G,H,jbas,quads)
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
-  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  type(cc_mat) :: WCC,ADCC,GCC
   real(8) ::  coef,adnorm,fullnorm,s,advals(14),sm,sm2,dcgi,dcgi00
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
@@ -572,9 +572,9 @@ subroutine CR_EXPAND(HS,G,H,jbas,quads)
   INT2%herm = 1
   INT1%herm = 1 
   AD%herm = 1
-  call allocate_CCMAT(AD,ADCC,jbas) !cross coupled ME
-  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
-  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+  call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
+  call duplicate_ph_mat(ADCC,GCC) !cross coupled ME
+  call init_ph_wkspc(ADCC,WCC) ! workspace for CCME
 
 
   advals = 0.d0 
@@ -608,8 +608,8 @@ subroutine CR_EXPAND(HS,G,H,jbas,quads)
         
 ! zero body commutator
  
-     call calculate_cross_coupled(AD,ADCC,jbas,.true.)
-     call calculate_cross_coupled(G,GCC,jbas,.false.) 
+     call calculate_cross_coupled(AD,ADCC,jbas)
+     call calculate_cross_coupled(G,GCC,jbas) 
  
      INT2%E0 = commutator_110(G,AD,jbas) + commutator_220(G,AD,jbas)
 
@@ -645,7 +645,7 @@ subroutine MAGNUS_EXPAND(DG,G,AD,jbas)
   integer :: trunc,i,q,j,k,l,ry
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
-  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  type(cc_mat) :: WCC,ADCC,GCC
   real(8) ::  cof(7),adnorm,fullnorm,s,advals(7) 
   character(3) :: args
   
@@ -657,9 +657,9 @@ subroutine MAGNUS_EXPAND(DG,G,AD,jbas)
   INT1%herm = -1 
   AD%herm = -1
   
-  call allocate_CCMAT(AD,ADCC,jbas) !cross coupled ME
-  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
-  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+  call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
+  call duplicate_ph_mat(ADCC,GCC) !cross coupled ME
+  call init_ph_wkspc(ADCC,WCC) ! workspace for CCME
 
   advals = 0.d0 
   ! Intermediates are ANTI-HERMITIAN 
@@ -691,8 +691,8 @@ subroutine MAGNUS_EXPAND(DG,G,AD,jbas)
      
      if ( abs(adnorm/fullnorm) < conv ) exit
           
-     call calculate_cross_coupled(AD,ADCC,jbas,.true.)
-     call calculate_cross_coupled(G,GCC,jbas,.false.) 
+     call calculate_cross_coupled(AD,ADCC,jbas)
+     call calculate_cross_coupled(G,GCC,jbas) 
  
      call commutator_111(G,AD,INT2,jbas) 
      call commutator_121(G,AD,INT2,jbas)
@@ -718,7 +718,7 @@ subroutine MAGNUS_EXPAND_1b(DG,G,AD,jbas)
   integer :: trunc,i,q,j,k,l,ry
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2,DG
-  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  type(cc_mat) :: WCC,ADCC,GCC
   real(8) ::  cof(7),adnorm,fullnorm,s,advals(7) 
   character(3) :: args
   

@@ -1,7 +1,6 @@
 module IMSRG_CANONICAL
   use commutators
   use operators
-  use basic_IMSRG
   use HF_mod 
   implicit none 
   
@@ -15,7 +14,7 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
   type(spd) :: jbas
   type(sq_op),optional :: O1,O2
   type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,Oevolv
-  type(cross_coupled_31_mat) :: GCC,ADCC,WCC 
+  type(cc_mat) :: GCC,ADCC,WCC 
   real(8) :: ds,s,E_old,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),oldcrit
   
   call duplicate_sq_op(HS,ETA) !generator
@@ -26,9 +25,9 @@ subroutine discrete_decouple(HS,jbas,O1,O2)
   call duplicate_sq_op(HS,INT2) !workspace
   call duplicate_sq_op(HS,AD) !workspace
   
-  call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
-  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
-  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+  call init_ph_mat(HS,ADCC,jbas) !cross coupled ME
+  call duplicate_ph_mat(ADCC,GCC) !cross coupled ME
+  call init_ph_wkspc(ADCC,WCC) ! workspace for CCME
   
   call copy_sq_op(HS,H) 
   
@@ -138,7 +137,7 @@ subroutine discrete_TDA( HS , TDA, jbas,O1,O1TDA,O2,O2TDA )
   type(spd) :: jbas
   type(sq_op) :: HS,H,ETA,w1,w2,AD,INT1,INT2
   type(sq_op),optional :: O1,O2 
-  type(cross_coupled_31_mat) :: HCC,OeCC,ADCC,GCC,WCC
+  type(cc_mat) :: HCC,OeCC,ADCC,GCC,WCC
   type(full_sp_block_mat) :: TDA
   type(full_sp_block_mat),optional :: O1TDA,O2TDA
   integer,dimension(5) :: iwork
@@ -154,9 +153,9 @@ subroutine discrete_TDA( HS , TDA, jbas,O1,O1TDA,O2,O2TDA )
   call duplicate_sq_op(HS,INT2) !workspace
   call duplicate_sq_op(HS,AD) !workspace
   
-  call allocate_CCMAT(HS,ADCC,jbas) !cross coupled ME
-  call duplicate_CCMAT(ADCC,GCC) !cross coupled ME
-  call allocate_CC_wkspc(ADCC,WCC) ! workspace for CCME
+  call init_ph_mat(HS,ADCC,jbas) !cross coupled ME
+  call duplicate_ph_mat(ADCC,GCC) !cross coupled ME
+  call init_ph_wkspc(ADCC,WCC) ! workspace for CCME
   
   call copy_sq_op(HS,H) 
   
@@ -166,9 +165,10 @@ subroutine discrete_TDA( HS , TDA, jbas,O1,O1TDA,O2,O2TDA )
   crit = 10.
   steps = 0
 
-  call allocate_CCMAT(H,HCC,jbas) 
+  call duplicate_ph_mat(ADCC,HCC) 
+  HCC%herm = H%herm
   allocate(E_old(TDA%map(1)))
-  call calculate_cross_coupled(H,HCC,jbas,.true.) 
+  call calculate_cross_coupled(H,HCC,jbas)
   call calc_TDA(TDA,H,HCC,jbas) 
   call diagonalize_blocks(TDA)
 
@@ -201,7 +201,7 @@ if (present(O1)) then
      s = s + ds 
      steps = steps + 1
   
-     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calculate_cross_coupled(H,HCC,jbas)
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
   
@@ -238,7 +238,7 @@ else
      s = s + ds 
      steps = steps + 1
   
-     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calculate_cross_coupled(H,HCC,jbas)
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
   
@@ -273,7 +273,7 @@ else
      s = s + ds 
      steps = steps + 1
   
-     call calculate_cross_coupled(H,HCC,jbas,.true.) 
+     call calculate_cross_coupled(H,HCC,jbas)
      call calc_TDA(TDA,H,HCC,jbas) 
      call diagonalize_blocks(TDA)
   
@@ -298,19 +298,19 @@ end if
 
 ! calculate TDA matrices for operators
   if (present(O1)) then 
-     call duplicate_CCMAT(HCC,OeCC)
+     call duplicate_ph_mat(HCC,OeCC)
 
      if (present(O2)) then 
         call duplicate_sp_mat(TDA,O2TDA)
         allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
         O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-        call calculate_cross_coupled(O2,OeCC,jbas,.true.) 
+        call calculate_cross_coupled(O2,OeCC,jbas) 
         call calc_TDA(O2TDA,O2,OeCC,jbas)
      end if 
         call duplicate_sp_mat(TDA,O1TDA)     
         allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
         O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-        call calculate_cross_coupled(O1,OeCC,jbas,.true.) 
+        call calculate_cross_coupled(O1,OeCC,jbas) 
         call calc_TDA(O1TDA,O1,OeCC,jbas)
         
   end if 
@@ -328,7 +328,7 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
   integer :: trunc,i,m,n,q,j,k,l
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, HS, AD,w1,w2
-  type(cross_coupled_31_mat) :: WCC,ADCC,GCC
+  type(cc_mat) :: WCC,ADCC,GCC
   real(8) ::  cof(15),adnorm,fullnorm,s,advals(15)
   character(3) :: args
   
@@ -367,8 +367,8 @@ subroutine BCH_EXPAND(HS,G,H,INT1,INT2,AD,w1,w2,ADCC,GCC,WCC,jbas,s)
         
 ! zero body commutator
  
-     call calculate_cross_coupled(AD,ADCC,jbas,.true.)
-     call calculate_cross_coupled(G,GCC,jbas,.false.) 
+     call calculate_cross_coupled(AD,ADCC,jbas)
+     call calculate_cross_coupled(G,GCC,jbas)
  
      INT2%E0 = commutator_110(G,AD,jbas) + commutator_220(G,AD,jbas)
 

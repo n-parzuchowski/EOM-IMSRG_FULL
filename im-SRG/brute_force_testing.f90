@@ -1,5 +1,5 @@
 module brute_force_testing
-  use basic_IMSRG
+  use cross_coupled
   use commutators
   use TS_commutators
   use EOM_TS_commutators
@@ -298,7 +298,7 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
-  type(cross_coupled_31_mat) :: AACC,BBCC,WCC
+  type(cc_mat) :: AACC,BBCC,WCC
   integer :: a,b,c,d,ja,jb,jc,jd,jmin,jmax,PAR,TZ,Jtot,dick
   integer :: hole,part
   integer,intent(in) :: h1,h2
@@ -312,9 +312,9 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
   call duplicate_sq_op(AA,OUT)
   call duplicate_sq_op(AA,w1) !workspace
   call duplicate_sq_op(AA,w2) !workspace
-  call allocate_CCMAT(AA,AACC,jbas) ! cross coupled ME
-  call duplicate_CCMAT(AACC,BBCC) !cross coupled ME
-  call allocate_CC_wkspc(BBCC,WCC) !
+  call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
+  call duplicate_ph_mat(AACC,BBCC) !cross coupled ME
+  call init_ph_wkspc(BBCC,WCC) !
   
   call construct_random_rank0(AA,h1,jbas) 
   call construct_random_rank0(BB,h2,jbas) 
@@ -332,8 +332,8 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
      STOP 'ZERO BODY FAILURE' 
   end if 
   
-  call calculate_cross_coupled(BB,BBCC,jbas,.true.)
-  call calculate_cross_coupled(AA,AACC,jbas,.false.) 
+  call calculate_cross_coupled(BB,BBCC,jbas)
+  call calculate_cross_coupled(AA,AACC,jbas)
   
   call commutator_111(AA,BB,OUT,jbas) 
   call commutator_121(AA,BB,OUT,jbas)
@@ -407,7 +407,7 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
-  type(cross_coupled_31_mat) :: AACC,BBCC,WCC
+  type(cc_mat) :: AACC,BBCC,WCC
   integer :: a,b,c,d,q,g,ja,jb,jc,jd,jmin
   integer :: ax,bx,cx,dx,jmax,PAR,TZ,Jtot
   integer,intent(in) :: h1,h2
@@ -421,9 +421,9 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
   call duplicate_sq_op(AA,OUT)
   call duplicate_sq_op(AA,w1) !workspace
   call duplicate_sq_op(AA,w2) !workspace
-  call allocate_CCMAT(AA,AACC,jbas) ! cross coupled ME
-  call duplicate_CCMAT(AACC,BBCC) !cross coupled ME
-  call allocate_CC_wkspc(BBCC,WCC) !
+  call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
+  call duplicate_ph_mat(AACC,BBCC) !cross coupled ME
+  call init_ph_wkspc(BBCC,WCC) !
   
   call construct_random_rank0(AA,h1,jbas) 
   call construct_random_rank0(BB,h2,jbas) 
@@ -454,7 +454,7 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
   end if 
   
   call EOM_scalar_cross_coupled(BB,BBCC,jbas)
-  call calculate_cross_coupled(AA,AACC,jbas,.false.) 
+  call calculate_cross_coupled(AA,AACC,jbas) 
   
   call EOM_scalar_commutator_111(AA,BB,OUT,jbas) 
   call EOM_scalar_commutator_121(AA,BB,OUT,jbas)
@@ -532,7 +532,8 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
-  type(cross_coupled_31_mat) :: AACC,BBCC,WCC
+  type(pandya_mat) :: BBCC,WCC
+  type(cc_mat) :: AACC
   integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max
   integer :: j2min,j2max,PAR,TZ,J1,J2,dpar
   integer,intent(in) :: h1,h2,rank
@@ -554,18 +555,18 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   call duplicate_sq_op(BB,OUT)
   call duplicate_sq_op(BB,w1) !workspace
   call duplicate_sq_op(BB,w2) !workspace
-  call allocate_CCMAT(AA,AACC,jbas) ! cross coupled ME
-  call allocate_tensor_CCMAT(BB,BBCC,jbas) !cross coupled ME
-  call allocate_CCtensor_wkspc(BBCC,WCC) !
+  call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
+  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
+  call init_ph_wkspc(BBCC,WCC) !
   
 
   OUT%herm = -1* AA%herm * BB%herm 
   
   print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
 !  t1 = OMP_get_wtime()
-  call calculate_generalized_pandya(BB,BBCC,jbas,.false.)
+  call calculate_generalized_pandya(BB,BBCC,jbas)
 !  t2 = OMP_get_wtime()
-  call calculate_cross_coupled(AA,AACC,jbas,.false.) 
+  call calculate_cross_coupled(AA,AACC,jbas) 
   
   call TS_commutator_111(AA,BB,OUT,jbas) 
   call TS_commutator_121(AA,BB,OUT,jbas)
@@ -650,7 +651,8 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
-  type(cross_coupled_31_mat) :: AACC,BBCC,WCC
+  type(pandya_mat) :: BBCC,WCC
+  type(cc_mat) :: AACC 
   integer :: a,b,c,d,g,q,ja,jb,jc,jd,j1min,j1max,dpar
   integer :: j2min,j2max,PAR,TZ,J1,J2,ax,bx,cx,dx
   integer,intent(in) :: h1,h2,rank
@@ -673,9 +675,10 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   call duplicate_sq_op(BB,OUT)
   call duplicate_sq_op(BB,w1) !workspace
   call duplicate_sq_op(BB,w2) !workspace
-  call allocate_CCMAT(AA,AACC,jbas) ! cross coupled ME
-  call allocate_tensor_CCMAT(BB,BBCC,jbas) !cross coupled ME
-  call allocate_CCtensor_wkspc(BBCC,WCC) !
+ 
+  call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
+  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
+  call init_ph_wkspc(BBCC,WCC) !
   
 
   do q = 1, BB%nblocks
@@ -692,9 +695,9 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   
   print*, 'TESTING EOM SCALAR-TENSOR COMMUTATORS' 
  ! t1 = OMP_get_wtime()
-  call EOM_generalized_pandya(BB,BBCC,jbas,.false.)
+  call EOM_generalized_pandya(BB,BBCC,jbas)
  ! t2 = OMP_get_wtime()
-  call calculate_cross_coupled(AA,AACC,jbas,.false.) 
+  call calculate_cross_coupled(AA,AACC,jbas) 
   
   call EOM_TS_commutator_111(AA,BB,OUT,jbas) 
   call EOM_TS_commutator_121(AA,BB,OUT,jbas)

@@ -1,5 +1,5 @@
 module operators
-  use basic_IMSRG
+  use cross_coupled
   implicit none 
   
 
@@ -128,7 +128,7 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
   type(spd) :: jbas
   type(full_sp_block_mat) :: TDA
   type(sq_op) :: HS 
-  type(cross_coupled_31_mat) :: HSCC
+  type(cc_mat) :: HSCC
   integer :: q,JT,r1,r2,a,b,i,j,x,g,NBindx,Rindx,q1,Tz,PAR,JTM
   integer :: ji,jj,ja,jb
   
@@ -175,9 +175,9 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
                 kron_del(i,j) - f_elem(j,i,HS,jbas) * kron_del(a,b)
            
            ! two body piece
-           TDA%blkM(q)%matrix(r1,r2) = TDA%blkM(q)%matrix(r1,r2) - &
-                HSCC%CCR(q1)%X(NBindx,Rindx) * &
-                (-1) ** ((JT)/2) /sqrt(JT+1.d0) 
+           ! TDA%blkM(q)%matrix(r1,r2) = TDA%blkM(q)%matrix(r1,r2) - &
+           !      HSCC%CCR(q1)%X(NBindx,Rindx) * &
+           !      (-1) ** ((JT)/2) /sqrt(JT+1.d0) 
          
            TDA%blkM(q)%matrix(r1,r2) = TDA%blkM(q)%matrix(r1,r2) - &
                 HSCC%CCX(q1)%X(Rindx,NBindx) * HSCC%herm * & !need scaling.

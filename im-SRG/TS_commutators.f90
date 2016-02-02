@@ -1,5 +1,5 @@
 module TS_commutators
-  use basic_IMSRG
+  use cross_coupled
   ! tensor-scalar commutator functions 
   
   ! THE TENSOR MUST BE THE SECOND ARGUMENT
@@ -312,7 +312,7 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: R,RES
-  type(cross_coupled_31_mat) :: LCC 
+  type(cc_mat) :: LCC 
   integer :: J1,J2,PAR,TZ,ji,ja,jp,jq,a,i,p,q,g,JTM
   integer :: ti,ta,tp,tq,li,la,lp,lq,ak,ik,pk,qk,rank
   integer :: rai,rpq,rqp,qx,Ntot
@@ -1458,7 +1458,8 @@ end subroutine
   
    type(spd) :: jbas
    type(sq_op) :: RES
-   type(cross_coupled_31_mat) :: LCC,RCC,WCC
+   type(pandya_mat) :: RCC,WCC
+   type(cc_mat) :: LCC
    integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
@@ -1490,8 +1491,6 @@ end subroutine
         factor = 1.0/sqrt(J1+1.d0)*LCC%herm
         q1 = J1/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
         
-        !call dgemm('T','N',r1,r2,nb1,factor,LCC%CCR(q1)%X,nb1,&
-         !    RCC%CCR(q)%X,nb1,bet,WCC%CCX(q)%X,r1) 
          call dgemm('N','N',r1,r2,nb1,factor,LCC%CCX(q1)%X,r1,&
               RCC%CCR(q)%X,nb1,bet,WCC%CCX(q)%X,r1)       
      end if
@@ -1581,8 +1580,8 @@ end subroutine
             
                q1 = block_index(J3,Tz,PAR)
               
-               ril = TS_rval(i,l,Ntot,q1,RCC)
-               rli = TS_rval(l,i,Ntot,q1,RCC)
+               ril = TS_rval(i,l,Ntot,q1,LCC)
+               rli = TS_rval(l,i,Ntot,q1,LCC)
 
                 do J4 = max( J3 , J4min ) , J4max,2 
             
@@ -1591,8 +1590,8 @@ end subroutine
                   PAR2 = mod(PAR + RCC%dpar/2,2) 
                   q2 = block_index(J4,Tz,PAR2)
                
-                  rjk = TS_rval(j,k,Ntot,q2,RCC)
-                  rkj = TS_rval(k,j,Ntot,q2,RCC)
+                  rjk = TS_rval(j,k,Ntot,q2,LCC)
+                  rkj = TS_rval(k,j,Ntot,q2,LCC)
               
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
@@ -1612,8 +1611,8 @@ end subroutine
                   PAR2 = mod(PAR + RCC%dpar/2,2)                  
                   q2 = block_index(J4,Tz,PAR2)
                   
-                  rjk = TS_rval(j,k,Ntot,q2,RCC)     
-                  rkj = TS_rval(k,j,Ntot,q2,RCC)
+                  rjk = TS_rval(j,k,Ntot,q2,LCC)     
+                  rkj = TS_rval(k,j,Ntot,q2,LCC)
                   
                   qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
@@ -1648,8 +1647,8 @@ end subroutine
             do J3 = J3min,J3max,2
                q1 = block_index(J3,Tz,PAR)
             
-               rjl = TS_rval(j,l,Ntot,q1,RCC)
-               rlj = TS_rval(l,j,Ntot,q1,RCC)
+               rjl = TS_rval(j,l,Ntot,q1,LCC)
+               rlj = TS_rval(l,j,Ntot,q1,LCC)
 
                do J4 = max( J3 , J4min ) , J4max,2 
                  
@@ -1659,8 +1658,8 @@ end subroutine
                   PAR2 = mod(PAR + RCC%dpar/2,2)
                   q2 = block_index(J4,Tz,PAR2)
              
-                  rki = TS_rval(k,i,Ntot,q2,RCC)
-                  rik = TS_rval(i,k,Ntot,q2,RCC)
+                  rki = TS_rval(k,i,Ntot,q2,LCC)
+                  rik = TS_rval(i,k,Ntot,q2,LCC)
               
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                
@@ -1680,8 +1679,8 @@ end subroutine
                   PAR2 = mod(PAR + RCC%dpar/2,2)
                   q2 = block_index(J4,Tz,PAR2)
      
-                  rki = TS_rval(k,i,Ntot,q2,RCC)
-                  rik = TS_rval(i,k,Ntot,q2,RCC)
+                  rki = TS_rval(k,i,Ntot,q2,LCC)
+                  rik = TS_rval(i,k,Ntot,q2,LCC)
 
                   qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
                   
@@ -1719,7 +1718,7 @@ end subroutine
 integer function TS_rval(i,l,Ntot,q,LCC) 
   implicit none 
   
-  type(cross_coupled_31_mat) :: LCC
+  type(cc_mat) :: LCC
   integer :: i,l,Ntot,x,g,q
   
   x = CCindex(i,l,Ntot)
@@ -1736,7 +1735,7 @@ end function
 integer function ph_rval(i,l,Ntot,q,LCC) 
   implicit none 
   
-  type(cross_coupled_31_mat) :: LCC
+  type(cc_mat) :: LCC
   integer :: i,l,Ntot,x,g,q
   
   x = CCindex(i,l,Ntot)

@@ -1,5 +1,5 @@
 module EOM_scalar_commutators
-  use basic_IMSRG
+  use cross_coupled
   ! commutator functions which assume that R and RES only have elements 
   ! of ph and pphh character  
   
@@ -435,7 +435,7 @@ end subroutine
   
    type(spd) :: jbas
    type(sq_op) :: RES
-   type(cross_coupled_31_mat) :: LCC,RCC,WCC
+   type(cc_mat) :: LCC,RCC,WCC
    integer :: nh,np,nb,q,IX,JX,i,j,k,l,rinx,Tz,PAR,JTM,gik,gjl,gil,gjk
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart
    integer :: JP, Jtot,Ntot,qx,jmin,jmax,rik,rjl,ril,rjk,g_ix,thread,total_threads
@@ -580,7 +580,7 @@ end subroutine
 integer function EOM_rval(i,l,Ntot,q,LCC) 
   implicit none 
   
-  type(cross_coupled_31_mat) :: LCC
+  type(cc_mat) :: LCC
   integer :: i,l,Ntot,x,g,q
   
   x = CCindex(i,l,Ntot)
