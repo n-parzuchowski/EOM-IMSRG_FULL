@@ -1,38 +1,21 @@
 module cross_coupled
   use basic_IMSRG
 
-   type,abstract :: ph_mat
- !   contains
-  !    procedure(parent_dup),deferred :: duplicate_ph_mat 
-!      procedure(parent_wkspc),deferred :: init_ph_wkspc 
- !     procedure(parent_allocate),deferred :: init_ph_mat 
-   end type ph_mat
-   
-!$$abstract interface
-   !    subroutine parent_dup(C1,CCME)  
-   !      import :: ph_mat
-   !      implicit none
-   !      class(ph_mat),intent(in) :: C1
-   !      class(ph_mat),intent(inout) :: CCME
-   !    end subroutine parent_dup
-   ! end interface
+   type :: ph_mat
+      type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
+      type(real_mat),allocatable,dimension(:) :: CCX
+      integer :: nblocks,Nsp,herm
+      integer,allocatable,dimension(:) :: Jval
+   end type ph_mat 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   type,extends(ph_mat) :: cc_mat
-     type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
-     type(real_mat),allocatable,dimension(:) :: CCX
-     integer,allocatable,dimension(:) :: Jval,nph,rlen
-     integer :: nblocks,Nsp,herm
-  ! contains
-   !  procedure :: duplicate_ph_mat => dup_CC
+     integer,allocatable,dimension(:) :: nph,rlen
   end type cc_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   type,extends(ph_mat) :: pandya_mat
-     type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
-     type(real_mat),allocatable,dimension(:) :: CCX,CCR
-     integer,allocatable,dimension(:) :: Jval,Jval2
-     integer :: nblocks,Nsp,rank,herm,dpar
-   !contains
-    ! procedure :: duplicate_ph_mat => dup_pandya
+     type(real_mat),allocatable,dimension(:) :: CCR
+     integer,allocatable,dimension(:) :: Jval2
+     integer :: rank,dpar
   end type pandya_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
 !   type ex_cc_mat ! excitation operator
