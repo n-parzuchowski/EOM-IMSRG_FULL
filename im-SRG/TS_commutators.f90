@@ -378,8 +378,8 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               qx = rank/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                 
               rai = ph_rval(ak,ik,Ntot,qx,LCC)
-              rpq = TS_rval(pk,qk,Ntot,qx,LCC)
-              rqp = TS_rval(qk,pk,Ntot,qx,LCC)
+              rpq = fetch_rval(pk,qk,Ntot,qx,LCC)
+              rqp = fetch_rval(qk,pk,Ntot,qx,LCC)
 
               sm = sm +  R%fph(a,i) & 
                 *  ( (-1)**(( jp - jq + rank)/2) * LCC%CCX(qx)%X(rpq,rai) &
@@ -454,8 +454,8 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               qx = rank/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                 
               rai = ph_rval(ak,ik,Ntot,qx,LCC)
-              rpq = TS_rval(pk,qk,Ntot,qx,LCC)
-              rqp = TS_rval(qk,pk,Ntot,qx,LCC)
+              rpq = fetch_rval(pk,qk,Ntot,qx,LCC)
+              rqp = fetch_rval(qk,pk,Ntot,qx,LCC)
 
               sm = sm +  R%fph(a,i) & 
                 *  ( (-1)**(( jp - jq + rank)/2) * LCC%CCX(qx)%X(rpq,rai) &
@@ -529,8 +529,8 @@ subroutine  TS_commutator_211(LCC,R,RES,jbas)
               qx = rank/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                 
               rai = ph_rval(ak,ik,Ntot,qx,LCC)
-              rpq = TS_rval(pk,qk,Ntot,qx,LCC)
-              rqp = TS_rval(qk,pk,Ntot,qx,LCC)
+              rpq = fetch_rval(pk,qk,Ntot,qx,LCC)
+              rqp = fetch_rval(qk,pk,Ntot,qx,LCC)
 
               sm = sm +  R%fph(a,i) & 
                 *  ( (-1)**(( jp - jq + rank)/2) * LCC%CCX(qx)%X(rpq,rai) &
@@ -1580,8 +1580,8 @@ end subroutine
             
                q1 = block_index(J3,Tz,PAR)
               
-               ril = TS_rval(i,l,Ntot,q1,LCC)
-               rli = TS_rval(l,i,Ntot,q1,LCC)
+               ril = fetch_rval(i,l,Ntot,q1,RCC)
+               rli = fetch_rval(l,i,Ntot,q1,RCC)
 
                 do J4 = max( J3 , J4min ) , J4max,2 
             
@@ -1590,8 +1590,8 @@ end subroutine
                   PAR2 = mod(PAR + RCC%dpar/2,2) 
                   q2 = block_index(J4,Tz,PAR2)
                
-                  rjk = TS_rval(j,k,Ntot,q2,LCC)
-                  rkj = TS_rval(k,j,Ntot,q2,LCC)
+                  rjk = fetch_rval(j,k,Ntot,q2,RCC)
+                  rkj = fetch_rval(k,j,Ntot,q2,RCC)
               
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
@@ -1611,8 +1611,8 @@ end subroutine
                   PAR2 = mod(PAR + RCC%dpar/2,2)                  
                   q2 = block_index(J4,Tz,PAR2)
                   
-                  rjk = TS_rval(j,k,Ntot,q2,LCC)     
-                  rkj = TS_rval(k,j,Ntot,q2,LCC)
+                  rjk = fetch_rval(j,k,Ntot,q2,RCC)     
+                  rkj = fetch_rval(k,j,Ntot,q2,RCC)
                   
                   qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
                   sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
@@ -1647,8 +1647,8 @@ end subroutine
             do J3 = J3min,J3max,2
                q1 = block_index(J3,Tz,PAR)
             
-               rjl = TS_rval(j,l,Ntot,q1,LCC)
-               rlj = TS_rval(l,j,Ntot,q1,LCC)
+               rjl = fetch_rval(j,l,Ntot,q1,RCC)
+               rlj = fetch_rval(l,j,Ntot,q1,RCC)
 
                do J4 = max( J3 , J4min ) , J4max,2 
                  
@@ -1658,8 +1658,8 @@ end subroutine
                   PAR2 = mod(PAR + RCC%dpar/2,2)
                   q2 = block_index(J4,Tz,PAR2)
              
-                  rki = TS_rval(k,i,Ntot,q2,LCC)
-                  rik = TS_rval(i,k,Ntot,q2,LCC)
+                  rki = fetch_rval(k,i,Ntot,q2,RCC)
+                  rik = fetch_rval(i,k,Ntot,q2,RCC)
               
                   qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                
@@ -1679,8 +1679,8 @@ end subroutine
                   PAR2 = mod(PAR + RCC%dpar/2,2)
                   q2 = block_index(J4,Tz,PAR2)
      
-                  rki = TS_rval(k,i,Ntot,q2,LCC)
-                  rik = TS_rval(i,k,Ntot,q2,LCC)
+                  rki = fetch_rval(k,i,Ntot,q2,RCC)
+                  rik = fetch_rval(i,k,Ntot,q2,RCC)
 
                   qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
                   
@@ -1713,40 +1713,6 @@ end subroutine
 !$OMP END PARALLEL DO 
    
 end subroutine 
-!=====================================================
-!=====================================================      
-integer function TS_rval(i,l,Ntot,q,LCC) 
-  implicit none 
-  
-  type(cc_mat) :: LCC
-  integer :: i,l,Ntot,x,g,q
-  
-  x = CCindex(i,l,Ntot)
-  g = 1
-  do while (LCC%qmap(x)%Z(g) .ne. q )
-  
-     g = g + 1
-  end do
-  
-  TS_rval = LCC%rmap(x)%Z(g)
-end function 
-!============================================
-!============================================
-integer function ph_rval(i,l,Ntot,q,LCC) 
-  implicit none 
-  
-  type(cc_mat) :: LCC
-  integer :: i,l,Ntot,x,g,q
-  
-  x = CCindex(i,l,Ntot)
-  g = 1
-
-  do while (LCC%qmap(x)%Z(g) .ne. q )
-     g = g + 1
-  end do
-  
-  ph_rval = LCC%nbmap(x)%Z(g)
-end function 
 !=====================================================
 !=====================================================      
 end module 

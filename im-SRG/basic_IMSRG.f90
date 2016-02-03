@@ -611,6 +611,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
   Par1 = 1
   Jtot1 = jbas%Jtotal_max*2 
   Jtot2 = Jtot1+ RANK 
+
   op%nblocks =  tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par1)               
  
   allocate(op%tblck(op%nblocks)) 
@@ -797,9 +798,8 @@ subroutine allocate_tensor(jbas,op,zerorank)
    ! these are six j symbols that I don't already have,
    ! which the commutators need for this tensor.
    ! access with XXXsixj
-   call store_6j_3halfint(jbas,rank)
-  
-   
+
+   call store_6j_3halfint(jbas,rank)     
    call divide_work_tensor(op) 
 
  end subroutine allocate_tensor
@@ -855,7 +855,7 @@ subroutine divide_work_tensor(r1)
   type(sq_op) :: r1
   integer :: A,N,threads,omp_get_num_threads
   integer :: i ,g,q,k,b,j,spot
-  
+
 !$omp parallel
 !  threads=omp_get_num_threads() 
 !$omp end parallel
@@ -891,6 +891,7 @@ threads = 1
         end if
      end do 
   end do 
+
   r1%direct_omp(threads+1) = r1%nblocks
   r1%direct_omp(1) = 0 
 
@@ -2907,9 +2908,7 @@ subroutine duplicate_sq_op(H,op,dont)
   
   else  ! tensor operator
 
-
-     allocate(op%tblck(op%nblocks)) 
-    
+     allocate(op%tblck(op%nblocks))     
      allocate(op%direct_omp(size(H%direct_omp)))
      op%direct_omp = H%direct_omp
 

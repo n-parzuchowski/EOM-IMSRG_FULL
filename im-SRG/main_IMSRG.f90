@@ -51,16 +51,13 @@ program main_IMSRG
 
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
   
-  if (TEST_COMMUTATORS)  then 
+  if (TEST_COMMUTATORS) then 
      ! run this by typing ' X' after the input file in the command line
      ! This takes forever, you might want to comment some of this out. 
-    ! call test_scalar_scalar_commutator(jbasis,-1,1) 
-    ! call test_EOM_scalar_scalar_commutator(jbasis,1,1)
-     call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
-    ! call test_scalar_tensor_commutator(jbasis,1,1,4,0) 
+     call test
      stop
-  end if
-
+  end if 
+  
   call allocate_blocks(jbasis,HS)
    
   HS%herm = 1
@@ -301,6 +298,20 @@ program main_IMSRG
   
   end if 
 
+contains
+
+subroutine test
+
+  call test_scalar_scalar_commutator(jbasis,-1,1) 
+  deallocate(jbasis%xmap)
+  call test_EOM_scalar_scalar_commutator(jbasis,1,1)
+  deallocate(jbasis%xmap)
+  call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
+  deallocate(jbasis%xmap,jbasis%xmap_tensor,phase_hh,phase_pp)
+  deallocate(half6j%tp_mat)
+  call test_scalar_tensor_commutator(jbasis,1,1,4,0) 
+
+end subroutine test
 end program main_IMSRG
 !=========================================================================
 subroutine print_header

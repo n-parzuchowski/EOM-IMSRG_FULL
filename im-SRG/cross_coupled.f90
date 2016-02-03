@@ -1,26 +1,38 @@
 module cross_coupled
   use basic_IMSRG
 
-  ! type :: ph_mat
-  !  contains
+   type,abstract :: ph_mat
+ !   contains
   !    procedure(parent_dup),deferred :: duplicate_ph_mat 
-  !    procedure(parent_wkspc),deferred :: init_ph_wkspc 
-  !    procedure(parent_allocate),deferred :: init_ph_mat 
-  ! end type ph_mat
- 
+!      procedure(parent_wkspc),deferred :: init_ph_wkspc 
+ !     procedure(parent_allocate),deferred :: init_ph_mat 
+   end type ph_mat
+   
+!$$abstract interface
+   !    subroutine parent_dup(C1,CCME)  
+   !      import :: ph_mat
+   !      implicit none
+   !      class(ph_mat),intent(in) :: C1
+   !      class(ph_mat),intent(inout) :: CCME
+   !    end subroutine parent_dup
+   ! end interface
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-  type cc_mat
+  type,extends(ph_mat) :: cc_mat
      type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
      type(real_mat),allocatable,dimension(:) :: CCX
      integer,allocatable,dimension(:) :: Jval,nph,rlen
      integer :: nblocks,Nsp,herm
+  ! contains
+   !  procedure :: duplicate_ph_mat => dup_CC
   end type cc_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  type pandya_mat
+  type,extends(ph_mat) :: pandya_mat
      type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
      type(real_mat),allocatable,dimension(:) :: CCX,CCR
      integer,allocatable,dimension(:) :: Jval,Jval2
      integer :: nblocks,Nsp,rank,herm,dpar
+   !contains
+    ! procedure :: duplicate_ph_mat => dup_pandya
   end type pandya_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
 !   type ex_cc_mat ! excitation operator
@@ -48,6 +60,10 @@ module cross_coupled
   
   interface init_ph_wkspc
      module procedure allocate_pandya_wkspc,allocate_CC_wkspc
+  end interface
+  
+  interface fetch_rval
+     module procedure pandya_rval,specific_rval 
   end interface
   
 contains
@@ -490,7 +506,7 @@ subroutine dup_CC(C1,CCME)
   ! makes a copy of C1 onto CCME
   implicit none 
   
-  type(cc_mat) :: CCME,C1
+  type(cc_mat) :: C1,CCME
   integer :: JT,ji,jp,jj,jh,JC,q1,q2
   integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
@@ -544,7 +560,7 @@ subroutine dup_pandya(C1,CCME)
   ! makes a copy of C1 onto CCME
   implicit none 
   
-  type(pandya_mat) :: CCME,C1
+  type(pandya_mat) :: C1,CCME
   integer :: JT,ji,jp,jj,jh,JC,q1,q2
   integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
@@ -1463,8 +1479,56 @@ subroutine EOM_scalar_cross_coupled(HS,CCME,jbas)
 !$omp end parallel do
 
 end subroutine EOM_scalar_cross_coupled
-!===========================================================   
-!===========================================================
+!=====================================================
+!=====================================================      
+integer function specific_rval(i,l,Ntot,q,LCC) 
+  implicit none 
+  
+  type(cc_mat) :: LCC
+  integer :: i,l,Ntot,x,g,q
+  
+  x = CCindex(i,l,Ntot)
+  g = 1
+  do while (LCC%qmap(x)%Z(g) .ne. q )
+  
+     g = g + 1
+  end do
+  
+  specific_rval = LCC%rmap(x)%Z(g)
+end function specific_rval
+!============================================
+!============================================
+integer function ph_rval(i,l,Ntot,q,LCC) 
+  implicit none 
+  
+  type(cc_mat) :: LCC
+  integer :: i,l,Ntot,x,g,q
+  
+  x = CCindex(i,l,Ntot)
+  g = 1
 
-
+  do while (LCC%qmap(x)%Z(g) .ne. q )
+     g = g + 1
+  end do
+  
+  ph_rval = LCC%nbmap(x)%Z(g)
+end function ph_rval
+!=====================================================
+!=====================================================   
+integer function pandya_rval(i,l,Ntot,q,LCC) 
+  implicit none 
+  
+  type(pandya_mat) :: LCC
+  integer :: i,l,Ntot,x,g,q
+  
+  x = CCindex(i,l,Ntot)
+  g = 1
+  do while (LCC%qmap(x)%Z(g) .ne. q )  
+     g = g + 1
+  end do
+  
+  pandya_rval = LCC%rmap(x)%Z(g)
+end function pandya_rval
+!=====================================================
+!=====================================================      
 end module

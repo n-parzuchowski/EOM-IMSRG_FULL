@@ -300,12 +300,12 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
   type(sq_op) :: AA,BB,OUT,w1,w2
   type(cc_mat) :: AACC,BBCC,WCC
   integer :: a,b,c,d,ja,jb,jc,jd,jmin,jmax,PAR,TZ,Jtot,dick
-  integer :: hole,part
+  integer :: hole,part,iii
   integer,intent(in) :: h1,h2
   real(8) :: val,sm
-  
-  
-!  call seed_random_number
+  real(8) :: vv,xx,yy,zz
+    
+  call seed_random_number
   
   call allocate_blocks(jbas,AA)
   call duplicate_sq_op(AA,BB)
@@ -345,8 +345,14 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
   call commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
  
  
-  do a = 1, jbas%total_orbits
-     do b = 1, jbas%total_orbits
+!  do a = 1, jbas%total_orbits
+ !    do b = 1, jbas%total_orbits
+  do iii = 1, 50   
+     call random_number(vv)
+     call random_number(yy)
+   
+     a = ceiling(vv*(AA%Nsp))
+     b = ceiling(yy*(AA%Nsp))
         
         val = scalar_scalar_1body_comm(AA,BB,a,b,jbas) 
         
@@ -357,25 +363,37 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
         end if 
         
         print*, 'success:', a,b
-     end do 
+  !   end do 
   end do 
  
-  do a = 1, jbas%total_orbits
+  !do a = 1, jbas%total_orbits
+  iii = 0 
+  do while (iii < 15)  
+     call random_number(vv)
+     call random_number(xx)
+     call random_number(yy)
+     call random_number(zz)
+   
+     a = ceiling(vv*AA%Nsp)
+     b = ceiling(xx*AA%Nsp)
+     c = ceiling(yy*AA%Nsp)
+     d = ceiling(zz*AA%Nsp)
+     
      ja = jbas%jj(a) 
-     do b = 1, jbas%total_orbits
+   !  do b = 1, jbas%total_orbits
         jb = jbas%jj(b)
         
         PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
         TZ = jbas%itzp(a) + jbas%itzp(b) 
         
-        do c = 1, jbas%total_orbits
+    !    do c = 1, jbas%total_orbits
            jc = jbas%jj(c)
-           do d = 1, jbas%total_orbits
+     !      do d = 1, jbas%total_orbits
               jd = jbas%jj(d) 
               
               if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d),2)) cycle 
               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
-              
+              iii = iii + 1
               jmin = max( abs(ja-jb) , abs(jc-jd) )
               jmax = min( ja+jb , jc+jd) 
               
@@ -392,9 +410,9 @@ subroutine test_scalar_scalar_commutator(jbas,h1,h2)
               end do 
               
               print*, 'success:', a,b,c,d
-           end do
-        end do
-     end do
+!           end do
+ !       end do
+  !   end do
   end do
   
   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
@@ -414,7 +432,7 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
   real(8) :: val
   
   
- ! call seed_random_number
+  call seed_random_number
   
   call allocate_blocks(jbas,AA)
   call duplicate_sq_op(AA,BB)
@@ -535,9 +553,10 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   type(pandya_mat) :: BBCC,WCC
   type(cc_mat) :: AACC
   integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max
-  integer :: j2min,j2max,PAR,TZ,J1,J2,dpar
+  integer :: j2min,j2max,PAR,TZ,J1,J2,dpar,iii
   integer,intent(in) :: h1,h2,rank
   real(8) :: val,t1,t2,t3,t4,omp_get_wtime
+  real(8) :: vv,xx,yy,zz
   
   
   call seed_random_number
@@ -584,8 +603,14 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   print*, 'time:', t3-t1,t2-t1,t3-t4
  
 !goto 12
-  do a = 1, jbas%total_orbits
-     do b = 1, jbas%total_orbits
+!  do a = 1, jbas%total_orbits
+ !    do b = 1, jbas%total_orbits
+  do iii = 1, 50   
+     call random_number(vv)
+     call random_number(yy)
+   
+     a = ceiling(vv*(AA%Nsp))
+     b = ceiling(yy*(AA%Nsp))
         
         val = scalar_tensor_1body_comm(AA,BB,a,b,jbas) 
         
@@ -596,25 +621,38 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
         end if 
         
         print*, 'success:', a,b
-     end do 
+     !end do 
   end do 
 
-12  do a = 12, jbas%total_orbits
+ !do a = 12, jbas%total_orbits
+     
+  iii = 0 
+  do while (iii < 15)  
+     call random_number(vv)
+     call random_number(xx)
+     call random_number(yy)
+     call random_number(zz)
+   
+     a = ceiling(vv*AA%Nsp)
+     b = ceiling(xx*AA%Nsp)
+     c = ceiling(yy*AA%Nsp)
+     d = ceiling(zz*AA%Nsp)
+     
      ja = jbas%jj(a) 
-     do b = 7, jbas%total_orbits
+!     do b = 7, jbas%total_orbits
         jb = jbas%jj(b)
         
         PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
         TZ = jbas%itzp(a) + jbas%itzp(b) 
         
-        do c = 1, jbas%total_orbits
+ !       do c = 1, jbas%total_orbits
            jc = jbas%jj(c)
-           do d = 1, jbas%total_orbits
+  !         do d = 1, jbas%total_orbits
               jd = jbas%jj(d) 
               
               if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
-              
+              iii = iii+1 
               j1min = abs(ja-jb) 
               j1max = ja+jb 
               j2min = abs(jc-jd) 
@@ -636,9 +674,9 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
               end do
               
               print*, 'success:', a,b,c,d
-           end do
-        end do
-     end do
+   !        end do
+    !    end do
+     !end do
   end do
   
   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
@@ -654,12 +692,12 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   type(pandya_mat) :: BBCC,WCC
   type(cc_mat) :: AACC 
   integer :: a,b,c,d,g,q,ja,jb,jc,jd,j1min,j1max,dpar
-  integer :: j2min,j2max,PAR,TZ,J1,J2,ax,bx,cx,dx
+  integer :: j2min,j2max,PAR,TZ,J1,J2,ax,bx,cx,dx,iii
   integer,intent(in) :: h1,h2,rank
   real(8) :: val,t1,t2,t3,t4,omp_get_wtime
+  real(8) :: vv,xx,yy,zz
   
-  
-!  call seed_random_number
+  call seed_random_number
   
   BB%rank = rank
   BB%dpar = dpar
@@ -714,9 +752,17 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   
   print*, 'time:', t3-t1,t2-t1,t3-t4
 !goto 12
-  do ax = 1, AA%Nsp-AA%belowEF
+ ! do ax = 1, AA%Nsp-AA%belowEF
+   
+  do iii = 1, 50   
+     call random_number(vv)
+     call random_number(yy)
+   
+     ax = ceiling(vv*(AA%Nsp-AA%belowEF))
+     bx = ceiling(yy*(AA%belowEF))
+     
      a = jbas%parts(ax)
-     do bx = 1, AA%belowEF
+  !   do bx = 1, AA%belowEF
         b = jbas%holes(bx)
         
         val = EOM_scalar_tensor_1body_comm(AA,BB,a,b,jbas) 
@@ -729,28 +775,42 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
         end if 
         
         print*, 'success:', a,b
-     end do 
+!     end do 
   end do 
 
-  do ax = 1, AA%Nsp-AA%belowEF
+  
+  iii = 0 
+  do while (iii < 15) 
+     call random_number(vv)
+     call random_number(xx)
+     call random_number(yy)
+     call random_number(zz)
+   
+     ax = ceiling(vv*(AA%Nsp-AA%belowEF))
+     bx = ceiling(xx*(AA%Nsp-AA%belowEF))
+     cx = ceiling(yy*(AA%belowEF))
+     dx = ceiling(zz*(AA%belowEF))
+     
+     ! do ax = 1, AA%Nsp-AA%belowEF
      a = jbas%parts(ax)
      ja = jbas%jj(a) 
-     do bx = 1, AA%Nsp-AA%belowEF
+  !   do bx = 1, AA%Nsp-AA%belowEF
         b = jbas%parts(bx)
         jb = jbas%jj(b)
         
         PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
         TZ = jbas%itzp(a) + jbas%itzp(b) 
         
-        do cx = 1,AA%belowEF
+   !     do cx = 1,AA%belowEF
            c = jbas%holes(cx)
            jc = jbas%jj(c)
-           do dx = 1,AA%belowEF
+    !       do dx = 1,AA%belowEF
               d = jbas%holes(dx)
               jd = jbas%jj(d) 
               
               if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
+              iii = iii + 1
               
               j1min = abs(ja-jb) 
               j1max = ja+jb 
@@ -774,9 +834,9 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
               end do
               
               print*, 'success:', a,b,c,d
-           end do
-        end do
-     end do
+        !   end do
+       ! end do
+     !end do
   end do
   
   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '

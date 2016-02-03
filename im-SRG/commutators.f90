@@ -863,10 +863,10 @@ end subroutine
             do JP = jmin,jmax,2
                  
                   qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
-                  rjl = specific_rval(j,l,Ntot,qx,LCC)
-                  rik = specific_rval(i,k,Ntot,qx,LCC)
-                  gjl = specific_rval(l,j,Ntot,qx,LCC)
-                  gik = specific_rval(k,i,Ntot,qx,LCC)
+                  rjl = fetch_rval(j,l,Ntot,qx,LCC)
+                  rik = fetch_rval(i,k,Ntot,qx,LCC)
+                  gjl = fetch_rval(l,j,Ntot,qx,LCC)
+                  gik = fetch_rval(k,i,Ntot,qx,LCC)
                   
                   !inside
                  sm = sm - (-1)**((jl +jk + Jtot)/2)* &
@@ -891,10 +891,10 @@ end subroutine
                !qx = JP/2 + 1
                qx = JP/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                
-               ril = specific_rval(i,l,Ntot,qx,LCC)
-               rjk = specific_rval(j,k,Ntot,qx,LCC)
-               gil = specific_rval(l,i,Ntot,qx,LCC)
-               gjk = specific_rval(k,j,Ntot,qx,LCC)
+               ril = fetch_rval(i,l,Ntot,qx,LCC)
+               rjk = fetch_rval(j,k,Ntot,qx,LCC)
+               gil = fetch_rval(l,i,Ntot,qx,LCC)
+               gjk = fetch_rval(k,j,Ntot,qx,LCC)
                
                !outside
                sm = sm + ( (WCC%CCX(qx)%X(gil,rjk) + &
@@ -919,25 +919,7 @@ end do
 !$OMP END PARALLEL DO 
    
  end subroutine commutator_222_ph
-!=====================================================
-!=====================================================      
-integer function specific_rval(i,l,Ntot,q,LCC) 
-  implicit none 
-  
-  type(cc_mat) :: LCC
-  integer :: i,l,Ntot,x,g,q
-  
-  x = CCindex(i,l,Ntot)
-  g = 1
-  do while (LCC%qmap(x)%Z(g) .ne. q )
-  
-     g = g + 1
-  end do
-  
-  specific_rval = LCC%rmap(x)%Z(g)
-end function 
-!============================================
-!============================================
+
 real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   implicit none 
   

@@ -115,8 +115,8 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   type(spd) :: jbas
   type(sq_op) :: op,V1,Q1,Q2,w1,w2
   type(sq_op),dimension(nev) :: Vecs
-  type(cc_mat) :: OpCC,QCC,WCC
-  type(pandya_mat) :: QPP,WPP
+  type(cc_mat) :: OpCC
+  class(ph_mat),allocatable :: QCC,WCC
   real(8),allocatable,dimension(:) :: workl,D,eigs,resid,work,workD
   real(8),allocatable,dimension(:,:) :: V,Z
   integer :: i,j,ix,jx,lwork,info,ido,ncv,ldv,iparam(11),ipntr(11),q,II,JJ
@@ -138,12 +138,16 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   call init_ph_mat(Op,OpCC,jbas) !cross coupled ME
   
   if (vecs(1)%rank == 0) then 
-     call duplicate_ph_mat(OpCC,QCC) !cross coupled ME
-     call init_ph_wkspc(OpCC,WCC) ! workspace for CCME
+     allocate(cc_mat:: QCC)
+     allocate(cc_mat:: WCC)
+     call duplicate_ph_mat(OpCC,QCC) !cross coupled ME     
   else 
+     allocate(pandya_mat:: QCC)
+     allocate(pandya_mat:: WCC)
      call init_ph_mat(vecs(1),QCC,jbas) !cross coupled ME
-     call init_ph_wkspc(QCC,WCC) 
   end if
+
+  call init_ph_wkspc(QCC,WCC) ! workspace for CCME
   
   h = OP%belowEF !holes
   p = OP%Nsp-h  !particles
@@ -273,7 +277,7 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
     if ( vecs(1)%rank == 0 ) then 
        call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
     else
-       call matvec_nonzeroX_prod(N,OP,Q1,Q2,w1,w2,OpCC,QPP,WPP,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
+       call matvec_nonzeroX_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
     end if
     
     end do 
@@ -311,8 +315,8 @@ subroutine matvec_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   integer :: N ,q,a,b,c,d,i,j,k,l,Jtot
   real(8) :: sm
   type(sq_op) :: OP, Q_op ,Qout,w1,w2
-  type(cc_mat) :: OpCC,QCC,WCC
-  
+  class(ph_mat) :: QCC,WCC
+  type(cc_mat) :: OpCC
   type(spd) :: jbas
   real(8),dimension(N) :: v,w 
   real(8) :: coef9,dfact0
@@ -357,7 +361,7 @@ subroutine matvec_nonzeroX_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   integer :: N ,q,a,b,c,d,i,j,k,l,Jtot
   real(8) :: sm
   type(sq_op) :: OP, Q_op ,Qout,w1,w2
-  type(pandya_mat) :: QCC,WCC
+  class(ph_mat) :: QCC,WCC
   type(cc_mat) :: OpCC
   type(spd) :: jbas
   real(8),dimension(N) :: v,w 
