@@ -689,8 +689,8 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
-  type(pandya_mat) :: BBCC,WCC
-  type(cc_mat) :: AACC 
+  type(ex_pandya_mat) :: BBCC,WCC
+  type(ex_cc_mat) :: AACC 
   integer :: a,b,c,d,g,q,ja,jb,jc,jd,j1min,j1max,dpar
   integer :: j2min,j2max,PAR,TZ,J1,J2,ax,bx,cx,dx,iii
   integer,intent(in) :: h1,h2,rank
@@ -735,7 +735,7 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
  ! t1 = OMP_get_wtime()
   call EOM_generalized_pandya(BB,BBCC,jbas)
  ! t2 = OMP_get_wtime()
-  call calculate_cross_coupled(AA,AACC,jbas) 
+  call calculate_cross_coupled_pphh(AA,AACC,jbas) 
   
   call EOM_TS_commutator_111(AA,BB,OUT,jbas) 
   call EOM_TS_commutator_121(AA,BB,OUT,jbas)

@@ -124,11 +124,11 @@ subroutine  EOM_TS_commutator_211(LCC,R,RES,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: R,RES
-  type(cc_mat) :: LCC 
+  type(ex_cc_mat) :: LCC 
   integer :: J1,J2,PAR,TZ,ji,ja,jp,jq,a,i,p,q,g,JTM
   integer :: ti,ta,tp,tq,li,la,lp,lq,ak,ik,pk,qk,rank
   integer :: rai,rpq,rqp,qx,Ntot
-  real(8) :: sm,smx,smy,smx2,smy2,d6ji
+  real(8) :: sm,smx,smy,smx2,smy2,d6ji,LXXX
   
   rank = R%rank 
   JTM = Jbas%Jtotal_max
@@ -189,10 +189,9 @@ subroutine  EOM_TS_commutator_211(LCC,R,RES,jbas)
                 
               rai = ph_rval(ak,ik,Ntot,qx,LCC)
               rpq = fetch_rval(pk,qk,Ntot,qx,LCC)
-              rqp = fetch_rval(qk,pk,Ntot,qx,LCC)
 
-              sm = sm - (-1)**(( jp + jq + rank)/2) * R%fph(a,i) & 
-                *   LCC%CCX(qx)%X(rpq,rai)  / sqrt(rank + 1.d0 ) 
+              sm = sm - (-1)**(( jp + jq + rank)/2) * R%fph(a,i) &               
+              * LCC%CCX(qx)%X(rpq,rai) / sqrt(rank + 1.d0 ) 
 
               ! the last (rank + 1) is divided out because
               ! the CC matrix elements are scaled by that, 
@@ -708,8 +707,8 @@ end subroutine
   
    type(spd) :: jbas
    type(sq_op) :: RES
-   type(pandya_mat) :: RCC,WCC
-   type(cc_mat) :: LCC
+   type(ex_pandya_mat) :: RCC,WCC
+   type(ex_cc_mat) :: LCC
    integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
@@ -824,7 +823,7 @@ end subroutine
             
              Tz = abs(ti -tl)/2                         
              PAR = mod(li+ll,2) 
-
+             
              if (mod(lk+lj+RCC%dpar/2,2) == PAR) then 
                 if (abs(tk - tj) == Tz*2)  then 
              
@@ -832,9 +831,12 @@ end subroutine
                       
                       q1 = block_index(J3,Tz,PAR)
                       
-                      ril = fetch_rval(i,l,Ntot,q1,RCC)
-                      rli = fetch_rval(l,i,Ntot,q1,RCC)
-
+                      if (jbas%con(i)-jbas%con(l) > 0) then 
+                         rli = fetch_rval(l,i,Ntot,q1,RCC)
+                      else
+                         rli = fetch_rval(i,l,Ntot,q1,RCC)
+                      end if 
+                      
                       do J4 = max( J3 , J4min ) , J4max,2 
                          
                          if (.not. (triangle(J3,J4,rank))) cycle
@@ -842,14 +844,18 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2) 
                          q2 = block_index(J4,Tz,PAR2)
                
-                         rjk = fetch_rval(j,k,Ntot,q2,RCC)
-                         rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                         if (jbas%con(j)-jbas%con(k) > 0) then 
+                            rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                         else
+                            rkj = fetch_rval(j,k,Ntot,q2,RCC)
+                         end if
+
               
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                               ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(ril,rkj) &
-                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rli,rjk) &
+                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rli,rkj) &
+                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rli,rkj) &
                               )
 
                       end do 
@@ -860,16 +866,19 @@ end subroutine
 
                          PAR2 = mod(PAR + RCC%dpar/2,2)                  
                          q2 = block_index(J4,Tz,PAR2)
-
-                         rjk = fetch_rval(j,k,Ntot,q2,RCC)     
-                         rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                         
+                         if (jbas%con(j)-jbas%con(k) > 0) then 
+                            rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                         else
+                            rkj = fetch_rval(j,k,Ntot,q2,RCC)
+                         end if
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                               ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * (  &
-                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rkj,ril) &
-                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rjk,rli) &
+                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rkj,rli) &
+                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rkj,rli) &
                               )
 
                       end do
@@ -895,10 +904,13 @@ end subroutine
 
                    do J3 = J3min,J3max,2
                       q1 = block_index(J3,Tz,PAR)
-
-                      rjl = fetch_rval(j,l,Ntot,q1,RCC)
-                      rlj = fetch_rval(l,j,Ntot,q1,RCC)
-
+                      
+                      if (jbas%con(j)-jbas%con(l) > 0) then 
+                         rlj = fetch_rval(l,j,Ntot,q1,RCC)
+                      else
+                         rlj = fetch_rval(j,l,Ntot,q1,RCC)
+                      end if
+                      
                       do J4 = max( J3 , J4min ) , J4max,2 
 
                          if (.not. (triangle(J3,J4,rank))) cycle
@@ -906,16 +918,19 @@ end subroutine
 
                          PAR2 = mod(PAR + RCC%dpar/2,2)
                          q2 = block_index(J4,Tz,PAR2)
-
-                         rki = fetch_rval(k,i,Ntot,q2,RCC)
-                         rik = fetch_rval(i,k,Ntot,q2,RCC)
+                         
+                         if (jbas%con(i)-jbas%con(k) > 0) then 
+                            rki = fetch_rval(k,i,Ntot,q2,RCC)
+                         else
+                            rki = fetch_rval(i,k,Ntot,q2,RCC)
+                         end if
 
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
 
                          sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
                               ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
-                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rjl,rki) &
-                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rlj,rik) &       
+                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rlj,rki) &
+                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rlj,rki) &       
                               )
 
                       end do
@@ -926,15 +941,19 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rki = fetch_rval(k,i,Ntot,q2,RCC)
-                         rik = fetch_rval(i,k,Ntot,q2,RCC)
+                         
+                         if (jbas%con(i)-jbas%con(k) > 0) then 
+                            rki = fetch_rval(k,i,Ntot,q2,RCC)
+                         else
+                            rki = fetch_rval(i,k,Ntot,q2,RCC)
+                         end if
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
                          sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
                               ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
-                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rki,rjl) &
-                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rik,rlj) &                  
+                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rki,rlj) &
+                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rki,rlj) &                  
                               ) 
 
                       end do
@@ -1017,24 +1036,30 @@ end subroutine
                       
                       q1 = block_index(J3,Tz,PAR)
                       
-                      ril = fetch_rval(i,l,Ntot,q1,RCC)
-                      rli = fetch_rval(l,i,Ntot,q1,RCC)
-
+                      if (jbas%con(i)-jbas%con(l) > 0) then 
+                         rli = fetch_rval(l,i,Ntot,q1,RCC)
+                      else
+                         rli = fetch_rval(i,l,Ntot,q1,RCC)
+                      end if 
+                      
                       do J4 = max( J3 , J4min ) , J4max,2 
                          
                          if (.not. (triangle(J3,J4,rank))) cycle
                   
                          PAR2 = mod(PAR + RCC%dpar/2,2) 
                          q2 = block_index(J4,Tz,PAR2)
-               
-                         rjk = fetch_rval(j,k,Ntot,q2,RCC)
-                         rkj = fetch_rval(k,j,Ntot,q2,RCC)
+
+                         if (jbas%con(j)-jbas%con(k) > 0) then 
+                            rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                         else
+                            rkj = fetch_rval(j,k,Ntot,q2,RCC)
+                         end if
               
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                               ninej(ji,jl,J3,jj,jk,J4,J2,J1,rank)  * ( &
-                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(ril,rkj) &
-                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rli,rjk) &
+                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rli,rkj) &
+                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rli,rkj) &
                               )
 
                       end do 
@@ -1046,15 +1071,18 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)                  
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rjk = fetch_rval(j,k,Ntot,q2,RCC)     
-                         rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                         if (jbas%con(j)-jbas%con(k) > 0) then 
+                            rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                         else
+                            rkj = fetch_rval(j,k,Ntot,q2,RCC)
+                         end if
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
                               ninej(ji,jl,J3,jj,jk,J4,J2,J1,rank)  * (  &
-                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rkj,ril) &
-                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rjk,rli) &
+                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rkj,rli) &
+                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rkj,rli) &
                               )
                        
                       end do
@@ -1080,10 +1108,13 @@ end subroutine
 
                    do J3 = J3min,J3max,2
                       q1 = block_index(J3,Tz,PAR)
-
-                      rjl = fetch_rval(j,l,Ntot,q1,RCC)
-                      rlj = fetch_rval(l,j,Ntot,q1,RCC)
-
+                      
+                      if (jbas%con(j)-jbas%con(l) > 0) then 
+                         rlj = fetch_rval(l,j,Ntot,q1,RCC)
+                      else
+                         rlj = fetch_rval(j,l,Ntot,q1,RCC)
+                      end if
+                      
                       do J4 = max( J3 , J4min ) , J4max,2 
 
                          if (.not. (triangle(J3,J4,rank))) cycle
@@ -1092,15 +1123,18 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rki = fetch_rval(k,i,Ntot,q2,RCC)
-                         rik = fetch_rval(i,k,Ntot,q2,RCC)
+                         if (jbas%con(i)-jbas%con(k) > 0) then 
+                            rki = fetch_rval(k,i,Ntot,q2,RCC)
+                         else
+                            rki = fetch_rval(i,k,Ntot,q2,RCC)
+                         end if
 
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
 
                          sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
                               ninej(jj,jl,J3,ji,jk,J4,J2,J1,rank) * ( &
-                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rjl,rki) &
-                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rlj,rik) &       
+                              (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rlj,rki) &
+                              + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rlj,rki) &       
                               )
                         
                       end do
@@ -1111,15 +1145,18 @@ end subroutine
                          PAR2 = mod(PAR + RCC%dpar/2,2)
                          q2 = block_index(J4,Tz,PAR2)
 
-                         rki = fetch_rval(k,i,Ntot,q2,RCC)
-                         rik = fetch_rval(i,k,Ntot,q2,RCC)
 
+                         if (jbas%con(i)-jbas%con(k) > 0) then 
+                            rki = fetch_rval(k,i,Ntot,q2,RCC)
+                         else
+                            rki = fetch_rval(i,k,Ntot,q2,RCC)
+                         end if                         
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
                          sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
                               ninej(jj,jl,J3,ji,jk,J4,J2,J1,rank) * ( &
-                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rki,rjl) &
-                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rik,rlj) &                  
+                              (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rki,rlj) &
+                              + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rki,rlj) &                  
                               ) 
                           
                       end do

@@ -2,51 +2,55 @@ module cross_coupled
   use basic_IMSRG
 
    type :: ph_mat
-      type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
+      type(int_vec),allocatable,dimension(:) :: qmap,nbmap
       type(real_mat),allocatable,dimension(:) :: CCX
       integer :: nblocks,Nsp,herm
       integer,allocatable,dimension(:) :: Jval
    end type ph_mat 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
   type,extends(ph_mat) :: cc_mat
+     type(int_vec),allocatable,dimension(:) :: rmap
      integer,allocatable,dimension(:) :: nph,rlen
   end type cc_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   type,extends(ph_mat) :: pandya_mat
+     type(int_vec),allocatable,dimension(:) :: rmap
      type(real_mat),allocatable,dimension(:) :: CCR
      integer,allocatable,dimension(:) :: Jval2
      integer :: rank,dpar
   end type pandya_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-!   type ex_cc_mat ! excitation operator
-!      type(int_vec),allocatable,dimension(:) :: rmap,qmap,nbmap
-!      type(real_mat),allocatable,dimension(:) :: CCX,CCR
-!      integer,allocatable,dimension(:) :: Jval,Jval2,nph,rlen
-!      integer :: nblocks,Nsp,rank,herm,dpar
-!   end type ex_cc_mat
+   type,extends(ph_mat) :: ex_cc_mat ! excitation operator
+      integer,allocatable,dimension(:) :: nph
+   end type ex_cc_mat
 ! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! type ex_pandya_mat ! excitation operator
-   !    type(int_vec),allocatable,dimension(:) :: qmap,nbmap
-   !    type(real_mat),allocatable,dimension(:) :: CCX,CCR
-   !    integer,allocatable,dimension(:) :: Jval,Jval2
-   !    integer :: nblocks,Nsp,rank,herm,dpar
-   ! end type ex_pandya_mat
+   type,extends(ph_mat) ::  ex_pandya_mat ! excitation operator
+      type(real_mat),allocatable,dimension(:) :: CCR
+      integer,allocatable,dimension(:) :: Jval2
+      integer :: rank,dpar
+   end type ex_pandya_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
   
   interface init_ph_mat 
-     module procedure allocate_CCMAT,allocate_tensor_CCMAT
+     module procedure allocate_CCMAT,allocate_tensor_CCMAT,&
+          allocate_ex_CCMAT,allocate_ex_tensor_CCMAT
   end interface
 
   interface duplicate_ph_mat
-     module procedure dup_CC,dup_pandya
+     module procedure dup_CC,dup_pandya,dup_ex_cc,dup_ex_pandya
   end interface
   
   interface init_ph_wkspc
-     module procedure allocate_pandya_wkspc,allocate_CC_wkspc
+     module procedure allocate_pandya_wkspc,allocate_CC_wkspc,&
+          allocate_ex_pandya_wkspc,allocate_ex_CC_wkspc
   end interface
   
   interface fetch_rval
-     module procedure pandya_rval,specific_rval 
+     module procedure pandya_rval,specific_rval ,ex_specific_rval,ex_pandya_rval
+  end interface
+  
+  interface ph_rval
+     module procedure ex_ph_rval,reg_ph_rval
   end interface
   
 contains
@@ -168,6 +172,122 @@ subroutine allocate_CCMAT(OP,CCME,jbas)
 end subroutine allocate_CCMAT
 !=======================================================  
 !=======================================================
+subroutine allocate_ex_CCMAT(OP,CCME,jbas) 
+  ! allocates a cross-coupled ME storage structure
+  ! currently the only CCME of interest are phab terms    |---<---| 
+  ! coupling in the 3-1 channel                        <(pa)J|V|(hb)J>
+  !                                                      |---<---|
+  implicit none 
+  
+  
+  type(spd) :: jbas
+  type(sq_op) :: OP
+  type(ex_cc_mat) :: CCME
+  integer :: JT,ji,jp,jj,jh,JC,q1,q2,g,li,lj,ti,tj
+  integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR,x,JTM
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
+  real(8) :: sm,sm2
+  
+  NX = OP%Nsp
+  CCME%Nsp = NX
+  CCME%herm = OP%herm
+  JTM = jbas%Jtotal_max
+  CCME%nblocks = (JTM + 1) * 2 * 2
+  ! 2 dof for parity, 2 for Tz (i'm only worried about abs(Tz) ) 
+  allocate(CCME%CCX(CCME%nblocks)) ! < h a |v | p b> 
+  allocate(CCME%nph(CCME%nblocks)) ! number of ph pairs in block 
+!  allocate(CCME%rlen(CCME%nblocks)) ! number of total pairs in block
+  allocate(CCME%Jval(CCME%nblocks)) ! J value for block
+ ! allocate(CCME%rmap(NX*NX))  ! map of pair index to r indeces
+  allocate(CCME%qmap(NX*NX))  ! map of pair index to q indeces
+  allocate(CCME%nbmap(NX*NX)) 
+  
+  do i = 1, NX
+     do j = 1,NX
+        
+        ji = jbas%jj(i) 
+        jj = jbas%jj(j) 
+        
+        numJ = (ji + jj - abs(ji-jj))/2 + 1
+        
+        x = CCindex(i,j,NX) 
+        !allocate(CCME%rmap(x)%Z(numJ)) 
+        allocate(CCME%qmap(x)%Z(numJ))
+        allocate(CCME%nbmap(x)%Z(numJ))
+        CCME%qmap(x)%Z = 0
+        CCME%nbmap(x)%Z = 0
+     end do 
+  end do 
+  
+  
+  do q1 = 1, CCME%nblocks
+     
+     JC = mod(q1-1,JTM+1) * 2 
+     PAR = (q1 - 1) / (2*JTM + 2) 
+     TZ = mod(q1-1,(2*JTM+2))/(JTM+1)  
+     ! fastest changing quantity : JC
+     ! slowest: PAR 
+     
+     nb = 0 
+     r = 0 
+     do i = 1, NX
+        do j = 1,NX 
+           
+           ji = jbas%jj(i) 
+           jj = jbas%jj(j) 
+           
+           if (.not. (triangle(ji,jj,JC))) cycle 
+           if ( mod(jbas%ll(i) + jbas%ll(j),2) .ne. PAR ) cycle
+           if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
+           
+           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
+              nb = nb + 1 
+           end if 
+           
+           r = r+1
+        end do 
+     end do 
+     
+     allocate( CCME%CCX(q1)%X(nb,nb) ) 
+    
+     nb = 0 
+     r = 0 
+     do i = 1, NX
+        do j = 1,NX 
+           
+           ji = jbas%jj(i) 
+           jj = jbas%jj(j) 
+           if (.not. (triangle(ji,jj,JC))) cycle 
+           if ( mod(jbas%ll(i) + jbas%ll(j),2) .ne. PAR ) cycle
+           if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
+          
+           x = CCindex(i,j,NX) 
+           
+           g = 1
+           do while (CCME%qmap(x)%Z(g) .ne. 0) 
+              g = g + 1
+           end do 
+         
+           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then
+              nb = nb + 1
+              CCME%nbmap(x)%Z(g) = nb 
+           end if
+           
+           r = r+1
+           
+           CCME%qmap(x)%Z(g) = q1
+!           CCME%rmap(x)%Z(g) = r
+
+        end do 
+     end do 
+               
+     CCME%nph(q1) = nb
+ !    CCME%rlen(q1) = r
+     CCME%Jval(q1) = JC 
+  end do 
+end subroutine allocate_ex_CCMAT
+!=======================================================  
+!=======================================================
 subroutine allocate_tensor_CCMAT(OP,CCME,jbas) 
   ! allocates a cross-coupled ME storage structure
   ! currently the only CCME of interest are phab terms    |--->--| 
@@ -257,11 +377,12 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
 
                     if ( mod(jbas%ll(i) + jbas%ll(j),2) == PAR ) then
                        if (triangle(ji,jj,Jtot1)) then 
+
                           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
                              nb1 = nb1 + 1 
                           end if
-                       
-                          r1 = r1+1
+                          r1 = r1+1                       
+
                        end if
                     end if
                     
@@ -337,7 +458,7 @@ subroutine allocate_ex_tensor_CCMAT(OP,CCME,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: OP
-  type(pandya_mat) :: CCME
+  type(ex_pandya_mat) :: CCME
   integer :: Jtot1,Jtot2,ji,jp,jj,jh,JC,q1,q2,g,li,lj,ti,tj,q
   integer :: a,b,p,h,i,j,Jmin,Jmax,NX,TZ,PAR,x,JTM,RANK,Jold
   integer :: int1,int2,IX,JX,i1,i2,nb1,nb2,r1,r2,nh,np,numJ
@@ -376,14 +497,14 @@ subroutine allocate_ex_tensor_CCMAT(OP,CCME,jbas)
         numJ = (ji + jj - abs(ji-jj))/2 + 1
         
         x = CCindex(i,j,NX) 
-        allocate(CCME%rmap(x)%Z(numJ)) 
+        !allocate(CCME%rmap(x)%Z(numJ)) 
         allocate(CCME%qmap(x)%Z(numJ))
         allocate(CCME%nbmap(x)%Z(numJ))
         CCME%qmap(x)%Z = 0
         CCME%nbmap(x)%Z = 0
      end do 
   end do 
-  
+
   q1 = 0
   do Jtot1 = 0,2*jbas%jtotal_max,2 
      do Jtot2 = max(abs(Jtot1 - rank),Jtot1),Jtot1+rank,2
@@ -394,8 +515,11 @@ subroutine allocate_ex_tensor_CCMAT(OP,CCME,jbas)
               CCME%Jval(q1) = Jtot1
               CCME%Jval2(q1) = Jtot2
               
-              if (jtot2 > 2*jbas%jtotal_max) cycle 
-
+              if (jtot2 > 2*jbas%jtotal_max) then 
+                 allocate( CCME%CCX(q1)%X(0,0) ) 
+                 allocate( CCME%CCR(q1)%X(0,0) ) 
+                 cycle 
+              end if 
               ! fastest changing quantity : JC
               ! slowest: PAR 
 
@@ -418,8 +542,7 @@ subroutine allocate_ex_tensor_CCMAT(OP,CCME,jbas)
                           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
                              nb1 = nb1 + 1 
                           end if
-                       
-                          r1 = r1+1
+                          r1 = r1 + 1
                        end if
                     end if
                     
@@ -427,16 +550,15 @@ subroutine allocate_ex_tensor_CCMAT(OP,CCME,jbas)
                        if (triangle(ji,jj,Jtot2)) then 
                           if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
                              nb2 = nb2 + 1 
-                          end if
-                          
-                          r2 = r2+1
+                          end if                         
+                          r2 = r2 + 1
                        end if
                     end if
                  end do
               end do
 
-              allocate( CCME%CCX(q1)%X(r1,nb2) ) 
-              allocate( CCME%CCR(q1)%X(nb1,r2) ) 
+              allocate( CCME%CCX(q1)%X(nb1,nb2) ) 
+              allocate( CCME%CCR(q1)%X(nb1,nb2) ) 
 
               nb1 = 0 
               r1 = 0 
@@ -471,7 +593,7 @@ subroutine allocate_ex_tensor_CCMAT(OP,CCME,jbas)
                     r1 = r1+1
                     q = block_index(Jtot1,Tz,Par)          
                     CCME%qmap(x)%Z(g) = q
-                    CCME%rmap(x)%Z(g) = r1
+!                    CCME%rmap(x)%Z(g) = r1
                     
                     
                  end do
@@ -539,6 +661,53 @@ subroutine dup_CC(C1,CCME)
 end subroutine dup_CC
 !=======================================================  
 !=======================================================
+subroutine dup_ex_CC(C1,CCME) 
+  ! makes a copy of C1 onto CCME
+  implicit none 
+  
+  type(ex_cc_mat) :: C1,CCME
+  integer :: JT,ji,jp,jj,jh,JC,q1,q2
+  integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
+  real(8) :: sm,sm2
+  
+  NX = C1%Nsp
+  CCME%Nsp = NX
+  CCME%nblocks = C1%nblocks
+  CCME%herm = C1%herm
+ 
+  allocate(CCME%CCX(C1%nblocks))
+  allocate(CCME%nph(C1%nblocks))
+  allocate(CCME%Jval(C1%nblocks)) 
+  allocate(CCME%qmap(NX*NX))  ! map of pair index to q indeces
+  allocate(CCME%nbmap(NX*NX)) ! map of ph pair index to nb indeces
+  
+  do i = 1, NX
+     do j = 1,NX
+        
+        r = CCindex(i,j,NX)
+        
+        numJ = size(C1%qmap(r)%Z) 
+        allocate(CCME%qmap(r)%Z(numJ))
+        allocate(CCME%nbmap(r)%Z(numJ)) 
+        CCME%qmap(r)%Z = c1%qmap(r)%Z
+        CCME%nbmap(r)%Z = c1%nbmap(r)%Z
+       
+     end do 
+  end do 
+   
+  CCME%nph = C1%nph
+  CCME%Jval = C1%Jval
+  
+  do q1 = 1, CCME%nblocks
+     
+     nb = CCME%nph(q1) 
+     allocate( CCME%CCX(q1)%X(nb,nb) ) 
+     
+  end do 
+end subroutine dup_ex_CC
+!=======================================================  
+!=======================================================
 subroutine dup_pandya(C1,CCME) 
   ! makes a copy of C1 onto CCME
   implicit none 
@@ -598,8 +767,65 @@ subroutine dup_pandya(C1,CCME)
   end do 
 
 end subroutine dup_pandya
+!=======================================================  
 !=======================================================
-!===========================================================
+subroutine dup_ex_pandya(C1,CCME) 
+  ! makes a copy of C1 onto CCME
+  implicit none 
+  
+  type(ex_pandya_mat) :: C1,CCME
+  integer :: JT,ji,jp,jj,jh,JC,q1,q2
+  integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
+  real(8) :: sm,sm2
+    
+  NX = C1%Nsp
+  CCME%Nsp = NX
+  CCME%rank = C1%rank
+  CCME%dpar = C1%dpar
+  CCME%nblocks = C1%nblocks
+  CCME%herm = C1%herm
+ 
+  allocate(CCME%CCX(C1%nblocks))
+  allocate(CCME%CCR(C1%nblocks))
+  allocate(CCME%Jval(C1%nblocks)) 
+  allocate(CCME%qmap(NX*NX))  ! map of pair index to q indeces
+  allocate(CCME%nbmap(NX*NX)) ! map of ph pair index to nb indeces
+  
+  do i = 1, NX
+     do j = 1,NX
+        
+        r = CCindex(i,j,NX)
+        
+        numJ = size(C1%qmap(r)%Z) 
+        allocate(CCME%qmap(r)%Z(numJ))
+        allocate(CCME%nbmap(r)%Z(numJ)) 
+        CCME%qmap(r)%Z = c1%qmap(r)%Z
+        CCME%nbmap(r)%Z = c1%nbmap(r)%Z
+       
+     end do 
+  end do 
+   
+  CCME%Jval = C1%Jval
+  allocate(CCME%Jval2(C1%nblocks)) 
+  CCME%Jval2 = C1%Jval2
+  
+  
+  do q1 = 1, CCME%nblocks
+     
+     r = size(C1%CCX(q1)%X(:,1))    
+     nb = size(C1%CCX(q1)%X(1,:))
+     allocate( CCME%CCX(q1)%X(r,nb) ) 
+
+     nb = size(C1%CCR(q1)%X(:,1))    
+     r = size(C1%CCR(q1)%X(1,:))
+     allocate( CCME%CCR(q1)%X(nb,r) ) 
+     
+  end do 
+
+end subroutine dup_ex_pandya
+!=======================================================
+!=======================================================
 subroutine allocate_CC_wkspc(CCOP,WCC)
   implicit none 
   
@@ -642,6 +868,50 @@ subroutine allocate_pandya_wkspc(CCOP,WCC)
   end do
 
 end subroutine allocate_pandya_wkspc
+!=======================================================
+!=======================================================
+subroutine allocate_ex_CC_wkspc(CCOP,WCC)
+  implicit none 
+  
+  type(ex_cc_mat) :: CCOP,WCC 
+  integer :: q,r
+  
+  allocate(WCC%CCX(CCOP%nblocks))
+
+  do q = 1,CCOP%nblocks
+     
+     r = CCOP%nph(q)      
+     allocate(WCC%CCX(q)%X(r,r)) 
+     WCC%CCX(q)%X = 0.d0
+     
+  end do
+  
+
+end subroutine allocate_ex_CC_wkspc
+!===========================================================
+!===========================================================  
+subroutine allocate_ex_pandya_wkspc(CCOP,WCC)
+  implicit none 
+  
+  type(ex_pandya_mat) :: CCOP,WCC 
+  integer :: q,r1,r2
+  
+  allocate(WCC%CCX(CCOP%nblocks))
+  allocate(WCC%CCR(CCOP%nblocks))
+  
+  do q = 1,CCOP%nblocks
+     
+     r1 = size(CCOP%CCX(q)%X(:,1)) 
+     r2 = size(CCOP%CCR(q)%X(1,:))
+     
+     allocate(WCC%CCX(q)%X(r1,r2)) 
+     allocate(WCC%CCR(q)%X(r1,r2)) 
+     WCC%CCX(q)%X = 0.d0
+     WCC%CCR(q)%X = 0.d0
+     
+  end do
+
+end subroutine allocate_ex_pandya_wkspc
 !===========================================================
 !===========================================================     
 integer function CCindex(a,b,N)
@@ -782,7 +1052,7 @@ subroutine calculate_cross_coupled_pphh(HS,CCME,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: HS
-  type(cc_mat) :: CCME
+  type(ex_cc_mat) :: CCME
   integer :: JT,ja,jp,jb,jh,JC,q1,q2,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin,Jmax,Rindx,Gindx,g,ta,tb,Atot,hg,pg
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx,x,JTM,ax,bx
@@ -851,7 +1121,7 @@ subroutine calculate_cross_coupled_pphh(HS,CCME,jbas)
                     g = g + 1
                  end do
               
-                 Rindx = CCME%rmap(x)%Z(g)
+                 Rindx = CCME%nbmap(x)%Z(g)
                  
                  x = CCindex(b,a,HS%Nsp) 
                  g = 1
@@ -859,28 +1129,28 @@ subroutine calculate_cross_coupled_pphh(HS,CCME,jbas)
                     g = g + 1
                  end do
               
-                 Gindx = CCME%rmap(x)%Z(g)
+                 Gindx = CCME%nbmap(x)%Z(g)
                  
                  sm = 0.d0 
                
 !                 horse = 0.d0 
-                 if ( (mod(la + lh,2) == mod(lb + lp,2)) .and. &
-                      ( (ta + th) == (tb + tp) ) ) then  
+                 if ( (mod(lb + lh,2) == mod(la + lp,2)) .and. &
+                      ( (tb + th) == (ta + tp) ) ) then  
                
                     ! hapb 
-                    Jmin = max(abs(jp - jb),abs(ja - jh)) 
-                    Jmax = min(jp+jb,ja+jh) 
+                    Jmin = max(abs(jp - ja),abs(jb - jh)) 
+                    Jmax = min(jp+ja,jb+jh) 
                     
                     sm = 0.d0 
                     do JT = Jmin,Jmax,2
                        sm = sm + (-1)**(JT/2) * (JT + 1) * &
-                            sixj(jp,jh,JC,ja,jb,JT)  * &
-                            v_elem(h,a,p,b,JT,HS,jbas) 
+                            sixj(jp,jh,JC,jb,ja,JT)  * &
+                            v_elem(h,b,p,a,JT,HS,jbas) 
                     end do
                  
                     ! store  < h a | v | p b>    Pandya ( V )_h(p)b(a)
-                    CCME%CCX(q1)%X(Rindx,NBindx) = sm * &
-                         (-1) **( (jh + jb + JC) / 2) * pre * sqrt(JC + 1.d0)
+                    CCME%CCX(q1)%X(Gindx,NBindx) = sm * &
+                         (-1) **( (jh + ja + JC) / 2) * pre * sqrt(JC + 1.d0)
                     ! scaled by sqrt(JC + 1) for convience in ph derivative
 
                  end if
@@ -1125,7 +1395,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: OP 
-  type(pandya_mat) :: CCME
+  type(ex_pandya_mat) :: CCME
   integer :: Jtot1,Jtot2,ja,jp,jb,jh,JC,q1,q2,q,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
   integer :: a,b,p,h,i,j,Jmin1,Jmax1,Rindx,Gindx,g,ta,tb,Atot,hg,pg,J3,J4,NBindx2,qONE,qTWO
   integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx1,x,JTM,rank,Jmin2,Jmax2,bx,ax
@@ -1252,14 +1522,14 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas)
                  if ( (triangle(ja,jb,Jtot1)) .and. (NBindx2 .ne. 0) ) then 
        
                     if ( mod(la+lb,2) == PAR ) then 
-                       x = CCindex(a,b,OP%Nsp) 
+                       x = CCindex(b,a,OP%Nsp) 
                        
                        g = 1
                        do while (CCME%qmap(x)%Z(g) .ne. qONE )
                           g = g + 1
                        end do
               
-                       Rindx = CCME%rmap(x)%Z(g)
+                       Rindx = CCME%nbmap(x)%Z(g)
                  
                        if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
                             ( (ta + th) == (tb + tp) ) ) then  
@@ -1292,13 +1562,13 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas)
                  if ((triangle(ja,jb,Jtot2)) .and. (NBindx1 .ne. 0) ) then 
                     
                     if ( mod(la+lb+op%dpar/2,2) == PAR ) then 
-                       x = CCindex(a,b,OP%Nsp) 
+                       x = CCindex(b,a,OP%Nsp) 
                        g = 1
                        do while (CCME%qmap(x)%Z(g) .ne. qTWO )
                           g = g + 1
                        end do
                     
-                       Gindx = CCME%rmap(x)%Z(g)
+                       Gindx = CCME%nbmap(x)%Z(g)
                  
 
                        if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
@@ -1321,7 +1591,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas)
                           end do
 
                           ! store  ( V )_p(h)a(b)
-                          
+
                           ! PH JTOT IS LESS THAN OR EQUAL TO.
                           CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
                                (-1) **( (jb+jh+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
@@ -1479,9 +1749,26 @@ integer function specific_rval(i,l,Ntot,q,LCC)
   
   specific_rval = LCC%rmap(x)%Z(g)
 end function specific_rval
+!=====================================================
+!=====================================================      
+integer function ex_specific_rval(i,l,Ntot,q,LCC) 
+  implicit none 
+  
+  type(ex_cc_mat) :: LCC
+  integer :: i,l,Ntot,x,g,q
+  
+  x = CCindex(i,l,Ntot)
+  g = 1
+  do while (LCC%qmap(x)%Z(g) .ne. q )
+  
+     g = g + 1
+  end do
+  
+  ex_specific_rval = LCC%nbmap(x)%Z(g)
+end function ex_specific_rval
 !============================================
 !============================================
-integer function ph_rval(i,l,Ntot,q,LCC) 
+integer function reg_ph_rval(i,l,Ntot,q,LCC) 
   implicit none 
   
   type(cc_mat) :: LCC
@@ -1494,8 +1781,8 @@ integer function ph_rval(i,l,Ntot,q,LCC)
      g = g + 1
   end do
   
-  ph_rval = LCC%nbmap(x)%Z(g)
-end function ph_rval
+  reg_ph_rval = LCC%nbmap(x)%Z(g)
+end function reg_ph_rval
 !=====================================================
 !=====================================================   
 integer function pandya_rval(i,l,Ntot,q,LCC) 
@@ -1513,5 +1800,38 @@ integer function pandya_rval(i,l,Ntot,q,LCC)
   pandya_rval = LCC%rmap(x)%Z(g)
 end function pandya_rval
 !=====================================================
-!=====================================================      
+!=====================================================   
+integer function ex_ph_rval(i,l,Ntot,q,LCC) 
+  implicit none 
+  
+  type(ex_cc_mat) :: LCC
+  integer :: i,l,Ntot,x,g,q
+  
+  x = CCindex(i,l,Ntot)
+  g = 1
+
+  do while (LCC%qmap(x)%Z(g) .ne. q )
+     g = g + 1
+  end do
+  
+  ex_ph_rval = LCC%nbmap(x)%Z(g)
+end function ex_ph_rval
+!=====================================================
+!=====================================================   
+integer function ex_pandya_rval(i,l,Ntot,q,LCC) 
+  implicit none 
+  
+  type(ex_pandya_mat) :: LCC
+  integer :: i,l,Ntot,x,g,q
+  
+  x = CCindex(i,l,Ntot)
+  g = 1
+  do while (LCC%qmap(x)%Z(g) .ne. q )  
+     g = g + 1
+  end do
+  
+  ex_pandya_rval = LCC%nbmap(x)%Z(g)
+end function ex_pandya_rval
+!=====================================================
+!=====================================================    
 end module

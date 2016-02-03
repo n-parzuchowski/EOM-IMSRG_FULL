@@ -443,7 +443,7 @@ subroutine dHds(t,yy,yp,HS,jbas,build_gen)
   call build_gen(HS,ETA,jbas) ! constructs generator
   
   call calculate_cross_coupled(HS,HSCC,jbas)
-  call calculate_cross_coupled_pphh(ETA,ETACC,jbas) 
+  call calculate_cross_coupled(ETA,ETACC,jbas) 
    
   DH%E0 = commutator_110(ETA,HS,jbas) + commutator_220(ETA,HS,jbas)
 

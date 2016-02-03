@@ -116,7 +116,8 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   type(sq_op) :: op,V1,Q1,Q2,w1,w2
   type(sq_op),dimension(nev) :: Vecs
   type(cc_mat) :: OpCC,QCC,WCC
-  type(pandya_mat) :: QPP,WPP
+  type(ex_pandya_mat) :: QPP,WPP
+  type(ex_cc_mat) :: OpPP
   real(8),allocatable,dimension(:) :: workl,D,eigs,resid,work,workD
   real(8),allocatable,dimension(:,:) :: V,Z
   integer :: i,j,ix,jx,lwork,info,ido,ncv,ldv,iparam(11),ipntr(11),q,II,JJ
@@ -129,27 +130,23 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
 
   Q1%pphh_ph=.true.
   Q2%pphh_ph=.true.
+  w1%pphh_ph=.false.
+  w2%pphh_ph=.false.
 
   call duplicate_sq_op(vecs(1),w1,'w') !workspace
   call duplicate_sq_op(vecs(1),w2,'w') !workspace
   call duplicate_sq_op(vecs(1),Q1,'y') !workspace
   call duplicate_sq_op(vecs(1),Q2,'y') !workspace
  
-  call init_ph_mat(Op,OpCC,jbas) !cross coupled ME
-  
   if (vecs(1)%rank == 0) then 
-!     allocate(cc_mat:: QCC)
- !    allocate(cc_mat:: WCC)
+     call init_ph_mat(Op,OpCC,jbas) !cross coupled ME
      call duplicate_ph_mat(OpCC,QCC) !cross coupled ME     
      call init_ph_wkspc(QCC,WCC) 
   else 
- !    allocate(pandya_mat:: QCC)
-  !   allocate(pandya_mat:: WCC)
+     call init_ph_mat(Op,OpPP,jbas) !cross coupled ME
      call init_ph_mat(vecs(1),QPP,jbas) !cross coupled ME
      call init_ph_wkspc(QPP,WPP) 
   end if
-
-! workspace for CCME
   
   h = OP%belowEF !holes
   p = OP%Nsp-h  !particles
@@ -279,7 +276,7 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
     if ( vecs(1)%rank == 0 ) then 
        call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
     else
-       call matvec_nonzeroX_prod(N,OP,Q1,Q2,w1,w2,OpCC,QPP,WPP,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
+       call matvec_nonzeroX_prod(N,OP,Q1,Q2,w1,w2,OpPP,QPP,WPP,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
     end if
     
     end do 
@@ -299,7 +296,9 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   
   ! right now Z contains the eigenvectors in the columns
   ! d contains the eigenvalues in the same order. 
-  
+  deallocate(WPP%CCR)
+  deallocate(QPP%CCX)
+  deallocate(QPP%CCR)
   do i = 1, nev
      if (Vecs(i)%rank .ne. 0 ) then
         call unwrap_tensor(Z(:,i),Vecs(i),N,jbas) 
@@ -349,9 +348,7 @@ subroutine matvec_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   call EOM_scalar_commutator_222_pp_hh(Op,Q_op,Qout,w1,w2,jbas) ! verified   
   call EOM_scalar_commutator_221(Op,Q_op,Qout,w1,w2,jbas)  ! verified.    
   call EOM_scalar_commutator_222_ph(OpCC,QCC,Qout,WCC,jbas) 
-  
-  
-
+ 
   ! Okay, now we have the "matrix vector product" So lets put it back in vector form:
   call rewrap(w,Qout,N,jbas) 
 end subroutine
@@ -363,8 +360,8 @@ subroutine matvec_nonzeroX_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   integer :: N ,q,a,b,c,d,i,j,k,l,Jtot
   real(8) :: sm
   type(sq_op) :: OP, Q_op ,Qout,w1,w2
-  type(pandya_mat) :: QCC,WCC
-  type(cc_mat) :: OpCC
+  type(ex_pandya_mat) :: QCC,WCC
+  type(ex_cc_mat) :: OpCC
   type(spd) :: jbas
   real(8),dimension(N) :: v,w 
   real(8) :: coef9,dfact0
@@ -382,7 +379,7 @@ subroutine matvec_nonzeroX_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   ! now we have two sq_op operators which can be used with my commutator expressions. Noice. 
   
   call EOM_generalized_pandya(Q_op,QCC,jbas)
-  call calculate_cross_coupled(Op,OpCC,jbas) 
+  call calculate_cross_coupled_pphh(Op,OpCC,jbas) 
   
   call EOM_TS_commutator_111(Op,Q_op,Qout,jbas) 
   call EOM_TS_commutator_121(Op,Q_op,Qout,jbas)
