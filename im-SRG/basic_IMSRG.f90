@@ -3114,7 +3114,7 @@ logical function read_twobody_operator(H,stage)
   if (prefix(1:8) == 'testcase') return  
   inquire(file=trim(TBME_DIR)//trim(adjustl(prefix))//&
        '_'//stage//'_normal_ordered.gz',exist=isthere)
-  
+    
   if ( .not. isthere ) then 
      return
   end if 

@@ -24,7 +24,7 @@ program main_IMSRG
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
-  logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin
+  logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin,write_omega
   external :: build_gs_white,build_specific_space,build_hartree_fock_gen
   integer :: heiko(30)
 !============================================================
@@ -120,7 +120,8 @@ program main_IMSRG
 !============================================================
   
   call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
-
+  
+  writing = .false. 
   if (threebod%e3Max.ne.0) then 
      writing = read_twobody_operator( HS,'bare' )
      if ( writing.or.COM_calc.or.r2rms_calc.or.trans_calc ) then 
@@ -179,9 +180,19 @@ program main_IMSRG
   select case (method_int) 
   
   case (1) ! magnus 
-
-     call magnus_decouple(HS,exp_omega,jbasis,quads,trips,build_gs_white)    
-
+     
+     call duplicate_sq_op(HS,exp_omega)
+     exp_omega%herm = -1
+     write_omega = read_twobody_operator( exp_omega ,'omega' )     
+     
+     if ( write_omega ) then 
+        call magnus_decouple(HS,exp_omega,jbasis,quads,trips,build_gs_white)    
+        call write_twobody_operator(exp_omega,'omega')
+     else
+        print*, 'READ TRANSFORMATION FROM FILE, SKIPPING IMSRG...' 
+        call transform_observable_BCH(HS,exp_omega,jbasis,quads) 
+     end if 
+     
      if (COM_calc) then 
         print*, 'TRANSFORMING Hcm'
         call transform_observable_BCH(pipj,exp_omega,jbasis,quads)
@@ -234,7 +245,7 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
-
+  
   if (ex_calc_int==1) then 
      call calculate_excited_states(HS%Jtarg,HS%Ptarg,3,HS,jbasis,Otrans) 
  !    t2 = omp_get_wtime() 
