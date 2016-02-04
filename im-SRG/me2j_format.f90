@@ -1097,17 +1097,17 @@ do a= 1, aMax
                      
                      !fhh 
                      
-                     H%fhh( jbas%holesb4(i)+1 , jbas%holesb4(j)+1 ) = V 
+                     H%fhh( hb4(i)+1 , hb4(j)+1 ) = V 
                      
                   else if (jbas%con(i) + jbas%con(j) == 0 ) then 
                      
                      !fpp 
                      
-                     H%fpp( jbas%partsb4(i)+1 , jbas%partsb4(j)+1 ) = V 
+                     H%fpp( pb4(i)+1 , pb4(j)+1 ) = V 
                   
                   else if ((jbas%con(i)==0) .and. (jbas%con(j) == 1) ) then 
                      !fph
-                     H%fph( jbas%partsb4(i)+1 , jbas%holesb4(j)+1 ) = V
+                     H%fph( pb4(i)+1 , hb4(j)+1 ) = V
                   end if 
                   
            

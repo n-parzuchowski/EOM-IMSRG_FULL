@@ -21,7 +21,7 @@ module basic_IMSRG
   TYPE :: spd    ! single particle discriptor
      INTEGER :: total_orbits,Jtotal_max,lmax,spblocks
      INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
-     INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holesb4,partsb4,holes,parts 
+     INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holes,parts 
      type(int_vec), allocatable,dimension(:) :: states
      type(int_vec),allocatable,dimension(:) :: xmap,xmap_tensor
      ! for clarity:  nn, ll, nshell are all the true value
@@ -107,6 +107,7 @@ module basic_IMSRG
   logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
   ! 100000 if square matrix, 1 if not. 
   integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
+  integer,allocatable,dimension(:),public :: hb4,pb4
 
 
 
@@ -182,8 +183,8 @@ subroutine read_sp_basis(jbas,hp,hn,method)
   allocate(jbas%nshell(ix)) !shell number
   allocate(jbas%e(ix)) ! sp energies
   allocate(jbas%con(ix)) ! hole or particle (1 or 0) 
-  allocate(jbas%holesb4(ix)) !number of holes beneath this index
-  allocate(jbas%partsb4(ix)) !number of particles beneath this index
+  allocate(hb4(ix)) !number of holes beneath this index
+  allocate(pb4(ix)) !number of particles beneath this index
 
   ! go back to the start and read them in. 
   rewind(39) 
@@ -381,8 +382,8 @@ subroutine find_holes(jbas,pholes,nholes,hk)
   r1 = 1
   r2 = 1
   do i = 1, jbas%total_orbits
-     jbas%holesb4(i) = sum(jbas%con(1:i-1)) 
-     jbas%partsb4(i) = i - jbas%holesb4(i) - 1 
+     hb4(i) = sum(jbas%con(1:i-1)) 
+     pb4(i) = i - hb4(i) - 1 
      
      ! write down the position of the holes and parts
      if (jbas%con(i) == 1) then 
@@ -1356,19 +1357,19 @@ real(8) function f_elem(a,b,op,jbas)
   select case(c1+c2) 
      case(0) 
         ! pp 
-        f_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
+        f_elem = op%fpp(a-hb4(a),b-hb4(b)) 
   
      case(1) 
         ! ph 
         if (c1 > c2) then 
-           f_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
+           f_elem = op%fph(b-hb4(b),a-pb4(a)) * &
                 op%herm
         else 
-           f_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+           f_elem = op%fph(a-hb4(a),b-pb4(b)) 
         end if
      case(2) 
         ! hh 
-        f_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
+        f_elem = op%fhh(a-pb4(a),b-pb4(b)) 
   end select
 
 end function
@@ -1393,19 +1394,19 @@ real(8) function ph_elem(a,b,op,jbas)
   select case(c1+c2) 
      case(0) 
         ! pp 
-        ph_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
+        ph_elem = op%fpp(a-hb4(a),b-hb4(b)) 
   
      case(1) 
         ! ph 
         if (c1 > c2) then 
-           ph_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
+           ph_elem = op%fph(b-hb4(b),a-pb4(a)) * &
                 op%herm
         else 
-           ph_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+           ph_elem = op%fph(a-hb4(a),b-pb4(b)) 
         end if
      case(2) 
         ! hh 
-        ph_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
+        ph_elem = op%fhh(a-pb4(a),b-pb4(b)) 
   end select
 
 end function
@@ -1425,19 +1426,19 @@ real(8) function f_tensor_elem(a,b,op,jbas)
   select case(c1+c2) 
      case(0) 
         ! pp 
-        f_tensor_elem = op%fpp(a-jbas%holesb4(a),b-jbas%holesb4(b)) 
+        f_tensor_elem = op%fpp(a-hb4(a),b-hb4(b)) 
   
      case(1) 
         ! ph 
         if (c1 > c2) then 
-           f_tensor_elem = op%fph(b-jbas%holesb4(b),a-jbas%partsb4(a)) * &
+           f_tensor_elem = op%fph(b-hb4(b),a-pb4(a)) * &
               op%herm * (-1)**( (jbas%jj(a) - jbas%jj(b))/2 ) 
         else 
-           f_tensor_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+           f_tensor_elem = op%fph(a-hb4(a),b-pb4(b)) 
         end if
      case(2) 
         ! hh 
-        f_tensor_elem = op%fhh(a-jbas%partsb4(a),b-jbas%partsb4(b)) 
+        f_tensor_elem = op%fhh(a-pb4(a),b-pb4(b)) 
   end select
 
 end function
@@ -1459,7 +1460,7 @@ real(8) function ph_tensor_elem(a,b,op,jbas)
      return
   end if 
   
-  ph_tensor_elem = op%fph(a-jbas%holesb4(a),b-jbas%partsb4(b)) 
+  ph_tensor_elem = op%fph(a-hb4(a),b-pb4(b)) 
            
 end function
 !==============================================================
@@ -2224,17 +2225,17 @@ subroutine calculate_h0_harm_osc(hw,jbas,H,Htype)
         
         select case (cx) 
            case(0) 
-              H%fpp(i-jbas%holesb4(i),j-jbas%holesb4(j)) = T
-              H%fpp(j-jbas%holesb4(j),i-jbas%holesb4(i)) = T
+              H%fpp(i-hb4(i),j-hb4(j)) = T
+              H%fpp(j-hb4(j),i-hb4(i)) = T
            case(1) 
               if (c2 > c1) then 
-                 H%fph(i-jbas%holesb4(i),j-jbas%partsb4(j)) = T
+                 H%fph(i-hb4(i),j-pb4(j)) = T
               else
-                 H%fph(j-jbas%holesb4(j),i-jbas%partsb4(i)) = T
+                 H%fph(j-hb4(j),i-pb4(i)) = T
               end if 
            case(2) 
-              H%fhh(i-jbas%partsb4(i),j-jbas%partsb4(j)) = T
-              H%fhh(j-jbas%partsb4(j),i-jbas%partsb4(i)) = T
+              H%fhh(i-pb4(i),j-pb4(j)) = T
+              H%fhh(j-pb4(j),i-pb4(i)) = T
         end select
      
      end do

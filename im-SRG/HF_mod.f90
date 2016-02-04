@@ -457,22 +457,22 @@ subroutine transform_1b_to_HF(D,Dx,F,H,jbas,T,V,V3)
            ! fancy array remap ( normal ordered now ) 
      select case (cx) 
         case(0) 
-           H%fpp(i-jbas%holesb4(i),j-jbas%holesb4(j)) = &
+           H%fpp(i-hb4(i),j-hb4(j)) = &
                 F%blkM(q)%matrix(a,b) 
-           H%fpp(j-jbas%holesb4(j),i-jbas%holesb4(i)) = &
+           H%fpp(j-hb4(j),i-hb4(i)) = &
                 F%blkM(q)%matrix(a,b) 
         case(1) 
            if (c2 > c1) then 
-              H%fph(i-jbas%holesb4(i),j-jbas%partsb4(j)) = &
+              H%fph(i-hb4(i),j-pb4(j)) = &
                 F%blkM(q)%matrix(a,b)   
            else
-              H%fph(j-jbas%holesb4(j),i-jbas%partsb4(i)) = &
+              H%fph(j-hb4(j),i-pb4(i)) = &
                 F%blkM(q)%matrix(b,a)
            end if 
         case(2) 
-           H%fhh(i-jbas%partsb4(i),j-jbas%partsb4(j)) = &
+           H%fhh(i-pb4(i),j-pb4(j)) = &
                 F%blkM(q)%matrix(a,b)
-           H%fhh(j-jbas%partsb4(j),i-jbas%partsb4(i)) = &
+           H%fhh(j-pb4(j),i-pb4(i)) = &
                 F%blkM(q)%matrix(a,b)
      end select
          
@@ -658,15 +658,15 @@ subroutine transform_1b_to_HF_tensor(D,O1,jbas)
            ! fancy array remap ( normal ordered now ) 
         select case (cx) 
         case(0) 
-           O1%fpp(i-jbas%holesb4(i),j-jbas%holesb4(j)) = &
+           O1%fpp(i-hb4(i),j-hb4(j)) = &
                 Ffull(i,j) 
         case(1) 
            if (c2 > c1) then 
-              O1%fph(i-jbas%holesb4(i),j-jbas%partsb4(j)) = &
+              O1%fph(i-hb4(i),j-pb4(j)) = &
                    Ffull(i,j)  
            end if
         case(2) 
-           O1%fhh(i-jbas%partsb4(i),j-jbas%partsb4(j)) = &
+           O1%fhh(i-pb4(i),j-pb4(j)) = &
                 Ffull(i,j)
         end select
         

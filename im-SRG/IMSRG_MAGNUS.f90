@@ -996,8 +996,8 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
            do c = 1, Abody
               
               cx = jbas%holes(c) 
-              h1 = jbas%holesb4(i)+1 
-              h2 = jbas%holesb4(j)+1
+              h1 = hb4(i)+1 
+              h2 = hb4(j)+1
               
               
               ! i've already built the INT2 minus signs into the one-body
@@ -1013,8 +1013,8 @@ subroutine restore_quadrupoles( X , OM, w1,w2, RES,jbas )
           do c = 1, Ntot-Abody
               
               cx = jbas%parts(c) 
-              p1 = jbas%partsb4(a)+1 
-              p2 = jbas%partsb4(b)+1
+              p1 = pb4(a)+1 
+              p2 = pb4(b)+1
               
               
               ! i've already built the INT2 minus signs into the one-body

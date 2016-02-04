@@ -187,8 +187,8 @@ subroutine  EOM_TS_commutator_211(LCC,R,RES,jbas)
 
               qx = rank/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
                 
-              rai = ph_rval(ak,ik,Ntot,qx,LCC)
-              rpq = fetch_rval(pk,qk,Ntot,qx,LCC)
+              rai = fetch_rval(ak,ik,R%belowEF,qx,LCC)
+              rpq = fetch_rval(pk,qk,R%belowEF,qx,LCC)
 
               sm = sm - (-1)**(( jp + jq + rank)/2) * R%fph(a,i) &               
               * LCC%CCX(qx)%X(rpq,rai) / sqrt(rank + 1.d0 ) 
@@ -712,13 +712,14 @@ end subroutine
    integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
-   integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,f1,f2
+   integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,f1,f2,Atot
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex
    logical :: square
    
   rank = RES%rank
   Ntot = RES%Nsp
   JTM = jbas%Jtotal_max
+  Atot = RES%belowEF
   total_threads = size(RES%direct_omp) - 1
    ! construct intermediate matrices
 
@@ -832,9 +833,9 @@ end subroutine
                       q1 = block_index(J3,Tz,PAR)
                       
                       if (jbas%con(i)-jbas%con(l) > 0) then 
-                         rli = fetch_rval(l,i,Ntot,q1,RCC)
+                         rli = fetch_rval(l,i,Atot,q1,RCC)
                       else
-                         rli = fetch_rval(i,l,Ntot,q1,RCC)
+                         rli = fetch_rval(i,l,Atot,q1,RCC)
                       end if 
                       
                       do J4 = max( J3 , J4min ) , J4max,2 
@@ -845,9 +846,9 @@ end subroutine
                          q2 = block_index(J4,Tz,PAR2)
                
                          if (jbas%con(j)-jbas%con(k) > 0) then 
-                            rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                            rkj = fetch_rval(k,j,Atot,q2,RCC)
                          else
-                            rkj = fetch_rval(j,k,Ntot,q2,RCC)
+                            rkj = fetch_rval(j,k,Atot,q2,RCC)
                          end if
 
               
@@ -868,9 +869,9 @@ end subroutine
                          q2 = block_index(J4,Tz,PAR2)
                          
                          if (jbas%con(j)-jbas%con(k) > 0) then 
-                            rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                            rkj = fetch_rval(k,j,Atot,q2,RCC)
                          else
-                            rkj = fetch_rval(j,k,Ntot,q2,RCC)
+                            rkj = fetch_rval(j,k,Atot,q2,RCC)
                          end if
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
@@ -906,9 +907,9 @@ end subroutine
                       q1 = block_index(J3,Tz,PAR)
                       
                       if (jbas%con(j)-jbas%con(l) > 0) then 
-                         rlj = fetch_rval(l,j,Ntot,q1,RCC)
+                         rlj = fetch_rval(l,j,Atot,q1,RCC)
                       else
-                         rlj = fetch_rval(j,l,Ntot,q1,RCC)
+                         rlj = fetch_rval(j,l,Atot,q1,RCC)
                       end if
                       
                       do J4 = max( J3 , J4min ) , J4max,2 
@@ -920,9 +921,9 @@ end subroutine
                          q2 = block_index(J4,Tz,PAR2)
                          
                          if (jbas%con(i)-jbas%con(k) > 0) then 
-                            rki = fetch_rval(k,i,Ntot,q2,RCC)
+                            rki = fetch_rval(k,i,Atot,q2,RCC)
                          else
-                            rki = fetch_rval(i,k,Ntot,q2,RCC)
+                            rki = fetch_rval(i,k,Atot,q2,RCC)
                          end if
 
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
@@ -943,9 +944,9 @@ end subroutine
 
                          
                          if (jbas%con(i)-jbas%con(k) > 0) then 
-                            rki = fetch_rval(k,i,Ntot,q2,RCC)
+                            rki = fetch_rval(k,i,Atot,q2,RCC)
                          else
-                            rki = fetch_rval(i,k,Ntot,q2,RCC)
+                            rki = fetch_rval(i,k,Atot,q2,RCC)
                          end if
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
@@ -1037,9 +1038,9 @@ end subroutine
                       q1 = block_index(J3,Tz,PAR)
                       
                       if (jbas%con(i)-jbas%con(l) > 0) then 
-                         rli = fetch_rval(l,i,Ntot,q1,RCC)
+                         rli = fetch_rval(l,i,Atot,q1,RCC)
                       else
-                         rli = fetch_rval(i,l,Ntot,q1,RCC)
+                         rli = fetch_rval(i,l,Atot,q1,RCC)
                       end if 
                       
                       do J4 = max( J3 , J4min ) , J4max,2 
@@ -1050,9 +1051,9 @@ end subroutine
                          q2 = block_index(J4,Tz,PAR2)
 
                          if (jbas%con(j)-jbas%con(k) > 0) then 
-                            rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                            rkj = fetch_rval(k,j,Atot,q2,RCC)
                          else
-                            rkj = fetch_rval(j,k,Ntot,q2,RCC)
+                            rkj = fetch_rval(j,k,Atot,q2,RCC)
                          end if
               
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
@@ -1072,9 +1073,9 @@ end subroutine
                          q2 = block_index(J4,Tz,PAR2)
 
                          if (jbas%con(j)-jbas%con(k) > 0) then 
-                            rkj = fetch_rval(k,j,Ntot,q2,RCC)
+                            rkj = fetch_rval(k,j,Atot,q2,RCC)
                          else
-                            rkj = fetch_rval(j,k,Ntot,q2,RCC)
+                            rkj = fetch_rval(j,k,Atot,q2,RCC)
                          end if
 
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
@@ -1110,9 +1111,9 @@ end subroutine
                       q1 = block_index(J3,Tz,PAR)
                       
                       if (jbas%con(j)-jbas%con(l) > 0) then 
-                         rlj = fetch_rval(l,j,Ntot,q1,RCC)
+                         rlj = fetch_rval(l,j,Atot,q1,RCC)
                       else
-                         rlj = fetch_rval(j,l,Ntot,q1,RCC)
+                         rlj = fetch_rval(j,l,Atot,q1,RCC)
                       end if
                       
                       do J4 = max( J3 , J4min ) , J4max,2 
@@ -1124,9 +1125,9 @@ end subroutine
                          q2 = block_index(J4,Tz,PAR2)
 
                          if (jbas%con(i)-jbas%con(k) > 0) then 
-                            rki = fetch_rval(k,i,Ntot,q2,RCC)
+                            rki = fetch_rval(k,i,Atot,q2,RCC)
                          else
-                            rki = fetch_rval(i,k,Ntot,q2,RCC)
+                            rki = fetch_rval(i,k,Atot,q2,RCC)
                          end if
 
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
@@ -1147,9 +1148,9 @@ end subroutine
 
 
                          if (jbas%con(i)-jbas%con(k) > 0) then 
-                            rki = fetch_rval(k,i,Ntot,q2,RCC)
+                            rki = fetch_rval(k,i,Atot,q2,RCC)
                          else
-                            rki = fetch_rval(i,k,Ntot,q2,RCC)
+                            rki = fetch_rval(i,k,Atot,q2,RCC)
                          end if                         
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
