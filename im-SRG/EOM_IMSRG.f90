@@ -296,9 +296,6 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   
   ! right now Z contains the eigenvectors in the columns
   ! d contains the eigenvalues in the same order. 
-  deallocate(WPP%CCR)
-  deallocate(QPP%CCX)
-  deallocate(QPP%CCR)
   do i = 1, nev
      if (Vecs(i)%rank .ne. 0 ) then
         call unwrap_tensor(Z(:,i),Vecs(i),N,jbas) 
