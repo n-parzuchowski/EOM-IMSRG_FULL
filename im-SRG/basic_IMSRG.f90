@@ -3052,17 +3052,23 @@ subroutine write_twobody_operator(H,stage)
   ! first figure out how many equations there are:
  
   type(sq_op) :: H 
-  integer Atot,Ntot,q
+  integer Atot,Ntot,q,i
   real(8),allocatable,dimension(:):: outvec 
   character(*),intent(in) :: stage 
-  character(200) :: input,stringout
+  character(200) :: prefix2,stringout
   integer(c_int) :: rx,filehandle
   logical :: isthere
   
   if (prefix(1:8) == 'testcase') return  
 
+  do i = 1,200
+     if ((prefix(i:i) == '+').or.(prefix(i:i) == '-')) exit
+  end do
+  
+  prefix2(1:i-3)=prefix(1:i-3) 
+  prefix2(i-2:197)=prefix(i+1:200)
   print*, 'Writing normal ordered interaction to ',&
-       trim(TBME_DIR)//trim(adjustl(prefix))//&
+       trim(TBME_DIR)//trim(adjustl(prefix2(1:i+4)))//&
        '_'//stage//'_normal_ordered.gz'
   
   Atot = H%belowEF
@@ -3085,7 +3091,7 @@ subroutine write_twobody_operator(H,stage)
   call vectorize(H,outvec) 
   
   
-  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix))//&
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+4)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'w'//achar(0)) 
   
   do q =1,neq
@@ -3105,16 +3111,24 @@ logical function read_twobody_operator(H,stage)
   integer Atot,Ntot,q
   real(8),allocatable,dimension(:):: outvec 
   character(*),intent(in) :: stage 
-  character(200) :: input
+  character(200) :: prefix2
   character(20) :: instring
   integer(c_int) :: rx,filehandle
   logical :: isthere
 
   read_twobody_operator = .true.   
   if (prefix(1:8) == 'testcase') return  
-  inquire(file=trim(TBME_DIR)//trim(adjustl(prefix))//&
-       '_'//stage//'_normal_ordered.gz',exist=isthere)
+
+  do i = 1,200
+     if ((prefix(i:i) == '+').or.(prefix(i:i) == '-')) exit
+  end do
+  
+  prefix2(1:i-3)=prefix(1:i-3) 
+  prefix2(i-2:197)=prefix(i+1:200)
     
+  inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+4)))//&
+       '_'//stage//'_normal_ordered.gz',exist=isthere)
+  
   if ( .not. isthere ) then 
      return
   end if 
@@ -3140,7 +3154,7 @@ logical function read_twobody_operator(H,stage)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix))//&
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+4)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'r'//achar(0)) 
   
   do q =1,neq
