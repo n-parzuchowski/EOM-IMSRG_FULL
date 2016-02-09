@@ -130,7 +130,7 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
   type(sq_op) :: HS 
   type(cc_mat) :: HSCC
   integer :: q,JT,r1,r2,a,b,i,j,x,g,NBindx,Rindx,q1,Tz,PAR,JTM
-  integer :: ji,jj,ja,jb
+  integer :: ji,jj,ja,jb,phase
   
   JTM = jbas%Jtotal_max
   do q = 1, TDA%blocks
@@ -161,8 +161,9 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
            
            jj = jbas%jj(j)
            jb = jbas%jj(b)
+           phase = (-1)**((jj+jb)/2)
            ! get CCindex for this pair
-           x = CCindex(j,b,HS%Nsp) 
+           x = CCindex(b,j,HS%Nsp) 
            g = 1
            do while (HSCC%qmap(x)%Z(g) .ne. q1 )
               g = g + 1
@@ -175,13 +176,13 @@ subroutine calc_TDA(TDA,HS,HSCC,jbas)
                 kron_del(i,j) - f_elem(j,i,HS,jbas) * kron_del(a,b)
            
            ! two body piece
-           ! TDA%blkM(q)%matrix(r1,r2) = TDA%blkM(q)%matrix(r1,r2) - &
-           !      HSCC%CCR(q1)%X(NBindx,Rindx) * &
-           !      (-1) ** ((JT)/2) /sqrt(JT+1.d0) 
-         
+!           TDA%blkM(q)%matrix(r1,r2) = TDA%blkM(q)%matrix(r1,r2) - &
+ !               Vcc(i,a,b,j,JT,HS,jbas)*(-1)**((ja+ji)/2) * &
+  !              (-1) ** ((JT)/2) /sqrt(JT+1.d0) 
+           
            TDA%blkM(q)%matrix(r1,r2) = TDA%blkM(q)%matrix(r1,r2) - &
                 HSCC%CCX(q1)%X(Rindx,NBindx) * HSCC%herm * & !need scaling.
-                (-1) ** ((JT)/2) /sqrt(JT+1.d0) *(-1) **(( ji+jj+ja+jb)/2) 
+                (-1) ** (JT/2) /sqrt(JT+1.d0) * phase  
          
            ! I have to account for the fact that the CCME are scaled by 
            ! Sqrt[2J+1] * (-1)^(j_i + j_a) 
