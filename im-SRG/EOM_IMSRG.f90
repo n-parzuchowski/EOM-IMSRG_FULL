@@ -103,7 +103,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   open(unit=75,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_lawson_check.dat'&
        ,position='append')
-  write(75,*) HS%lawson_beta, HS%E0,ladder_ops(1:3)%E0+HS%E0
+  write(75,'(5(e17.7))') HS%lawson_beta, HS%E0,ladder_ops(1:3)%E0+HS%E0
   close(75)
   
 end subroutine 
