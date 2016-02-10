@@ -26,8 +26,12 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   
   ladder_ops%pphh_ph = .true. 
   if ( ladder_ops(1)%rank .ne. 0 ) then 
-    
-     call allocate_tensor(jbas,ladder_ops(1),HS)   
+  
+     if (present(O1)) then 
+        call duplicate_sq_op(O1,ladder_ops(1),'y')
+     else
+        call allocate_tensor(jbas,ladder_ops(1),HS)   
+     end if 
      
      do q = 1,ladder_ops(1)%nblocks
         ladder_ops(1)%tblck(q)%lam(1) = 1 
@@ -35,7 +39,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   else 
      call duplicate_sq_op(HS,ladder_ops(1)) 
   end if
-  
+    
   do i = 2, Numstates
      call duplicate_sq_op(ladder_ops(1),ladder_ops(i),'y')
   end do
@@ -48,23 +52,23 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   
   
   
-  ! if ( present(O1) ) then 
+   if ( present(O1) ) then 
      
-  !    print*
-  !    write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
-  !    print*
-  !    print*, 'EXCITED STATE ENERGIES:'
-  !    print*, '================================================='
-  !    print*, '      dE             E_0 + dE        BE(2)       '
-  !    print*, '================================================='
+     print*
+     write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
+     print*
+     print*, 'EXCITED STATE ENERGIES:'
+     print*, '================================================='
+     print*, '      dE             E_0 + dE        BE(2)       '
+     print*, '================================================='
   
-  !    do i = 1, Numstates
-  !       Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
-  !       BE2 = Mfi**2/(J+1.d0) 
-  !       write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2 
-  !    end do
+     do i = 1, Numstates
+        Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
+        BE2 = Mfi**2/(J+1.d0) 
+        write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2 
+     end do
   
-!  else
+  else
      
      print*
      write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
@@ -76,7 +80,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      do i = 1, Numstates
         write(*,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
      end do
- ! end if 
+  end if 
   
   ! WRITE STUFF TO FILES. 
   write( Jlabel ,'(I2)') HS%Jtarg

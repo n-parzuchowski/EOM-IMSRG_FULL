@@ -590,7 +590,9 @@ subroutine allocate_tensor(jbas,op,zerorank)
   op%Aneut = zerorank%Aneut
   ! allocate the map array, which is used by 
   ! v_elem to find matrix elements
-  allocate(jbas%xmap_tensor(N*(N+1)/2)) 
+  if (.not. allocated(jbas%xmap_tensor) ) then 
+     allocate(jbas%xmap_tensor(N*(N+1)/2)) 
+  end if
   do i = 1,N
      do j = i,N
         
@@ -600,7 +602,9 @@ subroutine allocate_tensor(jbas,op,zerorank)
         numJ = (j_max - j_min)/2 + 2
   
         x = bosonic_tp_index(i,j,N) 
-        allocate(jbas%xmap_tensor(x)%Z(numJ)) 
+        if (.not. allocated(jbas%xmap_tensor(x)%Z)) then 
+           allocate(jbas%xmap_tensor(x)%Z(numJ)) 
+        end if 
         jbas%xmap_tensor(x)%Z = 0
         jbas%xmap_tensor(x)%Z(1) = j_min
         
@@ -2908,21 +2912,23 @@ subroutine duplicate_sq_op(H,op,dont)
      end do
   
   else  ! tensor operator
-
-     allocate(op%tblck(op%nblocks))     
+   
+     allocate(op%tblck(op%nblocks))      
      allocate(op%direct_omp(size(H%direct_omp)))
+   
      op%direct_omp = H%direct_omp
-
+   
      N = op%nsp
-  
+   
      if ( allocated( H%exlabels ) ) then 
         allocate(op%exlabels(size(H%exlabels(:,1)),2)) 
      else 
         allocate(op%exlabels(1,2),H%exlabels(1,2)) 
         H%exlabels = 0
      end if
+   
      op%exlabels = H%exlabels
-  
+   
      do q = 1, op%nblocks
      
         op%tblck(q)%lam = H%tblck(q)%lam
