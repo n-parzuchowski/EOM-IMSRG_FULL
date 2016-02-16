@@ -183,11 +183,11 @@ program main_IMSRG
      
      call duplicate_sq_op(HS,exp_omega)
      exp_omega%herm = -1
-     write_omega = read_twobody_operator( exp_omega ,'omega' )     
-     
+!     write_omega = read_twobody_operator( exp_omega ,'omega' )     
+     write_omega=.true.
      if ( write_omega ) then 
         call magnus_decouple(HS,exp_omega,jbasis,quads,trips,build_gs_white)    
-        call write_twobody_operator(exp_omega,'omega')
+        !call write_twobody_operator(exp_omega,'omega')
      else
         print*, 'READ TRANSFORMATION FROM FILE, SKIPPING IMSRG...' 
         call transform_observable_BCH(HS,exp_omega,jbasis,quads) 
@@ -247,7 +247,7 @@ program main_IMSRG
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
   
   if (ex_calc_int==1) then 
-     call calculate_excited_states(HS%Jtarg,HS%Ptarg,3,HS,jbasis,Otrans) 
+     call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbasis,Otrans) 
      t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   end if
