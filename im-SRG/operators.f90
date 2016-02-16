@@ -545,10 +545,11 @@ subroutine calculate_EX(op,jbas)
   type(sq_op) :: op   
   integer :: a,b,ax,bx,rank,na,nb
   integer :: ta,tb,tc,td,la,lb,lc,ld,ja,jb,jc,jd
-  real(8) :: pol,charge(2),dcgi,dcgi00,x,dcg,hw
+  real(8) :: pol,charge(2),dcgi,dcgi00,x,dcg,hw,holength
 
   pol = 0.0d0   ! between -1 and 0 
   hw = op%hospace
+  holength = sqrt(hbarc2_over_mc2/hw) 
   x = dcgi00()
   ! right now the units of this operator are: e fm^(X)
   ! so the charge is not multiplied by the fundamental charge. 
@@ -590,7 +591,7 @@ subroutine calculate_EX(op,jbas)
         op%fhh(ax,bx) = charge((ta + 1)/2+1)/sqrt(4.d0*Pi_const)* &
              (-1) **((ja + rank - 1)/2) * &
              (ja +1.d0) * (jb+1.d0) * dcgi(ja,1,jb,-1,rank,0) *&
-             rsq_ME(na,la,nb,lb,hw) 
+             RabLAM(na,la,nb,lb,RANK/2)*holength**(rank/2)  
      end do 
   end do 
         
@@ -622,7 +623,7 @@ subroutine calculate_EX(op,jbas)
         op%fpp(ax,bx) = charge((ta + 1)/2+1)/sqrt(4.d0*Pi_const)* &
              (-1) **((ja + rank - 1)/2) * &
              (ja +1.d0) * (jb+1.d0) * dcgi(ja,1,jb,-1,rank,0) *&
-             rsq_ME(na,la,nb,lb,hw) 
+             RabLAM(na,la,nb,lb,RANK/2)*holength**(rank/2)  
      end do 
   end do     
 
@@ -654,94 +655,12 @@ subroutine calculate_EX(op,jbas)
         op%fph(ax,bx) = charge((ta + 1)/2+1)/sqrt(4.d0*Pi_const)* &
              (-1) **((ja + rank - 1)/2) * &
              (ja +1.d0) * (jb+1.d0) * dcgi(ja,1,jb,-1,rank,0) *&
-             rsq_ME(na,la,nb,lb,hw) 
+             RabLAM(na,la,nb,lb,RANK/2)*holength**(rank/2)  
      end do 
   end do     
         
 end subroutine calculate_EX
   
-real(8) function rsq_ME(n1,l1,n2,l2,hw) 
-  ! only for monopole and quadrupole. 
-  implicit none 
-  
-  integer :: n1,l1,n2,l2, lx, ly,nx,ny
-  real(8) :: bsq,A12,hw
-  
-  bsq = hbarc2_over_mc2/hw
-
-  if ( l1 == l2 )  then 
-     
-     if (n1 == n2) then 
-        
-        rsq_ME =  (2.d0*n1 + l1 + 1.5d0)*bsq
-   
-     else if  ( n1-n2 == 1 ) then 
-        
-        A12 = bsq*sqrt((n1+l1+.5)/n1)
-        
-        rsq_ME = -1*n1*A12
-     
-     else if (n2 - n1 == 1) then 
-     
-        A12 = bsq*sqrt((n2+l2+.5)/n2)
-        
-        rsq_ME = -1*n2*A12
-    
-     else 
-        
-        rsq_ME = 0.0 
-        
-     end if 
-     
-   else if ( abs( l1 - l2 ) == 2 ) then 
-      
-      lx = max(l1,l2)
-      ly = min(l1,l2) 
-          
-      if ( lx == l1) then 
-         nx = n1 
-         ny = n2
-      else 
-         nx = n2
-         ny = n1
-      end if 
-      
-      
-      if (ny == nx) then 
-            
-         A12 = bsq * sqrt(4./(2.*(ny+ly)+5.)/(2.*(ny+ly)+3.))
-         
-         rsq_ME = A12* (( nx + lx +.5)**2 -( nx + lx +.5) ) 
-         
-      else if (ny == nx+1) then 
-            
-         A12 = bsq * sqrt( 2. /( 2* (ny+ly) +3.)/ny) 
-            
-         rsq_ME = -2* A12 * (nx+1) * (nx+lx +.5) 
-         
-      else if (ny == nx + 2) then 
-            
-         A12 = bsq/(sqrt(ny*(ny-1.0)))
-            
-         rsq_ME = A12*(nx+1.)*(nx+2.) 
-         
-      else 
-   
-         rsq_ME = 0.d0 
-         
-      end if
-         
-  else 
-     
-     rsq_ME = 0.d0 
-     ! this isn't really true, but this function should
-     ! only be called for monopole and quadrupole 
-     ! matrix elements. 
-
-  end if 
-         
-end function rsq_ME
-
 real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas ) 
   implicit none
   
@@ -834,6 +753,81 @@ subroutine construct_number_operator(op,H,jbas)
 
   op%E0 = sum(op%fhh)
 end subroutine
+
+real(8) function RabLAM(na,la,nb,lb,LAM) 
+  ! radial integrals in suhonen chapter 6. 
+  implicit none 
+  
+  integer,intent(in) :: na,la,nb,lb,LAM
+  integer :: tau_A , tau_b,sig,sig_min,sig_max
+  real(8) :: coef,sm,xxx
+  
+  if (mod(la+lb+LAM,2).ne.0) then 
+     RabLAM = 0.d0 
+     return 
+  end if
+
+  tau_a = max((lb - la + LAM)/2,0)
+  tau_b = max((la - lb + LAM)/2,0)
+  sig_min = max(0,na-tau_a,nb-tau_b)
+  sig_max = min(na,nb) 
+
+  coef = sqrt(factorial(na)/half_int_gamma(na+la+1))
+  coef = coef*sqrt(factorial(nb)/half_int_gamma(nb+lb+1))
+  coef = coef * ( -1) ** (na+nb)*factorial(tau_a)*factorial(tau_b) 
+
+  sm = 0.d0
+  do sig = sig_min,sig_max      
+     xxx = (half_int_gamma((la+lb+lam)/2+sig+1)/factorial(sig))
+     xxx = xxx / factorial(na-sig)
+     xxx = xxx / factorial(nb-sig)
+     xxx = xxx / factorial(sig+tau_a-na)
+     xxx = xxx / factorial(sig+tau_b-nb)
+     sm = sm + xxx
+  end do
+
+  RabLAM = coef*sm
+end function
+
+! These functions are often an overflow threat, but 
+! here I don't think I need to worry, because emax= 2n+l doesn't get much
+! bigger than 15, and these functions definitely work well into the 20s. 
+
+real(8) function factorial(N) 
+  ! N!
+  implicit none
+  integer,intent(in) :: N
+  integer :: i
+  real(8) :: sm 
+  
+  sm = 1
+  
+  do i = 1,N
+     sm = sm * i 
+  end do 
+  
+  factorial = sm
+end function 
+
+real(8) function half_int_gamma(N)
+  !GAMMA(N+1/2) 
+  implicit none
+  
+  integer,intent(in) :: N
+  integer :: i
+  real(8) :: sm
+
+  sm = sqrt(acos(-1.d0))
+  
+  do i = 1,N 
+     sm = (i-0.5)*sm
+  end do 
+
+  half_int_gamma = sm
+end function   
+  
+  
+
 
 end module
   

@@ -22,6 +22,7 @@ program main_IMSRG
   character(1) :: quads,trips,trans_type
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
+  integer :: na,la,lb
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin,write_omega
@@ -30,7 +31,7 @@ program main_IMSRG
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
- 
+  
   t1 = omp_get_wtime()
   heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
        13,14,29,30,27,28,25,26,23,24,21,22/)   
@@ -50,7 +51,7 @@ program main_IMSRG
        trans_type,trans_rank,threebod%e3max)
 
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
-  
+
   if (TEST_COMMUTATORS) then 
      ! run this by typing ' X' after the input file in the command line
      ! This takes forever, you might want to comment some of this out. 

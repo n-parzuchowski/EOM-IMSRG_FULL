@@ -59,7 +59,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      print*
      print*, 'EXCITED STATE ENERGIES:'
      print*, '================================================='
-     print*, '      dE             E_0 + dE        BE(2)       '
+     print*, '      dE             E_0 + dE        B(E2)       '
      print*, '================================================='
   
      do i = 1, Numstates
