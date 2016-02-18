@@ -78,7 +78,8 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      print*, '      dE             E_0 + dE'
      print*, '=================================='
      do i = 1, Numstates
-        write(*,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
+        write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,&
+             sum(ladder_ops(i)%fph**2)
      end do
   end if 
   

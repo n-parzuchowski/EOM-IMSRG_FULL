@@ -23,6 +23,12 @@ elif (nuc == 'Ca48'):
 elif ( nuc == 'C14'):
     nprot = 6
     nneut = 8
+elif ( nuc == 'C12'):
+    nprot = 6
+    nneut = 6
+elif ( nuc == 'Si28'):
+    nprot = 14
+    nneut = 14
 else:
     print 'Invalid Entry'
     sys.exit()
@@ -155,10 +161,10 @@ elif mag == 'disc':
 else:
     magint = '2'
     
-mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','18gb','20gb','25gb'] 
+mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','12gb','20gb','25gb'] 
 wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','03:00:00', \
-'04:00:00','04:00:00','04:00:00','04:00:00','04:00:00','04:00:00']
-ompnum = ['8','8','8','8','8','8','8','4','2','1','1']
+'02:00:00','04:00:00','06:00:00','4:00:00','04:00:00','04:00:00']
+ompnum = ['8','8','8','8','8','8','8','8','8','1','1']
 
 for R in Rlist:
     for hw in hwlist:
@@ -186,13 +192,14 @@ for R in Rlist:
                     hwx = int(hw) 
                     Rx = int(R) 
 
+                    # fuck BLCR
                     if magint=='5':
-                        if Rx > 5: 
+                        if Rx > 100: 
                             resubmit=True
                         else:
                             resubmit=False
                     else:
-                        if Rx > 8: 
+                        if Rx > 100: 
                             resubmit=True
                         else:
                             resubmit=False
@@ -219,13 +226,13 @@ for R in Rlist:
                             spfile = 'hk'+R+'.sps'
                             jobname = nuc+'_'+mag+'_chi2b_srg'+lam+'_eMax'+R+'_hw'+hw+'_'+leveltag+'_law'+lawbeta
                             initfile = nuc+'_'+mag+'_chi2b_srg'+lam+'_eMax'+R+'_hw'+hw+'_'+leveltag+'_law'+lawbeta+'.ini'
-                            prefix = jobname = nuc+'_'+mag+'_chi_2b_srg'+lam+'_eMax'+R+'_hw'+hw+'_'+leveltag 
+                            prefix = jobname = nuc+'_'+mag+'_chi_2b_srg'+lam+'_eMax'+R+'_hw'+hw+'_'+leveltag +'_law'+lawbeta
                         else:    
                             TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
                             spfile = 'nl'+R+'.sps'
                             jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'_'+leveltag+'_law'+lawbeta
                             initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'_'+leveltag+'_law'+lawbeta+'.ini'
-                            prefix = jobname = nuc+'_'+mag+'_srg'+lam+'_eMax'+R+'_hw'+hw +'_'+leveltag
+                            prefix = jobname = nuc+'_'+mag+'_srg'+lam+'_eMax'+R+'_hw'+hw +'_'+leveltag+'_law'+lawbeta
                     # write pbs file ===========================        
                     fx = open('pbs_'+jobname,'w') 
 
