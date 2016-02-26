@@ -3153,7 +3153,7 @@ logical function read_twobody_operator(H,stage)
      return
   end if 
   
-  print*, 'Bypassing Hartree Fock and normal odering.' 
+!  print*, 'Bypassing Hartree Fock and normal odering.' 
   print*, 'Reading normal ordered output from ',&
        trim(TBME_DIR)//trim(adjustl(prefix))//&
        '_'//stage//'_normal_ordered.gz'

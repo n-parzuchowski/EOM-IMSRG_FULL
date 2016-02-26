@@ -184,11 +184,11 @@ program main_IMSRG
      
      call duplicate_sq_op(HS,exp_omega)
      exp_omega%herm = -1
-!     write_omega = read_twobody_operator( exp_omega ,'omega' )     
-     write_omega=.true.
+     write_omega = read_twobody_operator( exp_omega ,'omega' )     
+!     write_omega=.true.
      if ( write_omega ) then 
         call magnus_decouple(HS,exp_omega,jbasis,quads,trips,build_gs_white)    
-        !call write_twobody_operator(exp_omega,'omega')
+        call write_twobody_operator(exp_omega,'omega')
      else
         print*, 'READ TRANSFORMATION FROM FILE, SKIPPING IMSRG...' 
         call transform_observable_BCH(HS,exp_omega,jbasis,quads) 
