@@ -66,7 +66,8 @@ program main_IMSRG
 
   call initialize_transition_operator&
        (trans_type,trans_rank,Otrans,HS,jbasis,trans_calc)  
-
+  
+  print*, f_tensor_elem(1,27,Otrans,jbasis),f_tensor_elem(27,1,Otrans,jbasis)
   ! for calculating COM expectation value
   if (COM_calc) then  
      
