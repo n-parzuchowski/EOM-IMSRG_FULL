@@ -26,7 +26,7 @@ program main_IMSRG
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin,write_omega
-  external :: build_gs_white,build_specific_space,build_hartree_fock_gen
+  external :: build_gs_white,build_specific_space,build_gs_atan
   integer :: heiko(30)
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
@@ -67,7 +67,6 @@ program main_IMSRG
   call initialize_transition_operator&
        (trans_type,trans_rank,Otrans,HS,jbasis,trans_calc)  
   
-  print*, f_tensor_elem(1,27,Otrans,jbasis),f_tensor_elem(27,1,Otrans,jbasis)
   ! for calculating COM expectation value
   if (COM_calc) then  
      
@@ -188,7 +187,7 @@ program main_IMSRG
      write_omega = read_twobody_operator( exp_omega ,'omega' )     
 !     write_omega=.true.
      if ( write_omega ) then 
-        call magnus_decouple(HS,exp_omega,jbasis,quads,trips,build_gs_white)    
+        call magnus_decouple(HS,exp_omega,jbasis,quads,trips,build_gs_atan)    
         call write_twobody_operator(exp_omega,'omega')
      else
         print*, 'READ TRANSFORMATION FROM FILE, SKIPPING IMSRG...' 
@@ -223,6 +222,7 @@ program main_IMSRG
 !        call write_tilde_from_Rcm(r2_rms)
         print*, sqrt(r2_rms%E0)
     else 
+       print*, 'shit'
         call decouple_hamiltonian(HS,jbasis,build_gs_white) 
     !    call discrete_decouple(HS,jbasis) 
      end if
@@ -242,6 +242,14 @@ program main_IMSRG
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
+  do i = 1, jbasis%total_orbits
+     do j = i,jbasis%total_orbits
+        
+        write(43,*) i,j,f_tensor_elem(i,j,Otrans,jbasis)
+     end do 
+end do 
+stop
+
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  equation of motion calculation 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
