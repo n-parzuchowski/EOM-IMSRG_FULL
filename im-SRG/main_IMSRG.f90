@@ -45,10 +45,12 @@ program main_IMSRG
      test_commutators = .false.
   end if
 
+
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
        me2b,mortbin,hw,skip_setup,skip_gs,quads,trips,&
        trans_type,trans_rank,threebod%e3max)
+
 
   call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
 
@@ -60,14 +62,12 @@ program main_IMSRG
   end if 
   
   call allocate_blocks(jbasis,HS)
-   
+
   HS%herm = 1
   HS%hospace = hw
 
   call initialize_transition_operator&
        (trans_type,trans_rank,Otrans,HS,jbasis,trans_calc)  
-  
-  print*, f_tensor_elem(1,27,Otrans,jbasis),f_tensor_elem(27,1,Otrans,jbasis)
   ! for calculating COM expectation value
   if (COM_calc) then  
      
@@ -135,7 +135,6 @@ program main_IMSRG
      end if
   end if 
 
-  
   if (hartree_fock) then 
   
     if (COM_calc) then 

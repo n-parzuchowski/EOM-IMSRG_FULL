@@ -124,19 +124,23 @@ module basic_IMSRG
   ! You can have as many as you want, just make sure to increase the dimension accordingly. 
   ! Fortran is stupid about strings so make sure the strings are the same length, or it will get pissed.    
   ! The code will search through the possibilities and use the first one that works. 
-  character(500),dimension(2) :: OUTPUT_DIRECTORY_LIST=& 
+  character(500),dimension(3) :: OUTPUT_DIRECTORY_LIST=& 
        (/               '/home/nathan/nuclear_IMSRG/output/                 '              , &
-                        '/mnt/home/parzuch6/nuclear_IMSRG/output/           '                /) 
-  character(500),dimension(3) :: TBME_DIRECTORY_LIST=&
+                        '/mnt/home/parzuch6/nuclear_IMSRG/output/           '              , &
+                        './                                                 '                /)
+  character(500),dimension(4) :: TBME_DIRECTORY_LIST=&
        (/               '/mnt/home/parzuch6/nuclear_IMSRG/TBME_input/       '              , &
                         '/home/nathan/nuclear_IMSRG/TBME_input/             '              , &
-                        '/mnt/research/imsrg/nsuite/me/                     '                /)  
-  character(500),dimension(2) :: SP_DIRECTORY_LIST=&
+                        '/mnt/research/imsrg/nsuite/me/                     '              , &
+                        './                                                 '                /)
+  character(500),dimension(3) :: SP_DIRECTORY_LIST=&
        (/               '/mnt/home/parzuch6/nuclear_IMSRG/sp_inputs/        '              , &
-                        '/home/nathan/nuclear_IMSRG/sp_inputs/              '                /)  
-  character(500),dimension(2) :: INI_DIRECTORY_LIST=&
+                        '/home/nathan/nuclear_IMSRG/sp_inputs/              '              , & 
+                        './                                                 '                /)
+  character(500),dimension(3) :: INI_DIRECTORY_LIST=&
        (/               '/mnt/home/parzuch6/nuclear_IMSRG/inifiles/         '              , &
-                        '/home/nathan/nuclear_IMSRG/inifiles/               '                /)
+                        '/home/nathan/nuclear_IMSRG/inifiles/               '              , &
+                        './                                                 '                /)
   !======================================================================================
 contains
 !====================================================
@@ -3378,6 +3382,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
      i = 1 
      found = .false. 
      do while (.not. (found))   
+        if (i>size(INI_DIRECTORY_LIST)) STOP 'INIT-FILE NOT FOUND'
         INI_DIR = INI_DIRECTORY_LIST(i) 
         inquire(file=trim(INI_DIR)//'testcase.ini',exist=found) 
         i = i + 1
@@ -3387,6 +3392,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
      i = 1 
      found = .false. 
      do while (.not. (found))   
+        if (i>size(INI_DIRECTORY_LIST)) STOP 'INIT-FILE NOT FOUND'
         INI_DIR = INI_DIRECTORY_LIST(i) 
         inquire(file=trim(INI_DIR)//trim(input),exist=found)      
         i = i + 1
@@ -3459,7 +3465,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
      case default
         stop 'valence space not listed in database, SEE basic_IMSRG.f90' 
   end select 
-        
+
   if (trim(adjustl(threebody_file))=='none') then 
      e3Max = 0
   end if 
@@ -3503,15 +3509,17 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   ! figure out where the TBME and SP files are....
   i = 1 
   found = .false. 
-  do while (.not. (found))   
+  do while (.not. (found))  
+     if (i>size(TBME_DIRECTORY_LIST)) STOP 'TBME FILE NOT FOUND'
      TBME_DIR = TBME_DIRECTORY_LIST(i) 
      inquire(file=trim(TBME_DIR)//trim(intfile),exist=found)      
      i = i + 1
   end do
-     
+
   i = 1 
   found = .false. 
   do while (.not. (found))   
+     if (i>size(SP_DIRECTORY_LIST)) STOP 'SP FILE NOT FOUND'
      SP_DIR = SP_DIRECTORY_LIST(i) 
      inquire(file=trim(SP_DIR)//trim(spfile),exist=found)      
      i = i + 1
@@ -3519,7 +3527,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
 
   i = 1 
   found = .false. 
-  do while (.not. (found))   
+  do while (.not. (found))  
+     if (i>size(OUTPUT_DIRECTORY_LIST)) STOP 'OUTPUT DIRECTORY NOT FOUND'
      OUTPUT_DIR = OUTPUT_DIRECTORY_LIST(i) 
      !!! NOTE: IFORT IS TOO STUPID TO EXECUTE THIS NEXT INQUIRE 
      !!! IN A PORTABLE WAY... 
