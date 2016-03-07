@@ -67,7 +67,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   crit=abs(E_mbpt2)
 
   write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
-  write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+  write(*,'(I6,6(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit,onebd_frob_norm(DG),twobd_frob_norm(DG)
   Eold=0.
   do while (crit > 1e-6) 
      
@@ -86,7 +86,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      
      steps = steps + 1
      write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     write(*,'(I6,6(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit,onebd_frob_norm(DG),twobd_frob_norm(DG)
 
   end do
  
@@ -361,6 +361,7 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
   advals(1) = abs(H%E0)   
 
   do iw = 2 ,30
+
      coef = coef/(iw-1.d0) 
      ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
@@ -678,6 +679,7 @@ subroutine MAGNUS_EXPAND(DG,G,AD,jbas)
   q = 1
  ! return
   do i = 2 , 7
+
      call copy_sq_op( DG , INT1) 
      call copy_sq_op( INT2 , AD ) 
   

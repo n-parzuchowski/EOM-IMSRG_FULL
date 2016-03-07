@@ -261,7 +261,7 @@ subroutine find_holes(jbas,pholes,nholes,hk)
   implicit none 
   
   type(spd) :: jbas
-  integer :: pholes,nholes,i,minpos(1),rn,rp,r1,r2
+  integer :: pholes,nholes,i,minpos(1),rn,rp,r1,r2,p,n,ist
   real(8),dimension(jbas%total_orbits) :: temp
   character(2) :: hk
   
@@ -273,126 +273,22 @@ subroutine find_holes(jbas,pholes,nholes,hk)
   rp = 0 
   ! protons have isospin -1/2 
  
-  if (pholes==nholes) then 
-
-     if (pholes == 2) then 
-        jbas%con(1:2) = 1
-     else if (pholes == 6) then 
-        jbas%con(1:2) = 1
-        if (hk=='hk') then 
-           jbas%con(5:6) = 1
-        else
-           jbas%con(3:4) = 1
-        end if 
-     else if (pholes == 8) then 
-        jbas%con(1:6) = 1
-     else if (pholes == 20) then 
-        jbas%con(1:12) = 1
-     else if (pholes == 28) then 
-        if (hk == 'hk') then 
-           jbas%con(1:12) = 1
-           jbas%con(19:20) = 1
-        else
-           jbas%con(1:14) = 1 
-        end if    
-     else if (pholes ==6 ) then 
-        if (hk =='hk') then 
-           jbas%con(1:2) = 1
-           jbas%con(5:6) = 1
-        else
-           jbas%con(1:4) = 1
-        end if 
-     else if (pholes ==14 ) then 
-        if (hk == 'hk') then 
-           jbas%con(1:6) = 1
-           jbas%con(11:12) = 1
-        else
-           jbas%con(1:8) = 1
-        end if
-     else 
-        STOP 'this nucleus is not available' 
-     end if 
-
-   else
-     if (pholes == 2) then 
-        jbas%con(1:2) = 1
-     else if (pholes == 6) then 
-        jbas%con(1:2) = 1
-        
-        if (nholes == 8) then 
-           if (hk=='hk') then 
-              jbas%con(5:6) = 1
-              jbas%con(4) = 1
-           else
-              jbas%con(3:4) = 1
-              jbas%con(6) = 1
-           end if
-        else 
-           STOP 'this nucleus is not available'
-        end if 
-     else if (pholes == 8) then 
-        jbas%con(1:6) = 1
-        
-        if (nholes == 14) then 
-           if (hk == 'hk') then 
-              jbas%con(12) = 1
-           else 
-              jbas%con(8) = 1 
-           end if
-        else if (nholes == 16) then
-           jbas%con(12) = 1
-           jbas%con(8) = 1
-        else 
-           STOP 'this nucleus is not available' 
-        end if
-     
-     else if (pholes == 20) then 
-        jbas%con(1:12) = 1
-        if (nholes == 28) then 
-           if (hk=='hk') then 
-              jbas%con(20) = 1
-           else 
-              jbas%con(14) = 1
-           end if 
-         else 
-            STOP 'this nucleus is not available' 
-         end if 
-     else if (pholes == 20) then 
-        jbas%con(1:12) = 1
-        if (nholes == 28) then 
-           if (hk=='hk') then 
-              jbas%con(20) = 1
-           else 
-              jbas%con(14) = 1
-           end if 
-         else 
-            STOP 'this nucleus is not available' 
-         end if 
-      else if (pholes == 28) then 
-        jbas%con(1:12) = 1
-        if (nholes == 20) then 
-           if (hk=='hk') then 
-              jbas%con(19) = 1
-           else 
-              jbas%con(13) = 1
-           end if  
-        else 
-            STOP 'this nucleus is not available' 
-         end if 
-         
-      else if (pholes == 14) then 
-         if (nholes == 8) then 
-            jbas%con(1:6) = 1
-            if (hk=='hk')then 
-               jbas%con(11) = 1
-            else
-               jbas%con(7) = 1
-            end if 
-         end if
-      else 
-        STOP 'this nucleus is not available' 
-     end if 
+  if (hk =='hk') then 
+     open(unit=52,file=trim(SP_DIR)//'hole_scheme_hk') 
+  else 
+     open(unit=52,file=trim(SP_DIR)//'hole_scheme_nl')
   end if 
+  
+  do
+     read(52,*,iostat=ist) p,n,jbas%con(1:20)
+       if (ist < 0) then 
+          close(52)
+          STOP 'nucleus not available. CHECK sp_directory for hole_scheme_*'
+       end if 
+     if ((p == pholes).and.(n==nholes)) exit
+  end do 
+
+  close(52) 
     
   allocate(jbas%holes(sum(jbas%con)))
   allocate(jbas%parts(jbas%total_orbits - sum(jbas%con))) 
@@ -3706,6 +3602,44 @@ real(8) function mat_frob_norm(op)
   end do 
   
   mat_frob_norm = sqrt(sm)
+end function 
+!===============================================================
+!===============================================================  
+real(8) function onebd_frob_norm(op) 
+  implicit none 
+  
+  type(sq_op) :: op
+  integer :: q,g
+  real(8) :: sm
+
+  sm = sum(op%fhh**2) +  2*sum(op%fph**2) + sum(op%fpp**2)
+  
+  onebd_frob_norm = sqrt(sm)
+end function 
+!===============================================================
+!===============================================================  
+real(8) function twobd_frob_norm(op) 
+  implicit none 
+  
+  type(sq_op) :: op
+  integer,dimension(6) :: fac = (/1,2,2,1,1,2/)
+  integer :: q,g
+  real(8) :: sm
+
+  sm = 0.d0 
+  do q = 1, op%nblocks
+     if (op%rank > 0) then 
+        do g = 1,9
+           sm = sm + sum(op%tblck(q)%tgam(g)%X**2)
+        end do
+     else
+        do g = 1,6
+           sm = sm + sum(op%mat(q)%gam(g)%X**2)*fac(g)
+        end do
+     end if 
+  end do 
+  
+  twobd_frob_norm = sqrt(sm)
 end function 
 !===============================================================
 !===============================================================

@@ -656,9 +656,6 @@ subroutine calculate_EX(op,jbas)
              (-1) **((ja + rank - 1)/2) * &
              sqrt((ja +1.d0) * (jb+1.d0)) * dcgi(ja,1,jb,-1,rank,0) *&
              RabLAM(na,la,nb,lb,RANK/2)*holength**(rank/2)  
-        if (( a == 27).and.(b==1))then 
-           print*, op%fph(ax,bx),charge((ta+1)/2+1)
-        end if 
      end do
   end do     
         
