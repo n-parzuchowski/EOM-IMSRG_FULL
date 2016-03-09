@@ -243,14 +243,6 @@ program main_IMSRG
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
-  do i = 1, jbasis%total_orbits
-     do j = i,jbasis%total_orbits
-        
-        write(43,*) i,j,f_tensor_elem(i,j,Otrans,jbasis)
-     end do 
-end do 
-stop
-
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  equation of motion calculation 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
