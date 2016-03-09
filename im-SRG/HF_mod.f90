@@ -78,6 +78,11 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  end do 
 
  do q = 1,T%blocks
+   do i = 1, D%map(q) 
+      if (D%blkM(q)%matrix(i,i) < 0.d0) then 
+         D%blkM(q)%matrix(:,i) = D%blkM(q)%matrix(:,i)*(-1)
+      end if 
+   end do 
     F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix &
          + V3gam%blkM(q)%matrix
     T%blkM(q)%eigval = F%blkM(q)%eigval    
