@@ -67,7 +67,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   crit=abs(E_mbpt2)
 
   write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
-  write(*,'(I6,6(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit,onebd_frob_norm(DG),twobd_frob_norm(DG)
+  write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
   Eold=0.
   do while (crit > 1e-6) 
      
@@ -86,7 +86,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      
      steps = steps + 1
      write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-     write(*,'(I6,6(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit,onebd_frob_norm(DG),twobd_frob_norm(DG)
+     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
 
   end do
  

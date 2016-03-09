@@ -124,22 +124,26 @@ module basic_IMSRG
   ! You can have as many as you want, just make sure to increase the dimension accordingly. 
   ! Fortran is stupid about strings so make sure the strings are the same length, or it will get pissed.    
   ! The code will search through the possibilities and use the first one that works. 
-  character(500),dimension(3) :: OUTPUT_DIRECTORY_LIST=& 
+  character(500),dimension(4) :: OUTPUT_DIRECTORY_LIST=& 
        (/               '/home/nathan/nuclear_IMSRG/output/                 '              , &
                         '/mnt/home/parzuch6/nuclear_IMSRG/output/           '              , &
+                        '/user/parzucho/nuclear_IMSRG/output/               '              , &
                         './                                                 '                /)
-  character(500),dimension(4) :: TBME_DIRECTORY_LIST=&
+  character(500),dimension(5) :: TBME_DIRECTORY_LIST=&
        (/               '/mnt/home/parzuch6/nuclear_IMSRG/TBME_input/       '              , &
                         '/home/nathan/nuclear_IMSRG/TBME_input/             '              , &
+                        '/user/parzucho/nuclear_IMSRG/TBME_input/           '              , &
                         '/mnt/research/imsrg/nsuite/me/                     '              , &
                         './                                                 '                /)
-  character(500),dimension(3) :: SP_DIRECTORY_LIST=&
+  character(500),dimension(4) :: SP_DIRECTORY_LIST=&
        (/               '/mnt/home/parzuch6/nuclear_IMSRG/sp_inputs/        '              , &
                         '/home/nathan/nuclear_IMSRG/sp_inputs/              '              , & 
+                        '/user/parzucho/nuclear_IMSRG/sp_inputs/            '              , & 
                         './                                                 '                /)
-  character(500),dimension(3) :: INI_DIRECTORY_LIST=&
+  character(500),dimension(4) :: INI_DIRECTORY_LIST=&
        (/               '/mnt/home/parzuch6/nuclear_IMSRG/inifiles/         '              , &
                         '/home/nathan/nuclear_IMSRG/inifiles/               '              , &
+                        '/user/parzucho/nuclear_IMSRG/inifiles/             '              , &
                         './                                                 '                /)
   !======================================================================================
 contains

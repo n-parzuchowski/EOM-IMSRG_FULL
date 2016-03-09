@@ -223,7 +223,6 @@ program main_IMSRG
 !        call write_tilde_from_Rcm(r2_rms)
         print*, sqrt(r2_rms%E0)
     else 
-       print*, 'shit'
         call decouple_hamiltonian(HS,jbasis,build_gs_white) 
     !    call discrete_decouple(HS,jbasis) 
      end if

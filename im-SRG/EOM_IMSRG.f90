@@ -75,9 +75,9 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
      print*
      print*, 'EXCITED STATE ENERGIES:'
-     print*, '=================================='
-     print*, '      dE             E_0 + dE'
-     print*, '=================================='
+     print*, '================================================'
+     print*, '      dE             E_0 + dE       n(1p1h)     ' 
+     print*, '================================================'
      do i = 1, Numstates
         write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,&
              sum(ladder_ops(i)%fph**2)
@@ -101,7 +101,8 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
        '_EOM_spec_law'//trim(betalabel)//'.dat')
   
   do i = 1, Numstates
-     write(72,'(2(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0
+     write(72,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0, &
+          sum(ladder_ops(i)%fph**2)
   end do
 
   close(72)
@@ -710,5 +711,5 @@ subroutine progress_bar( step  )
   flush 6 
 
 end subroutine 
-
+  
 end module
