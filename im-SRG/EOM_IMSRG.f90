@@ -20,14 +20,14 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   
   allocate(ladder_ops(numstates)) 
   ladder_ops%herm = 1
- 
+
   ladder_ops%rank = J 
   ladder_ops%dpar = 2*PAR
-  
   ladder_ops%pphh_ph = .true. 
+
   if ( ladder_ops(1)%rank .ne. 0 ) then 
-  
-     if (present(O1)) then 
+
+     if (allocated(O1%tblck)) then 
         call duplicate_sq_op(O1,ladder_ops(1),'y')
      else
         call allocate_tensor(jbas,ladder_ops(1),HS)   
@@ -48,11 +48,12 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   write(*,'((A55),(I1),(A3),(I1))') 'EXECUTING EOM CALCULATION'// &
        ' FOR EXCITED STATES: J=',J/2,' P=',PAR  
   print*
+
   call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
   
   
   
-   if ( present(O1) ) then 
+   if ( allocated(O1%tblck)  ) then 
      
      print*
      write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
@@ -242,7 +243,7 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   end if    
            
   N = sps + tps ! number of ph and pphh SDs 
-  
+
   ido = 0  ! status integer is 0 at start
   BMAT = 'I' ! standard eigenvalue problem (N for generalized) 
   which = 'SM' ! compute smallest eigenvalues in magnitude ('SA') is algebraic. 
@@ -268,24 +269,24 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
      ! it does not need to be initialized, so long as you have the other 
      ! stuff declare right, the code should know this. 
      call dsaupd ( ido, bmat, N, which, nev, tol, resid, &
-      ncv, v, ldv, iparam, ipntr, workd, workl, &
-      lworkl, info )
+          ncv, v, ldv, iparam, ipntr, workd, workl, &
+          lworkl, info )
      ! The actual matrix only gets multiplied with the "guess" vector in "matvec_prod" 
      call progress_bar( i )
      i=i+1 
-  
-    if ( ido /= -1 .and. ido /= 1 ) then
-      exit
-    end if
-
-    if ( vecs(1)%rank == 0 ) then 
-       call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
-    else
-       call matvec_nonzeroX_prod(N,OP,Q1,Q2,w1,w2,OpPP,QPP,WPP,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
-    end if
-    
-    end do 
-    write(6,*) 
+     
+     if ( ido /= -1 .and. ido /= 1 ) then
+        exit
+     end if
+     
+     if ( vecs(1)%rank == 0 ) then 
+        call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
+     else
+      call matvec_nonzeroX_prod(N,OP,Q1,Q2,w1,w2,OpPP,QPP,WPP,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
+     end if
+     
+  end do
+  write(6,*) 
   ! the ritz values are out of order right now. Need to do post
   ! processing to fix this, and get the eigenvectors
   rvec= .true. 
@@ -376,7 +377,7 @@ subroutine matvec_nonzeroX_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
 
   
   ! FIRST WE NEED TO CONVERT v TO a (SQ_OP) variable
-  
+
   call unwrap_tensor(v,Q_op,N,jbas)
   ! now we have two sq_op operators which can be used with my commutator expressions. Noice. 
   
@@ -395,6 +396,7 @@ subroutine matvec_nonzeroX_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   
   ! Okay, now we have the "matrix vector product" So lets put it back in vector form:
   call rewrap_tensor(w,Qout,N,jbas) 
+
 end subroutine
 !======================================================================================
 !======================================================================================
