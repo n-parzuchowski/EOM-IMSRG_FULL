@@ -545,11 +545,12 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
 end subroutine
 !============================================================
 !============================================================
-subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar) 
+subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX) 
   implicit none 
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB,OUT,w1,w2
+  type(sq_op),optional :: AAX,BBX 
   type(pandya_mat) :: BBCC,WCC
   type(cc_mat) :: AACC
   integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max
@@ -559,18 +560,25 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   real(8) :: vv,xx,yy,zz
   
   
-  call seed_random_number
+  if (present(AAX)) then 
+     call duplicate_sq_op(AAX,AA)
+     call duplicate_sq_op(BBX,BB)
+     call copy_sq_op(AAX,AA)
+     call copy_sq_op(BBX,BB) 
+  else
+     call seed_random_number
   
-  BB%rank = rank
-  BB%dpar = par
-  AA%rank = 0
-  BB%pphh_ph = .false.
+     BB%rank = rank
+     BB%dpar = par
+     AA%rank = 0
+     BB%pphh_ph = .false.
  
-  call allocate_blocks(jbas,AA)
-  call allocate_tensor(jbas,BB,AA)
-  call construct_random_rank0(AA,h1,jbas) 
-  call construct_random_rankX(BB,h2,jbas) 
- 
+     call allocate_blocks(jbas,AA)
+     call allocate_tensor(jbas,BB,AA)
+     call construct_random_rank0(AA,h1,jbas) 
+     call construct_random_rankX(BB,h2,jbas) 
+  end if 
+  
   call duplicate_sq_op(BB,OUT)
   call duplicate_sq_op(BB,w1) !workspace
   call duplicate_sq_op(BB,w2) !workspace
@@ -1316,16 +1324,15 @@ real(8) function scalar_tensor_1body_comm(AA,BB,a,b,jbas)
         do Jtot = 0,JTM,2 
 
            sm = sm - (jbas%con(i) - jbas%con(j)) * (Jtot+1.d0) * &
-                (-1) ** ((ja-ji+Jtot)/2) *d6ji(ja,jb,rank,jj,ji,Jtot) * &
-                f_tensor_elem(j,i,BB,jbas) * v_elem(i,a,j,b,Jtot,AA,jbas)
-           
-
+                (-1) ** ((ja+jj+Jtot)/2) *d6ji(ji,jj,rank,ja,jb,Jtot) * &
+                f_tensor_elem(i,j,BB,jbas) * v_elem(j,a,i,b,Jtot,AA,jbas)
+         !  sm = sm + (jbas%con(i)-jbas%con(j)) * (-1) ** ((ja+jb+ji+jj)/2)&
+          !      *f_tensor_elem(j,i,BB,jbas)*vpandya(i,j,b,a,rank,AA,jbas) 
            
         end do
      end do
   end do
 
-  
   scalar_tensor_1body_comm = sm 
   
 end function

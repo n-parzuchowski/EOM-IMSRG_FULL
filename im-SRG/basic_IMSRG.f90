@@ -4235,8 +4235,8 @@ real(8) function Vpandya(a,d,c,b,J,Op,jbas)
   jc = jbas%jj(c)
   jd = jbas%jj(d)
   
-  jmin = max(abs(ja-jb),abs(jd-jd)) 
-  jmax = min(ja+jb,jd+jd)  
+  jmin = max(abs(ja-jb),abs(jc-jd)) 
+  jmax = min(ja+jb,jc+jd)  
   
   sm = 0.d0 
   
