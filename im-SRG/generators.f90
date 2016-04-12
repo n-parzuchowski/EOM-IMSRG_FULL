@@ -1,41 +1,4 @@
-! !==========================================================
-! !==========================================================
-! subroutine build_gs_wegner(H,ETA,jbas,HCC,HODCC,WCC,w1,w2) 
-!   use commutators
-!   ! calculates the traditional white generator for
-!   ! ground state decoupling
-!   implicit none 
-  
-!   type(spd) :: jbas
-!   type(sq_op) :: H,ETA,HOD,w1,w2
-!   type(cross_coupled_31_mat) :: HCC,HODCC,WCC
-!   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
-!   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
-!   real(8) :: Eden,sm,Javerage
-  
-!   ETA%herm = -1
-
-!   call duplicate_sq_op(H,HOD) 
-  
-!   HOD%fph = H%fph
-
-!   do q = 1,HOD%nblocks
-!      HOD%mat(q)%gam(3)%X = H%mat(q)%gam(3)%X
-!   end do 
-
-!   call calculate_cross_coupled(HOD,HODCC,jbas,.true.)
-!   call calculate_cross_coupled(H,HCC,jbas,.false.) 
- 
-!   call commutator_111(H,HOD,ETA,jbas) 
-!   call commutator_121(H,HOD,ETA,jbas)
-!   call commutator_122(H,HOD,ETA,jbas)    
-
-!   call commutator_222_pp_hh(H,HOD,ETA,w1,w2,jbas)
-  
-!   call commutator_221(H,HOD,ETA,w1,w2,jbas)
-!   call commutator_222_ph(HCC,HODCC,ETA,WCC,jbas)
-
-! end subroutine
+! not a module, because I want these to be declared as external subroutines
 !==========================================================
 !==========================================================
 subroutine build_gs_white(H,ETA,jbas) 
@@ -143,6 +106,61 @@ subroutine build_gs_white(H,ETA,jbas)
 end subroutine build_gs_white
 !==========================================================
 !==========================================================
+subroutine build_gs_w2(H,ETA,jbas) 
+  ! calculates the traditional white generator for
+  ! ground state decoupling
+  use commutators
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H,ETA,ETA1,ETA2,H2,w1,w2
+  type(cc_mat) :: WCC,ETACC,HSCC
+  integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
+  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
+  real(8) :: Eden,sm,Javerage
+  
+  ETA%herm = -1 ! anti-hermitian operator
+
+  ETA%fpp = 0.d0 
+  ETA%fhh = 0.d0 
+  ETA%pphh_ph = .false. 
+
+  call duplicate_sq_op(H,ETA1) !generator
+  ETA1%herm = -1  
+  call build_gs_atan(H,ETA1,jbas) 
+ 
+! ALLOCATE A BUNCH OF WORKSPACE
+
+  call duplicate_sq_op(H,H2) !derivative
+  call duplicate_sq_op(H,ETA2) !derivative
+  ETA2%herm = -1
+  call duplicate_sq_op(H,w1) !workspace
+  call duplicate_sq_op(H,w2) !workspace
+  call init_ph_mat(H,HSCC,jbas) ! cross coupled ME
+  call duplicate_ph_mat(HSCC,ETACC) !cross coupled ME
+  call init_ph_wkspc(HSCC,WCC) ! workspace for CCME
+  
+  call calculate_cross_coupled(H,HSCC,jbas)
+  call calculate_cross_coupled(ETA1,ETACC,jbas) 
+   
+  H2%E0 = commutator_110(ETA1,H,jbas) + commutator_220(ETA1,H,jbas)
+
+  call commutator_111(ETA1,H,H2,jbas) 
+  call commutator_121(ETA1,H,H2,jbas)
+  call commutator_122(ETA1,H,H2,jbas)
+
+  call commutator_222_pp_hh(ETA1,H,H2,w1,w2,jbas)
+
+  call commutator_221(ETA1,H,H2,w1,w2,jbas)
+  call commutator_222_ph(ETACC,HSCC,H2,WCC,jbas)
+
+  call build_gs_atanxx(H,H2,ETA2,jbas)   
+  call add_sq_op(ETA1,1.5d0,ETA2,0.5d0,ETA) 
+  !'tit'
+
+end subroutine build_gs_w2
+!==========================================================
+!==========================================================
 subroutine build_gs_atan(H,ETA,jbas) 
   ! calculates the traditional white generator for
   ! ground state decoupling
@@ -247,6 +265,114 @@ subroutine build_gs_atan(H,ETA,jbas)
   end do 
 
 end subroutine build_gs_atan
+!==========================================================
+!==========================================================
+!==========================================================
+!==========================================================
+subroutine build_gs_atanxx(Hold,H,ETA,jbas) 
+  ! calculates the traditional white generator for
+  ! ground state decoupling
+  use basic_IMSRG
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H,ETA,Hold
+  integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
+  integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
+  real(8) :: Eden,sm,Javerage
+  
+  ETA%herm = -1 ! anti-hermitian operator
+
+  ETA%fpp = 0.d0 
+  ETA%fhh = 0.d0 
+  ETA%pphh_ph = .false. 
+  
+  ! one body part
+  do a = 1,H%Nsp - H%belowEF
+     ak = jbas%parts(a) 
+     ja = jbas%jj(ak)
+     la = jbas%ll(ak)
+     ta = jbas%itzp(ak)
+     
+     do i = 1,H%belowEF
+       
+        ik = jbas%holes(i)
+        ji = jbas%jj(ik)       
+        li = jbas%ll(ik)        
+        ti = jbas%itzp(ik)
+             
+        ! the generator is zero if these are true: 
+        if ( ji .ne. ja) cycle
+        if ( li .ne. la) cycle
+        if ( ti .ne. ta) cycle 
+     
+        ! energy denominator has a sum over J  to factor out m dep. 
+        Eden = 0.d0
+        
+        do JT = 0, 2*ji , 2
+           Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,Hold,jbas) 
+        end do 
+        
+        ! sum is averaged over ji ** 2  
+        Eden = Eden / (ji + 1.d0)/(ji + 1.d0) 
+        
+        Eden = Eden + Hold%fpp(a,a) - Hold%fhh(i,i) 
+        
+        ETA%fph(a,i) = atan(2*H%fph(a,i) / Eden)*0.5
+        
+     end do 
+  end do 
+  
+!  two body part 
+  
+  do  q = 1, H%nblocks
+  
+     do i = 1,6
+        ETA%mat(q)%gam(i)%X = 0.d0 
+     end do 
+
+     do IX = 1,H%mat(q)%npp 
+
+        ! figure out which sp states compose IX
+        a = H%mat(q)%qn(1)%Y(IX,1)  ! pp descriptor qn(1)%Y 
+        b = H%mat(q)%qn(1)%Y(IX,2)
+
+        ja = jbas%jj(a)
+        jb = jbas%jj(b)   
+        
+        do JX = 1,H%mat(q)%nhh 
+
+           i = H%mat(q)%qn(3)%Y(JX,1) !hh descriptor qn(3)%Y
+           j = H%mat(q)%qn(3)%Y(JX,2)
+
+           ji = jbas%jj(i)
+           jj = jbas%jj(j)
+         
+           
+           Eden = 0.d0 
+           
+           ! constructing the App'hh' term is rather codey... 
+          
+           !pp'pp' 
+
+           Eden = Eden + Javerage(a,b,ja,jb,Hold,jbas) 
+           Eden = Eden + Javerage(i,j,ji,jj,Hold,jbas) 
+           Eden = Eden - Javerage(a,i,ja,ji,Hold,jbas) 
+           Eden = Eden - Javerage(a,j,ja,jj,Hold,jbas) 
+           Eden = Eden - Javerage(i,b,ji,jb,Hold,jbas) 
+           Eden = Eden - Javerage(j,b,jj,jb,Hold,jbas) 
+           
+           Eden = Eden + f_elem(a,a,Hold,jbas) + f_elem(b,b,Hold,jbas)  - &
+                f_elem(i,i,Hold,jbas) - f_elem(j,j,Hold,jbas) 
+            
+           ETA%mat(q)%gam(3)%X(IX,JX) = &
+                0.5*atan(2*H%mat(q)%gam(3)%X(IX,JX)/Eden)
+           
+        end do 
+     end do 
+  end do 
+
+end subroutine build_gs_atanxx
 !==========================================================
 !==========================================================
 subroutine build_hartree_fock_gen(H,ETA,jbas) 

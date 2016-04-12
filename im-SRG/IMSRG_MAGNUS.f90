@@ -76,9 +76,9 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      call euler_step(G,DG,s,ds) 
      
      call BCH_EXPAND(HS,G,H,jbas,quads) 
-    
-     call build_generator(HS,DG,jbas)   
      
+     call build_generator(HS,DG,jbas)   
+
      E_mbpt2 = mbpt2(HS,jbas) 
      
      crit = abs(E_mbpt2)  
