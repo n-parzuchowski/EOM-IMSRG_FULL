@@ -306,13 +306,13 @@ subroutine transform_observable_BCH(Op,G,jbas,quads)
   call duplicate_sq_op(Op,Oevolved) 
   
   if (Op%rank > 0) then      
-     call BCH_TENSOR(Oevolved,G,Op,jbas,quads)
+     call BCH_TENSOR(Oevolved,G,Op,jbas,quads)    
   else
      call BCH_EXPAND(Oevolved,G,Op,jbas,quads)
   end if 
-
-  call copy_sq_op(Oevolved,Op) 
   
+  call copy_sq_op(Oevolved,Op) 
+ 
 end subroutine   
 !=========================================================================
 !=========================================================================
@@ -485,7 +485,7 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
   real(8) ::  coef,adnorm,fullnorm,s,advals(15),sm,sm2,dcgi,dcgi00
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
- 
+  
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
   call duplicate_sq_op(HS,INT1) !workspace
@@ -514,7 +514,9 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
  
   advals(1) = abs(H%E0)   
 
+     
   do iw = 2 ,15
+     
      coef = coef/(iw-1.d0)
      ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions

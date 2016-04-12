@@ -131,13 +131,7 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   iMax = i 
   
   allocate(me(iMax)) 
-  allocate(mepp(iMax))
   allocate(me_fromfile(10)) 
-  allocate(ppff(10)) 
-  if (rr_calc) then 
-     allocate(rrff(10)) 
-     allocate(merr(iMax)) 
-  end if 
   
 
   write(eMaxchr,'(I2)') eMax 
@@ -148,26 +142,9 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   ! I don't know why you have to tack on those //achars(0) but it seems nessecary 
   hndle=gzOpen(trim(TBME_DIR)//trim(adjustl(intfile))//achar(0),"r"//achar(0)) 
   
-  ! opening the pipj and rirj files 
-  if (len(trim(eMaxchr)) == 1) then 
-     hndle2=gzOpen(trim(TBME_DIR)//"tpp_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
-     if (rr_calc) then 
-        hndle3=gzOpen(trim(TBME_DIR)//"r1r2_eMax0"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
-     end if
-  else
-      hndle2=gzOpen(trim(TBME_DIR)//"tpp_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
-     if (rr_calc) then 
-        hndle3=gzOpen(trim(TBME_DIR)//"r1r2_eMax"//trim(eMaxchr)//".me2j.gz"//achar(0),"r"//achar(0)) 
-     end if
-  end if 
-  
-  
-  sz=200;sz2=200;sz3=200 !c_ints, don't reuse them 
+  sz=200
   
   buf=gzGets(hndle,buffer,sz) 
-  buf2=gzGets(hndle2,buffer2,sz2)
-  if (rr_calc) buf3=gzGets(hndle3,buffer3,sz3)
-  
   endpoint = 10 
   write(rem,'(I1)') endpoint-1
   endsz = 130 
@@ -176,57 +153,29 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   
      if (i+10 > iMax) then 
         deallocate(me_fromfile)
-        deallocate(ppff) 
         allocate(me_fromfile( iMax - i + 1) ) 
-        allocate(ppff(iMax-i + 1)) 
-        if (rr_calc) then 
-           deallocate(rrff)
-           allocate(rrff(iMax-i + 1)) 
-        end if 
         endpoint = iMax-i + 1
         endsz = 13+(endpoint-1)*13 
         write(rem,'(I1)') endpoint-1
      end if
   
      buf = gzGets(hndle,buffer(1:sz),sz)
-     buf2 = gzGets(hndle2,buffer2(1:sz2),sz2)
+
      
   
      read(buffer(1:endsz),'(f12.7,'//rem//'(f13.7))') me_fromfile 
-     read(buffer2(1:endsz),'(f12.7,'//rem//'(f13.7))') ppff 
-   
-     if (rr_calc) then 
         
-        buf3 = gzGets(hndle3,buffer3(1:sz3),sz3)
-        read(buffer3(1:endsz),'(f12.7,'//rem//'(f13.7))') rrff 
-        
-        do j = 1,endpoint 
-           ME(i+j-1) = me_fromfile(j)
-           MEpp(i+j-1) = ppff(j) 
-           MErr(i+j-1) = rrff(j)
-        end do
-        
-     else
-        
-        do j = 1,endpoint 
-           ME(i+j-1) = me_fromfile(j)
-           MEpp(i+j-1) = ppff(j) 
-        end do
-     end if 
+     do j = 1,endpoint 
+        ME(i+j-1) = me_fromfile(j)   
+     end do
+
   end do
 
   rx = gzClose(hndle) 
-  rx = gzClose(hndle2)
-  if(rr_calc) then 
-     rx = gzClose(hndle3)
-     deallocate(rrff)
-     allocate(rrff(4))
-  end if 
   
   deallocate(me_fromfile)
-  deallocate(ppff)
   allocate(me_fromfile(4))
-  allocate(ppff(4)) 
+
   
   ! redo this loop to put everything in pn basis
   
@@ -258,8 +207,6 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
             
               do JT = jmin,jmax,2
                  me_fromfile=ME(i+1:i+4)
-                 ppff = MEpp(i+1:i+4)
-                 if (rr_calc) rrff = MErr(i+1:i+4)
                  i = i + 4 ! four different TMt qnums
  
 
@@ -293,30 +240,11 @@ do a = nlj1,nlj1+1
           0.125d0*abs((ta-tb)*(tc-td))*me_fromfile(3) !10 
 
      ! pipj 
-     g3 = 0.125d0*(ta-tb)*(tc-td)*ppff(1)+&   ! 00 clebsch
-          kron_del(ta+tb,-2)*kron_del(tc+td,-2)*ppff(2)+& ! 1-1 
-          kron_del(ta+tb,2)*kron_del(tc+td,2)*ppff(4)+& !11 
-          0.125d0*abs((ta-tb)*(tc-td))*ppff(3) !10 
-
-     if (rr_calc) then 
-        g2 = 0.125d0*(ta-tb)*(tc-td)*rrff(1)+&   ! 00 clebsch
-          kron_del(ta+tb,-2)*kron_del(tc+td,-2)*rrff(2)+& ! 1-1 
-          kron_del(ta+tb,2)*kron_del(tc+td,2)*rrff(4)+& !11 
-          0.125d0*abs((ta-tb)*(tc-td))*rrff(3) !10 
-     end if 
-     
-     ! getting rid of weird mass scaling 
-     g3 = -2.d0*g3/hbarc2_over_mc2 
-
-     
+     g2 = r1_r2( a, b, c, d, JT ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     g3 = p1_p2( a, b, c, d, JT ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     g1 = (g3 + H%com_hw**2 /hw**2 *g2)*H%lawson_beta 
      ! center of mass subtraction
-     V = (V - g3*COM*hw/(H%Aneut+H%Aprot)) *pre2 
-  
-
-     
-     
-     g3 = g3*pre2
-     g2 = g2*pre2
+     V = V*pre2 +(g1-g3*COM)*hw/(H%Aneut+H%Aprot)
      
      C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
      C2 = jbas%con(c)+jbas%con(d) + 1

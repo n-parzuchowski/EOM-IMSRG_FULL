@@ -281,15 +281,15 @@ program main_IMSRG
         case(2) !traditional
      
         if (COM_calc) then 
-           call TDA_decouple(HS,TDA,jbasis,build_gs_white, &
+           call TDA_decouple(HS,TDA,jbasis,build_specific_space, &
                 pipj,ppTDA,rirj,rrTDA) 
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
-           call TDA_decouple(HS,TDA,jbasis,build_gs_white,&
+           call TDA_decouple(HS,TDA,jbasis,build_specific_space,&
                 r2_rms,rrTDA)
            print*, rrTDA%blkM(1)%eigval
         else 
-           call TDA_decouple(HS,TDA,jbasis,build_gs_white) 
+           call TDA_decouple(HS,TDA,jbasis,build_specific_space) 
         end if 
         
         case(3) !discrete

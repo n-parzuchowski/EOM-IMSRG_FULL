@@ -10,12 +10,12 @@ contains
 subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1) 
   implicit none
   
-  real(8) :: BE2,Mfi 
+  real(8) :: BE2,Mfi ,SD_shell_content
   type(spd) :: jbas
   type(sq_op) :: HS 
   type(sq_op),optional :: O1
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
-  integer :: J,PAR,Numstates,i,q
+  integer :: J,PAR,Numstates,i,q,aa,jj
   character(2) :: Jlabel,Plabel,betalabel  
   
   allocate(ladder_ops(numstates)) 
@@ -75,13 +75,23 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
      print*
      print*, 'EXCITED STATE ENERGIES:'
-     print*, '================================================'
-     print*, '      dE             E_0 + dE       n(1p1h)     ' 
-     print*, '================================================'
+     print*, '======================================================='
+     print*, '      dE             E_0 + dE       n(1p1h)     n(1v1h)' 
+     print*, '======================================================='
      do i = 1, Numstates
-        write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,&
-             sum(ladder_ops(i)%fph**2)
+        SD_Shell_content = 0.d0 
+        do jj = 1, HS%belowEF
+           do aa = 1, HS%Nsp-HS%belowEF
+              if (jbas%parts(aa).le.12) then 
+                 SD_Shell_content = SD_Shell_content +  ladder_ops(i)%fph(aa,jj)**2
+              end if 
+           end do
+        end do
+        write(*,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,&
+             sum(ladder_ops(i)%fph**2),SD_shell_content        
      end do
+     print*
+     print*
   end if 
   
   ! WRITE STUFF TO FILES. 
@@ -243,6 +253,8 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
      end do
   end if    
            
+  print*, '1p1h Amplitudes: ', sps
+  print*, '2p2h Amplitudes: ', tps
   N = sps + tps ! number of ph and pphh SDs 
 
   ido = 0  ! status integer is 0 at start
@@ -711,5 +723,4 @@ subroutine progress_bar( step  )
   flush 6 
 
 end subroutine 
-  
 end module
