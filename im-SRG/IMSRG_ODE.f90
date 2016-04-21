@@ -183,7 +183,7 @@ subroutine TDA_decouple( H , TDA, jbas,build_generator,O1,O1TDA,O2,O2TDA )
 
   ! SRG convergence / failsafe / error tolerances
   integer,parameter :: max_steps = 50
-  real(8),parameter :: conv_crit = 1.d-6
+  real(8),parameter :: conv_crit = 1.d-1
   real(8),parameter :: relerr = 1.d-6, abserr = 1.d-6
 
   type(spd) :: jbas

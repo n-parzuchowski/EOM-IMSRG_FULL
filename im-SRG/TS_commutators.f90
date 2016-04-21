@@ -611,7 +611,7 @@ subroutine TS_commutator_122(L,R,RES,jbas)
            td = jbas%itzp(d)
                    
            sm = 0.d0 
-
+           
             ! a is replaced
             q_sp = sp_block_index(ja,la,ta,jbas) 
             do i = 1,size(jbas%states(q_sp)%Z)   
@@ -619,9 +619,10 @@ subroutine TS_commutator_122(L,R,RES,jbas)
                i_sp = jbas%states(q_sp)%Z(i) 
                
                sm = sm + f_elem(a,i_sp,L,jbas)*tensor_elem(i_sp,b,c,d,J1,J2,R,jbas)
-
-            end do 
-              
+                  
+            end do
+           
+            
             ! b is replaced
             q_sp = sp_block_index(jb,lb,tb,jbas) 
             do i = 1,size(jbas%states(q_sp)%Z)   

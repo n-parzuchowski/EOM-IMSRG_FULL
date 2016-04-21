@@ -85,10 +85,16 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
               if (jbas%parts(aa).le.12) then 
                  SD_Shell_content = SD_Shell_content +  ladder_ops(i)%fph(aa,jj)**2
               end if 
+              ! if (abs(ladder_ops(i)%fph(aa,jj)) > 1e-6) then 
+              !    print*, jbas%parts(aa) ,jbas%holes(jj) , ladder_ops(i)%fph(aa,jj)
+              ! end if               
            end do
         end do
         write(*,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,&
              sum(ladder_ops(i)%fph**2),SD_shell_content        
+        
+
+
      end do
      print*
      print*

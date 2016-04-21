@@ -17,10 +17,10 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   type(sq_op) :: H,G,HS,AD
   type(sq_op) :: DG,CR
   type(cc_mat) :: GCC,ADCC,WCC 
-  real(8) :: ds,s,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
+  real(8) :: ds,s,sx,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
   character(1) :: quads,trips
-  logical :: trip_calc,xxCR
+  logical :: trip_calc,xxCR,chkpoint_restart
   external :: build_generator 
   
   trip_calc = .false. 
@@ -60,19 +60,47 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   crit = 10.
   steps = 0
 
-  open(unit=36,file=trim(OUTPUT_DIR)//&
+  chkpoint_restart = read_omega_checkpoint(G,sx) 
+  
+  if (chkpoint_restart) then 
+  
+
+     open(unit=36,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_0b_magnus_flow.dat')
 
-  E_mbpt2 = mbpt2(HS,jbas) 
-  crit=abs(E_mbpt2)
+     
+     write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
+     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
+     Eold=0.
+     E_mbpt2 = mbpt2(HS,jbas) 
+     crit=abs(E_mbpt2)
+  
+  else 
+     
+     ! CHECKPOINT RESTART
+     open(unit=36,file=trim(OUTPUT_DIR)//&
+       trim(adjustl(prefix))//'_0b_magnus_flow.dat',position='append')
+     
+     call BCH_EXPAND(HS,G,H,jbas,quads) 
+     call build_generator(HS,DG,jbas)  
+     
+     s= sx
+  
+     steps = nint(sx/ds)
 
-  write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
-  write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-  Eold=0.
+  end if 
+  
+     
   do while (crit > 1e-6) 
      
-     call MAGNUS_EXPAND(DG,G,AD,jbas)
+     steps = steps + 1
+     if (mod(steps,4)==0) then 
+        call write_omega_checkpoint(G,s)
+     end if
+    
      
+     call MAGNUS_EXPAND(DG,G,AD,jbas)
+ 
      call euler_step(G,DG,s,ds) 
      
      call BCH_EXPAND(HS,G,H,jbas,quads) 
@@ -82,9 +110,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      E_mbpt2 = mbpt2(HS,jbas) 
      
      crit = abs(E_mbpt2)  
-
-     
-     steps = steps + 1
+       
      write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
 
@@ -191,34 +217,6 @@ subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator)
           
   end do
  
-! calculate any observables which have been requested =====================
-  
-  ! if (present(O1)) then 
-  !    call duplicate_sq_op(O1,Oevolv) 
-  !    call duplicate_ph_mat(HCC,OeCC)
-
-  !    if (present(O2)) then 
-        
-  !       ! transform observable
-  !       call BCH_EXPAND(Oevolv,G,O2,jbas) 
-  !       call duplicate_sp_mat(TDA,O2TDA) 
-  !       allocate(O2TDA%blkM(1)%labels(TDA%map(1),2)) 
-  !       O2TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-  !       call calculate_cross_coupled(Oevolv,OeCC,jbas) 
-  !       call calc_TDA(O2TDA,Oevolv,OeCC,jbas)
-  !       call copy_sq_op(Oevolv,O2)
-  !    end if 
-     
-  !    ! transform observable
-  !    call BCH_EXPAND(Oevolv,G,O1,jbas) 
-  !    call duplicate_sp_mat(TDA,O1TDA)
-  !    allocate(O1TDA%blkM(1)%labels(TDA%map(1),2)) 
-  !    O1TDA%blkM(1)%labels = TDA%blkM(1)%labels      
-  !    call calculate_cross_coupled(Oevolv,OeCC,jbas) 
-  !    call calc_TDA(O1TDA,Oevolv,OeCC,jbas) 
-  !    call copy_sq_op(Oevolv,O1) 
-  ! end if 
-
 !===========================================================================  
   close(37)
 end subroutine

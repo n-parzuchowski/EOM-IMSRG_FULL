@@ -27,6 +27,7 @@ program main_IMSRG
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin,write_omega
   external :: build_gs_white,build_specific_space,build_gs_atan,build_gs_w2
+  external :: build_ex_imtime
   integer :: heiko(30)
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
@@ -290,6 +291,7 @@ program main_IMSRG
            print*, rrTDA%blkM(1)%eigval
         else 
            call TDA_decouple(HS,TDA,jbasis,build_specific_space) 
+           call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbasis,Otrans) 
         end if 
         
         case(3) !discrete

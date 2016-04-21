@@ -2986,13 +2986,12 @@ subroutine write_twobody_operator(H,stage)
   if (prefix(1:8) == 'testcase') return  
 
   do i = 1,200
-     if ((prefix(i:i) == '+').or.(prefix(i:i) == '-')) exit
+     if (prefix(i:i+1) == 'hw') exit
   end do
   
-  prefix2(1:i-3)=prefix(1:i-3) 
-  prefix2(i-2:197)=prefix(i+1:200)
+  prefix2(1:i+3)=prefix(1:i+3) 
   print*, 'Writing normal ordered interaction to ',&
-       trim(TBME_DIR)//trim(adjustl(prefix2(1:i+4)))//&
+       trim(TBME_DIR)//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'
   
   Atot = H%belowEF
@@ -3015,7 +3014,7 @@ subroutine write_twobody_operator(H,stage)
   call vectorize(H,outvec) 
   
   
-  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+4)))//&
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'w'//achar(0)) 
   
   do q =1,neq
@@ -3025,7 +3024,164 @@ subroutine write_twobody_operator(H,stage)
   end do
    
   rx = gzClose(filehandle) 
-end subroutine
+end subroutine write_twobody_operator
+!======================================================
+!======================================================
+subroutine write_omega_checkpoint(H,s) 
+  ! first figure out how many equations there are:
+ 
+  type(sq_op) :: H 
+  integer Atot,Ntot,q,i
+  real(8),allocatable,dimension(:):: outvec 
+  real(8),intent(in) :: s
+  real(8) :: sx
+  character(200) :: prefix2,stringout
+  integer(c_int) :: rx,filehandle
+  logical :: isthere
+  character(6) :: s_position 
+
+  if (prefix(1:8) == 'testcase') return  
+
+  do i = 1,200
+     if (prefix(i:i+1) == 'hw') exit
+  end do
+  
+  write(s_position,'(f6.3)') s
+  
+  prefix2(1:i+3)=prefix(1:i+3)
+  if ( s < 10.000) then
+     prefix2(i+4:i+11) = '_s'//trim(adjustl(s_position))//'0'
+  else 
+     prefix2(i+4:i+11) = '_s'//s_position
+  end if 
+
+  print*, 'Writing normal ordered interaction to ',&
+       trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz'
+  
+  Atot = H%belowEF
+  Ntot = H%Nsp
+  
+  neq = 1 + Atot*Atot + Atot*(Ntot-Atot) + (Ntot - Atot)**2 
+  
+  do q = 1, H%nblocks
+     
+     nh = H%mat(q)%nhh
+     np = H%mat(q)%npp
+     nb = H%mat(q)%nph 
+     
+     neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
+  end do 
+  
+  H%neq = neq
+  allocate(outvec(neq)) 
+  
+  call vectorize(H,outvec) 
+  
+  
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))&
+       //'.gz'//achar(0),'w'//achar(0)) 
+  
+  do q =1,neq
+     write(stringout(1:20),'(e20.14)') outvec(q)
+     stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
+     call write_gz(filehandle,stringout)    
+  end do
+   
+  rx = gzClose(filehandle) 
+
+  sx = s - 4.d0 
+  write(s_position,'(f6.3)') sx
+  
+  prefix2(1:i+3)=prefix(1:i+3)
+  if ( sx < 10.000) then
+     prefix2(i+4:i+11) = '_s'//trim(adjustl(s_position))//'0'
+  else 
+     prefix2(i+4:i+11) = '_s'//s_position
+  end if 
+  
+  print*, 'removing '//trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz' 
+  inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
+  if (isthere) call system('rm '//trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz') 
+  
+  print*, 'sucessful' 
+
+end subroutine write_omega_checkpoint
+!======================================================
+!======================================================
+logical function read_omega_checkpoint(H,s) 
+  ! first figure out how many equations there are:
+ 
+  type(sq_op) :: H 
+  integer Atot,Ntot,q
+  real(8),allocatable,dimension(:):: outvec 
+  real(8),intent(out) :: s 
+  character(200) :: prefix2
+  character(20) :: instring
+  character(6) :: s_position 
+  integer(c_int) :: rx,filehandle
+  logical :: isthere
+
+
+  read_omega_checkpoint = .true.   
+  if (prefix(1:8)=='testcase') return
+
+  do i = 1,200
+     if (prefix(i:i+1) == 'hw') exit
+  end do
+
+  s = 95.d0 
+  do while (s >2.0)
+     write(s_position,'(f6.3)') s
+     
+     prefix2(1:i+3)=prefix(1:i+3)
+     if ( s < 10.000) then
+        prefix2(i+4:i+11) = '_s'//trim(adjustl(s_position))//'0'
+     else 
+        prefix2(i+4:i+11) = '_s'//s_position
+     end if
+     
+     inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
+     if (isthere) exit 
+     s = s-4.d0
+  end do
+
+  if ( .not. isthere ) then 
+     return
+  end if 
+  
+!  print*, 'Bypassing Hartree Fock and normal odering.' 
+  print*, 'Reading normal ordered output from ',&
+       trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz'
+
+  Atot = H%belowEF
+  Ntot = H%Nsp
+  
+  neq = 1 + Atot*Atot + Atot*(Ntot-Atot) + (Ntot - Atot)**2 
+  
+  do q = 1, H%nblocks
+     
+     nh = H%mat(q)%nhh
+     np = H%mat(q)%npp
+     nb = H%mat(q)%nph 
+     
+     neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
+  end do 
+  H%neq = neq
+  allocate(outvec(neq)) 
+   
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))&
+       //'.gz'//achar(0),'r'//achar(0)) 
+  
+  do q =1,neq
+     instring = read_normal_gz(filehandle) 
+     read(instring,'(e20.14)') outvec(q)
+  end do
+  
+  rx = gzClose(filehandle) 
+  
+  call repackage(H,outvec) 
+  read_omega_checkpoint = .false. 
+end function read_omega_checkpoint
 !======================================================
 !======================================================
 logical function read_twobody_operator(H,stage) 
@@ -3044,13 +3200,12 @@ logical function read_twobody_operator(H,stage)
   if (prefix(1:8) == 'testcase') return  
 
   do i = 1,200
-     if ((prefix(i:i) == '+').or.(prefix(i:i) == '-')) exit
+     if (prefix(i:i+1) == 'hw') exit
   end do
   
-  prefix2(1:i-3)=prefix(1:i-3) 
-  prefix2(i-2:197)=prefix(i+1:200)
+  prefix2(1:i+3)=prefix(1:i+3) 
     
-  inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+4)))//&
+  inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz',exist=isthere)
   
   if ( .not. isthere ) then 
@@ -3078,7 +3233,7 @@ logical function read_twobody_operator(H,stage)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+4)))//&
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'r'//achar(0)) 
   
   do q =1,neq
@@ -3592,16 +3747,25 @@ real(8) function mat_frob_norm(op)
   integer :: q,g
   real(8) :: sm
 
-  sm = sum(op%fhh**2) +  sum(op%fph**2) + sum(op%fpp**2)
+  sm = sum(op%fhh**2) +  2*sum(op%fph**2) + sum(op%fpp**2)
+ 
   do q = 1, op%nblocks
      if (op%rank > 0) then 
         do g = 1,9
-           sm = sm + sum(op%tblck(q)%tgam(g)%X**2)
+           if (op%tblck(q)%Jpair(1)== op%tblck(q)%Jpair(2)) then 
+              sm = sm + sum(op%tblck(q)%tgam(g)%X**2)
+           else 
+              sm = sm + 2 * sum(op%tblck(q)%tgam(g)%X**2)
+           end if 
         end do
      else
         do g = 1,6
            sm = sm + sum(op%mat(q)%gam(g)%X**2)
-        end do
+           if (.not. sqs(g) ) then 
+              sm = sm + sum(op%mat(q)%gam(g)%X**2)
+           end if
+       end do
+
      end if 
   end do 
   
@@ -3634,7 +3798,11 @@ real(8) function twobd_frob_norm(op)
   do q = 1, op%nblocks
      if (op%rank > 0) then 
         do g = 1,9
-           sm = sm + sum(op%tblck(q)%tgam(g)%X**2)
+           if (op%tblck(q)%Jpair(1)== op%tblck(q)%Jpair(2)) then 
+              sm = sm + sum(op%tblck(q)%tgam(g)%X**2)
+           else 
+              sm = sm + 2 * sum(op%tblck(q)%tgam(g)%X**2)
+           end if 
         end do
      else
         do g = 1,6

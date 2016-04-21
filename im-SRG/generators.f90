@@ -726,45 +726,6 @@ subroutine build_ex_imtime(H,ETA,jbas)
      end do 
   end do 
  
-  ETA%fpp = 0.d0 
-   do a = 1,H%Nsp - H%belowEF
-     ak = jbas%parts(a)
-     if (ak < H%valcut+1) cycle
-     ja = jbas%jj(ak)
-     la = jbas%ll(ak)
-     ta = jbas%itzp(ak)
-     
-     do i = a+1, H%Nsp - H%belowEF
-       
-        ik = jbas%parts(i)
-        if (ik > H%valcut) cycle
-        ji = jbas%jj(ik)       
-        li = jbas%ll(ik)        
-        ti = jbas%itzp(ik)
-             
-        ! the generator is zero if these are true: 
-        if ( ji .ne. ja) cycle
-        if ( li .ne. la) cycle
-        if ( ti .ne. ta) cycle 
-     
-        ! energy denominator has a sum over J  to factor out m dep. 
-        Eden = 0.0 
-        
-        do JT = 0, 2*ji , 2
-           Eden = Eden - (JT + 1) * v_elem(ak,ik,ak,ik,JT,H,jbas) 
-        end do 
-        
-        ! sum is averaged over ji ** 2  
-        Eden = Eden / (ji + 1.d0)/(ji + 1.d0) 
-        
-        Eden = Eden + H%fpp(a,a) - H%fhh(i,i) 
-        
-         
-        ETA%fpp(a,i) = H%fpp(a,i)*sign(1.d0,Eden)*abs(Eden)**.0001 
-        ETA%fpp(i,a) = -1*ETA%fpp(a,i)
-     end do 
-  end do 
-  
   ! two body part 
   
   do  q = 1, H%nblocks
@@ -787,9 +748,6 @@ subroutine build_ex_imtime(H,ETA,jbas)
 
            i = H%mat(q)%qn(2)%Y(JX,1) !hh descriptor qn(3)%Y
            j = H%mat(q)%qn(2)%Y(JX,2)
-
-           if (i > H%valcut) cycle
-           if (j > H%valcut) cycle
       
            ji = jbas%jj(i)
            jj = jbas%jj(j)
@@ -814,56 +772,6 @@ subroutine build_ex_imtime(H,ETA,jbas)
            ETA%mat(q)%gam(2)%X(IX,JX) = &
                 H%mat(q)%gam(2)%X(IX,JX)*sign(1.d0,Eden)*abs(Eden)**.0001  
          
-           
-        end do 
-     end do
-     
-     ! Vphph 
-     do IX = 1,H%mat(q)%nph 
-
-        ! figure out which sp states compose IX
-        a = H%mat(q)%qn(2)%Y(IX,1)  ! pp descriptor qn(1)%Y 
-        b = H%mat(q)%qn(2)%Y(IX,2)
-
-        if ( a > H%valcut )  cycle 
-        if ( b > H%valcut )  cycle
-             
-        ja = jbas%jj(a)
-        jb = jbas%jj(b)   
-        
-        do JX = IX + 1,H%mat(q)%nph 
-
-           i = H%mat(q)%qn(2)%Y(JX,1) !hh descriptor qn(3)%Y
-           j = H%mat(q)%qn(2)%Y(JX,2)
- 
-           ji = jbas%jj(i)
-           jj = jbas%jj(j)
-         
-           !hl = i*jbas%con(i) + j * jbas%con(j) 
-           !jh =  ji*jbas%con(i) + jj * jbas%con(j)
-            
-           
-           p = i*(1-jbas%con(i)) + j * (1-jbas%con(j)) 
-           jp =  ji*(1-jbas%con(i)) + jj * (1-jbas%con(j))
-           
-           if (p < H%valcut+1) cycle
-           Eden = 0.d0 
-           
-           ! constructing the App'hh' term is rather codey... 
-          
-           !pp'pp' 
-
-           !Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           !Eden = Eden - Javerage(a,hl,ja,jh,H,jbas) 
-           !Eden = Eden - Javerage(b,hl,jb,jh,H,jbas) 
-                   
-           Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
-                f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
-           
-         
-           ETA%mat(q)%gam(4)%X(IX,JX) = &
-                H%mat(q)%gam(4)%X(IX,JX)*sign(1.d0,Eden)*abs(Eden)**.0001  
-           ETA%mat(q)%gam(4)%X(JX,IX) = -1*ETA%mat(q)%gam(4)%X(IX,JX)
            
         end do 
      end do
