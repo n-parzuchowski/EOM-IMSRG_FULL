@@ -396,7 +396,6 @@ subroutine EOM_TS_commutator_212(L,R,RES,jbas)
                           
                           sm1 = sm1 - xxxsixj(J1,J2,rank,ji,ja,jb)&
                                *f_tensor_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
-                     
                        end if
                     end if
                  end if

@@ -179,9 +179,11 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     
   call print_header
   select case (method_int) 
-  
+
+          
   case (1) ! magnus 
      
      call duplicate_sq_op(HS,exp_omega)

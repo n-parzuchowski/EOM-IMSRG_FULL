@@ -86,7 +86,7 @@ subroutine build_gs_white(H,ETA,jbas)
            ! constructing the App'hh' term is rather codey... 
           
            !pp'pp' 
-
+ 
            Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
            Eden = Eden + Javerage(i,j,ji,jj,H,jbas) 
            Eden = Eden - Javerage(a,i,ja,ji,H,jbas) 

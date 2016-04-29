@@ -4,8 +4,9 @@ module EOM_IMSRG
   use EOM_TS_commutators
   use operators
   implicit none
-  
+
 contains 
+
 
 subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1) 
   implicit none
@@ -25,6 +26,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   ladder_ops%dpar = 2*PAR
   ladder_ops%pphh_ph = .true. 
 
+  
   if ( ladder_ops(1)%rank .ne. 0 ) then 
 
      if (allocated(O1%tblck)) then 
@@ -191,6 +193,7 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
      end do
   end do
   
+
   if (vecs(1)%rank == 0) then 
      ! scalar operator
      tps = 0 
@@ -298,6 +301,7 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
         exit
      end if
      
+
      if ( vecs(1)%rank == 0 ) then 
         call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
      else
@@ -366,7 +370,7 @@ subroutine matvec_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   call EOM_scalar_commutator_111(Op,Q_op,Qout,jbas) ! verified   
   call EOM_scalar_commutator_121(Op,Q_op,Qout,jbas) ! verified
   call EOM_scalar_commutator_122(Op,Q_op,Qout,jbas)  ! verified, damnit.  
-  
+
   call EOM_scalar_commutator_222_pp_hh(Op,Q_op,Qout,w1,w2,jbas) ! verified   
   call EOM_scalar_commutator_221(Op,Q_op,Qout,w1,w2,jbas)  ! verified.    
   call EOM_scalar_commutator_222_ph(OpCC,QCC,Qout,WCC,jbas) 
@@ -408,7 +412,7 @@ subroutine matvec_nonzeroX_prod(N,OP,Q_op,Qout,w1,w2,OpCC,QCC,WCC,jbas,v,w)
   call EOM_TS_commutator_211(OpCC,Q_op,Qout,jbas) 
   call EOM_TS_commutator_122(Op,Q_op,Qout,jbas)
   call EOM_TS_commutator_212(Op,Q_op,Qout,jbas)
-  
+
   call EOM_TS_commutator_222_pp_hh(Op,Q_op,Qout,w1,w2,jbas)  
   call EOM_TS_commutator_221(w1,w2,Op%herm*Q_op%herm,Qout,jbas)
   call EOM_TS_commutator_222_ph(OpCC,QCC,Qout,WCC,jbas)
@@ -445,7 +449,7 @@ subroutine unwrap( v, AX ,N ,jbas)
         if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
         if (jbas%ll(II) .ne. jbas%ll(JJ) ) cycle
         
-        AX%fph(IX,JX) = v(i) 
+        AX%fph(IX,JX) = v(i) / SQRT( jbas%jj( II ) + 1.d0 ) 
         i = i + 1
      end do
   end do
@@ -464,7 +468,7 @@ subroutine unwrap( v, AX ,N ,jbas)
              if ( AX%mat(q)%qn(3)%Y(JJ,1) == &
                    AX%mat(q)%qn(3)%Y(JJ,2) ) cycle
            end if
-           AX%mat(q)%gam(3)%X(II,JJ) = v(i)
+           AX%mat(q)%gam(3)%X(II,JJ) = v(i) / SQRT(AX%mat(q)%LAM(1)+1.d0) 
            i = i + 1
         end do 
      end do 
@@ -683,7 +687,7 @@ subroutine rewrap( v, AX ,N ,jbas)
         if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
         if (jbas%ll(II) .ne. jbas%ll(JJ) ) cycle
         
-        v(i) = AX%fph(IX,JX) 
+        v(i) = AX%fph(IX,JX)*sqrt(jbas%jj(ii) + 1.d0)  
         i = i + 1
      end do
   end do
@@ -701,7 +705,7 @@ subroutine rewrap( v, AX ,N ,jbas)
              if ( AX%mat(q)%qn(3)%Y(JJ,1) == &
                    AX%mat(q)%qn(3)%Y(JJ,2) ) cycle
            end if
-           v(i) = AX%mat(q)%gam(3)%X(II,JJ)
+           v(i) = AX%mat(q)%gam(3)%X(II,JJ)*SQRT(AX%mat(q)%LAM(1)+1.d0) 
            i = i + 1
         end do 
      end do 
