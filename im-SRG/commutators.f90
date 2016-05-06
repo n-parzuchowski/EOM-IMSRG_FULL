@@ -586,7 +586,7 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
   
   type(spd) :: jbas
   type(sq_op) ::  L,R,RES,w1,w2
-  integer :: q
+  integer :: q,i
   integer :: np,nb,nh,pm
   real(8) :: bet_off,al_off
   
@@ -598,6 +598,11 @@ subroutine commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      nh = L%mat(q)%nhh
      np = L%mat(q)%npp
      nb = L%mat(q)%nph
+     
+     do i = 1, 6
+        w1%mat(q)%gam(i)%X=0.d0
+        w2%mat(q)%gam(i)%X=0.d0
+     end do 
      
      IF ( .NOT. L%pphh_ph ) THEN 
         if (np .ne. 0)  then 

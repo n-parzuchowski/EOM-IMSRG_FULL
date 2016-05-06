@@ -3129,8 +3129,8 @@ logical function read_omega_checkpoint(H,s)
      if (prefix(i:i+1) == 'hw') exit
   end do
 
-  s = 95.d0 
-  do while (s >2.0)
+  s = 95.5d0 
+  do while (s >1.0)
      write(s_position,'(f6.3)') s
      
      prefix2(1:i+3)=prefix(1:i+3)
@@ -3142,7 +3142,7 @@ logical function read_omega_checkpoint(H,s)
      
      inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
      if (isthere) exit 
-     s = s-4.d0
+     s = s-2.d0
   end do
 
   if ( .not. isthere ) then 

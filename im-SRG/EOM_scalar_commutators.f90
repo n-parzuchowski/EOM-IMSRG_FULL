@@ -314,8 +314,6 @@ subroutine EOM_scalar_commutator_221(L,R,RES,w1,w2,jbas)
    
   pm = R%herm*L%herm
    
-! FUCK FUCK FUCK
-! ASS ASS ASS
   ! fph
   do i = 1 , Ntot - Abody
      ik = jbas%parts(i) 
@@ -366,7 +364,7 @@ subroutine EOM_scalar_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
   
   type(spd) :: jbas
   type(sq_op) ::  L,R,RES,w1,w2
-  integer :: q
+  integer :: q,i
   integer :: np,nb,nh,pm
   real(8) :: bet_off,al_off
   
@@ -382,6 +380,10 @@ subroutine EOM_scalar_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      if (np + nb == 0 ) cycle 
      if (nh + nb == 0 ) cycle
      
+     do i = 1, 6
+        w1%mat(q)%gam(i)%X=0.d0
+        w2%mat(q)%gam(i)%X=0.d0
+     end do 
      
      if (np*nh .ne. 0) then 
      !L_pppp . R_pphh  = W1_pphh

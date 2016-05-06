@@ -50,7 +50,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   s = 0.d0 
     
   if (HS%lawson_beta < 3.0) then 
-     ds = 1.0d0
+     ds = 0.5d0
   else if (HS%lawson_beta < 6.0) then 
      ds = 0.5d0
   else

@@ -1075,7 +1075,7 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
   
   type(spd) :: jbas
   type(sq_op) ::  L,R,RES,w1,w2
-  integer :: q,q1,q2,J1,J2,Tz,Par,phase,rank
+  integer :: q,q1,q2,J1,J2,Tz,Par,phase,rank,i
   integer :: np1,nb1,nh1,np2,nb2,nh2,pm
   real(8) :: bet_off,al_off
   
@@ -1100,7 +1100,10 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
      np2 = R%tblck(q)%npp2
      nb2 = R%tblck(q)%nph2
        
-
+     do i = 1, 9 
+        w1%tblck(q)%tgam(i)%X=0.d0
+        w2%tblck(q)%tgam(i)%X=0.d0
+     end do 
 !----------------------------------------------------------------------------
 !         Zpppp 
 !----------------------------------------------------------------------------
