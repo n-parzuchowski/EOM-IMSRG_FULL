@@ -17,10 +17,9 @@ module three_body_routines
   end type three_body_force
 
   type mono_3b
-     type(real_vec),dimension(8) :: mat
-     integer,dimension(8,2) :: lam
+     type(real_vec),allocatable,dimension(:) :: mat
      integer,allocatable,dimension(:,:) :: hash
-     integer,dimension(8) :: dm
+     integer,allocatable,dimension(:) :: dm
   end type mono_3b
   
 contains
@@ -43,51 +42,77 @@ subroutine allocate_mono(STOR,monoSTOR,jbas)
    type(mono_3b) :: monoSTOR
    type(spd) :: jbas
    real(8) :: mem,sm
-   integer :: ta,tb,tc,la,lb,lc,N,x1,x2
+   integer :: ta,tb,tc,la,lb,lc,N,x1,x2,lmax,spjmax
    integer :: ja,jb,jc,jaa,jbb,jcc,II,JJ,jtot,Jab
-   integer :: Jab_min,Jab_max,j_min,j_max,aux
+   integer :: Jab_min,Jab_max,j_min,j_max,aux,blocks
    integer :: q,Tz,PAR,a,b,c,aa,bb,cc,items
    ! i'm too lazy right now. 
    ! monopoles --- 
+   
+   lmax = maxval(jbas%ll) 
+   spjmax = maxval(jbas%jj) 
+   
+   blocks = 8*(lmax+1)**3*((spjmax-1)/2+1)**3 
+   
+   allocate(monoSTOR%mat(blocks)) 
+   allocate(monoSTOR%dm(blocks)) 
    
    N = size(jbas%con) 
    allocate(monoSTOR%hash(N*N*N,2))
    mem = 0.d0 
    q = 1
-   do Tz=-3,3,2
-      do PAR=0,1
-         
-         monoSTOR%lam(q,1) = Tz 
-         monoSTOR%lam(q,2) = PAR 
-
-         items = 0 
-         do a=1,N
-            ta = jbas%itzp(a) 
-            la = jbas%ll(a)
-            do b=1,N
-               tb = jbas%itzp(a) 
-               lb = jbas%ll(a)
-               do c=1,N
-                  tc = jbas%itzp(a) 
-                  lc = jbas%ll(a)
    
-                  if (ta+tb+tc .ne. Tz) cycle
-                  if (mod(la+lb+lc,2) .ne.PAR) cycle
-                  
-                  !!! member of this block 
-                  items=items + 1
-                  monoSTOR%hash(N*N*(a-1)+N*(b-1)+c,1) = q
-                  monoSTOR%hash(N*N*(a-1)+N*(b-1)+c,2) = items
-               end do 
-            end do 
-         end do 
+   do ta = -1,1,2
+      do tb = -1,1,2
+         do tc = -1,1,2 
+
+            do la = 0,lmax
+               do lb = 0,lmax
+                  do lc = 0,lmax
+
+                     do ja = 1, spjmax,2
+                        do jb = 1, spjmax, 2
+                           do jc = 1, spjmax, 2
       
-         allocate(monoSTOR%mat(q)%XX(items*(items+1)/2)) 
-         monoSTOR%mat(q)%XX = -99999.d0 
-         monoSTOR%dm(q) = items
-         mem = mem +sizeof(monoSTOR%mat(q)%XX)
-         q=q+1
-      end do 
+                              items = 0 
+                              do a=1,N
+                                 if (jbas%itzp(a).ne.ta) cycle 
+                                 if (jbas%ll(a).ne.la) cycle 
+                                 if (jbas%jj(a).ne.ja) cycle
+
+                                 do b=1,N
+                                    if (jbas%itzp(b).ne.tb) cycle 
+                                    if (jbas%ll(b).ne.lb) cycle 
+                                    if (jbas%jj(b).ne.jb) cycle
+
+                                    do c=1,N
+                                       if (jbas%itzp(c).ne.tc) cycle 
+                                       if (jbas%ll(c).ne.lc) cycle 
+                                       if (jbas%jj(c).ne.jc) cycle
+
+                                      !!! member of this block 
+                                       items=items + 1
+                                       monoSTOR%hash(N*N*(a-1)+N*(b-1)+c,1) = q
+                                       monoSTOR%hash(N*N*(a-1)+N*(b-1)+c,2) = items
+                                    end do
+                                 end do
+                              end do
+
+                              allocate(monoSTOR%mat(q)%XX(items*(items+1)/2)) 
+                              monoSTOR%mat(q)%XX = -99999.d0 
+                              monoSTOR%dm(q) = items
+                              mem = mem +sizeof(monoSTOR%mat(q)%XX)
+                              q=q+1
+
+                           end do
+                        end do
+                     end do
+
+                  end do
+               end do
+            end do
+         end do
+      end do
    end do 
    mem = mem+sizeof(monoSTOR%hash)
    mem = mem/1024./1024./1024.

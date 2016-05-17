@@ -49,6 +49,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
 
   crit = 10.d0 
   r = 0
+     
   !!! HARTREE FOCK MAIN LOOP 
   print*, 'Computing Hartree Fock Basis...'
   do while (crit > 1e-6) 
@@ -75,6 +76,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
         crit = crit + sqrt(sum((D%blkM(q)%eigval-F%blkM(q)%eigval)**2))
         D%blkM(q)%eigval = F%blkM(q)%eigval       
      end do
+     r = r +1
  end do 
 
  do q = 1,T%blocks
