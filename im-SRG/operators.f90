@@ -690,7 +690,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
         i = jbas%holes(ix)
         ji = jbas%jj(i) 
         
-        phase = (-1) ** ((ja-ji+rank)/2)
+        phase = (-1) ** ((ja-ji)/2)
         sm = sm + f_tensor_elem(i,a,Trans_op,jbas)*&
              f_tensor_elem(a,i,Qdag,jbas)*phase
      end do 
@@ -715,7 +715,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
               do J1 = abs(ji-jj),ji+jj,2
                  do J2 = abs(ja-jb),ja+jb,2
                     
-              phase = (-1) **((ja+jb+ji+jj+rank)/2) 
+              phase = (-1) **((J1+J2)/2) 
               sm = sm + phase*0.25d0*&
                    tensor_elem(i,j,a,b,J1,J2,Trans_op,jbas)*&
                    tensor_elem(a,b,i,j,J2,J1,Qdag,jbas) 
@@ -726,7 +726,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
      end do
   end do
         
-  transition_to_ground_ME = sm + 1.d0/(rank+1.d0) 
+  transition_to_ground_ME = sm * (-1.d0)**(rank/2)/sqrt(rank+1.d0) 
   
 end function transition_to_ground_ME
 

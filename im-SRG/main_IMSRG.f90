@@ -12,7 +12,7 @@ program main_IMSRG
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
-  type(spd) :: jbasis
+  type(spd) :: jbas
   type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cc_mat) :: CCHS,CCETA,WCC
@@ -25,7 +25,7 @@ program main_IMSRG
   integer :: na,la,lb
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
-  logical :: skip_setup,skip_gs,writing,TEST_commutators,mortbin,write_omega
+  logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
   external :: build_gs_white,build_specific_space,build_gs_atan,build_gs_w2
   external :: build_ex_imtime
   integer :: heiko(30)
@@ -52,8 +52,7 @@ program main_IMSRG
        me2b,mortbin,hw,skip_setup,skip_gs,quads,trips,&
        trans_type,trans_rank,threebod%e3max)
 
-
-  call read_sp_basis(jbasis,HS%Aprot,HS%Aneut,method_int)
+  call read_sp_basis(jbas,HS%Aprot,HS%Aneut,method_int)
 
   if (TEST_COMMUTATORS) then 
      ! run this by typing ' X' after the input file in the command line
@@ -62,13 +61,40 @@ program main_IMSRG
      stop
   end if 
   
-  call allocate_blocks(jbasis,HS)
+  call allocate_blocks(jbas,HS)
 
   HS%herm = 1
   HS%hospace = hw
 
   call initialize_transition_operator&
-       (trans_type,trans_rank,Otrans,HS,jbasis,trans_calc)  
+       (trans_type,trans_rank,Otrans,HS,jbas,trans_calc)  
+
+!============================================================
+!  CAN WE SKIP STUFF?  
+!============================================================
+  do_hf = .true. 
+  IF (reading_decoupled) then 
+     do_hf = read_twobody_operator(HS,'decoupled') 
+     if (com_calc .or. r2rms_calc) then 
+        do_hf=read_twobody_operator(HS,'rirj_decoupled')    
+        do_hf=read_twobody_operator(HS,'pipj_decoupled')    
+     end if
+
+     if (.not. do_hf) goto 91 
+  end if  
+  
+  if (reading_bare) then 
+     do_hf = read_twobody_operator(HS,'bare') 
+     if (com_calc .or. r2rms_calc) then 
+        do_hf=read_twobody_operator(HS,'rirj_bare')    
+        do_hf=read_twobody_operator(HS,'pipj_bare')    
+     end if
+
+     if (.not. do_hf) goto 90
+  end if 
+  ! yes, goto 
+!=============================================================
+!=============================================================
 
   ! for calculating COM expectation value
   if (COM_calc) then  
@@ -77,15 +103,15 @@ program main_IMSRG
      call duplicate_sq_op(HS,pipj)
      
      if (me2j) then  ! heiko format or scott format? 
-        call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj) 
+        call read_me2j_interaction(HS,jbas,ham_type,hw,rr=rirj,pp=pipj) 
      else if (mortbin) then 
-        call read_gz(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
+        call read_gz(HS,jbas,ham_type,hw,rr=rirj,pp=pipj)
      else
-        call read_interaction(HS,jbasis,ham_type,hw,rr=rirj,pp=pipj)
+        call read_interaction(HS,jbas,ham_type,hw,rr=rirj,pp=pipj)
      end if
      
-     call calculate_h0_harm_osc(hw,jbasis,pipj,4)
-     call calculate_h0_harm_osc(hw,jbasis,rirj,5)
+     call calculate_h0_harm_osc(hw,jbas,pipj,4)
+     call calculate_h0_harm_osc(hw,jbas,rirj,5)
  !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   else if (r2rms_calc) then ! radius of some sort 
   
@@ -93,28 +119,29 @@ program main_IMSRG
      call duplicate_sq_op(HS,r2_rms) 
      
      if (me2j) then 
-        call read_me2j_interaction(HS,jbasis,ham_type,hw,rr=rirj)
+        call read_me2j_interaction(HS,jbas,ham_type,hw,rr=rirj)
      else if (mortbin) then 
-        call read_gz(HS,jbasis,ham_type,hw,rr=rirj)  
+        call read_gz(HS,jbas,ham_type,hw,rr=rirj)  
      else
-        call read_interaction(HS,jbasis,ham_type,hw,rr=rirj)
+        call read_interaction(HS,jbas,ham_type,hw,rr=rirj)
      end if
      
-     call initialize_rms_radius(r2_rms,rirj,jbasis) 
+     call initialize_rms_radius(r2_rms,rirj,jbas) 
  !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   else    ! normal boring
   
      if (me2j) then 
-        call read_me2j_interaction(HS,jbasis,ham_type,hw) 
+        call read_me2j_interaction(HS,jbas,ham_type,hw) 
      else if (me2b) then
         ! pre normal ordered interaction with three body included at No2b       
-        call read_me2b_interaction(HS,jbasis,ham_type,hw) 
+        print*, 'READING PRE-NORMAL ORDERED INTERACTION FROM HEIKO' 
+        call read_me2b_interaction(HS,jbas,ham_type,hw) 
         goto 12 ! skip the normal ordering. 
         ! it's already done.  line 128 or search "bare" 
      else if (mortbin) then 
-        call read_gz(HS,jbasis,ham_type,hw) 
+        call read_gz(HS,jbas,ham_type,hw) 
      else
-        call read_interaction(HS,jbasis,ham_type,hw)
+        call read_interaction(HS,jbas,ham_type,hw)
      end if
      
   end if
@@ -123,52 +150,52 @@ program main_IMSRG
 ! BUILD BASIS
 !============================================================
   
-  call calculate_h0_harm_osc(hw,jbasis,HS,ham_type) 
+  call calculate_h0_harm_osc(hw,jbas,HS,ham_type) 
   
-  writing = .false. 
   if (threebod%e3Max.ne.0) then 
-     writing = read_twobody_operator( HS,'bare' )
-     if ( writing.or.COM_calc.or.r2rms_calc.or.trans_calc ) then 
-        print*, 'Reading Three Body Force'
-        call allocate_three_body_storage(jbasis,threebod)
-        call read_me3j(threebod,jbasis)
-     else 
-        goto 77 
-     end if
+     print*, 'Reading Three Body Force From file'
+     call allocate_three_body_storage(jbas,threebod)
+     call read_me3j(threebod,jbas)
   end if 
-
+    
   if (hartree_fock) then 
   
     if (COM_calc) then 
-       call calc_HF(HS,threebod,jbasis,coefs,pipj,rirj)
-       call normal_order(pipj,jbasis)
-       call normal_order(rirj,jbasis)
+       call calc_HF(HS,threebod,jbas,coefs,pipj,rirj)
+       call normal_order(pipj,jbas)
+       call normal_order(rirj,jbas)
      else if (r2rms_calc) then 
-        call calc_HF(HS,threebod,jbasis,coefs,r2_rms)
-        call normal_order(r2_rms,jbasis)
+        call calc_HF(HS,threebod,jbas,coefs,r2_rms)
+        call normal_order(r2_rms,jbas)
      else if (trans_calc) then 
-        call calc_HF(HS,threebod,jbasis,coefs,Otrans)
+        call calc_HF(HS,threebod,jbas,coefs,Otrans)
      else
-        call calc_HF(HS,threebod,jbasis,coefs)
+        call calc_HF(HS,threebod,jbas,coefs)
      end if 
     ! calc_HF normal orders the hamiltonian
   
   else 
      if (COM_calc) then
-        call normal_order(pipj,jbasis)
-        call normal_order(rirj,jbasis)
+        call normal_order(pipj,jbas)
+        call normal_order(rirj,jbas)
      else if (r2rms_calc) then 
-        call normal_order(r2_rms,jbasis)
+        call normal_order(r2_rms,jbas)
      end if 
 
-     call normal_order(HS,jbasis) 
+     call normal_order(HS,jbas) 
   end if
 
   call deallocate_3b(threebod)
 
   ! lawson 0b term
 12 HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
-77 if (writing) call write_twobody_operator(HS,'bare')
+if (writing_bare) then 
+   call write_twobody_operator(HS,'bare')   
+   if (com_calc .or. r2rms_calc) then 
+      call write_twobody_operator(HS,'rirj_bare')    
+      call write_twobody_operator(HS,'pipj_bare')    
+   end if 
+end if 
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
@@ -179,8 +206,9 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! ground state decoupling
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
      
-  call print_header
+90 call print_header
   select case (method_int) 
 
           
@@ -188,57 +216,62 @@ program main_IMSRG
      
      call duplicate_sq_op(HS,exp_omega)
      exp_omega%herm = -1
-     write_omega = read_twobody_operator( exp_omega ,'omega' )     
-!     write_omega=.true.
-     if ( write_omega ) then 
-        call magnus_decouple(HS,exp_omega,jbasis,quads,trips,build_gs_atan)    
-        call write_twobody_operator(exp_omega,'omega')
+     decouple=.true.
+
+     if ( reading_omega ) then
+        decouple = read_twobody_operator( exp_omega ,'omega' )
+     end if 
+
+
+     if ( decouple ) then 
+        call magnus_decouple(HS,exp_omega,jbas,quads,trips,build_gs_w2)    
+        if (writing_omega) call write_twobody_operator(exp_omega,'omega')
      else
         print*, 'READ TRANSFORMATION FROM FILE, SKIPPING IMSRG...' 
-        call transform_observable_BCH(HS,exp_omega,jbasis,quads) 
+        call transform_observable_BCH(HS,exp_omega,jbas,quads) 
      end if 
      
      if (COM_calc) then 
         print*, 'TRANSFORMING Hcm'
-        call transform_observable_BCH(pipj,exp_omega,jbasis,quads)
-        call transform_observable_BCH(rirj,exp_omega,jbasis,quads)
+        call transform_observable_BCH(pipj,exp_omega,jbas,quads)
+        call transform_observable_BCH(rirj,exp_omega,jbas,quads)
         print*, 'CALCULTING Ecm' 
         call calculate_CM_energy(pipj,rirj,hw) 
      end if 
      
      if (r2rms_calc) then
         print*, 'TRANSFORMING RADIUS'
-        call transform_observable_BCH(r2_rms,exp_omega,jbasis,quads)
+        call transform_observable_BCH(r2_rms,exp_omega,jbas,quads)
         call write_tilde_from_Rcm(r2_rms) 
      end if
     
      if (trans_calc) then
         print*, 'TRANSFORMING TRANSITION OPERATOR'
-        call transform_observable_BCH(Otrans,exp_omega,jbasis,quads)
+        call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
      end if
     
   case (2) ! traditional
      if (COM_calc) then 
-        call decouple_hamiltonian(HS,jbasis,build_gs_white,pipj,rirj)
+        call decouple_hamiltonian(HS,jbas,build_gs_white,pipj,rirj)
         call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
      else if (r2rms_calc) then 
-        call decouple_hamiltonian(HS,jbasis,build_gs_white,r2_rms)
+        call decouple_hamiltonian(HS,jbas,build_gs_white,r2_rms)
 !        call write_tilde_from_Rcm(r2_rms)
         print*, sqrt(r2_rms%E0)
     else 
-        call decouple_hamiltonian(HS,jbasis,build_gs_white) 
-    !    call discrete_decouple(HS,jbasis) 
+        call decouple_hamiltonian(HS,jbas,build_gs_white) 
+    !    call discrete_decouple(HS,jbas) 
      end if
      
   case (3) 
      if (COM_calc) then 
-        call discrete_decouple(HS,jbasis,pipj,rirj)
+        call discrete_decouple(HS,jbas,pipj,rirj)
         call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
      else if (r2rms_calc) then 
-        call discrete_decouple(HS,jbasis,r2_rms)
+        call discrete_decouple(HS,jbas,r2_rms)
         call write_tilde_from_Rcm(r2_rms)     
      else 
-        call discrete_decouple(HS,jbasis) 
+        call discrete_decouple(HS,jbas) 
      end if
 
   end select
@@ -248,11 +281,19 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  equation of motion calculation 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  t2 = omp_get_wtime() 
+  if (writing_decoupled) then 
+     call write_twobody_operator(HS,'decoupled')
+     if (com_calc .or. r2rms_calc) then 
+        call write_twobody_operator(HS,'rirj_decoupled')    
+        call write_twobody_operator(HS,'pipj_decoupled')    
+     end if
+  end if
+
+91 t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
   
   if (ex_calc_int==1) then 
-     call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbasis,Otrans) 
+     call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbas,Otrans) 
      t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   end if
@@ -261,7 +302,7 @@ program main_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (ex_calc_int==2) then 
 
-     call initialize_TDA(TDA,jbasis,HS%Jtarg,HS%Ptarg,HS%valcut)
+     call initialize_TDA(TDA,jbas,HS%Jtarg,HS%Ptarg,HS%valcut)
 
      deallocate(HS%exlabels) 
 
@@ -271,41 +312,41 @@ program main_IMSRG
      select case (method_int) 
         case(1) !magnus
            
-           call magnus_TDA(HS,TDA,exp_omega,jbasis,quads,build_specific_space)     
+           call magnus_TDA(HS,TDA,exp_omega,jbas,quads,build_specific_space)     
        
            if (COM_calc) then 
               call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
            else if (r2rms_calc) then
-              print*, 'fuck'
+              print*, 'fail'
            else 
-              print*, 'superfuck'
+              print*, 'superfail'
         end if
         
         case(2) !traditional
      
         if (COM_calc) then 
-           call TDA_decouple(HS,TDA,jbasis,build_specific_space, &
+           call TDA_decouple(HS,TDA,jbas,build_specific_space, &
                 pipj,ppTDA,rirj,rrTDA) 
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
-           call TDA_decouple(HS,TDA,jbasis,build_specific_space,&
+           call TDA_decouple(HS,TDA,jbas,build_specific_space,&
                 r2_rms,rrTDA)
            print*, rrTDA%blkM(1)%eigval
         else 
-           call TDA_decouple(HS,TDA,jbasis,build_specific_space) 
-           call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbasis,Otrans) 
+           call TDA_decouple(HS,TDA,jbas,build_specific_space) 
+           call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbas,Otrans) 
         end if 
         
         case(3) !discrete
       
          
         if (COM_calc) then 
-           call discrete_TDA(HS,TDA,jbasis,pipj,ppTDA,rirj,rrTDA) 
+           call discrete_TDA(HS,TDA,jbas,pipj,ppTDA,rirj,rrTDA) 
            call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
         else if (r2rms_calc) then
-           call discrete_TDA(HS,TDA,jbasis,r2_rms,rrTDA)
+           call discrete_TDA(HS,TDA,jbas,r2_rms,rrTDA)
         else 
-           call discrete_TDA(HS,TDA,jbasis) 
+           call discrete_TDA(HS,TDA,jbas) 
         end if 
       
      end select
@@ -319,14 +360,17 @@ contains
 
 subroutine test
 
-  call test_scalar_scalar_commutator(jbasis,-1,1) 
-  deallocate(jbasis%xmap)
-  call test_EOM_scalar_scalar_commutator(jbasis,1,1)
-  deallocate(jbasis%xmap)
-  call test_EOM_scalar_tensor_commutator(jbasis,1,1,4,0)  
-  deallocate(jbasis%xmap,jbasis%xmap_tensor,phase_hh,phase_pp)
+  call compare_tensor_scalar_commutator(jbas,-1,1) 
+  stop
+  deallocate(jbas%xmap) 
+  call test_scalar_scalar_commutator(jbas,-1,1) 
+  deallocate(jbas%xmap)
+  call test_EOM_scalar_scalar_commutator(jbas,1,1)
+  deallocate(jbas%xmap)
+  call test_EOM_scalar_tensor_commutator(jbas,1,1,4,0)  
+  deallocate(jbas%xmap,jbas%xmap_tensor,phase_hh,phase_pp)
   deallocate(half6j%tp_mat)
-  call test_scalar_tensor_commutator(jbasis,-1,1,4,0) 
+  call test_scalar_tensor_commutator(jbas,-1,1,4,0) 
 
 end subroutine test
 end program main_IMSRG

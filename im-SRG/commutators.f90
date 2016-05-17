@@ -55,7 +55,7 @@ subroutine commutator_111(L,R,RES,jbas)
   ! and one for the sum over particles. Add them together
   call dgemm('N','N',hol,hol,hol,al,L%fhh,hol,R%fhh,hol,bet,th1,hol) 
   call dgemm('T','N',hol,hol,par,al,L%fph,par,R%fph,par,bet,th2,hol)
-  
+
   RES%fhh = th1 + th2*L%herm  - Transpose(th1*L%herm + th2) *R%herm
    
 !dfph~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -978,7 +978,6 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   end do 
   
   smtot = smtot + sm*multfact
-
 
   !SECOND TERM
   sm = 0.d0 

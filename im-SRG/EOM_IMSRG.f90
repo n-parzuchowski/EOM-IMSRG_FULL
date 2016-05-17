@@ -68,7 +68,19 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      do i = 1, Numstates
         Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
         BE2 = Mfi**2/(J+1.d0) 
-        write(*,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2 
+        
+        write(*,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2,Mfi**2 
+       
+        do aa = 1,Hs%nsp-HS%belowEF
+           do jj = 1, HS%belowEF
+              if ( abs(f_tensor_elem(jbas%holes(jj),jbas%parts(aa),ladder_ops(i),jbaS)) > 1e-6) then 
+                 print*, jbas%holes(jj),jbas%parts(aa),f_tensor_elem(jbas%holes(jj),jbas%parts(aa),ladder_ops(i),jbaS)
+              end if
+           end do 
+        end do 
+        stop
+        
+        write(51,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2,Mfi**2
      end do
   
   else
@@ -116,10 +128,9 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   betalabel = adjustl(betalabel)
   open(unit=72,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//&
-       '_EOM_spec_law'//trim(betalabel)//'.dat')
-  
+       '_EOM_spec_law'//trim(betalabel)//'.dat')  
   do i = 1, Numstates
-     write(72,'(3(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0, &
+     write(72,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0, &
           sum(ladder_ops(i)%fph**2)
   end do
 

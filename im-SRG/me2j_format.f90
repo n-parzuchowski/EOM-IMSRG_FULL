@@ -518,7 +518,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson)
   
   allocate(stors%mat(H%nblocks))
 
-  
+
  
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   
@@ -614,7 +614,6 @@ do Tz = 1 , -1, -1
                        exit
                     end do
                   
-                    
                     a = a + 1
                     select case(jbas%con(i) + jbas%con(j))
                        case(0)
@@ -640,7 +639,7 @@ do Tz = 1 , -1, -1
      end do
   end do
 end do
-  
+
 sz = 20
  q = 0
 ! heiko's code calls protons 1 and neutrons 0
@@ -659,7 +658,7 @@ do Tz = 1 , -1, -1
         
  
         allocate(stors%mat(q)%qn(1)%Y( aMax+1, 2) ) 
-  
+
         select case ( Tz)
            case ( -1 ) 
               t1 = -1
@@ -727,7 +726,7 @@ do Tz = 1 , -1, -1
                           a_hh = a_hh + 1
                           a = a_hh 
                     end select
-                      
+                    
                     stors%mat(q)%qn(1)%Y(a,1) = i
                     stors%mat(q)%qn(1)%Y(a,2) = j
                     
@@ -742,15 +741,16 @@ do Tz = 1 , -1, -1
 end do
 
 
-
 ! okay for now on there is a space, then a line that specifies the block
 ! and aMax for the block. We already know that stuff so we will just ignore
 ! it and read in the matrix elements
 sz = 200
 qq = 0
+noteffedup = .true. 
 do Tz = 1 , -1, -1  
   do Pi = 0,1
      do JT = 0, 2*jbas%Jtotal_max,2 
+
         if ((Lmax == eMax) .and. (JT == 2*jbas%Jtotal_max)&
              .and. (Abs(Tz)==1)) cycle
         if ((JT == 2*jbas%Jtotal_max) .and. (Pi==1)) cycle
@@ -767,9 +767,10 @@ do Tz = 1 , -1, -1
         noteffedup=.true. 
         ! ignore
         sz = 200
-    
+        
+
       do 
-            
+         
       buf=gzGets(hndle,buffer,sz)
       
       read(buffer(1:1),'(I1)',iostat=iq) AA
@@ -801,7 +802,7 @@ do Tz = 1 , -1, -1
          i = i + 1
       end do
       
-      
+
       AA = AA + 1
       BB = BB + 1
 
@@ -825,7 +826,6 @@ do Tz = 1 , -1, -1
       
       ! i think the scaling and COM subtraction have already been done
       ! I HOpe. 
-
 !=========================================================================
       ! start the classical method of sorting these into my arrays now
 !=========================================================================     
@@ -852,21 +852,24 @@ do Tz = 1 , -1, -1
         j_min = jbas%xmap(x)%Z(1)  
         i1 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
      end if
-  
+ 
      if (c > d)  then     
-        
-        x = bosonic_tp_index(d,c,Ntot) 
+
+        x = bosonic_tp_index(d,c,Ntot)
+       
         j_min = jbas%xmap(x)%Z(1)  
+
         i2 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
-        
+
         pre = pre * (-1.)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
-    
+
      else 
         if (c == d) pre = pre / sqrt( 2.d0 )
        
         x = bosonic_tp_index(c,d,Ntot) 
         j_min = jbas%xmap(x)%Z(1)  
         i2 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
+
      end if
 
      ! kets/bras are pre-scaled by sqrt(2) if they 
@@ -874,7 +877,6 @@ do Tz = 1 , -1, -1
         
      ! get the units right. I hope 
  
-
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
@@ -1043,7 +1045,7 @@ do a= 1, aMax
 
    rx = gzClose(hndle)
 
-end subroutine
+ end subroutine read_me2b_interaction
 !==========================================================
 subroutine read_me3j(store_3b,jbas) 
   use three_body_routines

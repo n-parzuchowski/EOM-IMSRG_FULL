@@ -544,6 +544,163 @@ subroutine test_EOM_scalar_scalar_commutator(jbas,h1,h2)
   
 end subroutine
 !============================================================
+subroutine compare_tensor_scalar_commutator(jbas,h1,h2) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: AA,BB,OUT,OUTs,w1,w2,BBY,w1s,w2s
+  type(pandya_mat) :: BBCC,WCC
+  type(cc_mat) :: AACC,BBYC,WCCs
+  integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max,rank
+  integer :: j2min,j2max,PAR,TZ,J1,J2,dpar,iii,i,j
+  integer,intent(in) :: h1,h2
+  real(8) :: val,t1,t2,t3,t4,omp_get_wtime
+  real(8) :: vv,xx,yy,zz
+  
+!  call seed_random_number
+  
+  BB%rank = 0
+  BB%dpar = 0
+  AA%rank = 0
+  BB%pphh_ph = .false.
+  
+  AA%herm = h1 
+  BB%herm = h2 
+  BBY%herm = h2 
+ 
+  call allocate_blocks(jbas,AA)
+  call allocate_tensor(jbas,BB,AA)
+  call duplicate_sq_op(AA,BBY) 
+  call duplicate_sq_op(AA,outS) 
+
+
+  call construct_random_rank0(AA,h1,jbas) 
+  call construct_random_rank0(BBY,h2,jbas) 
+  
+  call copy_rank0_to_tensor_format(BBY,BB,jbas) 
+  
+  call duplicate_sq_op(BB,OUT)
+  call duplicate_sq_op(BB,w1) !workspace
+  call duplicate_sq_op(BB,w2) !workspace
+  call duplicate_sq_op(BBY,w1s) !workspace
+  call duplicate_sq_op(BBY,w2s) !workspace
+  call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
+  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
+  call init_ph_mat(BB,BBYC,jbas)
+  call init_ph_wkspc(BBCC,WCC) !
+  call init_ph_wkspc(BBYC,WCCs)  
+  
+  OUT%herm = -1* AA%herm * BB%herm 
+  OUTs%herm = -1* AA%herm * BBY%herm 
+ 
+  print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
+
+  call calculate_generalized_pandya(BB,BBCC,jbas) 
+  call calculate_cross_coupled(AA,AACC,jbas) 
+  
+  call TS_commutator_111(AA,BB,OUT,jbas) 
+  call TS_commutator_121(AA,BB,OUT,jbas)
+  call TS_commutator_211(AACC,BB,OUT,jbas) 
+  call TS_commutator_122(AA,BB,OUT,jbas)
+  call TS_commutator_212(AA,BB,OUT,jbas)
+  
+  call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)  
+  call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
+  call TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
+
+  do a = 1,30
+     do b = 1,30
+        do c = 1,30 
+           do d = 1,30
+              do i = 1,30
+                 do j = 1, 30 
+                    t1 = commutator_223_single(AA,BBY,a,b,c,d,i,j,3,2,4,jbas)*sqrt(4.d0)
+                    t2 = TS_commutator_223_single(AA,BB,a,b,c,d,i,j,3,3,2,4,jbas) 
+                    if ( abs(t1 - t2) > 1e-6) then 
+                       print*, t1,t2,a,b,c,d,i,j
+                       stop 
+                    else
+                       if (abs(t1) > 1e-6 ) print*, t1,t2 
+                    end if
+                 end do
+              end do
+           end do
+        end do
+     end do
+  end do 
+  
+  stop
+!  print*, 'time:', t3-t1,t2-t1,t3-t4
+ 
+  call calculate_cross_coupled(BBY,BBYC,jbas)
+  call calculate_cross_coupled(AA,AACC,jbas)
+  
+  call commutator_111(AA,BBY,OUTs,jbas) 
+  call commutator_121(AA,BBY,OUTs,jbas)
+  call commutator_122(AA,BBY,OUTs,jbas)
+ 
+  call commutator_222_pp_hh(AA,BBY,OUTs,w1s,w2s,jbas)
+ 
+  call commutator_221(AA,BBY,OUTs,w1s,w2s,jbas)
+  call commutator_222_ph(AACC,BBYC,OUTs,WCCs,jbas)
+
+  do a = 1, jbas%total_orbits
+     do b = 1, jbas%total_orbits
+        
+        val = f_elem(a,b,OUTs,jbas)*sqrt(jbas%jj(a)+1.d0) 
+        
+        if (abs(val-f_tensor_elem(a,b,OUT,jbas)) > 1e-10) then
+           print*, 'at: ',a,b
+           print*, val, f_tensor_elem(a,b,OUT,jbas)
+           STOP 'ONE BODY FAILURE'  
+        end if 
+        
+        print*, 'success:', a,b
+     end do 
+  end do 
+
+ do a = 1, jbas%total_orbits
+     
+     ja = jbas%jj(a) 
+     do b = 1, jbas%total_orbits
+        jb = jbas%jj(b)
+        
+        PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
+        TZ = jbas%itzp(a) + jbas%itzp(b) 
+        
+        do c = 1, jbas%total_orbits
+           jc = jbas%jj(c)
+           do d = 1, jbas%total_orbits
+              jd = jbas%jj(d) 
+              
+              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
+              if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
+  
+              j1min = max(abs(ja-jb),abs(jc-jd))  
+              j1max = min(ja+jb,jc+jd) 
+              
+              do J1 = j1min,j1max,2
+                    
+                    if (.not. (triangle(J1,J2,rank))) cycle
+                    
+                    val = v_elem(a,b,c,d,J1,OUTs,jbas)*Sqrt(J1+1.d0)
+                  
+                    if (abs(val-tensor_elem(a,b,c,d,J1,J1,OUT,jbas)) > 1e-8) then
+                       print*, 'at:',a,b,c,d, 'J:', J1 ,val,tensor_elem(a,b,c,d,J1,J1,OUT,jbas)                
+            
+                       STOP 'TWO BODY FAILURE'  
+                    end if 
+              end do
+              
+              print*, 'success:', a,b,c,d
+           end do
+        end do
+     end do
+  end do
+  
+  print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
+  
+end subroutine
 !============================================================
 subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX) 
   implicit none 

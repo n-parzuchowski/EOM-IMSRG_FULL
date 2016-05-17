@@ -59,8 +59,12 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
 
   crit = 10.
   steps = 0
-
-  chkpoint_restart = read_omega_checkpoint(G,sx) 
+  
+  if (checkpointing) then 
+     chkpoint_restart = read_omega_checkpoint(G,sx) 
+  else
+     chkpoint_restart = .true. 
+  end if 
   
   if (chkpoint_restart) then 
   
@@ -94,10 +98,12 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   do while (crit > 1e-6) 
      
      steps = steps + 1
-     if (mod(steps,4)==0) then 
-        call write_omega_checkpoint(G,s)
-     end if
-    
+     
+     if (checkpointing) then 
+        if (mod(steps,4)==0) then 
+           call write_omega_checkpoint(G,s)
+        end if
+     end if 
      
      call MAGNUS_EXPAND(DG,G,AD,jbas)
  

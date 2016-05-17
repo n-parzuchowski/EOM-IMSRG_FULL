@@ -106,6 +106,8 @@ module basic_IMSRG
   ! true if square matrix
   logical,public,dimension(9) :: sqs = (/.true.,.false.,.false.,.true.,.true.,.false.,.false.,.false.,.false./)
   ! 100000 if square matrix, 1 if not. 
+  logical, public :: checkpointing,writing_bare,reading_bare,writing_omega
+  logical, public :: reading_omega,writing_decoupled,reading_decoupled
   integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
   integer,allocatable,dimension(:),public :: hb4,pb4
 
@@ -565,7 +567,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
               op%tblck(q)%Jpair(1) = Jtot1
               op%tblck(q)%Jpair(2) = Jtot2
         
-              op%tblck(q)%lam(1) = (-1)**((Jtot1+Jtot2)/2) ! phase instead of J 
+              op%tblck(q)%lam(1) = (-1)**((Jtot1-Jtot2)/2) ! phase instead of J 
               op%tblck(q)%lam(2) = Par1 !just remember that they change if the operator has odd parity.
               op%tblck(q)%lam(3) = Tz
               
@@ -603,6 +605,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
               allocate(op%tblck(q)%tensor_qn(2,2)%Y(nph2,2)) !qnph2
               allocate(op%tblck(q)%tensor_qn(3,2)%Y(nhh2,2)) !qnhh2
 
+              
               if ( Jtot2 .le. Jbas%Jtotal_max*2 ) then 
 
               ! yeah this is a mess but it really facilitates the 
@@ -611,13 +614,13 @@ subroutine allocate_tensor(jbas,op,zerorank)
               ! blocks such as pphh ALWAYS have pp first then hh
               ! looks scary but i'm just copying everything from the
               ! rank zero operators we already have
-              op%tblck(q)%tensor_qn(1,1)%Y = zerorank%mat(q1)%qn(1)%Y
-              op%tblck(q)%tensor_qn(2,1)%Y = zerorank%mat(q1)%qn(2)%Y
-              op%tblck(q)%tensor_qn(3,1)%Y = zerorank%mat(q1)%qn(3)%Y
+                 op%tblck(q)%tensor_qn(1,1)%Y = zerorank%mat(q1)%qn(1)%Y
+                 op%tblck(q)%tensor_qn(2,1)%Y = zerorank%mat(q1)%qn(2)%Y
+                 op%tblck(q)%tensor_qn(3,1)%Y = zerorank%mat(q1)%qn(3)%Y
          
-              op%tblck(q)%tensor_qn(1,2)%Y = zerorank%mat(q2)%qn(1)%Y
-              op%tblck(q)%tensor_qn(2,2)%Y = zerorank%mat(q2)%qn(2)%Y
-              op%tblck(q)%tensor_qn(3,2)%Y = zerorank%mat(q2)%qn(3)%Y
+                 op%tblck(q)%tensor_qn(1,2)%Y = zerorank%mat(q2)%qn(1)%Y
+                 op%tblck(q)%tensor_qn(2,2)%Y = zerorank%mat(q2)%qn(2)%Y
+                 op%tblck(q)%tensor_qn(3,2)%Y = zerorank%mat(q2)%qn(3)%Y
               
               end if 
               allocate(op%tblck(q)%tgam(3)%X(npp1,nhh2)) !Vpphh
@@ -644,8 +647,8 @@ subroutine allocate_tensor(jbas,op,zerorank)
          
       end do
    end do
- 
-  
+
+
    ! i need to fill this last array for tensor_elem
    do q = 1, zerorank%nblocks
    nph1 = 0 ; npp1 = 0 ; nhh1 = 0
@@ -1279,8 +1282,9 @@ real(8) function f_elem(a,b,op,jbas)
   select case(c1+c2) 
      case(0) 
         ! pp 
+
         f_elem = op%fpp(a-hb4(a),b-hb4(b)) 
-  
+
      case(1) 
         ! ph 
         if (c1 > c2) then 
@@ -1291,6 +1295,7 @@ real(8) function f_elem(a,b,op,jbas)
         end if
      case(2) 
         ! hh 
+
         f_elem = op%fhh(a-pb4(a),b-pb4(b)) 
   end select
 
@@ -2570,7 +2575,7 @@ real(8) function sixj(j1,j2,j3,j4,j5,j6)
 end function
 !=========================================================
 !=========================================================
-real(8) function xxxsixj(j1,j2,RANK,j4,j5,j6)
+real(8) function xxxsixj(J1,J2,RANK,j4,j5,j6)
   ! twice the angular momentum
   ! J1, J2, RANK  are INTEGERS, the rest are HALF-INTEGERS
   ! you should be able to re-write the six-j symbol to look like this.
@@ -2972,6 +2977,51 @@ subroutine copy_sq_op(H,op)
 end subroutine 
 !======================================================
 !======================================================
+subroutine copy_rank0_to_tensor_format(A,B,jbas) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) :: A, B
+  integer :: p1,h1,aa,i,ji,ja,q,qT,Tz,PAR,J1,J2
+  
+  
+  do h1=1,A%belowEF
+     i = jbas%holes(h1) 
+     ji= jbas%jj(i)     
+     B%fhh(h1,:) = A%fhh(h1,:)*sqrt(ji+1.d0) 
+  end do       
+  
+  
+  do p1=1,A%Nsp-A%belowEF
+     aa = jbas%parts(p1) 
+     ja= jbas%jj(aa)     
+     B%fpp(p1,:) = A%fpp(p1,:)*sqrt(ja+1.d0) 
+     B%fph(p1,:) = A%fph(p1,:)*sqrt(ja+1.d0) 
+  end do
+  
+  
+  do q = 1, A%nblocks 
+     J1 = A%mat(q)%lam(1) 
+     J2 = J1 
+     PAR = A%mat(q)%lam(2) 
+     Tz = A%mat(q)%lam(3) 
+     
+     qT = tensor_block_index(J1,J2,0,Tz,PAR) 
+     
+     B%tblck(qT)%tgam(1)%X = A%mat(q)%gam(1)%X*sqrt(J1+1.d0)
+     B%tblck(qT)%tgam(4)%X = A%mat(q)%gam(4)%X*sqrt(J1+1.d0)
+     B%tblck(qT)%tgam(5)%X = A%mat(q)%gam(5)%X*sqrt(J1+1.d0)
+     B%tblck(qT)%tgam(2)%X = A%mat(q)%gam(2)%X*sqrt(J1+1.d0)
+     B%tblck(qT)%tgam(3)%X = A%mat(q)%gam(3)%X*sqrt(J1+1.d0)
+     B%tblck(qT)%tgam(6)%X = A%mat(q)%gam(6)%X*sqrt(J1+1.d0)
+     B%tblck(qT)%tgam(7)%X = A%herm*transpose(A%mat(q)%gam(3)%X)*sqrt(J1+1.d0)
+     B%tblck(qT)%tgam(8)%X = A%herm*transpose(A%mat(q)%gam(2)%X)*sqrt(J1+1.d0)
+     B%tblck(qT)%tgam(9)%X = A%herm*transpose(A%mat(q)%gam(6)%X)*sqrt(J1+1.d0)
+  end do
+ 
+end subroutine copy_rank0_to_tensor_format
+!======================================================
+!======================================================
 subroutine write_twobody_operator(H,stage) 
   ! first figure out how many equations there are:
  
@@ -3196,7 +3246,7 @@ logical function read_twobody_operator(H,stage)
   integer(c_int) :: rx,filehandle
   logical :: isthere
 
-  read_twobody_operator = .true.   
+  read_twobody_operator = .true. 
   if (prefix(1:8) == 'testcase') return  
 
   do i = 1,200
@@ -3245,6 +3295,7 @@ logical function read_twobody_operator(H,stage)
   
   call repackage(H,outvec) 
   read_twobody_operator = .false. 
+  
 end function read_twobody_operator
 !======================================================
 !======================================================
@@ -3495,11 +3546,23 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*) trans_type,trans_rank 
   read(22,*)
   read(22,*) H%lawson_beta,H%com_hw
- 
-
+  read(22,*) 
+  read(22,*) checkpointing 
+  read(22,*) 
+  read(22,*) writing_bare,reading_bare
+  read(22,*) 
+  read(22,*) writing_decoupled,reading_decoupled
+  read(22,*) 
+  read(22,*) writing_omega,reading_omega
+  
   valence = adjustl(valence)
   H%Jtarg = Jtarg
   H%Ptarg = Ptarg
+  
+  if (method .ne. 1) then 
+     writing_omega = .false. 
+     reading_omega = .false. 
+  end if 
   
   HF = .false. 
   if (jx == 1) HF = .true. 
@@ -3530,9 +3593,11 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
         STOP "Threebody format not implemented yet..."
      end if
   end if 
+  
   me2j = .true.
   me2b = .false. 
   MORTBIN=.false.
+  
   if( intfile(len(trim(intfile))-3:len(trim(intfile))) == '.int') then 
      me2j =.false.
      ! Morten format
