@@ -126,8 +126,100 @@ elif contin.lower() == 'rsq':
     print 'Including RMS radius calculation' 
     RRMSint = '1'
 
+try:
+    print 'Do you want to write/read some operators to/from file?' 
+    writing_stuff = raw_input('(Y/N)?') 
+
+    if (writing_stuff.lower() == 'y'):
+         print 'answer "y" or "n":'  
+
+         writebare = raw_input('write bare operators: ')   
+         readbare = raw_input('read bare operators: ')
+   
+         if writebare.lower() == 'y':
+             
+             if readbare.lower() == 'y':
+                 bare_string = '.true. , .true.' 
+             elif readbare.lower()=='n': 
+                 bare_string = '.true. , .false.'
+             else: 
+                 print 'Try again.' 
+                 raise IndexError 
+         elif writebare.lower()=='n':
+             if readbare.lower() == 'y':
+                 bare_string = '.false. , .true.' 
+             elif readbare.lower()=='n': 
+                 bare_string = '.false. , .false.'
+             else: 
+                 print 'Try again.' 
+                 raise IndexError
+         else: 
+             print 'Try again.' 
+             raise IndexError
+ 
+         writedc = raw_input('write decoupled operators: ')   
+         readdc = raw_input('read decoupled operators: ')   
+
+         if writedc.lower() == 'y':
+             
+             if readdc.lower() == 'y':
+                 dc_string = '.true. , .true.' 
+             elif readdc.lower()=='n': 
+                 dc_string = '.true. , .false.'
+             else: 
+                 print 'Try again.' 
+                 raise IndexError 
+         elif writedc.lower()=='n':
+             if readdc.lower() == 'y':
+                 dc_string = '.false. , .true.' 
+             elif readdc.lower()=='n': 
+                 dc_string = '.false. , .false.'
+             else: 
+                 print 'Try again.' 
+                 raise IndexError
+         else: 
+             print 'Try again.' 
+             raise IndexError
 
 
+
+
+         if (mag.lower() == 'mag'):
+             writeomega = raw_input('write omega: ')   
+             readomega = raw_input('read omega: ')   
+             
+             if writeomega.lower() == 'y':
+             
+                 if readomega.lower() == 'y':
+                     omega_string = '.true. , .true.' 
+                 elif readomega.lower()=='n': 
+                     omega_string = '.true. , .false.'
+                 else: 
+                     print 'Try again.' 
+                     raise IndexError 
+             elif writeomega.lower()=='n':
+                 if readomega.lower() == 'y':
+                     omega_string = '.false. , .true.' 
+                 elif readomega.lower()=='n': 
+                     omega_string = '.false. , .false.'
+                 else: 
+                     print 'Try again.' 
+                     raise IndexError
+             else: 
+                 print 'Try again.' 
+                 raise IndexError
+             checkpointing = raw_input( 'checkpointing: ') 
+             
+             if checkpointing.lower() == 'y':
+                 checkpoint_str = '.true.'
+             elif checkpointing.lower() == 'n':
+                 checkpoint_str = '.false.'
+             else:
+                 print 'Try again.' 
+                 raise IndexError
+except IndexError:
+    print 'well fuck' 
+                  
 
     
 fq = open('run_all.bat','w')
@@ -163,7 +255,7 @@ else:
     
 mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','12gb','20gb','25gb'] 
 wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','03:00:00', \
-'02:00:00','04:00:00','06:00:00','4:00:00','04:00:00','04:00:00']
+'02:00:00','04:00:00','06:00:00','10:00:00','04:00:00','04:00:00']
 ompnum = ['8','8','8','8','8','8','8','8','8','1','1']
 
 for R in Rlist:
@@ -224,15 +316,15 @@ for R in Rlist:
                         if (me2jlam != 'x'):
                             TBMEfile = 'chi2b_srg'+lam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
                             spfile = 'hk'+R+'.sps'
-                            jobname = nuc+'_'+mag+'_chi2b_srg'+lam+'_eMax'+R+'_hw'+hw+'_'+leveltag+'_law'+lawbeta
-                            initfile = nuc+'_'+mag+'_chi2b_srg'+lam+'_eMax'+R+'_hw'+hw+'_'+leveltag+'_law'+lawbeta+'.ini'
-                            prefix = jobname = nuc+'_'+mag+'_chi_2b_srg'+lam+'_eMax'+R+'_hw'+hw+'_'+leveltag +'_law'+lawbeta
+                            jobname = nuc+'_'+mag+'_chi2b_srg'+lam+'_law'+lawbeta+'_eMax'+R+'_hw'+hw+'_'+leveltag
+                            initfile = nuc+'_'+mag+'_chi2b_srg'+lam+'_law'+lawbeta+'_eMax'+R+'_hw'+hw+'_'+leveltag+'.ini'
+                            prefix = jobname = nuc+'_'+mag+'_chi_2b_srg'+lam+'_law'+lawbeta+'_eMax'+R+'_hw'+hw+'_'+leveltag
                         else:    
                             TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
                             spfile = 'nl'+R+'.sps'
-                            jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'_'+leveltag+'_law'+lawbeta
-                            initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'_'+leveltag+'_law'+lawbeta+'.ini'
-                            prefix = jobname = nuc+'_'+mag+'_srg'+lam+'_eMax'+R+'_hw'+hw +'_'+leveltag+'_law'+lawbeta
+                            jobname = nuc+'_'+mag+'_vsrg'+lam+'_law'+lawbeta+'_emax'+R+'_hw'+hw+'_'+leveltag
+                            initfile = nuc+'_'+mag+'_vsrg'+lam+'_law'+lawbeta+'_emax'+R+'_hw'+hw+'_'+leveltag+'.ini'
+                            prefix = jobname = nuc+'_'+mag+'_srg'+lam+'_law'+lawbeta+'_eMax'+R+'_hw'+hw +'_'+leveltag
                     # write pbs file ===========================        
                     fx = open('pbs_'+jobname,'w') 
 
@@ -348,6 +440,14 @@ for R in Rlist:
                     fx.write("'"+transtype+"',"+transval+"\n") 
                     fx.write('# Lawson beta value\n') 
                     fx.write(lawbeta+','+com_freq+'\n') 
+                    fx.write('# .true. for checkpointing (only applicable to magnus)\n' )
+                    fx.write(checkpoint_str+'\n')
+                    fx.write('# write normal ordered bare, read normal ordered bare\n')
+                    fx.write(bare_string+'\n')                                     
+                    fx.write('#  write normal ordered decoupled, read normal ordered decoupled\n')
+                    fx.write(dc_string+'\n')
+                    fx.write('#  write omega, read omega\n')
+                    fx.write(omega_string+'\n')
                     fx.write('########################################################\n')
                     fx.write('# NOTES \n')
                     fx.write('#\n')
