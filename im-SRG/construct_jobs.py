@@ -42,12 +42,18 @@ Rlist = Rstr.strip().split(',')
 lam = raw_input( 'Momentum cutoff in inverse fermi: ') 
 lamlist = lam.strip().split(',')
 me2jlam = 'x'
+twobody_file = 'x'
+
+
 if (lam=='me2j'):
     print 'USING ME2J MATRIX ELEMENTS NOW'
     me2jlam = raw_input( 'Enter four digit srg cutoff 1/lamda^4: (0625) ')
     lamlist = me2jlam.strip().split(',')
+elif (lam==''):
+    twobody_file= raw_input( 'ENTER TWO BODY MATRIX ELEMENT FILE: ')
+    spfile = raw_input('ENTER spfile: ')
 
-
+lmax = raw_input('enter maximum angular momentum quantum number: ')
 threebodyfile = raw_input('enter a threebody file, or type "none": ')
 
 if threebodyfile=="none": 
@@ -126,6 +132,10 @@ elif contin.lower() == 'rsq':
     print 'Including RMS radius calculation' 
     RRMSint = '1'
 
+omega_string = '.false. , .false.'
+bare_string = '.false. , .false.'
+dc_string = '.false. , .false.'
+checkpoint_str = '.false.'
 try:
     print 'Do you want to write/read some operators to/from file?' 
     writing_stuff = raw_input('(Y/N)?') 
@@ -253,10 +263,10 @@ elif mag == 'disc':
 else:
     magint = '2'
     
-mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','12gb','20gb','25gb'] 
+mem = ['500mb','1gb','2gb','3gb','4gb','5gb','6gb','9gb','12gb','20gb','25gb','30gb','30gb','30gb','30gb'] 
 wtime = [ '00:20:00','00:40:00','01:00:00','02:00:00','03:00:00', \
-'02:00:00','04:00:00','06:00:00','10:00:00','04:00:00','04:00:00']
-ompnum = ['8','8','8','8','8','8','8','8','8','1','1']
+'02:00:00','04:00:00','06:00:00','10:00:00','04:00:00','04:00:00','04:00:00','04:00:00']
+ompnum = ['8','8','8','8','8','8','8','8','8','8','8','8','8','8']
 
 for R in Rlist:
     for hw in hwlist:
@@ -301,27 +311,42 @@ for R in Rlist:
 
                     if (leveltag=='x'):
                         if (me2jlam != 'x'):
-                            TBMEfile = 'chi2b_srg'+lam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
-                            spfile = 'hk'+R+'.sps'
+                            if (twobody_file == 'x'):
+                                TBMEfile = 'chi2b_srg'+lam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
+                                spfile = 'hk'+R+'.sps'
+                            else:
+                                TBMEfile = twobody_file 
+
                             jobname = nuc+'_'+mag+'_chi2b_srg'+lam+'_eMax'+R+'_hw'+hw 
                             initfile = nuc+'_'+mag+'_chi2b_srg'+lam+'_eMax'+R+'_hw'+hw+'.ini'
                             prefix = jobname = nuc+'_'+mag+'_chi2b_srg'+lam+'_eMax'+R+'_hw'+hw 
                         else:    
-                            TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
-                            spfile = 'nl'+R+'.sps'
+                            if (twobody_file == 'x'):
+                                TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
+                                spfile = 'nl'+R+'.sps'
+                            else:
+                                TBMEfile = twobody_file 
                             jobname = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw 
                             initfile = nuc+'_'+mag+'_vsrg'+lam+'_emax'+R+'_hw'+hw+'.ini'
                             prefix = jobname = nuc+'_'+mag+'_srg'+lam+'_eMax'+R+'_hw'+hw 
                     else:
                         if (me2jlam != 'x'):
-                            TBMEfile = 'chi2b_srg'+lam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
-                            spfile = 'hk'+R+'.sps'
+                            if (twobody_file == 'x'):
+                                TBMEfile = 'chi2b_srg'+lam+'_eMax'+(2-len(R))*'0'+R+'_hwHO0'+hw+'.me2j.gz'
+                                spfile = 'hk'+R+'.sps'
+                            else:
+                                TBMEfile = twobody_file 
+
                             jobname = nuc+'_'+mag+'_chi2b_srg'+lam+'_law'+lawbeta+'_eMax'+R+'_hw'+hw+'_'+leveltag
                             initfile = nuc+'_'+mag+'_chi2b_srg'+lam+'_law'+lawbeta+'_eMax'+R+'_hw'+hw+'_'+leveltag+'.ini'
                             prefix = jobname = nuc+'_'+mag+'_chi_2b_srg'+lam+'_law'+lawbeta+'_eMax'+R+'_hw'+hw+'_'+leveltag
                         else:    
-                            TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
-                            spfile = 'nl'+R+'.sps'
+                            if (twobody_file == 'x'):
+                                spfile = 'nl'+R+'.sps'
+                                TBMEfile = 'vsrg'+lam+'_n3lo500_w_coulomb_emax'+R+'_hw'+hw+'.int.gz' 
+                            else:
+                                TBMEfile = twobody_file 
+
                             jobname = nuc+'_'+mag+'_vsrg'+lam+'_law'+lawbeta+'_emax'+R+'_hw'+hw+'_'+leveltag
                             initfile = nuc+'_'+mag+'_vsrg'+lam+'_law'+lawbeta+'_emax'+R+'_hw'+hw+'_'+leveltag+'.ini'
                             prefix = jobname = nuc+'_'+mag+'_srg'+lam+'_law'+lawbeta+'_eMax'+R+'_hw'+hw +'_'+leveltag
@@ -401,7 +426,9 @@ for R in Rlist:
                     fx.write('# ENTER OUTPUT FILE PREFIX\n')
                     fx.write(jobname +'\n') 
                     fx.write('# ENTER INTERACTION FILE NAME\n')
-                    fx.write(TBMEfile + '\n') 
+                    fx.write(TBMEfile + '\n')
+                    fx.write('# ENTER eMax, lMax\n')
+                    fx.write(R+','+lmax+'\n')
                     fx.write('# ENTER 3B INTERACTION FILE NAME\n')
                     fx.write(threebodyfile + '\n') 
                     fx.write('# ENTER E3Max (enter "0" for no three body force)\n')

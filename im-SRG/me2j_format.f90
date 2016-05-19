@@ -1062,7 +1062,7 @@ do a= 1, aMax
 
  end subroutine read_me2b_interaction
 !==========================================================
-subroutine read_me3j(store_3b,jbas) 
+subroutine read_me3j(store_3b,jbas,eMax,lmax) 
   use three_body_routines
   implicit none 
   
@@ -1078,7 +1078,7 @@ subroutine read_me3j(store_3b,jbas)
   integer :: lmax3,jtot_max,jtot_max_1,jtot_max_2,jtot_min,jtot_min_1
   integer :: jtot_min_2,i,II,JJ,Jab_max,Jab_min,jc_max,jc_min
   integer :: Jde_min,Jde_max,x1,x2,q,NN,nsp_iso,tc_min,tc_max,j
-  integer :: spot_in_gz_file,iMax,PAR,Tab_indx,TTab_indx,r,w
+  integer :: spot_in_gz_file,iMax,PAR,Tab_indx,TTab_indx,r,w,eMax,lmax
   real(8) :: szofblock,V,elem
   character(1)::rem
   real(8),allocatable,dimension(:) :: xblock,me_fromfile
@@ -1087,7 +1087,8 @@ subroutine read_me3j(store_3b,jbas)
   integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
   logical :: autozero ,thing
-  character(79) :: header 
+  character(255) :: header 
+
   E3max = 12 
   iMax = store_3b%num_elems 
   allocate(ME(iMax)) 
@@ -1095,7 +1096,6 @@ subroutine read_me3j(store_3b,jbas)
   nsp_iso = nsp/2
   !open file 
   
-  print*,  threebody_file(len(trim(threebody_file))-6:len(trim(threebody_file))) 
   if( threebody_file(len(trim(threebody_file))-6:len(trim(threebody_file))) == 'me3j.gz') then 
      
      allocate(me_fromfile(10)) 
@@ -1141,10 +1141,6 @@ subroutine read_me3j(store_3b,jbas)
           access = 'stream') 
      
      read(77) header,ME
-     print*, header
-     do i = 1, 1000
-        if (abs(ME(i)) > 1e-6) print*, i, ME(i)
-     end do 
      close(77) 
   
   end if 
@@ -1256,12 +1252,19 @@ subroutine read_me3j(store_3b,jbas)
                                 
                                 q = block_index_3b(jtot,ttot,PAR)                                 
                                 elem = ME(i)
-                                call SetME(Jab,JJab,jtot,2*Tab,2*TTab,ttot,2*nlj1,2*nlj2,2*nlj3,2*nnlj1&
-                                     ,2*nnlj2,2*nnlj3,elem,store_3b,jbas)
-
-                                
+                               
                                 i = i + 1 
                                  
+                                if ((ea > eMax).or.(eb > eMax).or.(ec > eMax).or.(ed > eMax)&
+                                     .or.(ee > eMax).or.(ef > eMax)) cycle 
+                                
+                                if ((la > lMax).or.(lb > lMax).or.(lc > lMax).or.(ld > lMax)&
+                                     .or.(le > lMax).or.(lf > lMax)) cycle 
+                                      
+                                
+                                call SetME(Jab,JJab,jtot,2*Tab,2*TTab,ttot,2*nlj1,2*nlj2,2*nlj3,2*nnlj1&
+                                     ,2*nnlj2,2*nnlj3,elem,store_3b,jbas)
+                              
                              end do !ttot
                           end do !TTab
                        end do ! Tab

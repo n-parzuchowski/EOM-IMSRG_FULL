@@ -155,7 +155,7 @@ program main_IMSRG
   if (threebod%e3Max.ne.0) then 
      print*, 'Reading Three Body Force From file'
      call allocate_three_body_storage(jbas,threebod)
-     call read_me3j(threebod,jbas)
+     call read_me3j(threebod,jbas,HS%eMax,HS%lmax)
   end if 
     
   if (hartree_fock) then 
