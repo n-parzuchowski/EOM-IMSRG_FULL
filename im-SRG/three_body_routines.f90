@@ -35,10 +35,9 @@ subroutine deallocate_3b(tb)
   end if 
 end subroutine
 
-subroutine allocate_mono(STOR,monoSTOR,jbas) 
+subroutine allocate_mono(monoSTOR,jbas) 
    implicit none 
   
-   type(three_body_force) :: STOR
    type(mono_3b) :: monoSTOR
    type(spd) :: jbas
    real(8) :: mem,sm

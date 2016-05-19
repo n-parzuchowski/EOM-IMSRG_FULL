@@ -33,7 +33,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
   call duplicate_sp_mat(T,V3gam)
   
   if ( tbforce ) then
-     call allocate_mono(THREEBOD,THREEBOD_MONO,jbas)      
+     call allocate_mono(THREEBOD_MONO,jbas)      
   end if 
   
   call write_kin_matrix(T,H,jbas) 

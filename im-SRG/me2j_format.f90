@@ -4,12 +4,12 @@ module me2j_format
   
   contains
 
-subroutine get_me2j_spfile(eMaxchr)
+subroutine get_me2j_spfile(eMaxchr,lmax,nmax)
   ! This constructs the sps file for
   ! me2j's format, after it's been converted to a pn-basis 
   implicit none 
   
-  integer :: e,eMax,l,jj,tz,q,n
+  integer :: e,eMax,l,jj,tz,q,n,lmax,nmax
   character(2) :: eMaxchr
   character(13) :: fmt
   
@@ -23,10 +23,12 @@ subroutine get_me2j_spfile(eMaxchr)
   fmt = '(5(I5),e17.7)'
   do  e = 0,eMax
      
-     do l = mod(e,2),min(e,10),2
+     do l = mod(e,2),min(e,lmax),2
         
         n = (e-l)/2
-  
+        
+        if (n > nmax) cycle 
+        
         do jj = abs(2*l-1),2*l+1,2
            
            do tz = -1,1,2
@@ -42,14 +44,14 @@ subroutine get_me2j_spfile(eMaxchr)
   print*, trim(SP_DIRECTORY_LIST(1))//'hk'//trim(eMaxchr)//'Lmax10.sps'
   STOP
 end subroutine
-
-
+!=====================================================================================
+!=====================================================================================
 subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp) 
   use gzipmod
   implicit none 
   
-  integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype
-  integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td
+  integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype,lMax
+  integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td,n1,n2,nn1,nn2
   integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz
   integer,allocatable,dimension(:) :: indx 
   real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
@@ -72,6 +74,8 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   if (present(rr)) rr_calc=.true.
   if (htype == 1) COM = 1
 
+  lMax = H%lmax
+  eMax = H%eMax
   Ntot = jbas%total_orbits/2
   
   i = 0
@@ -134,8 +138,8 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   allocate(me_fromfile(10)) 
   
 
-  write(eMaxchr,'(I2)') eMax 
-  eMaxchr = adjustl(eMaxchr)  
+  !write(eMaxchr,'(I2)') eMax 
+  !eMaxchr = adjustl(eMaxchr)  
 
   ! using zlib c library, which is bound with fortran in file "gzipmod.f90" 
   
@@ -183,22 +187,26 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   do nlj1=1, 2*Ntot,2 
      l1= jbas%ll(nlj1)
      j1= jbas%jj(nlj1)
+     n1= jbas%nn(nlj1) 
      
      do nlj2 = 1, nlj1,2
         l2= jbas%ll(nlj2)
         j2= jbas%jj(nlj2)
-         
+        n2= jbas%nn(nlj2) 
+        
         do nnlj1 = 1 ,nlj1 , 2
            ll1= jbas%ll(nnlj1)
            jj1= jbas%jj(nnlj1)
-           
+           nn1= jbas%nn(nnlj1) 
+   
            endpoint = nnlj1 
            if ( nlj1==nnlj1 ) endpoint = nlj2
          
            do nnlj2 = 1, endpoint , 2 
               ll2= jbas%ll(nnlj2)
               jj2= jbas%jj(nnlj2)
-                  
+              nn2= jbas%nn(nnlj2) 
+              
               if (mod(l1+l2,2) .ne. mod(ll1+ll2,2)) cycle
               jmin = max( abs(j1-j2) , abs(jj1-jj2) ) 
               jmax = min( j1+j2  , jj1+jj2) 
@@ -209,7 +217,14 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
                  me_fromfile=ME(i+1:i+4)
                  i = i + 4 ! four different TMt qnums
  
+                  if ((l1 > lmax).or.(l2 > lmax).or.&
+                       (ll1 > lmax).or.(ll2 > lmax))  cycle 
 
+                  
+                  if ((2*n1+l1 > eMax ).or.(2*n2+l2 > eMax )) cycle 
+                  if ((2*nn1+ll1 > eMax ).or.(2*nn2+ll2 > eMax )) cycle 
+                 
+                 
  
 !sum over all isospin configs
 do a = nlj1,nlj1+1
@@ -1062,29 +1077,78 @@ subroutine read_me3j(store_3b,jbas)
   integer :: Tij_indx,Tlm_indx,blocksize,endpoint,endsz,endsz2
   integer :: lmax3,jtot_max,jtot_max_1,jtot_max_2,jtot_min,jtot_min_1
   integer :: jtot_min_2,i,II,JJ,Jab_max,Jab_min,jc_max,jc_min
-  integer :: Jde_min,Jde_max,x1,x2,q,NN,nsp_iso,tc_min,tc_max
+  integer :: Jde_min,Jde_max,x1,x2,q,NN,nsp_iso,tc_min,tc_max,j
   integer :: spot_in_gz_file,iMax,PAR,Tab_indx,TTab_indx,r,w
-  real(8) :: szofblock,V
+  real(8) :: szofblock,V,elem
   character(1)::rem
   real(8),allocatable,dimension(:) :: xblock,me_fromfile
+  real,allocatable,dimension(:) :: ME
   type(c_ptr) :: buf,buf2,buf3
   integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
   logical :: autozero ,thing
-  
+  character(79) :: header 
   E3max = 12 
   iMax = store_3b%num_elems 
-  allocate(me_fromfile(10))
+  allocate(ME(iMax)) 
   nsp = jbas%total_orbits
   nsp_iso = nsp/2
   !open file 
-  hndle=gzOpen(trim(TBME_DIR)//trim(adjustl(threebody_file))//achar(0),"r"//achar(0)) 
-  sz = 200.
-  ! read first line, it's not important to me.
-  buf = gzGets(hndle,buffer(1:sz),sz)
-  rem = '9'
-  endsz=130
   
+  print*,  threebody_file(len(trim(threebody_file))-6:len(trim(threebody_file))) 
+  if( threebody_file(len(trim(threebody_file))-6:len(trim(threebody_file))) == 'me3j.gz') then 
+     
+     allocate(me_fromfile(10)) 
+
+     hndle=gzOpen(trim(TBME_DIR)//trim(adjustl(threebody_file))//achar(0),"r"//achar(0))   
+  
+     sz=200
+  
+     buf=gzGets(hndle,buffer,sz) !first line 
+     endpoint = 10 
+     write(rem,'(I1)') endpoint-1
+     endsz = 130 
+     
+     do i = 1,iMax,10
+        
+        if (i+10 > iMax) then 
+           deallocate(me_fromfile)
+           allocate(me_fromfile( iMax - i + 1) ) 
+           endpoint = iMax-i + 1
+           endsz = 13+(endpoint-1)*13 
+           write(rem,'(I1)') endpoint-1
+        end if
+  
+        buf = gzGets(hndle,buffer(1:sz),sz)
+
+     
+  
+        read(buffer(1:endsz),'(f12.7,'//rem//'(f13.7))') me_fromfile 
+        
+        do j = 1,endpoint 
+           ME(i+j-1) = me_fromfile(j)   
+        end do
+
+     end do
+
+     rx = gzClose(hndle) 
+  
+     deallocate(me_fromfile)
+  
+  else
+     
+     open(unit=77,file=trim(TBME_DIR)//trim(adjustl(threebody_file)), form = 'unformatted', &
+          access = 'stream') 
+     
+     read(77) header,ME
+     print*, header
+     do i = 1, 1000
+        if (abs(ME(i)) > 1e-6) print*, i, ME(i)
+     end do 
+     close(77) 
+  
+  end if 
+
   i = 1
   r = 0 
   w = 0
@@ -1191,27 +1255,12 @@ subroutine read_me3j(store_3b,jbas)
                              do ttot = twoTMin,twoTmax,2
                                 
                                 q = block_index_3b(jtot,ttot,PAR)                                 
-                                
-                                if (spot_in_gz_file == 0) then 
-                                   ! we need to read a line
-                                   if (i+10 > iMax) then 
-                                      deallocate(me_fromfile)
-                                      allocate(me_fromfile( iMax - i + 1) ) 
-                                      endpoint = iMax-i + 1
-                                      endsz = 13+(endpoint-1)*13 
-                                      write(rem,'(I1)') endpoint-1
-                                   end if
-                                   buf = gzGets(hndle,buffer(1:sz),sz)
-                                   !print*, buffer(1:endsz)
-                                   read(buffer(1:endsz),'(f12.7,'//rem//'(f13.7))') me_fromfile 
-                                end if 
-                                
+                                elem = ME(i)
                                 call SetME(Jab,JJab,jtot,2*Tab,2*TTab,ttot,2*nlj1,2*nlj2,2*nlj3,2*nnlj1&
-                                     ,2*nnlj2,2*nnlj3,me_fromfile(spot_in_gz_file+1),store_3b,jbas)
+                                     ,2*nnlj2,2*nnlj3,elem,store_3b,jbas)
+
                                 
-                                i = i + 1
-                                spot_in_gz_file = mod(spot_in_gz_file + 1, 10) 
-                                
+                                i = i + 1 
                                  
                              end do !ttot
                           end do !TTab
@@ -1226,7 +1275,6 @@ subroutine read_me3j(store_3b,jbas)
      end do !nlj2
   end do !nlj1
                
-  rx = gzClose(hndle)  
 end subroutine
 
 

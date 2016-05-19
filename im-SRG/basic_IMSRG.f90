@@ -63,7 +63,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:,:) :: exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
-     integer :: Jtarg,Ptarg,valcut,Rank,dpar
+     integer :: Jtarg,Ptarg,valcut,Rank,dpar,eMax,lmax
      real(8) :: E0,hospace,lawson_beta,com_hw 
      logical :: pphh_ph
   END TYPE sq_op
@@ -151,7 +151,7 @@ module basic_IMSRG
 contains
 !====================================================
 !====================================================
-subroutine read_sp_basis(jbas,hp,hn,method)
+subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method)
   ! fills jscheme_basis array with single particle data from file
   ! file format must be: 5 integers and one real 
   ! for each state we have:   | label |  n  | l | 2 * j | 2*tz | E_sp |  
@@ -161,7 +161,7 @@ subroutine read_sp_basis(jbas,hp,hn,method)
   character(2) :: hk
   character(200) :: interm
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
-  integer :: q,r,Jtarget,PARtarget,method
+  integer :: q,r,Jtarget,PARtarget,method,jx,lmax,eMax
   real(8) :: e
   
   interm= adjustl(spfile)
@@ -169,7 +169,7 @@ subroutine read_sp_basis(jbas,hp,hn,method)
   hk=interm(1:2)
 
   ix = 0 
-  
+  jx = 0
   ! count the number of states in the file. 
   do 
   
@@ -179,6 +179,9 @@ subroutine read_sp_basis(jbas,hp,hn,method)
           subroutine read_sp_basis in basic_IMSRG.f90' 
      if (ist<0) exit
      
+     jx = jx+1
+     if ( li > lmax ) cycle
+     if (2*ni + li > eMax) cycle 
      ix = ix + 1 
   
   end do
@@ -199,10 +202,15 @@ subroutine read_sp_basis(jbas,hp,hn,method)
   ! go back to the start and read them in. 
   rewind(39) 
   
-  do i = 1,ix
+  i = 0 
+  do ix = 1,jx
      
      read(39,*) label,ni,li,ji,tzi,e
      
+     if ( li > lmax ) cycle
+     if (2*ni + li > eMax) cycle 
+     
+     i = i + 1 
      jbas%nn(i) = ni 
      jbas%ll(i) = li
      jbas%jj(i) = ji
@@ -2766,6 +2774,8 @@ subroutine duplicate_sq_op(H,op,dont)
   op%valcut = H%valcut 
   op%rank = H%rank 
   op%dpar = H%dpar
+  op%eMax = H%eMax
+  op%lmax = H%lmax 
   
   if (.not. present(dont)) op%pphh_ph = .false. 
 
@@ -3513,6 +3523,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*) 
   read(22,*) intfile
   read(22,*)
+  read(22,*) H%eMax, H%lmax 
+  read(22,*) 
   read(22,*) threebody_file
   read(22,*) 
   read(22,*) e3max
