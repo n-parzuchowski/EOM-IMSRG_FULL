@@ -19,7 +19,8 @@ module basic_IMSRG
   END TYPE real_vec
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: spd    ! single particle discriptor
-     INTEGER :: total_orbits,Jtotal_max,lmax,spblocks
+     INTEGER :: total_orbits,Jtotal_max,lmax,spblocks,E3Max_3file,eMax_3file
+     INTEGER :: lmax_3file, eMax_2file, lmax_2file
      INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
      INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holes,parts 
      type(int_vec), allocatable,dimension(:) :: states
@@ -151,23 +152,69 @@ module basic_IMSRG
 contains
 !====================================================
 !====================================================
-subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method)
+subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method,jbx)
   ! fills jscheme_basis array with single particle data from file
   ! file format must be: 5 integers and one real 
   ! for each state we have:   | label |  n  | l | 2 * j | 2*tz | E_sp |  
   implicit none 
   
   type(spd) :: jbas
+  type(spd),optional :: jbx 
   character(2) :: hk
   character(200) :: interm
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
   integer :: q,r,Jtarget,PARtarget,method,jx,lmax,eMax
   real(8) :: e
   
+
   interm= adjustl(spfile)
   open(unit=39,file=trim(SP_DIR)//trim(interm))
   hk=interm(1:2)
 
+  if (hk=='hk') then
+     
+     jbas%lMax_3file=20
+     jbas%lMax_2file=20
+     jbas%E3Max_3file = 42 
+     jbas%EMax_3file = 14 
+     jbas%EMax_2file = 14 
+     
+     
+     do i = 1, 500
+        if (threebody_file(i:i+3)=='eMax') then 
+           read(threebody_file(i+4:i+5),'(I2)') jbas%eMax_3file
+        end if
+               
+        if (threebody_file(i:i+3)=='lMax') then 
+           read(threebody_file(i+4:i+5),'(I2)') jbas%lMax_3file
+        end if
+        
+        if (threebody_file(i:i+3)=='EMax') then 
+           read(threebody_file(i+4:i+5),'(I2)') jbas%E3Max_3file
+        end if
+        
+        if (threebody_file(i:i+3)=='me3j') then 
+           
+           exit
+        end if
+     end do
+
+     do i = 1, 500
+        if (intfile(i:i+3)=='eMax') then 
+           read(intfile(i+4:i+5),'(I2)') jbas%eMax_2file
+        end if
+        
+        if (intfile(i:i+3)=='lMax') then 
+           read(intfile(i+4:i+5),'(I2)') jbas%lMax_2file
+        end if
+        
+        if (intfile(i:i+3)=='me2j') then 
+           exit
+        end if
+     end do
+    
+  end if
+  
   ix = 0 
   jx = 0
   ! count the number of states in the file. 
@@ -180,8 +227,10 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method)
      if (ist<0) exit
      
      jx = jx+1
+     
      if ( li > lmax ) cycle
      if (2*ni + li > eMax) cycle 
+     
      ix = ix + 1 
   
   end do
@@ -199,6 +248,16 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method)
   allocate(hb4(ix)) !number of holes beneath this index
   allocate(pb4(ix)) !number of particles beneath this index
 
+  
+  if (present(jbx)) then 
+     allocate(jbx%nn(jx)) ! n 
+     allocate(jbx%ll(jx)) ! l
+     allocate(jbx%jj(jx)) ! j*2
+     allocate(jbx%itzp(jx)) !isospin*2
+     allocate(jbx%nshell(jx)) !shell number
+     allocate(jbx%e(jx)) ! sp energies
+     allocate(jbx%con(jx)) ! hole or particle (1 or 0) 
+  end if
   ! go back to the start and read them in. 
   rewind(39) 
   
@@ -206,6 +265,15 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method)
   do ix = 1,jx
      
      read(39,*) label,ni,li,ji,tzi,e
+
+     if (present(jbx)) then 
+        jbx%nn(ix) = ni 
+        jbx%ll(ix) = li
+        jbx%jj(ix) = ji
+        jbx%itzp(ix) = tzi 
+        jbx%nshell(ix) = 2*ni + li 
+        jbx%e(ix) =  e 
+     end if 
      
      if ( li > lmax ) cycle
      if (2*ni + li > eMax) cycle 
@@ -217,6 +285,9 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method)
      jbas%itzp(i) = tzi 
      jbas%nshell(i) = 2*ni + li 
      jbas%e(i) =  e 
+     if (present(jbx)) then 
+        jbx%con(ix) = i 
+     end if 
 
   end do 
  

@@ -46,17 +46,17 @@ subroutine get_me2j_spfile(eMaxchr,lmax,nmax)
 end subroutine
 !=====================================================================================
 !=====================================================================================
-subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp) 
+subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp) 
   use gzipmod
   implicit none 
   
-  integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype,lMax
+  integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype,lMax,eMaxfile
   integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td,n1,n2,nn1,nn2
-  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz
+  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz,ax,bx,cx,dx
   integer,allocatable,dimension(:) :: indx 
   real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
   real(8) :: V,g1,g2,g3,hw,pre2
-  type(spd) :: jbas 
+  type(spd) :: jbas,jbx
   type(sq_op) :: H
   type(sq_op),optional :: pp,rr
   logical :: pp_calc,rr_calc
@@ -92,25 +92,25 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   
   ! counting the states, and labeling them
   do nlj1=1, 2*Ntot,2 
-     l1= jbas%ll(nlj1)
-     j1= jbas%jj(nlj1)
+     l1= jbx%ll(nlj1)
+     j1= jbx%jj(nlj1)
      
      do nlj2 = 1, nlj1,2
-        l2= jbas%ll(nlj2)
-        j2= jbas%jj(nlj2)
+        l2= jbx%ll(nlj2)
+        j2= jbx%jj(nlj2)
         
        ! if (nint(jbas%e(nlj1) + jbas%e(nlj2)) > eMax )  exit
       
         do nnlj1 = 1 ,nlj1 , 2
-           ll1= jbas%ll(nnlj1)
-           jj1= jbas%jj(nnlj1)
+           ll1= jbx%ll(nnlj1)
+           jj1= jbx%jj(nnlj1)
            
            endpoint = nnlj1 
            if ( nlj1==nnlj1 ) endpoint = nlj2
          
            do nnlj2 = 1, endpoint , 2 
-              ll2= jbas%ll(nnlj2)
-              jj2= jbas%jj(nnlj2)
+              ll2= jbx%ll(nnlj2)
+              jj2= jbx%jj(nnlj2)
               
              ! if (nint(jbas%e(nlj1) + jbas%e(nlj2)) > eMax )  exit 
              
@@ -185,27 +185,27 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
   
   i=0
   do nlj1=1, 2*Ntot,2 
-     l1= jbas%ll(nlj1)
-     j1= jbas%jj(nlj1)
-     n1= jbas%nn(nlj1) 
+     l1= jbx%ll(nlj1)
+     j1= jbx%jj(nlj1)
+     n1= jbx%nn(nlj1) 
      
      do nlj2 = 1, nlj1,2
-        l2= jbas%ll(nlj2)
-        j2= jbas%jj(nlj2)
-        n2= jbas%nn(nlj2) 
+        l2= jbx%ll(nlj2)
+        j2= jbx%jj(nlj2)
+        n2= jbx%nn(nlj2) 
         
         do nnlj1 = 1 ,nlj1 , 2
-           ll1= jbas%ll(nnlj1)
-           jj1= jbas%jj(nnlj1)
-           nn1= jbas%nn(nnlj1) 
+           ll1= jbx%ll(nnlj1)
+           jj1= jbx%jj(nnlj1)
+           nn1= jbx%nn(nnlj1) 
    
            endpoint = nnlj1 
            if ( nlj1==nnlj1 ) endpoint = nlj2
          
            do nnlj2 = 1, endpoint , 2 
-              ll2= jbas%ll(nnlj2)
-              jj2= jbas%jj(nnlj2)
-              nn2= jbas%nn(nnlj2) 
+              ll2= jbx%ll(nnlj2)
+              jj2= jbx%jj(nnlj2)
+              nn2= jbx%nn(nnlj2) 
               
               if (mod(l1+l2,2) .ne. mod(ll1+ll2,2)) cycle
               jmin = max( abs(j1-j2) , abs(jj1-jj2) ) 
@@ -219,19 +219,25 @@ subroutine read_me2j_interaction(H,jbas,htype,hw,rr,pp)
  
                   if ((l1 > lmax).or.(l2 > lmax).or.&
                        (ll1 > lmax).or.(ll2 > lmax))  cycle 
-
                   
                   if ((2*n1+l1 > eMax ).or.(2*n2+l2 > eMax )) cycle 
                   if ((2*nn1+ll1 > eMax ).or.(2*nn2+ll2 > eMax )) cycle 
                  
                  
- 
+ !cork
 !sum over all isospin configs
-do a = nlj1,nlj1+1
-   do b = nlj2,nlj2+1
-      do c = nnlj1,nnlj1+1 
-         do d = nnlj2,nnlj2+1  
-           
+do ax = nlj1,nlj1+1
+   a = jbx%con(ax) !converting from full sp basis to restricted one
+   
+   do bx = nlj2,nlj2+1
+      b = jbx%con(bx)
+     
+      do cx = nnlj1,nnlj1+1
+         c = jbx%con(cx)
+         
+         do dx = nnlj2,nnlj2+1  
+            d = jbx%con(dx) 
+            
             ! conversion factor to mT scheme 
             pre2 = 1.d0 
             if ( a == b ) pre2 = pre2*sqrt(0.5d0) 
@@ -1062,11 +1068,11 @@ do a= 1, aMax
 
  end subroutine read_me2b_interaction
 !==========================================================
-subroutine read_me3j(store_3b,jbas,eMax,lmax) 
+subroutine read_me3j(store_3b,jbas,jbx,eMax,lmax) 
   use three_body_routines
   implicit none 
   
-  type(spd) :: jbas
+  type(spd) :: jbas,jbx
   type(three_body_force) :: store_3b
   integer :: nlj1,nlj2,nlj3,nnlj1,nnlj2,nnlj3,aux,aux1,aux2,aux3,aux4
   integer :: nnlj2_end,nnlj3_end,twoTMin,twoTmax,twoJCMin,twoJCMax
@@ -1079,6 +1085,7 @@ subroutine read_me3j(store_3b,jbas,eMax,lmax)
   integer :: jtot_min_2,i,II,JJ,Jab_max,Jab_min,jc_max,jc_min
   integer :: Jde_min,Jde_max,x1,x2,q,NN,nsp_iso,tc_min,tc_max,j
   integer :: spot_in_gz_file,iMax,PAR,Tab_indx,TTab_indx,r,w,eMax,lmax
+  integer :: E3Max_file,lmax_file,eMax_file,a,b,c,d,e,f
   real(8) :: szofblock,V,elem
   character(1)::rem
   real(8),allocatable,dimension(:) :: xblock,me_fromfile
@@ -1088,14 +1095,19 @@ subroutine read_me3j(store_3b,jbas,eMax,lmax)
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
   logical :: autozero ,thing
   character(255) :: header 
-
-  E3max = 12 
+ 
   iMax = store_3b%num_elems 
   allocate(ME(iMax)) 
   nsp = jbas%total_orbits
   nsp_iso = nsp/2
   !open file 
-  
+
+  E3max = store_3b%e3max
+
+  E3Max_file = jbas%E3Max_3file 
+  lMax_file = jbas%lMax_3file 
+  eMax_file = jbas%eMax_3file 
+
   if( threebody_file(len(trim(threebody_file))-6:len(trim(threebody_file))) == 'me3j.gz') then 
      
      allocate(me_fromfile(10)) 
@@ -1150,28 +1162,28 @@ subroutine read_me3j(store_3b,jbas,eMax,lmax)
   w = 0
   spot_in_gz_file = 0 
   do nlj1 = 1, nsp_iso 
-     la = jbas%ll(2*nlj1)
-     ja = jbas%jj(2*nlj1)
-     ea = 2*jbas%nn(2*nlj1)+la 
-     if (ea > E3Max) exit
+     la = jbx%ll(2*nlj1)
+     ja = jbx%jj(2*nlj1)
+     ea = 2*jbx%nn(2*nlj1)+la 
+     if (ea > E3Max_file) exit
      
      do nlj2 = 1,nlj1
-        lb = jbas%ll(2*nlj2)
-        jb = jbas%jj(2*nlj2)
-        eb = 2*jbas%nn(2*nlj2)+lb 
-        if (ea + eb > E3Max) exit
+        lb = jbx%ll(2*nlj2)
+        jb = jbx%jj(2*nlj2)
+        eb = 2*jbx%nn(2*nlj2)+lb 
+        if (ea + eb > E3Max_file) exit
         
         do nlj3 = 1,nlj2
-           lc = jbas%ll(2*nlj3)
-           jc = jbas%jj(2*nlj3)
-           ec = 2*jbas%nn(2*nlj3)+lc 
-           if (ea + eb + ec > E3Max) exit
+           lc = jbx%ll(2*nlj3)
+           jc = jbx%jj(2*nlj3)
+           ec = 2*jbx%nn(2*nlj3)+lc 
+           if (ea + eb + ec > E3Max_file) exit
            
      do nnlj1 = 1, nlj1 
-        ld = jbas%ll(2*nnlj1)
-        jd = jbas%jj(2*nnlj1)
-        ed = 2*jbas%nn(2*nnlj1)+ld 
-        if (ed > E3Max) exit
+        ld = jbx%ll(2*nnlj1)
+        jd = jbx%jj(2*nnlj1)
+        ed = 2*jbx%nn(2*nnlj1)+ld 
+        if (ed > E3Max_file) exit
         
         if ( nlj1 == nnlj1 ) then
            nnlj2_end = nlj2
@@ -1180,10 +1192,10 @@ subroutine read_me3j(store_3b,jbas,eMax,lmax)
         end if
                   
         do nnlj2 = 1, nnlj2_end            
-           le = jbas%ll(2*nnlj2)
-           je = jbas%jj(2*nnlj2)
-           ee = 2*jbas%nn(2*nnlj2)+le 
-           if (ed + ee > E3Max) exit
+           le = jbx%ll(2*nnlj2)
+           je = jbx%jj(2*nnlj2)
+           ee = 2*jbx%nn(2*nnlj2)+le 
+           if (ed + ee > E3Max_file) exit
         
            if ( (nlj1 == nnlj1).and.(nlj2==nnlj2)) then 
               nnlj3_end = nlj3
@@ -1192,10 +1204,10 @@ subroutine read_me3j(store_3b,jbas,eMax,lmax)
            end if 
            
            do nnlj3 = 1,nnlj3_end
-              lf = jbas%ll(2*nnlj3)
-              jf = jbas%jj(2*nnlj3)
-              ef = 2*jbas%nn(2*nnlj3)+lf 
-              if (ed + ee + ef > E3Max) exit
+              lf = jbx%ll(2*nnlj3)
+              jf = jbx%jj(2*nnlj3)
+              ef = 2*jbx%nn(2*nnlj3)+lf 
+              if (ed + ee + ef > E3Max_file) exit
 
               
               ! check parity 
@@ -1261,9 +1273,18 @@ subroutine read_me3j(store_3b,jbas,eMax,lmax)
                                 if ((la > lMax).or.(lb > lMax).or.(lc > lMax).or.(ld > lMax)&
                                      .or.(le > lMax).or.(lf > lMax)) cycle 
                                       
-                                
-                                call SetME(Jab,JJab,jtot,2*Tab,2*TTab,ttot,2*nlj1,2*nlj2,2*nlj3,2*nnlj1&
-                                     ,2*nnlj2,2*nnlj3,elem,store_3b,jbas)
+                                if ( ea+eb+ec > E3Max ) cycle 
+                                if ( ed+ee+ef > E3Max ) cycle
+                                                                
+
+                                a = jbx%con(2*nlj1) 
+                                b = jbx%con(2*nlj2)
+                                c = jbx%con(2*nlj3)
+                                d = jbx%con(2*nnlj1)
+                                e = jbx%con(2*nnlj2)
+                                f = jbx%con(2*nnlj3)
+
+                                call SetME(Jab,JJab,jtot,2*Tab,2*TTab,ttot,a,b,c,d,e,f,elem,store_3b,jbas)
                               
                              end do !ttot
                           end do !TTab

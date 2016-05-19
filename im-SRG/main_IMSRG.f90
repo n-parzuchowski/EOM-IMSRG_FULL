@@ -12,7 +12,7 @@ program main_IMSRG
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
-  type(spd) :: jbas
+  type(spd) :: jbas,jbx
   type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cc_mat) :: CCHS,CCETA,WCC
@@ -52,7 +52,7 @@ program main_IMSRG
        me2b,mortbin,hw,skip_setup,skip_gs,quads,trips,&
        trans_type,trans_rank,threebod%e3max)
 
-  call read_sp_basis(jbas,HS%Aprot,HS%Aneut,HS%eMax,HS%lmax,method_int)
+  call read_sp_basis(jbas,HS%Aprot,HS%Aneut,HS%eMax,HS%lmax,method_int,jbx)
 
   if (TEST_COMMUTATORS) then 
      ! run this by typing ' X' after the input file in the command line
@@ -103,7 +103,7 @@ program main_IMSRG
      call duplicate_sq_op(HS,pipj)
      
      if (me2j) then  ! heiko format or scott format? 
-        call read_me2j_interaction(HS,jbas,ham_type,hw,rr=rirj,pp=pipj) 
+        call read_me2j_interaction(HS,jbas,jbx,ham_type,hw,rr=rirj,pp=pipj) 
      else if (mortbin) then 
         call read_gz(HS,jbas,ham_type,hw,rr=rirj,pp=pipj)
      else
@@ -119,7 +119,7 @@ program main_IMSRG
      call duplicate_sq_op(HS,r2_rms) 
      
      if (me2j) then 
-        call read_me2j_interaction(HS,jbas,ham_type,hw,rr=rirj)
+        call read_me2j_interaction(HS,jbas,jbx,ham_type,hw,rr=rirj)
      else if (mortbin) then 
         call read_gz(HS,jbas,ham_type,hw,rr=rirj)  
      else
@@ -131,7 +131,7 @@ program main_IMSRG
   else    ! normal boring
   
      if (me2j) then 
-        call read_me2j_interaction(HS,jbas,ham_type,hw) 
+        call read_me2j_interaction(HS,jbas,jbx,ham_type,hw) 
      else if (me2b) then
         ! pre normal ordered interaction with three body included at No2b       
         print*, 'READING PRE-NORMAL ORDERED INTERACTION FROM HEIKO' 
@@ -154,8 +154,8 @@ program main_IMSRG
   
   if (threebod%e3Max.ne.0) then 
      print*, 'Reading Three Body Force From file'
-     call allocate_three_body_storage(jbas,threebod)
-     call read_me3j(threebod,jbas,HS%eMax,HS%lmax)
+     call allocate_three_body_storage(jbas,jbx,threebod,HS%eMax,HS%lmax)
+     call read_me3j(threebod,jbas,jbx,HS%eMax,HS%lmax)
   end if 
     
   if (hartree_fock) then 
