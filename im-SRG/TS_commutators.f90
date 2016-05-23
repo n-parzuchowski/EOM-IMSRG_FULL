@@ -1894,71 +1894,244 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
   smtot = smtot + sm*multfact
 
-  ! ! THIRD TERM    
-  ! sm = 0.d0 
+  ! THIRD TERM    
+  !Left-Right
+  sm = 0.d0 
   
-  ! multfact = (-1)**((jq+jr+jst)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
-  ! do a = 1, jbas%total_orbits
+  multfact = (-1)**((jq+jr+jtot2+js+Jst+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+       (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
 
-  !    ja = jbas%jj(a)     
-  !    jmin = max( abs(jp - ja) , abs(js - ju) ) 
-  !    jmax = min( jp+ja , js+ju) 
+  do a = 1, jbas%total_orbits
+
+     ja = jbas%jj(a)     
      
-  !    jmin2 = max( abs(jq - jr) , abs(ja - jt) ) 
-  !    jmax2 = min( jq+jr , ja+jt)
+     j2min = max( abs(jp - ja) , abs(js - ju) ) 
+     j2max = min( jp+ja , js+ju) 
      
-  !    phase = (-1) ** ((ja + js)/2) ! changed to ja+js rather than ja-js 
+     j3min = abs(jq - jr) 
+     j3max = jq+jr 
+   
+     j1min = abs(ja - jt) 
+     j1max = ja+jt
      
-  !    do J1 = jmin,jmax,2
+     phase = (-1) ** ((ja + jp)/2) ! changed to ja+js rather than ja-js 
+     
+     do J3 = j3min,j3max,2
         
-  !       otherfact = (J1+1.d0) *sixj(js,jt,jst,Jtot,ju,J1)  
+        sj1 = phase*sixj(jp,jq,Jpq,jr,jtot1,J3)*sqrt(J3+1.d0)  
         
-  !       sm_sub = 0.d0
-  !       do J2 = jmin2,jmax2,2 
+        do J1 = j1min,j1max,2 
            
-  !          sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
-  !               * sixj(jp,ja,J1,jt,Jtot,J2) * &
-  !         (v_elem(ip,a,iu,is,J1,R,jbas) * v_elem(iq,ir,a,it,J2,L,jbas) &
-  !          -v_elem(ip,a,iu,is,J1,L,jbas) * v_elem(iq,ir,a,it,J2,R,jbas))
-  !       end do 
-        
-  !       sm = sm + sm_sub * phase * otherfact
-        
-  !    end do
+           sj2 =  sj1*(-1)**(J1/2)*tensor_elem(iq,ir,a,it,J3,J1,R,jbas)*&
+                xxxsixj(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
+
+           do J2 = j2min,j2max,2
+              sm = sm - (J2+1.d0) *sj2* sixj(js,jt,Jst,jtot2,ju,J2) &
+                   * sixj(jp,ja,J2,jt,jtot2,J1) * v_elem(ip,a,iu,is,J2,L,jbas)
+           end do
+        end do
+     end do
  
-  ! end do
-     
-  ! smtot = smtot + sm*multfact
+  end do
 
-  ! ! FOURTH TERM
-  ! multfact = (-1)**((Jpq + jp+jq)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
-  ! ! ju isn't in here because I need it to make add with ja
-  ! ! so I get an integer later 
-  ! sm = 0.d0   
-  ! do a = 1,jbas%total_orbits 
-     
-  !    ja = jbas%jj(a) 
-     
-  !    if (.not. triangle(jq,ja,jst) ) cycle
-     
-  !    jmin = max( abs(jp - jr) , abs(ja - ju) ) 
-  !    jmax = min( jp+jr , ja+ju) 
-     
-  !    phase = (-1)**((ja + ju)/2) ! minus for fun
-      
-  !    Vs1 = v_elem(iq,a,is,it,jst,R,jbas)
-  !    Vs2 = v_elem(iq,a,is,it,jst,L,jbas)
-  !    do J2 = jmin, jmax , 2
+  ! right-left
 
-  !       sm = sm +  phase * (J2 + 1.d0)*(-1)**(J2/2) &
-  !           * sixj(jp,jq,jpq,Jtot,jr,J2) * sixj(ja,jq,jst,Jtot,ju,J2) &
-  !           * ( Vs1 * v_elem(ir,ip,a,iu,J2,L,jbas)&
-  !           - Vs2 * v_elem(ir,ip,a,iu,J2,R,jbas))
+  do a = 1, jbas%total_orbits
 
-  !    end do
-  ! end do 
+     ja = jbas%jj(a)     
+    
+     j1min = abs(jp - ja)
+     j1max =  jp+ja 
+     
+     j2min =  abs(js - ju) 
+     j2max =  js+ju 
+     
+     j3min = max( abs(jq - jr) , abs(ja - jt) ) 
+     j3max = min( jq+jr , ja+jt)
+     
+     phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
+     
+     do J2 = j2min,j2max,2
+        
+        sj1 = phase*(-1)**(J2/2)* sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0) 
+        
+        do J1 = j1min,j1max,2 
+           sj2 = sj1* xxxsixj(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
+                tensor_elem(ip,a,iu,is,J1,J2,R,jbas)      
+
+           do J3 = j3min,j3max,2
+              sm = sm + (J3+1.d0) *sj2* sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * sixj(jp,ja,J1,jt,jtot1,J3) * v_elem(iq,ir,a,it,J3,L,jbas)
+           end do
+        
+        end do
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+
+
+
+  ! FOURTH TERM    
+  !Left-Right
+  sm = 0.d0 
   
-  ! smtot = smtot + sm*multfact
+  multfact = (-1)**((jp+jtot2+Jpq+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+       (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+  do a = 1, jbas%total_orbits
+
+     ja = jbas%jj(a)     
+          
+     
+     j1min = abs(jp - jr) 
+     j1max = jp+jr 
+   
+     j2min = abs(ja - ju) 
+     j2max = ja+ju
+     
+     phase = (-1) ** ((ja - ju)/2) ! changed to ja+js rather than ja-js 
+     
+     sj1 = v_elem(iq,a,is,it,Jst,L,jbas)
+     
+     do J1 = j1min,j1max,2
+        
+        sj2 = phase*sj1*sixj(jp,jq,Jpq,jtot1,jr,J1)*sqrt(J1+1.d0)*(-1)**(J1/2)
+        
+        do J2 = j2min,j2max,2 
+           
+           sm = sm -  sj2*sqrt(J2+1.d0)*(-1)**(J2/2)*tensor_elem(ir,ip,a,iu,J1,J2,R,jbas)*&
+                xxxsixj(J1,J2,rank,jtot2,jtot1,jq)*sixj(ja,jq,Jst,jtot2,ju,J2)
+
+        end do
+     end do
+ 
+  end do
+  smtot = smtot + sm*multfact
+  ! right-left
+     
+  sm = 0.d0 
+  
+  multfact = (-1)**((jp+jtot1+Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*&
+       (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+  do a = 1, jbas%total_orbits
+
+     ja = jbas%jj(a)     
+          
+     j1min = abs(jq - ja) 
+     j1max = jq+ja 
+   
+     j2min = max(abs(ja - ju),abs(jr-jp)) 
+     j2max = min(ja+ju,jr+jp) 
+     
+     phase = (-1) ** ((ja - jq)/2) ! changed to ja+js rather than ja-js 
+     
+!     sj1 = v_elem(iq,a,is,it,Jst,L,jbas)
+     
+     do J1 = j1min,j1max,2
+        
+        sj1 = phase*sqrt(J1+1.d0)* &
+             tensor_elem(iq,a,is,it,J1,Jst,R,jbas) 
+        
+        do J2 = j2min,j2max,2 
+           
+           sm = sm +  sj1*(J2+1.d0)*(-1)**(J2/2)*v_elem(ir,ip,a,iu,J2,L,jbas) *&
+                xxxsixj(J1,Jst,rank,jtot2,jtot1,ju)*sixj(ja,jq,J1,jtot1,ju,J2) &
+                *sixj(jp,jq,Jpq,jtot1,jr,J2)
+        end do
+     end do
+ 
+  end do
+  
+  smtot = smtot + sm*multfact
+
+  ! FIFTH TERM    
+  !Left-Right
+  sm = 0.d0 
+  
+  multfact = (-1)**((ju+jt+jtot2+js+Jpq+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+       (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+  do a = 1, jbas%total_orbits
+
+     ja = jbas%jj(a)     
+     
+     j1min = max( abs(jq - ja) , abs(jt - ju) ) 
+     j1max = min( jq+ja , jt+ju) 
+     
+     j2min = abs(jp - jr) 
+     j2max = jp+jr 
+   
+     j3min = abs(ja - js) 
+     j3max = ja+js
+     
+     phase = (-1) ** ((ja + jp)/2) ! changed to ja+js rather than ja-js 
+     
+     do J1 = j1min,j1max,2
+        
+        sj1 = phase*sixj(js,jt,Jst,ju,jtot2,J1)*(J1+1.d0)*(-1)**(J1/2)&
+             *v_elem(iq,a,it,iu,J1,L,jbas) 
+        
+        do J3 = j3min,j3max,2 
+           
+           sj2 =  sj1*(-1)**(J3/2)*&
+                sixj(jq,ja,J1,js,jtot2,J3)*sqrt(J3+1.d0)
+
+           do J2 = j2min,j2max,2
+              sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*sj2* sixj(jp,jq,Jpq,jtot1,jr,J2) &
+                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
+           end do
+        end do
+     end do
+ 
+  end do
+  smtot = smtot + sm*multfact
+
+  sm = 0.d0 
+  ! right-left
+  multfact = (-1)**((jp+jq+jtot2+ju+Jpq+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+       (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+  do a = 1, jbas%total_orbits
+
+     ja = jbas%jj(a)     
+    
+     j1min = abs(jq - ja)
+     j1max =  jq+ja 
+     
+     j2min =  abs(jt - ju) 
+     j2max =  jt+ju 
+     
+     j3min = max( abs(jp - jr) , abs(ja - js) ) 
+     j3max = min( jp+jr , ja+js)
+     
+     phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
+     
+     do J3 = j3min,j3max,2
+        
+        sj1 = phase*(-1)**(J3/2)* sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
+             v_elem(ir,ip,a,is,J3,L,jbas) 
+        
+        do J2 = j2min,j2max,2 
+           sj2 = sj1*(-1)**(J2/2)*sixj(js,jt,Jst,ju,jtot2,J2)*sqrt(J2+1.d0)
+                    
+
+           do J1 = j1min,j1max,2
+              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,js,jtot1,J3) &
+                   * xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
+           end do
+        
+        end do
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact 
+
 
   ! ! FIFTH TERM 
   ! sm = 0.d0 

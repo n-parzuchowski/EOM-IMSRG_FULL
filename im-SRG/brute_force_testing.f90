@@ -618,7 +618,7 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
                     t2 = TS_commutator_223_single(AA,BB,a,b,c,d,i,j,3,3,2,4,jbas) 
                     if ( abs(t1 - t2) > 1e-6) then 
                        print*, t1,t2,a,b,c,d,i,j
-                       stop 
+                       stop
                     else
                        if (abs(t1) > 1e-6 ) print*, t1,t2 
                     end if
