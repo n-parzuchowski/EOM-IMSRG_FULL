@@ -935,7 +935,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   type(sq_op) :: L,R
   type(spd) :: jbas
   real(8) :: sm,sm_sub,multfact,smtot,d6ji,out,otherfact
-  real(8) :: Vs1,Vs2
+  real(8) :: Vs1,Vs2,dsum
   
   smtot = 0.d0 
   
@@ -947,7 +947,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   js = jbas%jj(is)
   jt = jbas%jj(it)
   ju = jbas%jj(iu)  
-    
+     
   ! FIRST TERM 
   !changed to q-r instead of q+r
   multfact = (-1)**((jq-jr)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
@@ -970,155 +970,154 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      do J2 = jmin, jmax , 2
       
         sm = sm +  phase * (J2 + 1.d0) &
-            * sixj(jq,jp,jpq,Jtot,jr,J2) * sixj(ja,jp,jst,Jtot,ju,J2) &
-            * (Vs1 * v_elem(iq,ir,a,iu,J2,L,jbas)&
+            * d6ji(jq,jp,jpq,Jtot,jr,J2) * d6ji(ja,jp,jst,Jtot,ju,J2) &
+            * (Vs1 * v_elem(iq,ir,a,iu,J2,L,jbas)*0&
             - Vs2 * v_elem(iq,ir,a,iu,J2,R,jbas))
-
      end do
   end do 
   
   smtot = smtot + sm*multfact
 
-  !SECOND TERM
-  sm = 0.d0 
+  ! !SECOND TERM
+  ! sm = 0.d0 
   
-  multfact = (-1)**((jq+jr+js-jt)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
-  ! added a minus sign
-  do a = 1, jbas%total_orbits
+  ! multfact = (-1)**((jq+jr+js-jt)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  ! ! added a minus sign
+  ! do a = 1, jbas%total_orbits
 
-     ja = jbas%jj(a)
-     jmin = max( abs(jp - ja) , abs(jt - ju) ) 
-     jmax = min( jp+ja , jt+ju) 
+  !    ja = jbas%jj(a)
+  !    jmin = max( abs(jp - ja) , abs(jt - ju) ) 
+  !    jmax = min( jp+ja , jt+ju) 
      
-     jmin2 = max( abs(jq - jr) , abs(ja - js) ) 
-     jmax2 = min( jq+jr , ja+js)
+  !    jmin2 = max( abs(jq - jr) , abs(ja - js) ) 
+  !    jmax2 = min( jq+jr , ja+js)
      
-     phase = (-1) ** ((ja + ju)/2) 
+  !    phase = (-1) ** ((ja + ju)/2) 
      
-     do J1 = jmin,jmax,2
+  !    do J1 = jmin,jmax,2
         
-        otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
+  !       otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
         
-        sm_sub = 0.d0
-        do J2 = jmin2,jmax2,2 
+  !       sm_sub = 0.d0
+  !       do J2 = jmin2,jmax2,2 
            
-           sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
-                * sixj(jp,ja,J1,js,Jtot,J2) * &
-          (v_elem(ip,a,it,iu,J1,R,jbas) * v_elem(iq,ir,a,is,J2,L,jbas) &
-           -v_elem(ip,a,it,iu,J1,L,jbas) * v_elem(iq,ir,a,is,J2,R,jbas))
-        end do 
+  !          sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
+  !               * sixj(jp,ja,J1,js,Jtot,J2) * &
+  !         (v_elem(ip,a,it,iu,J1,R,jbas) * v_elem(iq,ir,a,is,J2,L,jbas) &
+  !          -v_elem(ip,a,it,iu,J1,L,jbas) * v_elem(iq,ir,a,is,J2,R,jbas))
+  !       end do 
         
-        sm = sm + sm_sub * phase * otherfact
+  !       sm = sm + sm_sub * phase * otherfact
         
-     end do
+  !    end do
  
-  end do
+  ! end do
      
-  smtot = smtot + sm*multfact
+  ! smtot = smtot + sm*multfact
 
-  ! THIRD TERM    
-  sm = 0.d0 
+  ! ! THIRD TERM    
+  ! sm = 0.d0 
   
-  multfact = (-1)**((jq+jr+jst)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
-  do a = 1, jbas%total_orbits
+  ! multfact = (-1)**((jq+jr+jst)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  ! do a = 1, jbas%total_orbits
 
-     ja = jbas%jj(a)     
-     jmin = max( abs(jp - ja) , abs(js - ju) ) 
-     jmax = min( jp+ja , js+ju) 
+  !    ja = jbas%jj(a)     
+  !    jmin = max( abs(jp - ja) , abs(js - ju) ) 
+  !    jmax = min( jp+ja , js+ju) 
      
-     jmin2 = max( abs(jq - jr) , abs(ja - jt) ) 
-     jmax2 = min( jq+jr , ja+jt)
+  !    jmin2 = max( abs(jq - jr) , abs(ja - jt) ) 
+  !    jmax2 = min( jq+jr , ja+jt)
      
-     phase = (-1) ** ((ja + js)/2) ! changed to ja+js rather than ja-js 
+  !    phase = (-1) ** ((ja + js)/2) ! changed to ja+js rather than ja-js 
      
-     do J1 = jmin,jmax,2
+  !    do J1 = jmin,jmax,2
         
-        otherfact = (J1+1.d0) *sixj(js,jt,jst,Jtot,ju,J1)  
+  !       otherfact = (J1+1.d0) *sixj(js,jt,jst,Jtot,ju,J1)  
         
-        sm_sub = 0.d0
-        do J2 = jmin2,jmax2,2 
+  !       sm_sub = 0.d0
+  !       do J2 = jmin2,jmax2,2 
            
-           sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
-                * sixj(jp,ja,J1,jt,Jtot,J2) * &
-          (v_elem(ip,a,iu,is,J1,R,jbas) * v_elem(iq,ir,a,it,J2,L,jbas) &
-           -v_elem(ip,a,iu,is,J1,L,jbas) * v_elem(iq,ir,a,it,J2,R,jbas))
-        end do 
+  !          sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
+  !               * sixj(jp,ja,J1,jt,Jtot,J2) * &
+  !         (v_elem(ip,a,iu,is,J1,R,jbas) * v_elem(iq,ir,a,it,J2,L,jbas) &
+  !          -v_elem(ip,a,iu,is,J1,L,jbas) * v_elem(iq,ir,a,it,J2,R,jbas))
+  !       end do 
         
-        sm = sm + sm_sub * phase * otherfact
+  !       sm = sm + sm_sub * phase * otherfact
         
-     end do
+  !    end do
  
-  end do
+  ! end do
      
-  smtot = smtot + sm*multfact
+  ! smtot = smtot + sm*multfact
 
-  ! FOURTH TERM
-  multfact = (-1)**((Jpq + jp+jq)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
-  ! ju isn't in here because I need it to make add with ja
-  ! so I get an integer later 
-  sm = 0.d0   
-  do a = 1,jbas%total_orbits 
+  ! ! FOURTH TERM
+  ! multfact = (-1)**((Jpq + jp+jq)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
+  ! ! ju isn't in here because I need it to make add with ja
+  ! ! so I get an integer later 
+  ! sm = 0.d0   
+  ! do a = 1,jbas%total_orbits 
      
-     ja = jbas%jj(a) 
+  !    ja = jbas%jj(a) 
      
-     if (.not. triangle(jq,ja,jst) ) cycle
+  !    if (.not. triangle(jq,ja,jst) ) cycle
      
-     jmin = max( abs(jp - jr) , abs(ja - ju) ) 
-     jmax = min( jp+jr , ja+ju) 
+  !    jmin = max( abs(jp - jr) , abs(ja - ju) ) 
+  !    jmax = min( jp+jr , ja+ju) 
      
-     phase = (-1)**((ja + ju)/2) ! minus for fun
+  !    phase = (-1)**((ja + ju)/2) ! minus for fun
       
-     Vs1 = v_elem(iq,a,is,it,jst,R,jbas)
-     Vs2 = v_elem(iq,a,is,it,jst,L,jbas)
-     do J2 = jmin, jmax , 2
+  !    Vs1 = v_elem(iq,a,is,it,jst,R,jbas)
+  !    Vs2 = v_elem(iq,a,is,it,jst,L,jbas)
+  !    do J2 = jmin, jmax , 2
 
-        sm = sm +  phase * (J2 + 1.d0)*(-1)**(J2/2) &
-            * sixj(jp,jq,jpq,Jtot,jr,J2) * sixj(ja,jq,jst,Jtot,ju,J2) &
-            * ( Vs1 * v_elem(ir,ip,a,iu,J2,L,jbas)&
-            - Vs2 * v_elem(ir,ip,a,iu,J2,R,jbas))
+  !       sm = sm +  phase * (J2 + 1.d0)*(-1)**(J2/2) &
+  !           * sixj(jp,jq,jpq,Jtot,jr,J2) * sixj(ja,jq,jst,Jtot,ju,J2) &
+  !           * ( Vs1 * v_elem(ir,ip,a,iu,J2,L,jbas)&
+  !           - Vs2 * v_elem(ir,ip,a,iu,J2,R,jbas))
 
-     end do
-  end do 
+  !    end do
+  ! end do 
   
-  smtot = smtot + sm*multfact
+  ! smtot = smtot + sm*multfact
 
-  ! FIFTH TERM 
-  sm = 0.d0 
+  ! ! FIFTH TERM 
+  ! sm = 0.d0 
   
-  multfact = (-1)**((jpq+js-jt+jp+jq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
-  ! i've added (-1)**(jp+jq)
-  do a = 1, jbas%total_orbits
+  ! multfact = (-1)**((jpq+js-jt+jp+jq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  ! ! i've added (-1)**(jp+jq)
+  ! do a = 1, jbas%total_orbits
      
-     ja = jbas%jj(a)
-     jmin = max( abs(jq - ja) , abs(jt - ju) ) 
-     jmax = min( jq+ja , jt+ju) 
+  !    ja = jbas%jj(a)
+  !    jmin = max( abs(jq - ja) , abs(jt - ju) ) 
+  !    jmax = min( jq+ja , jt+ju) 
      
-     jmin2 = max( abs(jp - jr) , abs(ja - js) ) 
-     jmax2 = min( jp+jr , ja+js)
+  !    jmin2 = max( abs(jp - jr) , abs(ja - js) ) 
+  !    jmax2 = min( jp+jr , ja+js)
      
-     phase = (-1) ** ((ja + ju)/2) 
+  !    phase = (-1) ** ((ja + ju)/2) 
      
-     do J1 = jmin,jmax,2
+  !    do J1 = jmin,jmax,2
         
-        otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
+  !       otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
         
-        sm_sub = 0.d0
-        do J2 = jmin2,jmax2,2 
+  !       sm_sub = 0.d0
+  !       do J2 = jmin2,jmax2,2 
            
-           sm_sub = sm_sub + (-1)**(J2/2)*(J2+1.d0) &
-            * sixj(jp,jq,jpq,Jtot,jr,J2)* sixj(jq,ja,J1,js,Jtot,J2) &
-          *(v_elem(iq,a,it,iu,J1,R,jbas) * v_elem(ir,ip,a,is,J2,L,jbas) &
-           -v_elem(iq,a,it,iu,J1,L,jbas) * v_elem(ir,ip,a,is,J2,R,jbas))
-        end do 
+  !          sm_sub = sm_sub + (-1)**(J2/2)*(J2+1.d0) &
+  !           * sixj(jp,jq,jpq,Jtot,jr,J2)* sixj(jq,ja,J1,js,Jtot,J2) &
+  !         *(v_elem(iq,a,it,iu,J1,R,jbas) * v_elem(ir,ip,a,is,J2,L,jbas) &
+  !          -v_elem(iq,a,it,iu,J1,L,jbas) * v_elem(ir,ip,a,is,J2,R,jbas))
+  !       end do 
         
-        sm = sm + sm_sub * phase * otherfact
+  !       sm = sm + sm_sub * phase * otherfact
         
-     end do
+  !    end do
  
-  end do
+  ! end do
      
-  smtot = smtot + sm*multfact
-
+  ! smtot = smtot + sm*multfact
+  
   ! ! SIXTH TERM
   ! sm = 0.d0 
   
@@ -1154,7 +1153,6 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   ! end do
      
   ! smtot = smtot + sm*multfact
-
   ! ! SEVENTH TERM
   
   ! sm = 0.d0 
@@ -1172,7 +1170,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   ! end do 
   
   ! smtot = smtot + sm*multfact
-
+ 
   ! !EIGHTH TERM 
   !  multfact = (-1)**((Jpq+js+jt)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
   !  ! ju isn't in here because I need it to make add with ja

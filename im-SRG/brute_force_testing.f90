@@ -551,11 +551,11 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
   type(sq_op) :: AA,BB,OUT,OUTs,w1,w2,BBY,w1s,w2s
   type(pandya_mat) :: BBCC,WCC
   type(cc_mat) :: AACC,BBYC,WCCs
-  integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max,rank
-  integer :: j2min,j2max,PAR,TZ,J1,J2,dpar,iii,i,j
+  integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max,rank,q,Jab,Jdi
+  integer :: j2min,j2max,PAR,TZ,J1,J2,dpar,iii,i,j,jtot
   integer,intent(in) :: h1,h2
   real(8) :: val,t1,t2,t3,t4,omp_get_wtime
-  real(8) :: vv,xx,yy,zz
+  real(8) :: vv,xx,yy,zz,x
   
 !  call seed_random_number
   
@@ -607,23 +607,41 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
   call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)  
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
   call TS_commutator_222_ph(AACC,BBCC,OUT,WCC,jbas)
+q=1 
 
-  do a = 1,30
-     do b = 1,30
-        do c = 1,30 
-           do d = 1,30
-              do i = 1,30
-                 do j = 1, 30 
-                    t1 = commutator_223_single(AA,BBY,a,b,c,d,i,j,3,2,4,jbas)*sqrt(4.d0)
-                    t2 = TS_commutator_223_single(AA,BB,a,b,c,d,i,j,3,3,2,4,jbas) 
+
+  
+  !do a = 7,30
+   !  do b = 1,30
+
+
+do q = 1,1000 
+   call random_number(x) 
+   a = ceiling(x*jbas%total_orbits)
+   call random_number(x) 
+   b = ceiling(x*jbas%total_orbits)
+   call random_number(x) 
+   c = ceiling(x*jbas%total_orbits)
+   call random_number(x) 
+   d = ceiling(x*jbas%total_orbits)
+   call random_number(x) 
+   i = ceiling(x*jbas%total_orbits)
+   call random_number(x) 
+   j = ceiling(x*jbas%total_orbits)
+   
+   do jtot = 1,19,2 
+      do Jab = abs(jbas%jj(c)-jtot), jbas%jj(c) +jtot, 2 
+         do Jdi = abs(jbas%jj(j)-jtot), jbas%jj(j) +jtot, 2 
+
+                    t1 = commutator_223_single(AA,BBY,a,b,c,d,i,j,jtot,Jab,Jdi,jbas)*sqrt(jtot+1.d0)
+                    t2 = TS_commutator_223_single(AA,BB,a,b,c,d,i,j,jtot,jtot,Jab,Jdi,jbas) 
+
                     if ( abs(t1 - t2) > 1e-6) then 
-                       print*, t1,t2,a,b,c,d,i,j
-                       stop
+                       print*, t1,t2,'abcdef',a,b,c,d,i,j,'J',Jab,Jdi,jtot 
+                      stop
                     else
                        if (abs(t1) > 1e-6 ) print*, t1,t2 
                     end if
-                 end do
-              end do
            end do
         end do
      end do
