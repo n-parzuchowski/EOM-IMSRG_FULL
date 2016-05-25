@@ -4,7 +4,7 @@ module me2j_format
   
   contains
 
-subroutine get_me2j_spfile(eMaxchr,lmax,nmax)
+subroutine get_me2j_spfile()
   ! This constructs the sps file for
   ! me2j's format, after it's been converted to a pn-basis 
   implicit none 
@@ -13,10 +13,16 @@ subroutine get_me2j_spfile(eMaxchr,lmax,nmax)
   character(2) :: eMaxchr
   character(13) :: fmt
   
-
-  read(eMaxchr,'(I2)') eMax
-  eMaxchr = adjustl(eMaxchr) 
-  open(unit=24,file=trim(SP_DIRECTORY_LIST(1))//'hk'//trim(eMaxchr)//'Lmax10.sps')
+  print*, 'eMax' 
+  read*, emax
+  print*, 'lMax' 
+  read*, lmax
+  print*, 'nmax' 
+  read*, nmax
+!  read(eMaxchr,'(I2)') eMax
+!  eMaxchr = adjustl(eMaxchr) 
+  !open(unit=24,file=trim(SP_DIRECTORY_LIST(1))//'hk'//trim(eMaxchr)//'_lmax10.sps')
+  open(unit=24,file='hk12_lmax10.sps')
   
   q = 1
   
@@ -32,7 +38,7 @@ subroutine get_me2j_spfile(eMaxchr,lmax,nmax)
         do jj = abs(2*l-1),2*l+1,2
            
            do tz = -1,1,2
-              
+              write(*,fmt) q, n , l , jj , tz, float(e) 
               write(24,fmt) q, n , l , jj , tz, float(e) 
               q = q+1
            end do 
@@ -41,7 +47,7 @@ subroutine get_me2j_spfile(eMaxchr,lmax,nmax)
   end do 
   
   close(24) 
-  print*, trim(SP_DIRECTORY_LIST(1))//'hk'//trim(eMaxchr)//'Lmax10.sps'
+!  print*, trim(SP_DIRECTORY_LIST(1))//'hk'//trim(eMaxchr)//'Lmax10.sps'
   STOP
 end subroutine
 !=====================================================================================
@@ -52,7 +58,7 @@ subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp)
   
   integer :: nlj1,nlj2,nnlj1,nnlj2,j,T,Mt,nljMax,endpoint,j_min,j_max,htype,lMax,eMaxfile
   integer :: l1,l2,ll1,ll2,j1,j2,jj1,jj2,Ntot,i,q,bospairs,qx,ta,tb,tc,td,n1,n2,nn1,nn2
-  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz,ax,bx,cx,dx
+  integer :: eMax,iMax,jmax,jmin,JT,a,b,c,d,C1,C2,i1,i2,pre,COM,x,PAR,endsz,ax,bx,cx,dx,Ntot_file
   integer,allocatable,dimension(:) :: indx 
   real(8),allocatable,dimension(:) :: ME,MEpp,MErr,me_fromfile,ppff,rrff
   real(8) :: V,g1,g2,g3,hw,pre2
@@ -69,21 +75,22 @@ subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp)
   pp_calc=.false.
   rr_calc=.false.
   COM = 0
-  
+
   if (present(pp)) pp_calc=.true.
   if (present(rr)) rr_calc=.true.
   if (htype == 1) COM = 1
 
   lMax = H%lmax
   eMax = H%eMax
+  Ntot_file = jbx%total_orbits/2
   Ntot = jbas%total_orbits/2
   
   i = 0
   q = 0
   ! allocate array to store positions of matrix elements
-  bospairs = bosonic_tp_index(Ntot,Ntot,Ntot) 
-  allocate(indx(bospairs**2)) 
-  indx = 0
+!  bospairs = bosonic_tp_index(Ntot,Ntot,Ntot) 
+!  allocate(indx(bospairs**2)) 
+ ! indx = 0
 
   ! move in increments of two, because I use a pn basis,
   !  heiko's is isospin coupled (half the states) 
@@ -91,7 +98,7 @@ subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp)
   eMax = maxval(jbas%e)   
   
   ! counting the states, and labeling them
-  do nlj1=1, 2*Ntot,2 
+  do nlj1=1, 2*Ntot_file,2 
      l1= jbx%ll(nlj1)
      j1= jbx%jj(nlj1)
      
@@ -120,14 +127,13 @@ subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp)
               
               if (jmin > jmax) cycle 
       
-              indx(bosonic_tp_index((nlj2+1)/2,(nlj1+1)/2,Ntot)&
-                   +bospairs*(bosonic_tp_index((nnlj2+1)/2,(nnlj1+1)/2,Ntot)-1)) = i+1 
+  !            indx(bosonic_tp_index((nlj2+1)/2,(nlj1+1)/2,Ntot)&
+   !                +bospairs*(bosonic_tp_index((nnlj2+1)/2,(nnlj1+1)/2,Ntot)-1)) = i+1 
         
               do JT = jmin,jmax,2
                  i = i + 4
               end do 
-         
-           
+                    
            end do
         end do 
      end do 
@@ -179,12 +185,11 @@ subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp)
   
   deallocate(me_fromfile)
   allocate(me_fromfile(4))
-
   
   ! redo this loop to put everything in pn basis
   
   i=0
-  do nlj1=1, 2*Ntot,2 
+  do nlj1=1, 2*Ntot_file,2 
      l1= jbx%ll(nlj1)
      j1= jbx%jj(nlj1)
      n1= jbx%nn(nlj1) 
@@ -211,19 +216,21 @@ subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp)
               jmin = max( abs(j1-j2) , abs(jj1-jj2) ) 
               jmax = min( j1+j2  , jj1+jj2) 
               PAR = mod(l1+l2,2) 
+           
               if (jmin > jmax) cycle 
             
               do JT = jmin,jmax,2
+              
                  me_fromfile=ME(i+1:i+4)
                  i = i + 4 ! four different TMt qnums
- 
-                  if ((l1 > lmax).or.(l2 > lmax).or.&
-                       (ll1 > lmax).or.(ll2 > lmax))  cycle 
-                  
-                  if ((2*n1+l1 > eMax ).or.(2*n2+l2 > eMax )) cycle 
-                  if ((2*nn1+ll1 > eMax ).or.(2*nn2+ll2 > eMax )) cycle 
                  
+                 if ((l1 > lmax).or.(l2 > lmax).or.&
+                      (ll1 > lmax).or.(ll2 > lmax))  cycle 
                  
+                 if ((2*n1+l1 > eMax ).or.(2*n2+l2 > eMax )) cycle 
+                 if ((2*nn1+ll1 > eMax ).or.(2*nn2+ll2 > eMax )) cycle 
+                 
+
  !cork
 !sum over all isospin configs
 do ax = nlj1,nlj1+1
@@ -276,17 +283,17 @@ do ax = nlj1,nlj1+1
      ! get the indeces in the correct order
      pre = 1
      if ( a > b )  then 
-        
         x = bosonic_tp_index(b,a,Ntot*2) 
         j_min = jbas%xmap(x)%Z(1)  
         i1 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
         pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -JT)/2 ) 
      else
        ! if (a == b) pre = pre * sqrt( 2.d0 )
-       
+
         x = bosonic_tp_index(a,b,Ntot*2) 
         j_min = jbas%xmap(x)%Z(1)  
         i1 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
+
      end if
   
      if (c > d)  then     
@@ -298,10 +305,11 @@ do ax = nlj1,nlj1+1
         pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -JT)/2 ) 
      else 
        ! if (c == d) pre = pre * sqrt( 2.d0 )
-      
+
         x = bosonic_tp_index(c,d,Ntot*2) 
         j_min = jbas%xmap(x)%Z(1)  
         i2 = jbas%xmap(x)%Z( (JT-j_min)/2 + 2) 
+
      end if
 
      ! kets/bras are pre-scaled by sqrt(2) if they 
@@ -350,7 +358,6 @@ do ax = nlj1,nlj1+1
      ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
     
  end do;end do; end do; end do !end sums over isospin  
-     
              end do ! end sum over j 
          
            
@@ -1098,7 +1105,7 @@ subroutine read_me3j(store_3b,jbas,jbx,eMax,lmax)
  
   iMax = store_3b%num_elems 
   allocate(ME(iMax)) 
-  nsp = jbas%total_orbits
+  nsp = jbx%total_orbits
   nsp_iso = nsp/2
   !open file 
 

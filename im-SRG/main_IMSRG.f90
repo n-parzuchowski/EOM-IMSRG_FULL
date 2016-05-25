@@ -32,7 +32,6 @@ program main_IMSRG
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
-  
   t1 = omp_get_wtime()
   heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
        13,14,29,30,27,28,25,26,23,24,21,22/)   
@@ -95,7 +94,7 @@ program main_IMSRG
   ! yes, goto 
 !=============================================================
 !=============================================================
-
+  print*, 'READ 2-BODY INTERACTION'
   ! for calculating COM expectation value
   if (COM_calc) then  
      
@@ -195,7 +194,9 @@ if (writing_bare) then
       call write_twobody_operator(HS,'rirj_bare')    
       call write_twobody_operator(HS,'pipj_bare')    
    end if 
-end if 
+end if
+print*, 'FINISHED WITH HF' 
+
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 

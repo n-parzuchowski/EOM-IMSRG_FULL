@@ -237,7 +237,8 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method,jbx)
   
   ! build the jscheme descriptor
   jbas%total_orbits=ix
-
+  jbx%total_orbits = jx 
+  
   allocate(jbas%nn(ix)) ! n 
   allocate(jbas%ll(ix)) ! l
   allocate(jbas%jj(ix)) ! j*2
@@ -3122,7 +3123,7 @@ subroutine write_twobody_operator(H,stage)
   
   prefix2(1:i+3)=prefix(1:i+3) 
   print*, 'Writing normal ordered interaction to ',&
-       trim(TBME_DIR)//trim(adjustl(prefix2(1:i+3)))//&
+       '../../TBME_input/'//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'
   
   Atot = H%belowEF
@@ -3145,7 +3146,7 @@ subroutine write_twobody_operator(H,stage)
   call vectorize(H,outvec) 
   
   
-  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+3)))//&
+  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'w'//achar(0)) 
   
   do q =1,neq
@@ -3187,7 +3188,7 @@ subroutine write_omega_checkpoint(H,s)
   end if 
 
   print*, 'Writing normal ordered interaction to ',&
-       trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz'
+       '../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz'
   
   Atot = H%belowEF
   Ntot = H%Nsp
@@ -3209,7 +3210,7 @@ subroutine write_omega_checkpoint(H,s)
   call vectorize(H,outvec) 
   
   
-  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))&
+  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))&
        //'.gz'//achar(0),'w'//achar(0)) 
   
   do q =1,neq
@@ -3220,7 +3221,7 @@ subroutine write_omega_checkpoint(H,s)
    
   rx = gzClose(filehandle) 
 
-  sx = s - 4.d0 
+  sx = s - 2.d0 
   write(s_position,'(f6.3)') sx
   
   prefix2(1:i+3)=prefix(1:i+3)
@@ -3230,9 +3231,9 @@ subroutine write_omega_checkpoint(H,s)
      prefix2(i+4:i+11) = '_s'//s_position
   end if 
   
-  print*, 'removing '//trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz' 
-  inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
-  if (isthere) call system('rm '//trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz') 
+  print*, 'removing '//'../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz' 
+  inquire(file='../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
+  if (isthere) call system('rm '//'../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz') 
   
   print*, 'sucessful' 
 
@@ -3271,7 +3272,7 @@ logical function read_omega_checkpoint(H,s)
         prefix2(i+4:i+11) = '_s'//s_position
      end if
      
-     inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
+     inquire(file='../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
      if (isthere) exit 
      s = s-2.d0
   end do
@@ -3282,7 +3283,7 @@ logical function read_omega_checkpoint(H,s)
   
 !  print*, 'Bypassing Hartree Fock and normal odering.' 
   print*, 'Reading normal ordered output from ',&
-       trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))//'.gz'
+       '../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz'
 
   Atot = H%belowEF
   Ntot = H%Nsp
@@ -3300,7 +3301,7 @@ logical function read_omega_checkpoint(H,s)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+11)))&
+  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))&
        //'.gz'//achar(0),'r'//achar(0)) 
   
   do q =1,neq
@@ -3336,7 +3337,7 @@ logical function read_twobody_operator(H,stage)
   
   prefix2(1:i+3)=prefix(1:i+3) 
     
-  inquire(file=trim(TBME_DIR)//trim(adjustl(prefix2(1:i+3)))//&
+  inquire(file='../../TBME_input/'//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz',exist=isthere)
   
   if ( .not. isthere ) then 
@@ -3345,7 +3346,7 @@ logical function read_twobody_operator(H,stage)
   
 !  print*, 'Bypassing Hartree Fock and normal odering.' 
   print*, 'Reading normal ordered output from ',&
-       trim(TBME_DIR)//trim(adjustl(prefix))//&
+       '../../TBME_input/'//trim(adjustl(prefix))//&
        '_'//stage//'_normal_ordered.gz'
 
   Atot = H%belowEF
@@ -3364,7 +3365,7 @@ logical function read_twobody_operator(H,stage)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(prefix2(1:i+3)))//&
+  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'r'//achar(0)) 
   
   do q =1,neq

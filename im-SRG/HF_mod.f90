@@ -507,6 +507,7 @@ subroutine transform_2b_to_HF(D,H,jbas)
   real(8),allocatable,dimension(:,:) :: Vfull,Cfull,temp,Dsmall
   real(8),allocatable,dimension(:,:) :: V1,V2,V3,V4,crevfull
   
+  print*, 'Transforming TBME to HF basis' 
   ! construct full D matrix (with zeros) 
   allocate(Dsmall(H%Nsp,H%Nsp)) 
   Dsmall = 0.d0 

@@ -442,7 +442,7 @@ subroutine allocate_three_body_storage(jbas,jbx,store_3b,eMax,lMax)
   real(8) :: mem ,ass
 
   jtot_max = 3*(jbas%jtotal_max)
-  Nsp = jbas%total_orbits
+  Nsp = jbx%total_orbits
   nsp_iso = Nsp/2  ! isospin coupled
   num_3b = (Nsp_iso+Nsp_iso**2)/2 + (Nsp_iso**3 - Nsp_iso)/6
   num_blocks = ((jtot_max-1)/2+1)*4
@@ -461,11 +461,11 @@ subroutine allocate_three_body_storage(jbas,jbx,store_3b,eMax,lMax)
   
   l = 1 
   do i = 1,Nsp_iso
-     ji = jbas%jj(2*i) ! isospin coupled so only looking at Tz=1 states in jbas
+     ji = jbx%jj(2*i) ! isospin coupled so only looking at Tz=1 states in jbx
      do j= 1,i
-        jj = jbas%jj(2*j)
+        jj = jbx%jj(2*j)
         do k= 1,j 
-           jk = jbas%jj(2*k)
+           jk = jbx%jj(2*k)
              
            Jij_min = abs(ji-jj)
            Jij_max = ji+jj
@@ -629,9 +629,9 @@ subroutine allocate_three_body_storage(jbas,jbx,store_3b,eMax,lMax)
                                 e = jbx%con(2*nnlj2)/2
                                 f = jbx%con(2*nnlj3)/2
                                                                                                                          
-                                x1=threebody_index(nlj1,nlj2,nlj3)
-                                x2=threebody_index(nnlj1,nnlj2,nnlj3)
-                              
+                                x1=threebody_index(a,b,c)
+                                x2=threebody_index(d,e,f)
+
                                 aux1 = (Jab-store_3b%hashmap(x1)%Jij_start)/2 + 1  
                                 aux2 = (JJab-store_3b%hashmap(x2)%Jij_start)/2 + 1  
                                 aux3 = (jtot - store_3b%hashmap(x1)%jhalf_start(aux1))/2+1 & 
