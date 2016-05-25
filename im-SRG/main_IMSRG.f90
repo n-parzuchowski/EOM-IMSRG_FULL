@@ -74,19 +74,16 @@ program main_IMSRG
   do_hf = .true. 
   IF (reading_decoupled) then 
      do_hf = read_twobody_operator(HS,'decoupled') 
-     if (com_calc .or. r2rms_calc) then 
-        do_hf=read_twobody_operator(HS,'rirj_decoupled')    
-        do_hf=read_twobody_operator(HS,'pipj_decoupled')    
-     end if
-
      if (.not. do_hf) goto 91 
   end if  
   
   if (reading_bare) then 
-     do_hf = read_twobody_operator(HS,'bare') 
+     do_hf = read_twobody_operator(HS,'bare')
      if (com_calc .or. r2rms_calc) then 
-        do_hf=read_twobody_operator(HS,'rirj_bare')    
-        do_hf=read_twobody_operator(HS,'pipj_bare')    
+        call duplicate_sq_op(HS,rirj)
+        call duplicate_sq_op(HS,pipj)
+        do_hf=read_twobody_operator(rirj,'rirj_bare')    
+        do_hf=read_twobody_operator(pipj,'pipj_bare')    
      end if
 
      if (.not. do_hf) goto 90
@@ -191,8 +188,8 @@ program main_IMSRG
 if (writing_bare) then 
    call write_twobody_operator(HS,'bare')   
    if (com_calc .or. r2rms_calc) then 
-      call write_twobody_operator(HS,'rirj_bare')    
-      call write_twobody_operator(HS,'pipj_bare')    
+      call write_twobody_operator(rirj,'rirj_bare')    
+      call write_twobody_operator(pipj,'pipj_bare')    
    end if 
 end if
 print*, 'FINISHED WITH HF' 
@@ -284,10 +281,6 @@ print*, 'FINISHED WITH HF'
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (writing_decoupled) then 
      call write_twobody_operator(HS,'decoupled')
-     if (com_calc .or. r2rms_calc) then 
-        call write_twobody_operator(HS,'rirj_decoupled')    
-        call write_twobody_operator(HS,'pipj_decoupled')    
-     end if
   end if
 
 91 t2 = omp_get_wtime() 
