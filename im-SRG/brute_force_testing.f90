@@ -634,7 +634,9 @@ do q = 1,1000
          do Jdi = abs(jbas%jj(j)-jtot), jbas%jj(j) +jtot, 2 
 
                     t1 = commutator_223_single(AA,BBY,a,b,c,d,i,j,jtot,Jab,Jdi,jbas)*sqrt(jtot+1.d0)
-                    t2 = TS_commutator_223_single(AA,BB,a,b,c,d,i,j,jtot,jtot,Jab,Jdi,jbas) 
+
+                    t2 = TS_commutator_223_single(AA,BB,a,b,c,d,i,j,jtot,jtot,Jab,Jdi,jbas)         
+
 
                     if ( abs(t1 - t2) > 1e-6) then 
                        print*, t1,t2,'abcdef',a,b,c,d,i,j,'J',Jab,Jdi,jtot 
