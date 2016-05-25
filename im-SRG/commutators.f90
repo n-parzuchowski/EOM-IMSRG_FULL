@@ -935,7 +935,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   type(sq_op) :: L,R
   type(spd) :: jbas
   real(8) :: sm,sm_sub,multfact,smtot,d6ji,out,otherfact
-  real(8) :: Vs1,Vs2
+  real(8) :: Vs1,Vs2,dsum
   
   smtot = 0.d0 
   
@@ -947,7 +947,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   js = jbas%jj(is)
   jt = jbas%jj(it)
   ju = jbas%jj(iu)  
-    
+     
   ! FIRST TERM 
   !changed to q-r instead of q+r
   multfact = (-1)**((jq-jr)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
@@ -970,10 +970,9 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      do J2 = jmin, jmax , 2
       
         sm = sm +  phase * (J2 + 1.d0) &
-            * sixj(jq,jp,jpq,Jtot,jr,J2) * sixj(ja,jp,jst,Jtot,ju,J2) &
+            * d6ji(jq,jp,jpq,Jtot,jr,J2) * d6ji(ja,jp,jst,Jtot,ju,J2) &
             * (Vs1 * v_elem(iq,ir,a,iu,J2,L,jbas)&
             - Vs2 * v_elem(iq,ir,a,iu,J2,R,jbas))
-
      end do
   end do 
   
@@ -997,13 +996,13 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      
      do J1 = jmin,jmax,2
         
-        otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
+        otherfact = (J1+1.d0) *(-1)**(J1/2) *d6ji(jt,js,jst,Jtot,ju,J1)  
         
         sm_sub = 0.d0
         do J2 = jmin2,jmax2,2 
            
-           sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
-                * sixj(jp,ja,J1,js,Jtot,J2) * &
+           sm_sub = sm_sub + (J2+1.d0) * d6ji(jq,jp,jpq,Jtot,jr,J2) &
+                * d6ji(jp,ja,J1,js,Jtot,J2) * &
           (v_elem(ip,a,it,iu,J1,R,jbas) * v_elem(iq,ir,a,is,J2,L,jbas) &
            -v_elem(ip,a,it,iu,J1,L,jbas) * v_elem(iq,ir,a,is,J2,R,jbas))
         end do 
@@ -1033,13 +1032,13 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      
      do J1 = jmin,jmax,2
         
-        otherfact = (J1+1.d0) *sixj(js,jt,jst,Jtot,ju,J1)  
+        otherfact = (J1+1.d0) *d6ji(js,jt,jst,Jtot,ju,J1)  
         
         sm_sub = 0.d0
         do J2 = jmin2,jmax2,2 
            
-           sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
-                * sixj(jp,ja,J1,jt,Jtot,J2) * &
+           sm_sub = sm_sub + (J2+1.d0) * d6ji(jq,jp,jpq,Jtot,jr,J2) &
+                * d6ji(jp,ja,J1,jt,Jtot,J2) * &
           (v_elem(ip,a,iu,is,J1,R,jbas) * v_elem(iq,ir,a,it,J2,L,jbas) &
            -v_elem(ip,a,iu,is,J1,L,jbas) * v_elem(iq,ir,a,it,J2,R,jbas))
         end do 
@@ -1073,7 +1072,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      do J2 = jmin, jmax , 2
 
         sm = sm +  phase * (J2 + 1.d0)*(-1)**(J2/2) &
-            * sixj(jp,jq,jpq,Jtot,jr,J2) * sixj(ja,jq,jst,Jtot,ju,J2) &
+            * d6ji(jp,jq,jpq,Jtot,jr,J2) * d6ji(ja,jq,jst,Jtot,ju,J2) &
             * ( Vs1 * v_elem(ir,ip,a,iu,J2,L,jbas)&
             - Vs2 * v_elem(ir,ip,a,iu,J2,R,jbas))
 
@@ -1100,13 +1099,13 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      
      do J1 = jmin,jmax,2
         
-        otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
+        otherfact = (J1+1.d0) *(-1)**(J1/2) *d6ji(jt,js,jst,Jtot,ju,J1)  
         
         sm_sub = 0.d0
         do J2 = jmin2,jmax2,2 
            
            sm_sub = sm_sub + (-1)**(J2/2)*(J2+1.d0) &
-            * sixj(jp,jq,jpq,Jtot,jr,J2)* sixj(jq,ja,J1,js,Jtot,J2) &
+            * d6ji(jp,jq,jpq,Jtot,jr,J2)* d6ji(jq,ja,J1,js,Jtot,J2) &
           *(v_elem(iq,a,it,iu,J1,R,jbas) * v_elem(ir,ip,a,is,J2,L,jbas) &
            -v_elem(iq,a,it,iu,J1,L,jbas) * v_elem(ir,ip,a,is,J2,R,jbas))
         end do 
@@ -1118,7 +1117,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   end do
      
   smtot = smtot + sm*multfact
-
+  
   ! SIXTH TERM
   sm = 0.d0 
   
@@ -1136,13 +1135,13 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      
      do J1 = jmin,jmax,2
         
-        otherfact = (J1+1.d0)*sixj(js,jt,jst,Jtot,ju,J1)  
+        otherfact = (J1+1.d0)*d6ji(js,jt,jst,Jtot,ju,J1)  
         
         sm_sub = 0.d0
         do J2 = jmin2,jmax2,2 
            
            sm_sub = sm_sub + (-1)**(J2/2)*(J2+1.d0) &
-            * sixj(jp,jq,jpq,Jtot,jr,J2)* sixj(jq,ja,J1,jt,Jtot,J2) &
+            * d6ji(jp,jq,jpq,Jtot,jr,J2)* d6ji(jq,ja,J1,jt,Jtot,J2) &
           *(v_elem(iq,a,iu,is,J1,R,jbas) * v_elem(ir,ip,a,it,J2,L,jbas) &
            -v_elem(iq,a,iu,is,J1,L,jbas) * v_elem(ir,ip,a,it,J2,R,jbas))
         end do 
@@ -1166,13 +1165,13 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      if (.not. triangle(jr,ja,jst) ) cycle
 
      ! using ja-ju instead of ja+ju
-     sm = sm + (-1)**((ja-ju)/2)*sixj(jr,ja,jst,ju,Jtot,jpq) &
+     sm = sm + (-1)**((ja-ju)/2)*d6ji(jr,ja,jst,ju,Jtot,jpq) &
       *(v_elem(ir,a,is,it,jst,R,jbas) * v_elem(ip,iq,a,iu,jpq,L,jbas) &
      -v_elem(ir,a,is,it,jst,L,jbas) * v_elem(ip,iq,a,iu,jpq,R,jbas) )
   end do 
   
   smtot = smtot + sm*multfact
-
+ 
   !EIGHTH TERM 
    multfact = (-1)**((Jpq+js+jt)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
    ! ju isn't in here because I need it to make add with ja
@@ -1195,7 +1194,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
       do J1 = jmin, jmax , 2
 
          sm = sm +  phase * (-1)**(J1/2)*(J1 + 1.d0) &
-             * sixj(jt,js,jst,Jtot,ju,J1) * sixj(jr,ja,J1,js,Jtot,jpq) &
+             * d6ji(jt,js,jst,Jtot,ju,J1) * d6ji(jr,ja,J1,js,Jtot,jpq) &
              * (v_elem(ir,a,it,iu,J1,R,jbas) * Vs1 &
              -v_elem(ir,a,it,iu,J1,L,jbas) * Vs2 )
 
@@ -1205,7 +1204,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
    smtot = smtot + sm*multfact
 
   ! NINTH TERM
-  multfact = (-1)**((Jst-Jpq)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
+  multfact = (-1)**((Jst-Jpq)/2) *sqrt((Jpq+1.d0) * (Jst+1.d0 )) 
   ! ju isn't in here because I need it to make add with ja
   ! so I get an integer later 
   sm = 0.d0   
@@ -1225,10 +1224,10 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      do J1 = jmin, jmax , 2
      
         sm = sm +  phase * (J1 + 1.d0) &
-            * sixj(js,jt,jst,Jtot,ju,J1) * sixj(jr,ja,J1,jt,Jtot,jpq) &
+            * d6ji(js,jt,jst,Jtot,ju,J1) * d6ji(jr,ja,J1,jt,Jtot,jpq) &
             * (v_elem(ir,a,iu,is,J1,R,jbas) * Vs1 &
-            -v_elem(ir,a,iu,is,J1,L,jbas) * Vs2 )
-
+            - v_elem(ir,a,iu,is,J1,L,jbas) * Vs2 )
+        
      end do
   end do 
   
