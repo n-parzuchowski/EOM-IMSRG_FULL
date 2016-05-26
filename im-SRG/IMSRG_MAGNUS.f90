@@ -125,7 +125,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
 ! triples correction ===========================================================
   if (trip_calc) then 
      call enumerate_three_body(threebas,jbas)
-  !   t1 = omp_get_wtime()
+     t1 = omp_get_wtime()
      if ( xxCR ) then 
         call duplicate_sq_op(H,CR)         
         ! completely renormalized bit.
@@ -134,8 +134,10 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      else
         corr =  restore_triples(H,G,threebas,jbas) 
      end if 
-   !  t2 = omp_get_wtime()
+     t2 = omp_get_wtime()
+   
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
+     
      open(unit=39,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_magnus_triples.dat')
      write(39,'(I6,4(e15.7))') steps,s,HS%E0+corr,HS%E0+E_mbpt2,crit

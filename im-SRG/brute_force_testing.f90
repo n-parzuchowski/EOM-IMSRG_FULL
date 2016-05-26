@@ -557,7 +557,7 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
   real(8) :: val,t1,t2,t3,t4,omp_get_wtime
   real(8) :: vv,xx,yy,zz,x
   
-!  call seed_random_number
+  call seed_random_number
   
   BB%rank = 0
   BB%dpar = 0

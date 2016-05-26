@@ -17,6 +17,10 @@ module basic_IMSRG
   TYPE :: real_vec !element of an array of matrices
      real(8),allocatable,dimension(:) :: XX 
   END TYPE real_vec
+
+  TYPE :: single_vec !element of an array of matrices
+     real,allocatable,dimension(:) :: RR 
+  END TYPE single_vec
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: spd    ! single particle discriptor
      INTEGER :: total_orbits,Jtotal_max,lmax,spblocks,E3Max_3file,eMax_3file
@@ -152,7 +156,7 @@ module basic_IMSRG
 contains
 !====================================================
 !====================================================
-subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method,jbx)
+subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,trips,jbx)
   ! fills jscheme_basis array with single particle data from file
   ! file format must be: 5 integers and one real 
   ! for each state we have:   | label |  n  | l | 2 * j | 2*tz | E_sp |  
@@ -163,8 +167,9 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method,jbx)
   character(2) :: hk
   character(200) :: interm
   integer :: ist,i,label,ni,li,ji,tzi,ix,hp,hn
-  integer :: q,r,Jtarget,PARtarget,method,jx,lmax,eMax
+  integer :: q,r,Jtarget,PARtarget,jx,lmax,eMax
   real(8) :: e
+  character(1) :: trips
   
 
   interm= adjustl(spfile)
@@ -297,7 +302,7 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,method,jbx)
   jbas%Jtotal_max = maxval(jbas%jj) 
   jbas%lmax = maxval(jbas%ll) 
   ! this is the maximum value of J, this code always uses 2*J 
-  call store_6j(jbas,method) ! save six-j symbols to an array
+  call store_6j(jbas,trips) ! save six-j symbols to an array
   close(39) 
   
   jbas%spblocks =  (jbas%Jtotal_max + 1) * (jbas%lmax + 1)
@@ -2148,6 +2153,24 @@ real(8) function v_same(op)
       v_same = op%mat(q_c)%gam(qx_c)%X(i1_c,i2_c) * pre_c
   end if 
 end function
+!==========================================================
+!==========================================================
+real(8) function twobody_monopole(a,b,ja,jb,H,jbas) 
+  ! average over J used a lot in white generator
+  implicit none 
+  
+  integer :: ja,jb,JT,a,b
+  type(sq_op) :: H 
+  type(spd) :: jbas 
+  real(8) :: sm
+            
+  sm = 0.d0 
+  do JT = abs(ja-jb),ja+jb,2
+     sm = sm + (JT + 1) * v_elem(a,b,a,b,JT,H,jbas) 
+  end do 
+  
+  twobody_monopole = sm /(ja + 1.d0) / (jb + 1.d0) 
+end function 
 !=====================================================
 !=====================================================
 subroutine calculate_h0_harm_osc(hw,jbas,H,Htype) 
@@ -2282,7 +2305,7 @@ subroutine diagonalize_blocks(R)
 end subroutine
 !======================================================
 !======================================================
-subroutine store_6j(jbas,method) 
+subroutine store_6j(jbas,trips) 
   ! run this once. use sixj in code to call elements 
   ! kind of complicated, but if fills a public array (store6j) 
   ! which theoretically doesn't need to be touched when 
@@ -2292,12 +2315,13 @@ subroutine store_6j(jbas,method)
   
   type(spd) :: jbas
   integer :: j1,j2,j3,j4,j5,j6,num_half,num_whole,r1,r2
-  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max,method
+  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max
   real(8) :: d6ji
+  character(1) :: trips
   
   call dfact0() ! prime the anglib 6j calculator 
   
-  if (method == 5) then  
+  if (trips == 'y') then  
      ! this is necessary for three-body calculations
      num_half = (3*jbas%Jtotal_max + 1)/2
      ! however, it clearly increases the memory requirements
@@ -2318,7 +2342,7 @@ subroutine store_6j(jbas,method)
   
   ! the second index refers to j4,j5 which cannot be ordered
   ! so we need an extra set of states for the reverse ordering (nferm) 
-  
+  print*, num_half
   do j1 = 1, num_half
      do j2 = j1, num_half 
 
@@ -2404,7 +2428,7 @@ subroutine store_6j_3halfint(jbas,rank)
   
   type(spd) :: jbas
   integer :: j1,j2,j3,j4,j5,j6,halfmax,num_whole,r1,r2,rank,JTM
-  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max,method,TZ,PAR
+  integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max,TZ,PAR
   real(8) :: d6ji
   
   call dfact0() ! prime the anglib 6j calculator 

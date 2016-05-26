@@ -300,7 +300,7 @@ subroutine gamma_matrix_three_body(gam,rho,THREEBOD,TB_MONO,jbas)
                                 aux = bosonic_tp_index(IImono,JJmono,TB_MONO%dm(qmono))
                              end if 
                              
-                             IF (TB_MONO%mat(qmono)%XX(aux) < -99998.d0) then
+                             IF (TB_MONO%mat(qmono)%RR(aux) < -99998.d0) then
                                 ! first step in here... (takes a long time) 
                                 ! sum over allowed JJ values
                                 sm_x = 0.d0 
@@ -314,10 +314,10 @@ subroutine gamma_matrix_three_body(gam,rho,THREEBOD,TB_MONO,jbas)
                                    end do
                                 end do
                                 
-                                TB_MONO%mat(qmono)%XX(aux) = sm_x 
+                                TB_MONO%mat(qmono)%RR(aux) = sm_x 
                              else
                                 !additional steps out here. (fast)
-                                sm_x = TB_MONO%mat(qmono)%XX(aux) 
+                                sm_x = TB_MONO%mat(qmono)%RR(aux) 
                              end if 
                              
                              sm = sm + 0.5*den1*den2*sm_x/(j1rho+1.d0)/(j2rho+1.d0) 

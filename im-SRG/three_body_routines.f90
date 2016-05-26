@@ -12,12 +12,12 @@ module three_body_routines
      integer :: num_elems,E3max 
      integer,allocatable,dimension(:) :: kets,bras,Nsize
      integer,allocatable,dimension(:,:) :: lam
-     type(real_vec),allocatable,dimension(:) :: mat
+     type(single_vec),allocatable,dimension(:) :: mat
      type(extendable_hash),allocatable,dimension(:) :: hashmap
   end type three_body_force
 
   type mono_3b
-     type(real_vec),allocatable,dimension(:) :: mat
+     type(single_vec),allocatable,dimension(:) :: mat
      integer,allocatable,dimension(:,:) :: hash
      integer,allocatable,dimension(:) :: dm
   end type mono_3b
@@ -97,10 +97,10 @@ subroutine allocate_mono(monoSTOR,jbas)
                                  end do
                               end do
 
-                              allocate(monoSTOR%mat(q)%XX(items*(items+1)/2)) 
-                              monoSTOR%mat(q)%XX = -99999.d0 
+                              allocate(monoSTOR%mat(q)%RR(items*(items+1)/2)) 
+                              monoSTOR%mat(q)%RR = -99999.d0 
                               monoSTOR%dm(q) = items
-                              mem = mem +sizeof(monoSTOR%mat(q)%XX)
+                              mem = mem +sizeof(monoSTOR%mat(q)%RR)
                               q=q+1
 
                            end do
@@ -681,9 +681,9 @@ subroutine allocate_three_body_storage(jbas,jbx,store_3b,eMax,lMax)
      if (store_3b%kets(q) .ne. store_3b%bras(q)) print*, 'shit'
      NN = store_3b%kets(q) 
      elems = elems + (NN*NN+NN)/2
-     allocate(store_3b%mat(q)%XX((NN*NN+NN)/2))
+     allocate(store_3b%mat(q)%RR((NN*NN+NN)/2))
      store_3b%Nsize(q) = NN
-     mem = mem +sizeof(store_3b%mat(q)%XX)
+     mem = mem +sizeof(store_3b%mat(q)%RR)
   end do
   
   mem = mem/1024.d0/1024.d0/1024.d0
@@ -883,7 +883,7 @@ AddToME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in
                  
                  if ( II >= JJ) then 
                     aux = bosonic_tp_index(JJ,II,STOR%Nsize(q))
-                    STOR%mat(q)%XX(aux) = STOR%mat(q)%XX(aux) + &
+                    STOR%mat(q)%RR(aux) = STOR%mat(q)%RR(aux) + &
                          Cj_abc * Cj_def * Ct_abc * Ct_def * V_in
 
                  else 
@@ -892,7 +892,7 @@ AddToME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in
                  end if
                   
                  V_out = V_out + Cj_abc * Cj_def * Ct_abc * Ct_def &
-                      *STOR%mat(q)%XX(aux)
+                      *STOR%mat(q)%RR(aux)
          
               end do
            end do

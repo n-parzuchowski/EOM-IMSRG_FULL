@@ -1771,12 +1771,12 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      sj1 = v_elem(ip,a,is,it,Jst,L,jbas)*phase
 
      do J2 = j2min, j2max , 2
-        sj2 = sj1*d6ji(jp,jq,Jpq,jr,jtot1,J2)*sqrt(J2+1.d0) 
+        sj2 = sj1*sixj(jp,jq,Jpq,jr,jtot1,J2)*sqrt(J2+1.d0) 
         do J3 = j3min,j3max,2
 
            sm = sm - (-1)**(J3/2) * sqrt(J3 + 1.d0) &            
-            * sj2 * d6ji(jp,ja,Jst,ju,jtot2,J3) *  &
-             d6ji(J2,J3,rank,jtot2,jtot1,jp) * &
+            * sj2 * sixj(jp,ja,Jst,ju,jtot2,J3) *  &
+             xxxsixj(J2,J3,rank,jtot2,jtot1,jp) * &
              tensor_elem(iq,ir,a,iu,J2,J3,R,jbas)
            
         end do
@@ -1805,12 +1805,12 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      do J1 = j1min, j1max , 2      
 
         Vs1 = tensor_elem(ip,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2) 
-        sj1 = sqrt(J1+1.d0)*d6ji(J1,Jst,rank,jtot2,jtot1,ju) 
+        sj1 = sqrt(J1+1.d0)*xxxsixj(J1,Jst,rank,jtot2,jtot1,ju) 
 
         do J3 = j3min,j3max,2
 
            sm = sm +  phase *sj1*(J3 + 1.d0) &
-                * d6ji(jp,jq,Jpq,jr,jtot1,J3) * d6ji(jp,ja,J1,ju,jtot1,J3) &
+                * sixj(jp,jq,Jpq,jr,jtot1,J3) * sixj(jp,ja,J1,ju,jtot1,J3) &
                 * Vs1 * v_elem(iq,ir,a,iu,J3,L,jbas)
 
         end do
@@ -1848,13 +1848,13 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
        
         do J2 = j2min,j2max,2
            
-           sj2 = sj1 * (J2+1.d0) * (-1)**(J2/2) * d6ji(js,jt,Jst,ju,jtot2,J2) * &
-                d6ji(jp,ja,J2,js,jtot2,J1) * v_elem(ip,a,it,iu,J2,L,jbas) 
+           sj2 = sj1 * (J2+1.d0) * (-1)**(J2/2) * sixj(js,jt,Jst,ju,jtot2,J2) * &
+                sixj(jp,ja,J2,js,jtot2,J1) * v_elem(ip,a,it,iu,J2,L,jbas) 
            
            do J3 = j3min,j3max,2
            
-              sm = sm - sqrt(J3+1.d0) * sj2 * d6ji(jp,jq,Jpq,jr,jtot1,J3) &
-                   * d6ji(J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J3/2) * &
+              sm = sm - sqrt(J3+1.d0) * sj2 * sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * xxxsixj(J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J3/2) * &
                      tensor_elem(iq,ir,a,is,J3,J1,R,jbas)
            end do
         end do         
@@ -1885,13 +1885,13 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         
         do J2 = j2min,j2max,2 
            
-           sj2 = sj1 * sqrt(J2+1.d0) * d6ji(js,jt,Jst,ju,jtot2,J2) * &
-                d6ji(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
+           sj2 = sj1 * sqrt(J2+1.d0) * sixj(js,jt,Jst,ju,jtot2,J2) * &
+                xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
            
            do J3 = j3min,j3max,2
               
-              sm = sm + sj2 * (J3+1.d0) * d6ji(jp,jq,Jpq,jr,jtot1,J3) &
-                   * d6ji(jp,ja,J1,js,jtot1,J3) * v_elem(iq,ir,a,is,J3,L,jbas)
+              sm = sm + sj2 * (J3+1.d0) * sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * sixj(jp,ja,J1,js,jtot1,J3) * v_elem(iq,ir,a,is,J3,L,jbas)
            end do 
         end do 
      end do
@@ -1924,16 +1924,16 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
      do J3 = j3min,j3max,2
         
-        sj1 = phase*d6ji(jp,jq,Jpq,jr,jtot1,J3)*sqrt(J3+1.d0)  
+        sj1 = phase*sixj(jp,jq,Jpq,jr,jtot1,J3)*sqrt(J3+1.d0)  
         
         do J1 = j1min,j1max,2 
            
            sj2 =  sj1*(-1)**(J1/2)*tensor_elem(iq,ir,a,it,J3,J1,R,jbas)*&
-                d6ji(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
+                xxxsixj(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
 
            do J2 = j2min,j2max,2
-              sm = sm - (J2+1.d0) *sj2* d6ji(js,jt,Jst,jtot2,ju,J2) &
-                   * d6ji(jp,ja,J2,jt,jtot2,J1) * v_elem(ip,a,iu,is,J2,L,jbas)
+              sm = sm - (J2+1.d0) *sj2* sixj(js,jt,Jst,jtot2,ju,J2) &
+                   * sixj(jp,ja,J2,jt,jtot2,J1) * v_elem(ip,a,iu,is,J2,L,jbas)
            end do
         end do
      end do
@@ -1959,15 +1959,15 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
      do J2 = j2min,j2max,2
         
-        sj1 = phase*(-1)**(J2/2)* d6ji(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0) 
+        sj1 = phase*(-1)**(J2/2)* sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0) 
         
         do J1 = j1min,j1max,2 
-           sj2 = sj1* d6ji(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
+           sj2 = sj1* xxxsixj(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
                 tensor_elem(ip,a,iu,is,J1,J2,R,jbas)      
 
            do J3 = j3min,j3max,2
-              sm = sm + (J3+1.d0) *sj2* d6ji(jp,jq,Jpq,jr,jtot1,J3) &
-                   * d6ji(jp,ja,J1,jt,jtot1,J3) * v_elem(iq,ir,a,it,J3,L,jbas)
+              sm = sm + (J3+1.d0) *sj2* sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * sixj(jp,ja,J1,jt,jtot1,J3) * v_elem(iq,ir,a,it,J3,L,jbas)
            end do
         
         end do
@@ -2004,12 +2004,12 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
      do J1 = j1min,j1max,2
         
-        sj2 = phase*sj1*d6ji(jp,jq,Jpq,jtot1,jr,J1)*sqrt(J1+1.d0)*(-1)**(J1/2)
+        sj2 = phase*sj1*sixj(jp,jq,Jpq,jtot1,jr,J1)*sqrt(J1+1.d0)*(-1)**(J1/2)
         
         do J2 = j2min,j2max,2 
            
            sm = sm -  sj2*sqrt(J2+1.d0)*(-1)**(J2/2)*tensor_elem(ir,ip,a,iu,J1,J2,R,jbas)*&
-                d6ji(J1,J2,rank,jtot2,jtot1,jq)*d6ji(ja,jq,Jst,jtot2,ju,J2)
+                xxxsixj(J1,J2,rank,jtot2,jtot1,jq)*sixj(ja,jq,Jst,jtot2,ju,J2)
 
         end do
      end do
@@ -2045,8 +2045,8 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         do J2 = j2min,j2max,2 
            
            sm = sm +  sj1*(J2+1.d0)*(-1)**(J2/2)*v_elem(ir,ip,a,iu,J2,L,jbas) *&
-                d6ji(J1,Jst,rank,jtot2,jtot1,ju)*d6ji(ja,jq,J1,jtot1,ju,J2) &
-                *d6ji(jp,jq,Jpq,jtot1,jr,J2)
+                xxxsixj(J1,Jst,rank,jtot2,jtot1,ju)*sixj(ja,jq,J1,jtot1,ju,J2) &
+                *sixj(jp,jq,Jpq,jtot1,jr,J2)
         end do
      end do
  
@@ -2078,17 +2078,17 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
      do J1 = j1min,j1max,2
         
-        sj1 = phase*d6ji(js,jt,Jst,ju,jtot2,J1)*(J1+1.d0)*(-1)**(J1/2)&
+        sj1 = phase*sixj(js,jt,Jst,ju,jtot2,J1)*(J1+1.d0)*(-1)**(J1/2)&
              *v_elem(iq,a,it,iu,J1,L,jbas) 
         
         do J3 = j3min,j3max,2 
            
            sj2 =  sj1*(-1)**(J3/2)*&
-                d6ji(jq,ja,J1,js,jtot2,J3)*sqrt(J3+1.d0)
+                sixj(jq,ja,J1,js,jtot2,J3)*sqrt(J3+1.d0)
 
            do J2 = j2min,j2max,2
-              sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*sj2* d6ji(jp,jq,Jpq,jtot1,jr,J2) &
-                   * d6ji(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
+              sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*sj2* sixj(jp,jq,Jpq,jtot1,jr,J2) &
+                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
            end do
         end do
      end do
@@ -2118,16 +2118,16 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
      do J3 = j3min,j3max,2
         
-        sj1 = phase*(-1)**(J3/2)* d6ji(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
+        sj1 = phase*(-1)**(J3/2)* sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
              v_elem(ir,ip,a,is,J3,L,jbas) 
         
         do J2 = j2min,j2max,2 
-           sj2 = sj1*(-1)**(J2/2)*d6ji(js,jt,Jst,ju,jtot2,J2)*sqrt(J2+1.d0)
+           sj2 = sj1*(-1)**(J2/2)*sixj(js,jt,Jst,ju,jtot2,J2)*sqrt(J2+1.d0)
                     
 
            do J1 = j1min,j1max,2
-              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* d6ji(jq,ja,J1,js,jtot1,J3) &
-                   * d6ji(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
+              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,js,jtot1,J3) &
+                   * xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
            end do
         
         end do
@@ -2162,17 +2162,17 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
      do J1 = j1min,j1max,2
         
-        sj1 = phase*d6ji(js,jt,Jst,jtot2,ju,J1)*(J1+1.d0) &
+        sj1 = phase*sixj(js,jt,Jst,jtot2,ju,J1)*(J1+1.d0) &
              *v_elem(iq,a,iu,is,J1,L,jbas) 
         
         do J2 = j2min,j2max,2 
            
            sj2 =  sj1*(-1)**(J2/2)*&
-                d6ji(jp,jq,Jpq,jtot1,jr,J2)*sqrt(J2+1.d0)
+                sixj(jp,jq,Jpq,jtot1,jr,J2)*sqrt(J2+1.d0)
 
            do J3 = j3min,j3max,2
-              sm = sm - sqrt(J3+1.d0)*(-1)**(J3/2)*sj2* d6ji(jq,ja,J1,jt,jtot2,J3) &
-                   * d6ji(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
+              sm = sm - sqrt(J3+1.d0)*(-1)**(J3/2)*sj2* sixj(jq,ja,J1,jt,jtot2,J3) &
+                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
            end do
         end do
      end do
@@ -2202,17 +2202,17 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
      do J3 = j3min,j3max,2
         
-        sj1 = phase*(-1)**(J3/2) * d6ji(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
+        sj1 = phase*(-1)**(J3/2) * sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
              v_elem(ir,ip,a,it,J3,L,jbas) 
         
         do J2 = j2min,j2max,2 
 
-           sj2 = sj1*d6ji(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0)
+           sj2 = sj1*sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0)
                     
 
            do J1 = j1min,j1max,2
-              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* d6ji(jq,ja,J1,jt,jtot1,J3) &
-                   * d6ji(J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
+              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,jt,jtot1,J3) &
+                   * xxxsixj(J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
            end do
         
         end do
@@ -2241,8 +2241,8 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
      sj1 = v_elem(ir,a,is,it,Jst,L,jbas) * (-1)**((ja+ju)/2) 
      do J3=j3min,j3max,2 
-        sm = sm - sj1* d6ji(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
-             * d6ji(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
+        sm = sm - sj1* sixj(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
+             * xxxsixj(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
      end do 
   end do 
   
@@ -2265,8 +2265,8 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
      do J3=j3min,j3max,2 
 
-        sm = sm + sj1* d6ji(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) &
-             * d6ji(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
+        sm = sm + sj1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) &
+             * xxxsixj(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
      end do 
   end do 
   
@@ -2296,13 +2296,13 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      phase = (-1)**((ja+ju)/2) 
      
      do J1 = j1min, j1max , 2
-        sj1 = phase*(-1)**(J1/2)*(J1+1.d0) * d6ji(js,jt,Jst,ju,jtot2,J1)&
+        sj1 = phase*(-1)**(J1/2)*(J1+1.d0) * sixj(js,jt,Jst,ju,jtot2,J1)&
              * v_elem(ir,a,it,iu,J1,L,jbas) 
         do J2 = j2min,j2max,2
         
            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
-            * sj1 * d6ji(ja,js,J2,jtot2,jr,J1) *  &
-             d6ji(Jpq,J2,rank,jtot2,jtot1,jr) * &
+            * sj1 * sixj(ja,js,J2,jtot2,jr,J1) *  &
+             xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
              tensor_elem(ip,iq,a,is,Jpq,J2,R,jbas)
         end do
      end do
@@ -2332,12 +2332,12 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      sj1 = phase * v_elem(ip,iq,a,is,Jpq,L,jbas)
      do J1 = j1min, j1max , 2      
 
-        sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*d6ji(jr,ja,J1,js,jtot1,Jpq) * sj1
+        sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,js,jtot1,Jpq) * sj1
 
         do J2 = j2min,j2max,2
 
            sm = sm + sj2* sqrt(J2 + 1.d0) * (-1)**(J2/2) &
-                * d6ji(js,jt,Jst,ju,jtot2,J2) * d6ji(J1,J2,rank,jtot2,jtot1,js) &
+                * sixj(js,jt,Jst,ju,jtot2,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,js) &
                 * tensor_elem(ir,a,it,iu,J1,J2,R,jbas)
 
         end do
@@ -2370,14 +2370,14 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      phase = (-1)**((ja-js)/2) 
      
      do J1 = j1min, j1max , 2
-        sj1 = phase*(J1+1.d0) * d6ji(js,jt,Jst,jtot2,ju,J1)&
+        sj1 = phase*(J1+1.d0) * sixj(js,jt,Jst,jtot2,ju,J1)&
              * v_elem(ir,a,iu,is,J1,L,jbas) 
         
         do J2 = j2min,j2max,2
         
            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
-            * sj1 * d6ji(ja,jr,J1,jtot2,jt,J2) *  &
-             d6ji(Jpq,J2,rank,jtot2,jtot1,jr) * &
+            * sj1 * sixj(ja,jr,J1,jtot2,jt,J2) *  &
+             xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
              tensor_elem(ip,iq,a,it,Jpq,J2,R,jbas)
         end do
         
@@ -2408,12 +2408,12 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      sj1 = phase * v_elem(ip,iq,a,it,Jpq,L,jbas)
      do J1 = j1min, j1max , 2      
 
-        sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*d6ji(jr,ja,J1,jt,jtot1,Jpq) * sj1
+        sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,jt,jtot1,Jpq) * sj1
 
         do J2 = j2min,j2max,2
 
            sm = sm + sj2* sqrt(J2 + 1.d0)  &
-                * d6ji(js,jt,Jst,jtot2,ju,J2) * d6ji(J1,J2,rank,jtot2,jtot1,jt) &
+                * sixj(js,jt,Jst,jtot2,ju,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,jt) &
                 * tensor_elem(ir,a,iu,is,J1,J2,R,jbas)
 
         end do

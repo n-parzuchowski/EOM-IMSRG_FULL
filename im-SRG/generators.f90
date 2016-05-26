@@ -11,7 +11,7 @@ subroutine build_gs_white(H,ETA,jbas)
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   
   ETA%herm = -1 ! anti-hermitian operator
 
@@ -87,12 +87,12 @@ subroutine build_gs_white(H,ETA,jbas)
           
            !pp'pp' 
  
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden + Javerage(i,j,ji,jj,H,jbas) 
-           Eden = Eden - Javerage(a,i,ja,ji,H,jbas) 
-           Eden = Eden - Javerage(a,j,ja,jj,H,jbas) 
-           Eden = Eden - Javerage(i,b,ji,jb,H,jbas) 
-           Eden = Eden - Javerage(j,b,jj,jb,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden + twobody_monopole(i,j,ji,jj,H,jbas) 
+           Eden = Eden - twobody_monopole(a,i,ja,ji,H,jbas) 
+           Eden = Eden - twobody_monopole(a,j,ja,jj,H,jbas) 
+           Eden = Eden - twobody_monopole(i,b,ji,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(j,b,jj,jb,H,jbas) 
            
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -117,7 +117,7 @@ subroutine build_gs_w2(H,ETA,jbas)
   type(cc_mat) :: WCC,ETACC,HSCC
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   
   ETA%herm = -1 ! anti-hermitian operator
 
@@ -171,7 +171,7 @@ subroutine build_gs_atan(H,ETA,jbas)
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   
   ETA%herm = -1 ! anti-hermitian operator
 
@@ -247,12 +247,12 @@ subroutine build_gs_atan(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden + Javerage(i,j,ji,jj,H,jbas) 
-           Eden = Eden - Javerage(a,i,ja,ji,H,jbas) 
-           Eden = Eden - Javerage(a,j,ja,jj,H,jbas) 
-           Eden = Eden - Javerage(i,b,ji,jb,H,jbas) 
-           Eden = Eden - Javerage(j,b,jj,jb,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden + twobody_monopole(i,j,ji,jj,H,jbas) 
+           Eden = Eden - twobody_monopole(a,i,ja,ji,H,jbas) 
+           Eden = Eden - twobody_monopole(a,j,ja,jj,H,jbas) 
+           Eden = Eden - twobody_monopole(i,b,ji,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(j,b,jj,jb,H,jbas) 
            
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -279,7 +279,7 @@ subroutine build_gs_atanxx(Hold,H,ETA,jbas)
   type(sq_op) :: H,ETA,Hold
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   
   ETA%herm = -1 ! anti-hermitian operator
 
@@ -355,12 +355,12 @@ subroutine build_gs_atanxx(Hold,H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,Hold,jbas) 
-           Eden = Eden + Javerage(i,j,ji,jj,Hold,jbas) 
-           Eden = Eden - Javerage(a,i,ja,ji,Hold,jbas) 
-           Eden = Eden - Javerage(a,j,ja,jj,Hold,jbas) 
-           Eden = Eden - Javerage(i,b,ji,jb,Hold,jbas) 
-           Eden = Eden - Javerage(j,b,jj,jb,Hold,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,Hold,jbas) 
+           Eden = Eden + twobody_monopole(i,j,ji,jj,Hold,jbas) 
+           Eden = Eden - twobody_monopole(a,i,ja,ji,Hold,jbas) 
+           Eden = Eden - twobody_monopole(a,j,ja,jj,Hold,jbas) 
+           Eden = Eden - twobody_monopole(i,b,ji,jb,Hold,jbas) 
+           Eden = Eden - twobody_monopole(j,b,jj,jb,Hold,jbas) 
            
            Eden = Eden + f_elem(a,a,Hold,jbas) + f_elem(b,b,Hold,jbas)  - &
                 f_elem(i,i,Hold,jbas) - f_elem(j,j,Hold,jbas) 
@@ -385,7 +385,7 @@ subroutine build_hartree_fock_gen(H,ETA,jbas)
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   
   ETA%herm = -1 ! anti-hermitian operator
 
@@ -442,7 +442,7 @@ subroutine build_gs_imtime(H,ETA,jbas)
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   
   ETA%herm = -1 ! anti-hermitian operator
 
@@ -510,12 +510,12 @@ subroutine build_gs_imtime(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden + Javerage(i,j,ji,jj,H,jbas) 
-           Eden = Eden - Javerage(a,i,ja,ji,H,jbas) 
-           Eden = Eden - Javerage(a,j,ja,jj,H,jbas) 
-           Eden = Eden - Javerage(i,b,ji,jb,H,jbas) 
-           Eden = Eden - Javerage(j,b,jj,jb,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden + twobody_monopole(i,j,ji,jj,H,jbas) 
+           Eden = Eden - twobody_monopole(a,i,ja,ji,H,jbas) 
+           Eden = Eden - twobody_monopole(a,j,ja,jj,H,jbas) 
+           Eden = Eden - twobody_monopole(i,b,ji,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(j,b,jj,jb,H,jbas) 
            
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -540,7 +540,7 @@ subroutine build_ex_white(H,ETA,jbas)
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak,p,hl,jp,jh
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   real(8),parameter :: dcut = .2
   
   ETA%herm = -1 ! anti-hermitian operator
@@ -615,9 +615,9 @@ subroutine build_ex_white(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden - Javerage(a,hl,ja,jh,H,jbas) 
-           Eden = Eden - Javerage(b,hl,jb,jh,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(a,hl,ja,jh,H,jbas) 
+           Eden = Eden - twobody_monopole(b,hl,jb,jh,H,jbas) 
                    
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -655,9 +655,9 @@ subroutine build_ex_white(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden - Javerage(a,p,ja,jp,H,jbas) 
-           Eden = Eden - Javerage(b,p,jb,jp,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(a,p,ja,jp,H,jbas) 
+           Eden = Eden - twobody_monopole(b,p,jb,jp,H,jbas) 
                    
            Eden = Eden - f_elem(a,a,H,jbas) - f_elem(b,b,H,jbas)  + &
                 f_elem(i,i,H,jbas) + f_elem(j,j,H,jbas) 
@@ -684,7 +684,7 @@ subroutine build_ex_imtime(H,ETA,jbas)
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak,p,hl,jp,jh
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   real(8),parameter :: dcut = .2
   
   ETA%herm = -1 ! anti-hermitian operator
@@ -761,9 +761,9 @@ subroutine build_ex_imtime(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden - Javerage(a,hl,ja,jh,H,jbas) 
-           Eden = Eden - Javerage(b,hl,jb,jh,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(a,hl,ja,jh,H,jbas) 
+           Eden = Eden - twobody_monopole(b,hl,jb,jh,H,jbas) 
                    
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -803,9 +803,9 @@ subroutine build_ex_imtime(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden - Javerage(a,p,ja,jp,H,jbas) 
-           Eden = Eden - Javerage(b,p,jb,jp,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(a,p,ja,jp,H,jbas) 
+           Eden = Eden - twobody_monopole(b,p,jb,jp,H,jbas) 
                    
            Eden = Eden - f_elem(a,a,H,jbas) - f_elem(b,b,H,jbas)  + &
                 f_elem(i,i,H,jbas) + f_elem(j,j,H,jbas) 
@@ -833,7 +833,7 @@ subroutine build_specific_space(H,ETA,jbas)
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR,hspf,pspf,sz 
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak,p,hl,jp,jh,pos
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   logical :: in, inSD
  
   
@@ -956,9 +956,9 @@ subroutine build_specific_space(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden - Javerage(a,hl,ja,jh,H,jbas) 
-           Eden = Eden - Javerage(b,hl,jb,jh,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(a,hl,ja,jh,H,jbas) 
+           Eden = Eden - twobody_monopole(b,hl,jb,jh,H,jbas) 
                    
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -1009,9 +1009,9 @@ subroutine build_specific_space(H,ETA,jbas)
           
            !pp'pp' 
 
-           !Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           !Eden = Eden - Javerage(a,hl,ja,jh,H,jbas) 
-           !Eden = Eden - Javerage(b,hl,jb,jh,H,jbas) 
+           !Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           !Eden = Eden - twobody_monopole(a,hl,ja,jh,H,jbas) 
+           !Eden = Eden - twobody_monopole(b,hl,jb,jh,H,jbas) 
                    
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -1057,9 +1057,9 @@ subroutine build_specific_space(H,ETA,jbas)
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden - Javerage(a,p,ja,jp,H,jbas) 
-           Eden = Eden - Javerage(b,p,jb,jp,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(a,p,ja,jp,H,jbas) 
+           Eden = Eden - twobody_monopole(b,p,jb,jp,H,jbas) 
                    
            Eden = Eden - f_elem(a,a,H,jbas) - f_elem(b,b,H,jbas)  + &
                 f_elem(i,i,H,jbas) + f_elem(j,j,H,jbas) 
@@ -1087,7 +1087,7 @@ subroutine build_valence_decouple(H,ETA,jbas)
   type(sq_op) :: H,ETA 
   integer :: a,b,i,j,ji,ja,ti,ta,li,la,JT,TZ,PAR
   integer :: q,IX,JX,jj,jb,lb,lj,tb,tj,ik,ak,p,hl,jp,jh
-  real(8) :: Eden,sm,Javerage
+  real(8) :: Eden,sm
   
   ETA%herm = -1 ! anti-hermitian operator
   ETA%fph = 0.d0
@@ -1208,9 +1208,9 @@ ETA%fpp = 0.d0
           
            !pp'pp' 
 
-           Eden = Eden + Javerage(a,b,ja,jb,H,jbas) 
-           Eden = Eden - Javerage(a,hl,ja,jh,H,jbas) 
-           Eden = Eden - Javerage(b,hl,jb,jh,H,jbas) 
+           Eden = Eden + twobody_monopole(a,b,ja,jb,H,jbas) 
+           Eden = Eden - twobody_monopole(a,hl,ja,jh,H,jbas) 
+           Eden = Eden - twobody_monopole(b,hl,jb,jh,H,jbas) 
                    
            Eden = Eden + f_elem(a,a,H,jbas) + f_elem(b,b,H,jbas)  - &
                 f_elem(i,i,H,jbas) - f_elem(j,j,H,jbas) 
@@ -1268,25 +1268,6 @@ ETA%fpp = 0.d0
   end do 
 
 end subroutine  
-!==========================================================
-!==========================================================
-real(8) function Javerage(a,b,ja,jb,H,jbas) 
-  ! average over J used a lot in white generator
-  use basic_IMSRG
-  implicit none 
-  
-  integer :: ja,jb,JT,a,b
-  type(sq_op) :: H 
-  type(spd) :: jbas 
-  real(8) :: sm
-            
-  sm = 0.d0 
-  do JT = abs(ja-jb),ja+jb,2
-     sm = sm + (JT + 1) * v_elem(a,b,a,b,JT,H,jbas) 
-  end do 
-  
-  Javerage = sm /(ja + 1.d0) / (jb + 1.d0) 
-end function 
 !=====================================================
 !=====================================================
 logical function in(element,list,position,sz) 

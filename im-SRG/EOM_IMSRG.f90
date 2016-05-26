@@ -2,6 +2,7 @@ module EOM_IMSRG
   use basic_IMSRG
   use EOM_scalar_commutators
   use EOM_TS_commutators
+  use TS_commutators
   use operators
   implicit none
 
@@ -94,21 +95,18 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      print*, '======================================================='
      do i = 1, Numstates
         SD_Shell_content = 0.d0 
+
         do jj = 1, HS%belowEF
            do aa = 1, HS%Nsp-HS%belowEF
               if (jbas%parts(aa).le.12) then 
                  SD_Shell_content = SD_Shell_content +  ladder_ops(i)%fph(aa,jj)**2
               end if 
-              ! if (abs(ladder_ops(i)%fph(aa,jj)) > 1e-6) then 
-              !    print*, jbas%parts(aa) ,jbas%holes(jj) , ladder_ops(i)%fph(aa,jj)
-              ! end if               
            end do
         end do
+
         write(*,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,&
              sum(ladder_ops(i)%fph**2),SD_shell_content        
         
-
-
      end do
      print*
      print*
@@ -744,4 +742,93 @@ subroutine progress_bar( step  )
   flush 6 
 
 end subroutine 
+
+!=====================================================
+!=====================================================
+real(8) function EOM_triples(H,Xdag,threebas,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(tpd),dimension(:) :: threebas
+  type(sq_op) :: H,Xdag
+  integer :: a,b,c,i,j,k,jtot1,jtot2,Jab,Jij,g1
+  integer :: ja,jb,jc,ji,jj,jk,AAA,q,q2
+  integer :: ax,bx,cx,ix,jx,kx,III,rank
+  integer :: jab_min,jab_max,jij_min,jij_max
+  integer :: J_min, J_max,x,total_threads,thread
+  real(8) :: sm,denom,dlow
+  
+  sm = 0.d0   
+  total_threads = size(threebas(1)%direct_omp) - 1
+  rank = Xdag%rank
+  
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,Xdag) & 
+!$OMP& REDUCTION(+:sm)  
+  
+!  do thread = 1, total_threads
+ ! do q = 1+threebas(1)%direct_omp(thread),&
+  !     threebas(1)%direct_omp(thread+1)
+  do q = 1, size(threebas) 
+     jtot1 = threebas(q)%chan(1)      
+     do q2 = 1, size(threebas)
+        jtot2 = threebas(q2)%chan(1) 
+     
+        if (.not. triangle(jtot1,jtot2,rank) ) cycle 
+     
+        do AAA = 1, size(threebas(q)%ppp(:,1)) 
+        
+           a = threebas(q)%ppp(AAA,1)
+           b = threebas(q)%ppp(AAA,2)
+           c = threebas(q)%ppp(AAA,3)
+
+           ja = jbas%jj(a)      
+           jb = jbas%jj(b) 
+           jc = jbas%jj(c) 
+           
+           jab_min = abs(ja-jb) 
+           jab_max = ja+jb
+   
+           dlow = f_elem(a,a,H,jbas)&
+                +f_elem(b,b,H,jbas)+f_elem(c,c,H,jbas)
+        
+           do III = 1, size(threebas(q2)%hhh(:,1)) 
+              
+              i = threebas(q2)%hhh(III,1)
+              j = threebas(q2)%hhh(III,2)
+              k = threebas(q2)%hhh(III,3)
+
+              ji = jbas%jj(i)       
+              jj = jbas%jj(j) 
+              jk = jbas%jj(k)  
+     
+              jij_min = abs(ji-jj) 
+              jij_max = ji+jj
+               
+              denom = f_elem(i,i,H,jbas)+f_elem(j,j,H,jbas)&
+                   +f_elem(k,k,H,jbas)-dlow
+                
+              do jab = jab_min,jab_max,2
+                 
+                 if ( .not. (triangle(jtot1,jc,jab))) cycle
+               
+                 do jij = jij_min, jij_max,2
+                  
+                    if ( .not. (triangle(jtot1,jk,jij))) cycle
+                      
+                    sm = sm + &
+                         TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)**2 &
+                         /denom*(jtot1+1.d0)/(rank+1.d0) 
+           
+                 end do
+              end do
+
+           end do
+        end do
+     end do
+  end do
+ !$OMP END PARALLEL DO 
+  EOM_triples = sm / 36.d0 
+
+end function
+
 end module

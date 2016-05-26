@@ -51,7 +51,7 @@ program main_IMSRG
        me2b,mortbin,hw,skip_setup,skip_gs,quads,trips,&
        trans_type,trans_rank,threebod%e3max)
 
-  call read_sp_basis(jbas,HS%Aprot,HS%Aneut,HS%eMax,HS%lmax,method_int,jbx)
+  call read_sp_basis(jbas,HS%Aprot,HS%Aneut,HS%eMax,HS%lmax,trips,jbx)
 
   if (TEST_COMMUTATORS) then 
      ! run this by typing ' X' after the input file in the command line
