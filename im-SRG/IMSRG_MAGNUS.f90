@@ -805,7 +805,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   integer :: ax,bx,cx,ix,jx,kx,III
   integer :: jab_min,jab_max,jij_min,jij_max
   integer :: J_min, J_max,x,total_threads,thread
-  real(8) :: sm,denom,dlow
+  real(8) :: sm,denom,dlow,w
   
   sm = 0.d0   
   total_threads = size(threebas(1)%direct_omp) - 1
@@ -857,11 +857,10 @@ real(8) function restore_triples(H,OM,threebas,jbas)
               do jij = jij_min, jij_max,2
                   
                  if ( .not. (triangle(Jtot,jk,jij))) cycle
-                      
-                 sm = sm + &
-                      commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2 &
-                      /denom*(Jtot+1.d0)
-           
+                 ! w = commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)
+                 ! sm = sm + w*w/denom*(Jtot+1.d0)
+                 sm =sm  + commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2&
+                      /denom*(Jtot+1.d0) 
               end do
            end do
 

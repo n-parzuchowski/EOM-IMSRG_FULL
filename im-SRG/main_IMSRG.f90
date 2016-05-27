@@ -287,7 +287,7 @@ print*, 'FINISHED WITH HF'
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
   
   if (ex_calc_int==1) then 
-     call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbas,Otrans) 
+     call calculate_excited_states(HS%Jtarg,HS%Ptarg,3,HS,jbas,Otrans) 
      t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   end if

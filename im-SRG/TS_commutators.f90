@@ -1724,6 +1724,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   
   integer,intent(in) :: ip,iq,ir,is,it,iu,jpq,jst
   integer :: a,b,c,d,Jx,Jy,Jz,J2,J1,J3,phase,rank
+  integer :: tp,tq,tr,ts,tt,tu,lp,lq,lr,ls,lt,lu,astart
   integer :: ja,jb,jc,jd,jp,jq,jr,js,jt,ju,jtot1,jtot2
   integer :: j1min,j1max , j2min,j2max,j3min,j3max
   type(sq_op) :: L,R
@@ -1740,7 +1741,21 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   js = jbas%jj(is)
   jt = jbas%jj(it)
   ju = jbas%jj(iu)  
-     
+
+  tp = jbas%itzp(ip)
+  tq = jbas%itzp(iq)
+  tr = jbas%itzp(ir)  
+  ts = jbas%itzp(is)
+  tt = jbas%itzp(it)
+  tu = jbas%itzp(iu)       
+
+  lp = jbas%ll(ip)
+  lq = jbas%ll(iq)
+  lr = jbas%ll(ir)  
+  ls = jbas%ll(is)
+  lt = jbas%ll(it)
+  lu = jbas%ll(iu)  
+
   ! FIRST TERM 
   !changed to q-r instead of q+r
   multfact = (-1)**((jq+jr+jp-jtot2+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0) &
@@ -1748,30 +1763,33 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   ! ju isn't in here because I need it to make add with ja
   ! so I get an integer later 
 
-  
   ! Left-Right 
   sm = 0.d0   
   
-  j2min = abs(jq - jr)
-  j2max = jq+jr 
-     
- 
+  j2min = max(abs(jq - jr),abs(jp-jtot1))
+  j2max = min(jq+jr,jp+jtot1)
+      
   do a = 1,jbas%total_orbits 
+     
+     if ( (tp+jbas%itzp(a)) .ne. (ts+tt) ) cycle
+     if ( mod(lp+jbas%ll(a),2) .ne. mod(ls+lt,2) ) cycle 
      
      ja = jbas%jj(a) 
      
      if (.not. triangle(jp,ja,jst) ) cycle
-          
-     j3min = abs(ja - ju) 
-     j3max = ja+ju 
-          
+                    
      phase = (-1)**((ja-ju)/2) 
      
 
      sj1 = v_elem(ip,a,is,it,Jst,L,jbas)*phase
 
      do J2 = j2min, j2max , 2
+        
         sj2 = sj1*sixj(jp,jq,Jpq,jr,jtot1,J2)*sqrt(J2+1.d0) 
+        
+        j3min = min(abs(ja - ju),abs(jp-jtot2),abs(J2-rank))
+        j3max = max(ja+ju,jp+jtot2,J2+rank) 
+     
         do J3 = j3min,j3max,2
 
            sm = sm - (-1)**(J3/2) * sqrt(J3 + 1.d0) &            
@@ -1792,13 +1810,16 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   sm = 0.d0 
   do a = 1,jbas%total_orbits 
      
+     if ( (tu+jbas%itzp(a)) .ne. (tq+tr) ) cycle
+     if ( mod(lu+jbas%ll(a),2) .ne. mod(lq+lr,2) ) cycle 
+     
      ja = jbas%jj(a) 
           
-     j1min = abs(jp - ja)
-     j1max = jp + ja  
+     j1min = min(abs(jp - ja),abs(Jst-rank))
+     j1max = max(jp + ja,Jst+rank) 
      
-     j3min = max( abs(jq - jr) , abs(ja - ju) ) 
-     j3max = min( jq+jr , ja+ju)
+     j3min = max( abs(jq - jr) , abs(ja - ju) , abs(jp-jtot1)) 
+     j3max = min( jq+jr , ja+ju , jp+jtot1) 
      
      phase = (-1)**((ja - jp)/2)
              
@@ -1829,16 +1850,18 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   ! added a minus sign
   do a = 1, jbas%total_orbits
 
+     
+     if ( (tp+jbas%itzp(a)) .ne. (tt+tu) ) cycle
+     if ( mod(lp+jbas%ll(a),2) .ne. mod(lt+lu,2) ) cycle 
+     
+     
      ja = jbas%jj(a)
 
-     j2min = max( abs(jp - ja) , abs(jt - ju) ) 
-     j2max = min( jp+ja , jt+ju) 
+     j2min = max(abs(jp - ja) , abs(jt - ju) ,abs(js-jtot2)) 
+     j2max = min(jp+ja,jt+ju,js+jtot2) 
      
-     j1min = abs(ja - js) 
-     j1max = ja+js
-     
-     j3min = abs(jq - jr) 
-     j3max = jq+jr
+     j1min = max(abs(ja - js),abs(jp-jtot2)) 
+     j1max = min(ja+js,jp+jtot2) 
      
      phase = (-1) ** ((ja - js)/2) 
      
@@ -1850,7 +1873,10 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
            
            sj2 = sj1 * (J2+1.d0) * (-1)**(J2/2) * sixj(js,jt,Jst,ju,jtot2,J2) * &
                 sixj(jp,ja,J2,js,jtot2,J1) * v_elem(ip,a,it,iu,J2,L,jbas) 
-           
+     
+           j3min = min(abs(jq - jr),abs(J1-rank)) 
+           j3max = max(jq+jr,J1+rank) 
+     
            do J3 = j3min,j3max,2
            
               sm = sm - sqrt(J3+1.d0) * sj2 * sixj(jp,jq,Jpq,jr,jtot1,J3) &
@@ -1866,22 +1892,26 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
   do a = 1, jbas%total_orbits
 
+     
+     if ( (ts+jbas%itzp(a)) .ne. (tq+tr) ) cycle
+     if ( mod(ls+jbas%ll(a),2) .ne. mod(lq+lr,2) ) cycle 
+     
      ja = jbas%jj(a)
      
-     j1min = abs(jp - ja)
-     j1max = jp+ja 
-
-     j2min = abs(jt - ju) 
-     j2max = jt+ju 
+     j1min = min(abs(jp - ja),abs(js-jtot1))
+     j1max = max(jp+ja ,js+jtot1) 
      
-     j3min = max( abs(jq - jr) , abs(ja - js) ) 
-     j3max = min( jq+jr , ja+js)
+     j3min = max( abs(jq - jr) , abs(ja - js) ,abs(jp-jtot1)) 
+     j3max = min( jq+jr,ja+js,jp+jtot1)
      
      phase = (-1) ** ((ja - jp)/2) 
      
      do J1 = j1min,j1max,2
         
         sj1 = sqrt(J1+1.d0) * phase 
+        
+        j2min = min(abs(jt - ju),abs(J1-rank)) 
+        j2max = max(jt+ju ,J1+rank) 
         
         do J2 = j2min,j2max,2 
            
@@ -1909,16 +1939,17 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
   do a = 1, jbas%total_orbits
 
+     if ( (tp+jbas%itzp(a)) .ne. (ts+tu) ) cycle
+     if ( mod(lp+jbas%ll(a),2) .ne. mod(ls+lu,2) ) cycle 
+     
      ja = jbas%jj(a)     
      
-     j2min = max( abs(jp - ja) , abs(js - ju) ) 
-     j2max = min( jp+ja , js+ju) 
+     j2min = max( abs(jp - ja) , abs(js - ju),abs(jt-jtot2) ) 
+     j2max = min( jp+ja , js+ju,jt+jtot2) 
      
-     j3min = abs(jq - jr) 
-     j3max = jq+jr 
+     j3min = max(abs(jq - jr) ,abs(jp-jtot1))
+     j3max = min(jq+jr,jp+jtot1) 
    
-     j1min = abs(ja - jt) 
-     j1max = ja+jt
      
      phase = (-1) ** ((ja + jp)/2) ! changed to ja+js rather than ja-js 
      
@@ -1926,6 +1957,9 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         
         sj1 = phase*sixj(jp,jq,Jpq,jr,jtot1,J3)*sqrt(J3+1.d0)  
         
+        j1min = max(abs(ja - jt),abs(rank-J3))
+        j1max = min(ja+jt,rank+J3) 
+             
         do J1 = j1min,j1max,2 
            
            sj2 =  sj1*(-1)**(J1/2)*tensor_elem(iq,ir,a,it,J3,J1,R,jbas)*&
@@ -1944,23 +1978,27 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
   do a = 1, jbas%total_orbits
 
+     
+     if ( (tt+jbas%itzp(a)) .ne. (tq+tr) ) cycle
+     if ( mod(lt+jbas%ll(a),2) .ne. mod(lq+lr,2) ) cycle 
+
      ja = jbas%jj(a)     
-    
-     j1min = abs(jp - ja)
-     j1max =  jp+ja 
      
-     j2min =  abs(js - ju) 
-     j2max =  js+ju 
+     j2min =  max(abs(js - ju),abs(jt-jtot2))
+     j2max =  min(js+ju,jt+jtot2)
      
-     j3min = max( abs(jq - jr) , abs(ja - jt) ) 
-     j3max = min( jq+jr , ja+jt)
+     j3min = max( abs(jq - jr) , abs(ja - jt) ,abs(jp-jtot1)) 
+     j3max = min( jq+jr , ja+jt,jp+jtot1)
      
      phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
      
      do J2 = j2min,j2max,2
         
         sj1 = phase*(-1)**(J2/2)* sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0) 
-        
+    
+        j1min = max(abs(jp - ja),abs(rank-J2))
+        j1max = min(jp+ja ,rank+J2)
+    
         do J1 = j1min,j1max,2 
            sj2 = sj1* xxxsixj(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
                 tensor_elem(ip,a,iu,is,J1,J2,R,jbas)      
@@ -1988,16 +2026,16 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
 
   do a = 1, jbas%total_orbits
+     
+     if ( (tq+jbas%itzp(a)) .ne. (ts+tt) ) cycle
+     if ( mod(lq+jbas%ll(a),2) .ne. mod(ls+lt,2) ) cycle 
 
      ja = jbas%jj(a)     
-          
      
-     j1min = abs(jp - jr) 
-     j1max = jp+jr 
-   
-     j2min = abs(ja - ju) 
-     j2max = ja+ju
      
+     j1min = max(abs(jp - jr),abs(jtot1-jq))
+     j1max = min(jp+jr ,jtot1+jq) 
+        
      phase = (-1) ** ((ja - ju)/2) ! changed to ja+js rather than ja-js 
      
      sj1 = v_elem(iq,a,is,it,Jst,L,jbas)
@@ -2005,6 +2043,9 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      do J1 = j1min,j1max,2
         
         sj2 = phase*sj1*sixj(jp,jq,Jpq,jtot1,jr,J1)*sqrt(J1+1.d0)*(-1)**(J1/2)
+        
+        j2min = max(abs(ja - ju),abs(rank-J1),abs(jq-jtot2))
+        j2max = min(ja+ju,rank+J1,jq+jtot2)
         
         do J2 = j2min,j2max,2 
            
@@ -2024,19 +2065,20 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
 
   do a = 1, jbas%total_orbits
+     
+     if ( (tu+jbas%itzp(a)) .ne. (tr+tp) ) cycle
+     if ( mod(lu+jbas%ll(a),2) .ne. mod(lr+lp,2) ) cycle 
 
      ja = jbas%jj(a)     
           
-     j1min = abs(jq - ja) 
-     j1max = jq+ja 
+     j1min = max(abs(jq - ja),abs(rank-Jst))
+     j1max = min(jq+ja,rank+Jst) 
    
-     j2min = max(abs(ja - ju),abs(jr-jp)) 
-     j2max = min(ja+ju,jr+jp) 
+     j2min = max(abs(ja - ju),abs(jr-jp),abs(jq-jtot1)) 
+     j2max = min(ja+ju,jr+jp,jq+jtot1) 
      
      phase = (-1) ** ((ja - jq)/2) ! changed to ja+js rather than ja-js 
-     
-!     sj1 = v_elem(iq,a,is,it,Jst,L,jbas)
-     
+          
      do J1 = j1min,j1max,2
         
         sj1 = phase*sqrt(J1+1.d0)* &
@@ -2057,22 +2099,22 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   ! FIFTH TERM    
   !Left-Right
   sm = 0.d0 
-  
+
   multfact = (-1)**((ju+jt+jtot2+js+Jpq+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
 
   do a = 1, jbas%total_orbits
+
+     if ( (tq+jbas%itzp(a)) .ne. (tt+tu) ) cycle
+     if ( mod(lq+jbas%ll(a),2) .ne. mod(lt+lu,2) ) cycle 
 
      ja = jbas%jj(a)     
      
      j1min = max( abs(jq - ja) , abs(jt - ju) ) 
      j1max = min( jq+ja , jt+ju) 
      
-     j2min = abs(jp - jr) 
-     j2max = jp+jr 
-   
-     j3min = abs(ja - js) 
-     j3max = ja+js
+     j3min = max(abs(ja - js),abs(jq-jtot2))
+     j3max = min(ja+js,jq+jtot2) 
      
      phase = (-1) ** ((ja + jp)/2) ! changed to ja+js rather than ja-js 
      
@@ -2086,6 +2128,9 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
            sj2 =  sj1*(-1)**(J3/2)*&
                 sixj(jq,ja,J1,js,jtot2,J3)*sqrt(J3+1.d0)
 
+           j2min = max(abs(jp - jr),abs(rank-J3),abs(jq-jtot1))
+           j2max = min(jp+jr,rank+J3,jq+jtot1) 
+   
            do J2 = j2min,j2max,2
               sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*sj2* sixj(jp,jq,Jpq,jtot1,jr,J2) &
                    * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
@@ -2102,14 +2147,15 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
 
   do a = 1, jbas%total_orbits
+     
+     if ( (ts+jbas%itzp(a)) .ne. (tr+tp) ) cycle
+     if ( mod(ls+jbas%ll(a),2) .ne. mod(lr+lp,2) ) cycle 
 
      ja = jbas%jj(a)     
     
-     j1min = abs(jq - ja)
-     j1max =  jq+ja 
      
-     j2min =  abs(jt - ju) 
-     j2max =  jt+ju 
+     j2min =  max(abs(jt - ju),abs(js-jtot2))
+     j2max =  max(jt+ju,js+jtot2)
      
      j3min = max( abs(jp - jr) , abs(ja - js) ) 
      j3max = min( jp+jr , ja+js)
@@ -2123,8 +2169,10 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         
         do J2 = j2min,j2max,2 
            sj2 = sj1*(-1)**(J2/2)*sixj(js,jt,Jst,ju,jtot2,J2)*sqrt(J2+1.d0)
-                    
 
+           j1min = max(abs(jq - ja),abs(rank-J2),abs(js-jtot1)) 
+           j1max = min(jq+ja,rank+J2,js+jtot1)
+                    
            do J1 = j1min,j1max,2
               sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,js,jtot1,J3) &
                    * xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
@@ -2146,18 +2194,18 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
 
   do a = 1, jbas%total_orbits
+          
+     if ( (tq+jbas%itzp(a)) .ne. (tu+ts) ) cycle
+     if ( mod(lq+jbas%ll(a),2) .ne. mod(lu+ls,2) ) cycle 
 
      ja = jbas%jj(a)     
      
-     j1min = max( abs(jq - ja) , abs(js - ju) ) 
-     j1max = min( jq+ja , js+ju) 
+     j1min = max( abs(jq - ja) , abs(js - ju) ,abs(jt-jtot2) ) 
+     j1max = min( jq+ja , js+ju , jt+jtot2 ) 
      
-     j2min = abs(jp - jr) 
-     j2max = jp+jr 
-   
-     j3min = abs(ja - jt) 
-     j3max = ja+jt
-     
+     j2min = max(abs(jp - jr),abs(jq-jtot1))
+     j2max = min(jp+jr ,jq+jtot1) 
+       
      phase = (-1) ** ((ja - jp)/2) ! changed to ja+js rather than ja-js 
      
      do J1 = j1min,j1max,2
@@ -2169,7 +2217,10 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
            
            sj2 =  sj1*(-1)**(J2/2)*&
                 sixj(jp,jq,Jpq,jtot1,jr,J2)*sqrt(J2+1.d0)
-
+           
+           j3min = max(abs(ja - jt),abs(rank-J2)) 
+           j3max = min(ja+jt,rank+J2)
+     
            do J3 = j3min,j3max,2
               sm = sm - sqrt(J3+1.d0)*(-1)**(J3/2)*sj2* sixj(jq,ja,J1,jt,jtot2,J3) &
                    * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
@@ -2187,13 +2238,13 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
   do a = 1, jbas%total_orbits
 
+     if ( (tt+jbas%itzp(a)) .ne. (tr+tp) ) cycle
+     if ( mod(lt+jbas%ll(a),2) .ne. mod(lr+lp,2) ) cycle 
+
      ja = jbas%jj(a)     
     
-     j1min = abs(jq - ja)
-     j1max =  jq+ja 
-     
-     j2min =  abs(js - ju) 
-     j2max =  js+ju 
+     j2min = max(abs(js - ju),abs(jt-jtot2)) 
+     j2max = min(js+ju ,jt+jtot2) 
      
      j3min = max( abs(jp - jr) , abs(ja - jt) ) 
      j3max = min( jp+jr , ja+jt)
@@ -2209,7 +2260,9 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
            sj2 = sj1*sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0)
                     
-
+           j1min = max(abs(jq - ja),abs(rank-J2),abs(jt-jtot1))
+           j1max = min(jq+ja,rank+J2,jt+jtot1)
+           
            do J1 = j1min,j1max,2
               sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,jt,jtot1,J3) &
                    * xxxsixj(J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
@@ -2230,20 +2283,26 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   sm = 0.d0
   multfact = (-1)**((Jpq+rank+jr-jtot2)/2) *sqrt((Jst+1.d0)*(jtot1+1.d0)*&
        (jtot2+1.d0))*(rank+1.d0) 
+
   do a = 1, jbas%total_orbits
+
+     if ( (tr+jbas%itzp(a)) .ne. (ts+tt) ) cycle
+     if ( mod(lr+jbas%ll(a),2) .ne. mod(ls+lt,2) ) cycle 
      
      ja = jbas%jj(a)
 
      if (.not. triangle(jr,ja,jst) ) cycle
      
-     j3min = abs(ja-ju) 
-     j3max = ja + ju 
+     j3min = max(abs(ja-ju),abs(Jpq-rank),abs(jr-jtot2))
+     j3max = min(ja+ju,Jpq+rank,jr+jtot2)  
      
      sj1 = v_elem(ir,a,is,it,Jst,L,jbas) * (-1)**((ja+ju)/2) 
+
      do J3=j3min,j3max,2 
         sm = sm - sj1* sixj(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
              * xxxsixj(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
      end do 
+
   end do 
   
   smtot = smtot + sm*multfact
@@ -2252,14 +2311,18 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   sm = 0.d0
   multfact = (-1)**((Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*(jtot1+1.d0)*&
        (jtot2+1.d0))*(rank+1.d0) 
+
   do a = 1, jbas%total_orbits
      
+     if ( (tu+jbas%itzp(a)) .ne. (tp+tq) ) cycle
+     if ( mod(lu+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+
      ja = jbas%jj(a)
 
      if (.not. triangle(ju,ja,Jpq) ) cycle
      
-     j3min = abs(ja-jr) 
-     j3max = ja + jr 
+     j3min = max(abs(ja-jr),abs(rank-Jst),abs(ju-jtot1))
+     j3max = min(ja+jr,rank+Jst,ju+jtot1)  
      
      sj1 = v_elem(ip,iq,a,iu,Jpq,L,jbas) * (-1)**((ja+jtot2)/2) 
 
@@ -2267,7 +2330,9 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
         sm = sm + sj1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) &
              * xxxsixj(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
+
      end do 
+
   end do 
   
   smtot = smtot + sm*multfact
@@ -2284,11 +2349,14 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   sm = 0.d0   
   
   do a = 1,jbas%total_orbits 
-     
+
+     if ( (tr+jbas%itzp(a)) .ne. (tt+tu) ) cycle
+     if ( mod(lr+jbas%ll(a),2) .ne. mod(lt+lu,2) ) cycle 
+
      ja = jbas%jj(a) 
      
-     j2min = abs(ja - js)
-     j2max = ja+js 
+     j2min = max(abs(ja - js),abs(rank-Jpq),abs(jtot2-jr))
+     j2max = min(ja+js ,rank+Jpq,jtot2+jr)
           
      j1min = max(abs(ja - jr),abs(jt-ju)) 
      j1max = min(ja+jr,jt+ju)  
@@ -2298,6 +2366,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      do J1 = j1min, j1max , 2
         sj1 = phase*(-1)**(J1/2)*(J1+1.d0) * sixj(js,jt,Jst,ju,jtot2,J1)&
              * v_elem(ir,a,it,iu,J1,L,jbas) 
+     
         do J2 = j2min,j2max,2
         
            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
@@ -2317,15 +2386,16 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   
   do a = 1,jbas%total_orbits 
      
+     if ( (ts+jbas%itzp(a)) .ne. (tp+tq) ) cycle
+     if ( mod(ls+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+
      ja = jbas%jj(a) 
           
      if (.not. triangle(ja,js,Jpq)) cycle 
      
-     j1min = abs(jr - ja)
-     j1max = jr + ja  
+     j1min = max(abs(jr - ja),abs(js-jtot1))
+     j1max = min(jr + ja  ,js+jtot1) 
      
-     j2min = abs(jt - ju) 
-     j2max = jt+ju
      
      phase = (-1)**((ja - ju)/2)
            
@@ -2334,6 +2404,9 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
         sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,js,jtot1,Jpq) * sj1
 
+        j2min = max(abs(jt - ju),abs(J1-rank),abs(js-jtot2))
+        j2max = min(jt+ju,J1+rank,js+jtot2)
+     
         do J2 = j2min,j2max,2
 
            sm = sm + sj2* sqrt(J2 + 1.d0) * (-1)**(J2/2) &
@@ -2359,13 +2432,16 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   
   do a = 1,jbas%total_orbits 
      
+     if ( (tr+jbas%itzp(a)) .ne. (tu+ts) ) cycle
+     if ( mod(lr+jbas%ll(a),2) .ne. mod(lu+ls,2) ) cycle 
+
      ja = jbas%jj(a) 
      
-     j2min = abs(ja - jt)
-     j2max = ja+jt 
+     j2min = max(abs(ja - jt),abs(rank-Jpq))
+     j2max = min(ja+jt,rank+Jpq) 
           
-     j1min = max(abs(ja - jr),abs(js-ju)) 
-     j1max = min(ja+jr,js+ju)  
+     j1min = max(abs(ja - jr),abs(js-ju),abs(jt-jtot2)) 
+     j1max = min(ja+jr,js+ju,jt+jtot2)  
           
      phase = (-1)**((ja-js)/2) 
      
@@ -2393,15 +2469,16 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
   
   do a = 1,jbas%total_orbits 
      
+     if ( (tt+jbas%itzp(a)) .ne. (tp+tq) ) cycle
+     if ( mod(lt+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+
      ja = jbas%jj(a) 
           
      if (.not. triangle(ja,jt,Jpq)) cycle 
      
-     j1min = abs(jr - ja)
-     j1max = jr + ja  
+     j1min = max(abs(jr - ja),abs(jt-jtot1))
+     j1max = max(jr + ja,jt+jtot1) 
      
-     j2min = abs(js - ju) 
-     j2max = js+ju
      
      phase = (-1)**((ja - js)/2)
            
@@ -2410,6 +2487,9 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
         sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,jt,jtot1,Jpq) * sj1
 
+        j2min = max(abs(js - ju),abs(rank-J1),abs(jt-jtot2))
+        j2max = min(js+ju,rank+J1,jt+jtot2)
+     
         do J2 = j2min,j2max,2
 
            sm = sm + sj2* sqrt(J2 + 1.d0)  &

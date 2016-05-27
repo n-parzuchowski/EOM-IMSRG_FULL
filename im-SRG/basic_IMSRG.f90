@@ -242,7 +242,7 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,trips,jbx)
   
   ! build the jscheme descriptor
   jbas%total_orbits=ix
-  jbx%total_orbits = jx 
+  jbx%total_orbits=jx 
   
   allocate(jbas%nn(ix)) ! n 
   allocate(jbas%ll(ix)) ! l
@@ -352,7 +352,7 @@ subroutine find_holes(jbas,pholes,nholes,hk)
   implicit none 
   
   type(spd) :: jbas
-  integer :: pholes,nholes,i,minpos(1),rn,rp,r1,r2,p,n,ist
+  integer :: pholes,nholes,i,minpos(1),rn,rp,r1,r2,p,n,ist,sz
   real(8),dimension(jbas%total_orbits) :: temp
   character(2) :: hk
   
@@ -370,8 +370,9 @@ subroutine find_holes(jbas,pholes,nholes,hk)
      open(unit=52,file=trim(SP_DIR)//'hole_scheme_nl')
   end if 
   
+  sz = min(20,size(jbas%con)) 
   do
-     read(52,*,iostat=ist) p,n,jbas%con(1:20)
+     read(52,*,iostat=ist) p,n,jbas%con(1:sz)
        if (ist < 0) then 
           close(52)
           STOP 'nucleus not available. CHECK sp_directory for hole_scheme_*'
@@ -2321,13 +2322,13 @@ subroutine store_6j(jbas,trips)
   
   call dfact0() ! prime the anglib 6j calculator 
   
-  if (trips == 'y') then  
+  !if (trips == 'y') then  
      ! this is necessary for three-body calculations
      num_half = (3*jbas%Jtotal_max + 1)/2
      ! however, it clearly increases the memory requirements
-  else
-     num_half = (jbas%Jtotal_max+6 + 1)/2
-  end if
+!  else
+ !    num_half = (jbas%Jtotal_max+6 + 1)/2
+ ! end if
   
   store6j%nhalf = num_half
   nbos = num_half*(num_half+1)/2

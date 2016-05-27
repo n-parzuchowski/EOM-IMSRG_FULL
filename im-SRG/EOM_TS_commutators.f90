@@ -1187,7 +1187,754 @@ end subroutine
 !!$OMP END PARALLEL DO 
    
 end subroutine 
+!=====================================================
+!=====================================================      
+real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,Jst,jbas)
+  implicit none 
+  
+  integer,intent(in) :: ip,iq,ir,is,it,iu,jpq,jst
+  integer :: a,b,c,d,Jx,Jy,Jz,J2,J1,J3,phase,rank,ia
+  integer :: ja,jb,jc,jd,jp,jq,jr,js,jt,ju,jtot1,jtot2,sz
+  integer :: j1min,j1max , j2min,j2max,j3min,j3max,sjpq2min,sjpq2max
+  integer :: sjpq1min,sjpq1max
+  type(sq_op) :: L,R
+  type(spd) :: jbas
+  real(8) :: sm,sm_sub,multfact,smtot,d6ji,out,otherfact,dsum
+  real(8) :: Vs1,Vs2,int1,int2
+  real(8),allocatable,dimension(:) :: sjpq1,sjpq2
+
+  smtot = 0.d0 
+  rank = R%rank 
+  
+  jp = jbas%jj(ip)
+  jq = jbas%jj(iq)
+  jr = jbas%jj(ir)  
+  js = jbas%jj(is)
+  jt = jbas%jj(it)
+  ju = jbas%jj(iu)  
+ 
+  sjpq1min = max( abs(jp-jtot1),abs(jr-jq) ) 
+  sjpq1max = min( jp+jtot1 ,jr+jq) 
+  
+  sjpq2min = max( abs(jq-jtot1),abs(jr-jp) ) 
+  sjpq2max = min( jq+jtot1 ,jr+jp) 
+  
+  sz = (sjpq1max - sjpq1min)/2 +1 
+  allocate(sjpq1(sz))
+  sjpq1=0.d0
+  do J2 = sjpq1min,sjpq1max,2 
+     sjpq1((J2-sjpq1min)/2+1) = sixj(jp,jq,Jpq,jr,jtot1,J2)
+  end do 
+
+  sz = (sjpq2max - sjpq2min)/2 +1 
+  allocate(sjpq2(sz))
+  sjpq2=0.d0
+  do J2 = sjpq2min,sjpq2max,2 
+     sjpq2((J2-sjpq2min)/2+1) = sixj(jp,jq,Jpq,jtot1,jr,J2)
+  end do 
+  !'ass'
+  
+  ! FIRST TERM 
+  !changed to q-r instead of q+r
+  multfact = (-1)**((jq+jr+jp-jtot2+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0) &
+       *(jtot1+1.d0)*(jtot2+1.d0) ) * (rank+1.d0) 
+  ! ju isn't in here because I need it to make add with ja
+  ! so I get an integer later 
+ 
+  ! Left-Right 
+  sm = 0.d0   
+  
+  j2min = max(abs(jq - jr),abs(jtot1-jp))
+  j2max = min(jq+jr ,jtot1+jp)
+     
+ 
+
+  do ia = 1,L%belowEF 
+     a = jbas%holes(ia) 
+     
+     ja = jbas%jj(a) 
+     
+     if (.not. triangle(jp,ja,jst) ) cycle
+          
+     phase = (-1)**((ja-ju)/2) 
+     
+     int1 = v_elem(ip,a,is,it,Jst,L,jbas)*phase
+
+     do J2 = j2min, j2max , 2
+        
+!        int2 = int1*sixj(jp,jq,Jpq,jr,jtot1,J2)*sqrt(J2+1.d0)
+        int2 = int1*sjpq1((J2-sjpq1min)/2+1)*sqrt(J2+1.d0)
+        
+        j3min = max( abs(ja - ju) ,abs(rank-J2) ) 
+        j3max = min( ja+ju ,rank+J2 ) 
+        
+        
+        do J3 = j3min,j3max,2
+
+           sm = sm - (-1)**(J3/2) * sqrt(J3 + 1.d0) &            
+            * int2 * sixj(jp,ja,Jst,ju,jtot2,J3) *  &
+             xxxsixj(J2,J3,rank,jtot2,jtot1,jp) * &
+             tensor_elem(iq,ir,a,iu,J2,J3,R,jbas)
+           
+        end do
+     end do
+  end do
+ 
+  smtot = smtot + sm*multfact
+  
+  !Right-left  
+
+  multfact = (-1)**((jq+jr+jp-jtot2+rank)/2) *sqrt((Jpq+1.d0) &
+       *(jtot1+1.d0)*(jtot2+1.d0) ) * (rank+1.d0)
+  sm = 0.d0 
+  
+  do ia = 1, L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+     
+     ja = jbas%jj(a) 
+          
+     j1min = max( abs(jp - ja), abs(Jst - rank ) ) 
+     j1max = min ( jp + ja , Jst + rank )   
+     
+     j3min = max( abs(jq - jr) , abs(ja - ju) , abs(jp-jtot1)) 
+     j3max = min( jq+jr , ja+ju, jp+jtot1)
+     
+     phase = (-1)**((ja - jp)/2)
+             
+     do J1 = j1min, j1max , 2      
+
+        Vs1 = tensor_elem(ip,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2) 
+        int1 = sqrt(J1+1.d0)*xxxsixj(J1,Jst,rank,jtot2,jtot1,ju) 
+
+        do J3 = j3min,j3max,2
+
+           sm = sm +  phase *int1*(J3 + 1.d0) * sjpq1((J3-sjpq1min)/2+1) &!sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                * sixj(jp,ja,J1,ju,jtot1,J3) &
+                * Vs1 * v_elem(iq,ir,a,iu,J3,L,jbas)
+
+        end do
+     end do
+  end do 
+  
+  
+  smtot = smtot + sm*multfact 
+  
+  !SECOND TERM
+  !Left-Right
+  sm = 0.d0 
+  
+  multfact = (-1)**((jp+jq+jr+jt+ju+jtot2+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+       (jtot1+1.d0)*(jtot2+1.d0))*(rank+1.d0) 
+  ! added a minus sign
+  do ia = 1, L%belowEF
+     a = jbas%holes(ia) 
+     ja = jbas%jj(a)
+
+     j2min = max( abs(jp - ja) , abs(jt - ju) ) 
+     j2max = min( jp+ja , jt+ju) 
+     
+     j1min = abs(ja - js) 
+     j1max = ja+js
+     
+     
+     phase = (-1) ** ((ja - js)/2) 
+     
+     do J2 = j2min,j2max,2
+        
+        
+        int1 = phase * (J2+1.d0) * (-1)**(J2/2) * sixj(js,jt,Jst,ju,jtot2,J2) * &
+             sixj(jp,ja,J2,js,jtot2,J1) * v_elem(ip,a,it,iu,J2,L,jbas) 
+                     
+        do J1 = j1min,j1max,2
+           
+           int1 = sqrt(J1+1.d0)*int2   
+
+           j3min = max( abs(jq - jr) , abs(rank - J1 ),abs(jtot1-jp) ) 
+           j3max = min( jq+jr, rank+J1 ,jtot1+jp) 
+           
+           do J3 = j3min,j3max,2
+
+              sm = sm - sqrt(J3+1.d0) * int2 * sjpq1((J3-sjpq1min)/2+1) &!sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * xxxsixj(J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J3/2) * &
+                   tensor_elem(iq,ir,a,is,J3,J1,R,jbas)
+           end do
+        end do         
+        
+     end do
+ 
+  end do
+
+
+  do ia = 1, L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+
+     ja = jbas%jj(a)
+     
+     j1min = abs(jp - ja)
+     j1max = jp+ja 
+     
+     j3min = max( abs(jq - jr) , abs(ja - js) ,abs(jp-jtot1)) 
+     j3max = min( jq+jr , ja+js, jp+jtot1)
+     
+     phase = (-1) ** ((ja - jp)/2) 
+     
+     do J1 = j1min,j1max,2
+        
+        int1 = sqrt(J1+1.d0) * phase 
+        
+        j2min = max(abs(jt - ju) , abs(rank-J1) )
+        j2max = min( jt+ju ,rank + J1 ) 
+     
+        do J2 = j2min,j2max,2 
+
+           
+           int2 = int1 * sqrt(J2+1.d0) * sixj(js,jt,Jst,ju,jtot2,J2) * &
+                xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
+           
+           do J3 = j3min,j3max,2
+              !if (abs(sjpq1((J3-sjpq1min)/2+1)-sixj(jp,jq,Jpq,jr,jtot1,J3)) > 1e-8) then 
+                ! print*, 'fuck this'
+              !end if
+           !   vs1 = sjpq1((J3-sjpq1min)/2+1)
+              sm = sm + int2 * (J3+1.d0) * sjpq1((J3-sjpq1min)/2+1) &!sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * sixj(jp,ja,J1,js,jtot1,J3) * v_elem(iq,ir,a,is,J3,L,jbas)
+           end do 
+        end do 
+     end do
+ 
+  end do
+     
+   smtot = smtot + sm*multfact
+
+!   ! THIRD TERM    
+!   !Left-Right
+!   sm = 0.d0 
+  
+!   multfact = (-1)**((jq+jr+jtot2+js+Jst+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+!        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+!   do ia = 1, L%belowEF
+!      a = jbas%holes(ia) 
+     
+!      ja = jbas%jj(a)     
+     
+!      j2min = max( abs(jp - ja) , abs(js - ju) ) 
+!      j2max = min( jp+ja , js+ju) 
+     
+!      j3min = max(abs(jq - jr) ,abs(jtot1-jp)) 
+!      j3max = min(jq+jr,jtot1+jp)
+        
+!      phase = (-1) ** ((ja + jp)/2) ! changed to ja+js rather than ja-js 
+     
+!      do J3 = j3min,j3max,2
+        
+!         int1 = phase*sixj(jp,jq,Jpq,jr,jtot1,J3)*sqrt(J3+1.d0)  
+        
+!         j1min = max(abs(ja - jt) ,abs(rank-J3))
+!         j1max = min(ja+jt,rank+J3)
+
+!         do J1 = j1min,j1max,2 
+           
+!            int2 =  int1*(-1)**(J1/2)*tensor_elem(iq,ir,a,it,J3,J1,R,jbas)*&
+!                 xxxsixj(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
+
+!            do J2 = j2min,j2max,2
+!               sm = sm - (J2+1.d0) *int2* sixj(js,jt,Jst,jtot2,ju,J2) &
+!                    * sixj(jp,ja,J2,jt,jtot2,J1) * v_elem(ip,a,iu,is,J2,L,jbas)
+!            end do
+!         end do
+!      end do
+ 
+!   end do
+
+!   ! right-left
+
+!   do ia = 1, L%Nsp-L%belowEF
+!      a = jbas%parts(ia) 
+
+!      ja = jbas%jj(a)     
+    
+     
+!      j2min =  abs(js - ju) 
+!      j2max =  js+ju 
+     
+!      j3min = max( abs(jq - jr) , abs(ja - jt) ,abs(jtot1-jp)) 
+!      j3max = min( jq+jr , ja+jt,jtot1+jp)
+     
+!      phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
+     
+!      do J2 = j2min,j2max,2
+        
+!         int1 = phase*(-1)**(J2/2)* sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0) 
+     
+!         j1min = max(abs(jp - ja),abs(J2-rank) ) 
+!         j1max = min(jp+ja,J2+rank) 
+     
+!         do J1 = j1min,j1max,2 
+!            int2 = int1* xxxsixj(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
+!                 tensor_elem(ip,a,iu,is,J1,J2,R,jbas)      
+
+!            do J3 = j3min,j3max,2
+!               sm = sm + (J3+1.d0) *int2* sixj(jp,jq,Jpq,jr,jtot1,J3) &
+!                    * sixj(jp,ja,J1,jt,jtot1,J3) * v_elem(iq,ir,a,it,J3,L,jbas)
+!            end do
+        
+!         end do
+        
+!      end do
+ 
+!   end do
+     
+!   smtot = smtot + sm*multfact
+
+!   ! FOURTH TERM    
+!   !Left-Right
+!   sm = 0.d0 
+  
+!   multfact = (-1)**((jp+jtot2+Jpq+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+!        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+!   do ia = 1, L%belowEF
+!      a = jbas%holes(ia) 
+!      ja = jbas%jj(a)     
+          
+     
+!      j1min = max(abs(jp - jr),abs(jq-jtot1))
+!      j1max = min(jp+jr,jq+jtot1)
    
+     
+!      phase = (-1) ** ((ja - ju)/2) ! changed to ja+js rather than ja-js 
+     
+!      int1 = v_elem(iq,a,is,it,Jst,L,jbas)
+     
+!      do J1 = j1min,j1max,2
+        
+!         int2 = phase*int1*sixj(jp,jq,Jpq,jtot1,jr,J1)*sqrt(J1+1.d0)*(-1)**(J1/2)
+!         j2min = max(abs(ja - ju) ,abs(rank-J1))
+!         j2max = min(ja+ju,rank+J1) 
+        
+!         do J2 = j2min,j2max,2 
+           
+!            sm = sm -  int2*sqrt(J2+1.d0)*(-1)**(J2/2)*tensor_elem(ir,ip,a,iu,J1,J2,R,jbas)*&
+!                 xxxsixj(J1,J2,rank,jtot2,jtot1,jq)*sixj(ja,jq,Jst,jtot2,ju,J2)
+
+!         end do
+!      end do
+ 
+!   end do
+!   smtot = smtot + sm*multfact
+!   ! right-left
+     
+!   sm = 0.d0 
+  
+!   multfact = (-1)**((jp+jtot1+Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*&
+!        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+!   do ia = 1, L%Nsp-L%belowEF
+!      a = jbas%parts(ia) 
+!      ja = jbas%jj(a)     
+          
+!      j1min = max(abs(jq - ja) ,abs(rank-Jst) )
+!      j1max = min(jq+ja ,rank+Jst) 
+   
+!      j2min = max(abs(ja - ju),abs(jr-jp),abs(jtot1-jq)) 
+!      j2max = min(ja+ju,jr+jp,jtot1+jq) 
+     
+!      phase = (-1) ** ((ja - jq)/2) ! changed to ja+js rather than ja-js 
+     
+! !     int1 = v_elem(iq,a,is,it,Jst,L,jbas)
+     
+!      do J1 = j1min,j1max,2
+        
+!         int1 = phase*sqrt(J1+1.d0)* &
+!              tensor_elem(iq,a,is,it,J1,Jst,R,jbas) 
+        
+!         do J2 = j2min,j2max,2 
+           
+!            sm = sm +  int1*(J2+1.d0)*(-1)**(J2/2)*v_elem(ir,ip,a,iu,J2,L,jbas) *&
+!                 xxxsixj(J1,Jst,rank,jtot2,jtot1,ju)*sixj(ja,jq,J1,jtot1,ju,J2) &
+!                 *sixj(jp,jq,Jpq,jtot1,jr,J2)
+!         end do
+!      end do
+ 
+!   end do
+  
+!   smtot = smtot + sm*multfact
+
+!   ! FIFTH TERM    
+!   !Left-Right
+!   sm = 0.d0 
+  
+!   multfact = (-1)**((ju+jt+jtot2+js+Jpq+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+!        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+!   do ia = 1,L%belowEF
+!      a = jbas%holes(ia) 
+!      ja = jbas%jj(a)     
+     
+!      j1min = max( abs(jq - ja) , abs(jt - ju) ) 
+!      j1max = min( jq+ja , jt+ju) 
+     
+   
+!      j3min = abs(ja - js) 
+!      j3max = ja+js
+     
+!      phase = (-1) ** ((ja + jp)/2) ! changed to ja+js rather than ja-js 
+     
+!      do J1 = j1min,j1max,2
+        
+!         int1 = phase*sixj(js,jt,Jst,ju,jtot2,J1)*(J1+1.d0)*(-1)**(J1/2)&
+!              *v_elem(iq,a,it,iu,J1,L,jbas) 
+        
+!         do J3 = j3min,j3max,2 
+           
+!            int2 =  int1*(-1)**(J3/2)*&
+!                 sixj(jq,ja,J1,js,jtot2,J3)*sqrt(J3+1.d0)
+!            j2min = max(abs(jp - jr) ,abs(rank-J3),abs(jtot1-jq))
+!            j2max = min(jp+jr,rank+J3,jtot1+jq) 
+   
+!            do J2 = j2min,j2max,2
+!               sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*int2* sixj(jp,jq,Jpq,jtot1,jr,J2) &
+!                    * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
+!            end do
+!         end do
+!      end do
+ 
+!   end do
+!   smtot = smtot + sm*multfact
+
+!   sm = 0.d0 
+!   ! right-left
+!   multfact = (-1)**((jp+jq+jtot2+ju+Jpq+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+!        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+!   do ia = 1,L%Nsp-L%belowEF
+!      a = jbas%parts(ia)
+!      ja = jbas%jj(a)     
+    
+     
+!      j2min =  abs(jt - ju) 
+!      j2max =  jt+ju 
+     
+!      j3min = max( abs(jp - jr) , abs(ja - js),abs(jq-jtot1) ) 
+!      j3max = min( jp+jr , ja+js,jq+jtot1)
+     
+!      phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
+     
+!      do J3 = j3min,j3max,2
+        
+!         int1 = phase*(-1)**(J3/2)* sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
+!              v_elem(ir,ip,a,is,J3,L,jbas) 
+        
+!         do J2 = j2min,j2max,2 
+!            int2 = int1*(-1)**(J2/2)*sixj(js,jt,Jst,ju,jtot2,J2)*sqrt(J2+1.d0)
+!            j1min = max(abs(jq - ja),abs(rank-J2))
+!            j1max = min(jq+ja ,rank+J2) 
+ 
+
+!            do J1 = j1min,j1max,2
+!               sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *int2* sixj(jq,ja,J1,js,jtot1,J3) &
+!                    * xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
+!            end do
+        
+!         end do
+        
+!      end do
+ 
+!   end do
+     
+!   smtot = smtot + sm*multfact 
+
+!   ! SIXTH TERM    
+!   !Left-Right
+!   sm = 0.d0 
+  
+!   multfact = (-1)**((jtot2+js+Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+!        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+!   do ia = 1,L%belowEF
+!      a = jbas%holes(ia)
+!      ja = jbas%jj(a)     
+     
+!      j1min = max( abs(jq - ja) , abs(js - ju) ) 
+!      j1max = min( jq+ja , js+ju) 
+     
+!      j2min = max(abs(jp - jr) ,abs(jtot1-jq))
+!      j2max = min(jp+jr ,jtot1+jq)
+        
+!      phase = (-1) ** ((ja - jp)/2) ! changed to ja+js rather than ja-js 
+     
+!      do J1 = j1min,j1max,2
+        
+!         int1 = phase*sixj(js,jt,Jst,jtot2,ju,J1)*(J1+1.d0) &
+!              *v_elem(iq,a,iu,is,J1,L,jbas) 
+        
+!         do J2 = j2min,j2max,2 
+           
+!            int2 =  int1*(-1)**(J2/2)*&
+!                 sixj(jp,jq,Jpq,jtot1,jr,J2)*sqrt(J2+1.d0)
+!            j3min = max(abs(ja - jt) ,abs(rank-J2)) 
+!            j3max = min(ja+jt,rank+J2) 
+           
+!            do J3 = j3min,j3max,2
+!               sm = sm - sqrt(J3+1.d0)*(-1)**(J3/2)*int2* sixj(jq,ja,J1,jt,jtot2,J3) &
+!                    * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
+!            end do
+!         end do
+!      end do
+ 
+!   end do
+!   smtot = smtot + sm*multfact
+
+!   sm = 0.d0 
+!   ! right-left
+!   multfact = (-1)**((jp+jq+js+jtot1+Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+!        (jtot1+1.d0)*(jtot2+1.d0)) *(rank+1.d0)
+
+!   do ia = 1,L%Nsp-L%belowEF
+!      a = jbas%parts(ia)
+!      ja = jbas%jj(a)     
+    
+     
+!      j2min =  abs(js - ju) 
+!      j2max =  js+ju 
+     
+!      j3min = max( abs(jp-jr), abs(jtot1-jq) , abs(ja - jt) ) 
+!      j3max = min( jp+jr ,jtot1+jq, ja+jt)
+     
+!      phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
+     
+!      do J3 = j3min,j3max,2
+        
+!         int1 = phase*(-1)**(J3/2) * sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
+!              v_elem(ir,ip,a,it,J3,L,jbas) 
+        
+!         do J2 = j2min,j2max,2 
+
+!            int2 = int1*sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0)
+!            j1min = max(abs(jq - ja),abs(rank-J2))
+!            j1max =  min(jq+ja,rank+J2) 
+     
+
+!            do J1 = j1min,j1max,2
+!               sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *int2* sixj(jq,ja,J1,jt,jtot1,J3) &
+!                    * xxxsixj(J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
+!            end do
+        
+!         end do
+        
+!      end do
+ 
+!   end do
+     
+!   smtot = smtot + sm*multfact
+
+
+!   ! SEVENTH TERM
+  
+!   ! Left-right
+!   sm = 0.d0
+!   multfact = (-1)**((Jpq+rank+jr-jtot2)/2) *sqrt((Jst+1.d0)*(jtot1+1.d0)*&
+!        (jtot2+1.d0))*(rank+1.d0) 
+!   do ia = 1,L%belowEF
+!      a = jbas%holes(ia)
+!      ja = jbas%jj(a)
+
+!      if (.not. triangle(jr,ja,jst) ) cycle
+     
+!      j3min = max(abs(ja-ju) ,abs(rank-Jpq)) 
+!      j3max = min(ja + ju ,rank+Jpq) 
+     
+!      int1 = v_elem(ir,a,is,it,Jst,L,jbas) * (-1)**((ja+ju)/2) 
+!      do J3=j3min,j3max,2 
+!         sm = sm - int1* sixj(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
+!              * xxxsixj(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
+!      end do 
+!   end do 
+  
+!   smtot = smtot + sm*multfact
+
+!   ! right-left
+!   sm = 0.d0
+!   multfact = (-1)**((Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*(jtot1+1.d0)*&
+!        (jtot2+1.d0))*(rank+1.d0) 
+!   do ia = 1,L%Nsp-L%belowEF
+!      a = jbas%parts(ia)
+!      ja = jbas%jj(a)
+
+!      if (.not. triangle(ju,ja,Jpq) ) cycle
+     
+!      j3min = max(abs(ja-jr) ,abs(rank-Jst))
+!      j3max = min(ja + jr ,rank+Jst) 
+     
+!      int1 = v_elem(ip,iq,a,iu,Jpq,L,jbas) * (-1)**((ja+jtot2)/2) 
+
+!      do J3=j3min,j3max,2 
+
+!         sm = sm + int1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) &
+!              * xxxsixj(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
+!      end do 
+!   end do 
+  
+!   smtot = smtot + sm*multfact
+
+
+!   ! EIGHTH TERM 
+!   !changed to q-r instead of q+r
+!   multfact = (-1)**((jt+jr+js+jtot2+Jpq+rank)/2) *sqrt((Jst+1.d0) &
+!        *(jtot1+1.d0)*(jtot2+1.d0) ) * (rank+1.d0) 
+!   ! ju isn't in here because I need it to make add with ja
+!   ! so I get an integer later 
+
+!   ! Left-Right 
+!   sm = 0.d0   
+  
+!   do ia = 1,L%belowEF 
+!      a = jbas%holes(ia)
+!      ja = jbas%jj(a) 
+     
+!      j2min = max(abs(ja - js),abs(rank-Jpq)) 
+!      j2max = min(ja+js ,rank+Jpq) 
+          
+!      j1min = max(abs(ja - jr),abs(jt-ju)) 
+!      j1max = min(ja+jr,jt+ju)  
+          
+!      phase = (-1)**((ja+ju)/2) 
+     
+!      do J1 = j1min, j1max , 2
+!         int1 = phase*(-1)**(J1/2)*(J1+1.d0) * sixj(js,jt,Jst,ju,jtot2,J1)&
+!              * v_elem(ir,a,it,iu,J1,L,jbas) 
+!         do J2 = j2min,j2max,2
+        
+!            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
+!             * int1 * sixj(ja,js,J2,jtot2,jr,J1) *  &
+!              xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
+!              tensor_elem(ip,iq,a,is,Jpq,J2,R,jbas)
+!         end do
+!      end do
+!   end do
+ 
+!   smtot = smtot + sm*multfact
+  
+!   ! !Right-left  
+!   sm = 0.d0 
+!   multfact = (-1)**((jt+jtot2+Jpq+rank)/2) *sqrt((Jst+1.d0)*(Jpq+1.d0) &
+!        *(jtot1+1.d0)*(jtot2+1.d0) ) * (rank+1.d0) 
+  
+!   do ia = 1,L%Nsp-L%belowEF 
+!      a = jbas%parts(ia)
+!      ja = jbas%jj(a) 
+          
+!      if (.not. triangle(ja,js,Jpq)) cycle 
+     
+!      j1min = abs(jr - ja)
+!      j1max = jr + ja  
+     
+!      phase = (-1)**((ja - ju)/2)
+           
+!      int1 = phase * v_elem(ip,iq,a,is,Jpq,L,jbas)
+
+!      do J1 = j1min, j1max , 2      
+
+!         int2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,js,jtot1,Jpq) * int1
+!         j2min = max(abs(jt - ju) ,abs(rank-J1))
+!         j2max = min(jt+ju,rank+J1)
+
+!         do J2 = j2min,j2max,2
+
+!            sm = sm + int2* sqrt(J2 + 1.d0) * (-1)**(J2/2) &
+!                 * sixj(js,jt,Jst,ju,jtot2,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,js) &
+!                 * tensor_elem(ir,a,it,iu,J1,J2,R,jbas)
+
+!         end do
+!      end do
+!   end do 
+  
+  
+!   smtot = smtot + sm*multfact
+  
+! ! NINTH TERM 
+!   !changed to q-r instead of q+r
+!   multfact = (-1)**((jr+jtot2+Jpq+Jst+rank)/2) *sqrt((Jst+1.d0) &
+!        *(jtot1+1.d0)*(jtot2+1.d0) ) * (rank+1.d0) 
+!   ! ju isn't in here because I need it to make add with ja
+!   ! so I get an integer later 
+
+!   ! Left-Right 
+!   sm = 0.d0   
+  
+!   do ia = 1,L%belowEF 
+!      a = jbas%holes(ia)
+!      ja = jbas%jj(a) 
+     
+!      j2min = max(abs(ja - jt),abs(rank-Jpq)) 
+!      j2max = min(ja+jt ,rank+Jpq) 
+          
+!      j1min = max(abs(ja - jr),abs(js-ju)) 
+!      j1max = min(ja+jr,js+ju)  
+          
+!      phase = (-1)**((ja-js)/2) 
+     
+!      do J1 = j1min, j1max , 2
+!         int1 = phase*(J1+1.d0) * sixj(js,jt,Jst,jtot2,ju,J1)&
+!              * v_elem(ir,a,iu,is,J1,L,jbas) 
+        
+!         do J2 = j2min,j2max,2
+        
+!            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
+!             * int1 * sixj(ja,jr,J1,jtot2,jt,J2) *  &
+!              xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
+!              tensor_elem(ip,iq,a,it,Jpq,J2,R,jbas)
+!         end do
+        
+!      end do
+!   end do
+ 
+!   smtot = smtot + sm*multfact
+  
+!   ! !Right-left  
+!   sm = 0.d0 
+!   multfact = (-1)**((jt+jtot1+Jpq+Jst+rank)/2) *sqrt((Jst+1.d0)*(Jpq+1.d0) &
+!        *(jtot1+1.d0)*(jtot2+1.d0) ) * (rank+1.d0) 
+  
+!   do ia = 1,L%Nsp-L%belowEF 
+!      a = jbas%parts(ia)
+!      ja = jbas%jj(a) 
+          
+!      if (.not. triangle(ja,jt,Jpq)) cycle 
+     
+!      j1min = abs(jr - ja)
+!      j1max = jr + ja  
+     
+     
+!      phase = (-1)**((ja - js)/2)
+           
+!      int1 = phase * v_elem(ip,iq,a,it,Jpq,L,jbas)
+!      do J1 = j1min, j1max , 2      
+
+!         int2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,jt,jtot1,Jpq) * int1
+!         j2min = max(abs(js - ju) ,abs(rank-J1)) 
+!         j2max = min(js+ju,rank+J1) 
+     
+!         do J2 = j2min,j2max,2
+
+!            sm = sm + int2* sqrt(J2 + 1.d0)  &
+!                 * sixj(js,jt,Jst,jtot2,ju,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,jt) &
+!                 * tensor_elem(ir,a,iu,is,J1,J2,R,jbas)
+
+!         end do
+!      end do
+!   end do 
+  
+  
+!   smtot = smtot + sm*multfact
+    
+
+     
+  EOM_TS_commutator_223_single = smtot
+
+end function EOM_TS_commutator_223_single
+
 end module 
   
   
