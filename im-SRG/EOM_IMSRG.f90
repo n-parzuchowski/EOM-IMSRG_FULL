@@ -103,10 +103,10 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
               end if 
            end do
         end do
-        t1=omp_get_wtime()        
+        t1=0.!fuckfaces        
 !        dEtrips = 0.d0 
         dEtrips =  EOM_triples(HS,ladder_ops(i),jbas) 
-        t2=omp_get_wtime()
+        t2=0.!fuckfaces
         write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
              sum(ladder_ops(i)%fph**2),SD_shell_content,t2-t1
         
@@ -753,20 +753,20 @@ real(8) function EOM_triples(H,Xdag,jbas)
   
   type(spd) :: jbas
   type(tpd),allocatable,dimension(:) :: threebas
-  type(sq_op) :: H,Xdag
+  type(sq_op) :: H,Xdag,Xrag
   integer :: a,b,c,i,j,k,jtot1,jtot2,Jab,Jij,g1
   integer :: ja,jb,jc,ji,jj,jk,AAA,q,q2,TZ,PAR
-  integer :: ax,bx,cx,ix,jx,kx,III,rank
+  integer :: ax,bx,cx,ix,jx,kx,III,rank,fails
   integer :: jab_min,jab_max,jij_min,jij_max
   integer :: J_min, J_max,x,total_threads,thread
-  real(8) :: sm,denom,dlow,w
+  real(8) :: sm,denom,dlow,w,w_test
   
   print*, 'running triples on EOM state' 
   sm = 0.d0   
   call enumerate_three_body(threebas,jbas)  
   total_threads = size(threebas(1)%direct_omp) - 1
   rank = Xdag%rank
-  
+  fails = 0
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,Xdag) & 
 !$OMP& REDUCTION(+:sm)  
   
@@ -817,19 +817,31 @@ real(8) function EOM_triples(H,Xdag,jbas)
               jij_min = abs(ji-jj) 
               jij_max = ji+jj
                
+
               denom = f_elem(i,i,H,jbas)+f_elem(j,j,H,jbas)&
                    +f_elem(k,k,H,jbas)-dlow
-                
-              do jab = jab_min,jab_max,2
-                 
-                 if ( .not. (triangle(jtot1,jc,jab))) cycle
-               
-                 do jij = jij_min, jij_max,2
-                  
-                    if ( .not. (triangle(jtot1,jk,jij))) cycle
-                      
-                    w = EOM_TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)
 
+              
+              do jab = jab_min,jab_max,2
+
+                 if ( .not. (triangle(jtot1,jc,jab))) cycle
+                 
+                 do jij = jij_min, jij_max,2
+                    
+                    if ( .not. (triangle(jtot1,jk,jij))) cycle
+
+                    w = EOM_TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)
+                    w_test = W_via_mscheme(a,b,c,i,j,k,jtot1,jtot2,Jab,jij,H,Xdag,jbas) 
+
+                    
+                    if (abs(w-w_test) > 1e-6) then 
+                       writE(*,'(10(I4),2(f20.10))')  a,b,c,i,j,k,jtot1,jtot2,Jab,Jij,w,w_Test
+                       fails = fails+1 
+                       if (fails == 50) stop
+                    else
+                       writE(*,'(10(I4),2(f12.7))')  a,b,c,i,j,k,jtot1,jtot2,Jab,Jij,w,w_Test 
+                    end if
+                    
                     sm = sm + w*w/denom*(jtot1+1.d0)/(rank+1.d0) 
            
                  end do
@@ -844,5 +856,155 @@ real(8) function EOM_triples(H,Xdag,jbas)
   EOM_triples = sm / 36.d0 
 
 end function
+
+
+ 
+real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: AA,BB
+  integer :: p,mp,q,mq,r,mr,s,ms,t,mt,u,mu
+  integer :: ia,a,ma,j1,m1,j2,m2,Jpq,Mpq,Jst,Mst
+  integer :: ja,jp,jq,jr,js,jt,ju
+  real(8) :: sm 
+  
+  jp = jbas%jj(p)
+  jq = jbas%jj(q)
+  jr = jbas%jj(r)
+  js = jbas%jj(s)
+  jt = jbas%jj(t)
+  ju = jbas%jj(u)
+
+  sm = 0.d0 
+
+  do ia = 1,AA%belowEF
+     a = jbas%holes(ia) 
+     ja = jbas%jj(a) 
+     
+     do ma = -1*ja,ja,2 
+        
+        ! sm = sm - v_mscheme(p,mp,a,ma,s,ms,t,mt,AA,jbas)* &
+        !      tensor_mscheme(q,mq,r,mr,a,ma,u,mu,BB,jbas)
+
+        ! sm = sm - v_mscheme(p,mp,a,ma,t,mt,u,mu,AA,jbas)* &
+        !      tensor_mscheme(q,mq,r,mr,a,ma,s,ms,BB,jbas)
+        
+        ! sm = sm - v_mscheme(p,mp,a,ma,u,mu,s,ms,AA,jbas)* &
+        !      tensor_mscheme(q,mq,r,mr,a,ma,t,mt,BB,jbas)
+
+        sm = sm - 0*v_mscheme(q,mp,a,ma,s,ms,t,mt,AA,jbas)* &
+             tensor_mscheme(r,mr,p,mp,a,ma,u,mu,BB,jbas)
+
+        ! sm = sm - v_mscheme(q,mq,a,ma,t,mt,u,mu,AA,jbas)* &
+        !      tensor_mscheme(r,mr,p,mp,a,ma,s,ms,BB,jbas)
+
+        ! sm = sm - v_mscheme(q,mq,a,ma,u,mu,s,ms,AA,jbas)* &
+        !      tensor_mscheme(r,mr,p,mp,a,ma,t,mt,BB,jbas)
+
+        ! sm = sm - v_mscheme(r,mr,a,ma,s,ms,t,mt,AA,jbas)* &
+        !      tensor_mscheme(p,mp,q,mq,a,ma,u,mu,BB,jbas)
+
+        ! sm = sm - v_mscheme(r,mr,a,ma,t,mt,u,mu,AA,jbas)* &
+        !      tensor_mscheme(p,mp,q,mq,a,ma,s,ms,BB,jbas)
+
+        ! sm = sm - v_mscheme(r,mr,a,ma,u,mu,s,ms,AA,jbas)* &
+        !      tensor_mscheme(p,mp,q,mq,a,ma,t,mt,BB,jbas)
+     end do
+  end do
+
+  do ia = 1,AA%Nsp-AA%belowEF
+
+     a = jbas%parts(ia) 
+     ja = jbas%jj(a) 
+     
+     do ma = -1*ja,ja,2 
+
+        ! sm = sm + tensor_mscheme(p,mp,a,ma,s,ms,t,mt,BB,jbas)* &
+        !      v_mscheme(q,mq,r,mr,a,ma,u,mu,AA,jbas)
+        
+        ! sm = sm + tensor_mscheme(p,mp,a,ma,t,mt,u,mu,BB,jbas)* &
+        !      v_mscheme(q,mq,r,mr,a,ma,s,ms,AA,jbas)
+        
+        ! sm = sm + tensor_mscheme(p,mp,a,ma,u,mu,s,ms,BB,jbas)* &
+        !      v_mscheme(q,mq,r,mr,a,ma,t,mt,AA,jbas)
+        
+        sm = sm + tensor_mscheme(q,mp,a,ma,s,ms,t,mt,BB,jbas)* &
+             v_mscheme(r,mr,p,mp,a,ma,u,mu,AA,jbas)
+        
+        ! sm = sm + tensor_mscheme(q,mq,a,ma,t,mt,u,mu,BB,jbas)* &
+        !                v_mscheme(r,mr,p,mp,a,ma,s,ms,AA,jbas)
+        
+        ! sm = sm + tensor_mscheme(q,mq,a,ma,u,mu,s,ms,BB,jbas)* &
+        !                v_mscheme(r,mr,p,mp,a,ma,t,mt,AA,jbas)
+        
+        ! sm = sm + tensor_mscheme(r,mr,a,ma,s,ms,t,mt,BB,jbas)* &
+        !      v_mscheme(p,mp,q,mq,a,ma,u,mu,AA,jbas)
+        
+        ! sm = sm + tensor_mscheme(r,mr,a,ma,t,mt,u,mu,BB,jbas)* &
+        !      v_mscheme(p,mp,q,mq,a,ma,s,ms,AA,jbas)
+        
+        ! sm = sm + tensor_mscheme(r,mr,a,ma,u,mu,s,ms,BB,jbas)* &
+        !      v_mscheme(p,mp,q,mq,a,ma,t,mt,AA,jbas)
+        
+     end do
+  end do
+  W_mscheme = sm 
+
+end function W_mscheme
+  
+real(8)  function W_via_mscheme(p,q,r,s,t,u,j1,j2,Jpq,Jst,AA,BB,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: AA,BB 
+  integer :: p,q,r,s,t,u,j1,j2,Jpq,Jst
+  integer :: mp,mq,mr,ms,mt,mu,m1,m2,Mpq,Mst
+  real(8) :: sm,dcgi00,dcgi
+  integer :: jp,jq,jr,js,jt,ju,rank,Mew
+  
+  sm = dcgi00()
+  sm = 0.d0 
+
+  jp = jbas%jj(p)
+  jq = jbas%jj(q)
+  jr = jbas%jj(r)
+  js = jbas%jj(s)
+  jt = jbas%jj(t)
+  ju = jbas%jj(u)
+  
+  rank = BB%rank
+
+  do mp = -1*jp,jp,2
+     do mq = -1*jq,jq,2
+        do mr = -1*jr,jr,2
+           do ms = -1*js,js,2
+              do mt = -1*jt,jt,2
+                 do mu = -1*ju,ju,2
+
+                    Mpq = mp + mq
+                    Mst = ms + mt
+                    
+                    m1 = Mpq+mr
+                    m2 = Mst+mu
+                    
+                          
+                    Mew = m1 - m2 
+
+                    sm = sm + W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)&
+                         * dcgi(jp,mp,jq,mq,Jpq,Mpq) * dcgi(Jpq,Mpq,jr,mr,j1,m1) &
+                         * dcgi(js,ms,jt,mt,Jst,Mst) * dcgi(Jst,Mst,ju,mu,j2,m2) &
+                         * dcgi(j2,m2,RANK,Mew,j1,m1)/sqrt(j1+1.d0) 
+  
+                 end do
+              end do
+           end do
+        end do
+     end do
+  end do
+  W_via_mscheme = sm
+  
+end function W_via_mscheme
+
 
 end module

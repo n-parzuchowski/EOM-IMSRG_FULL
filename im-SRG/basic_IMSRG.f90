@@ -825,7 +825,7 @@ subroutine divide_work(r1)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+  threads=1!fuckfaces 
 !$omp end parallel
 !threads = 1
   b = 0.d0
@@ -869,7 +869,7 @@ subroutine divide_work_tensor(r1)
   integer :: i ,g,q,k,b,j,spot
 
 !$omp parallel
-  threads=omp_get_num_threads() 
+  threads=1!fuckfaces 
 !$omp end parallel
 !threads = 1
   b = 0.d0
@@ -918,7 +918,7 @@ subroutine divide_work_tpd(threebas)
   integer :: i ,g,q,k,b,j,blocks
   
 !$omp parallel
-  threads=omp_get_num_threads() 
+  threads=1!fuckfaces 
 !$omp end parallel
 !threads = 1
 
@@ -1048,7 +1048,6 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
         
      ! get the units right. I hope 
    
-     
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
@@ -3108,6 +3107,7 @@ subroutine copy_rank0_to_tensor_format(A,B,jbas)
   
   
   do q = 1, A%nblocks 
+
      J1 = A%mat(q)%lam(1) 
      J2 = J1 
      PAR = A%mat(q)%lam(2) 
@@ -4561,7 +4561,86 @@ real(8) function Vcc(a,b,c,d,J,Op,jbas)
   
   Vcc = sm 
 end function
+                    
+real(8) function V_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas) 
+  implicit none
+  
+  integer :: a,ma,b,mb,c,mc,d,md,Jmin,Jmax
+  integer :: ja,jb,jc,jd,Jtot,Mtot
+  type(spd) :: jbas
+  type(sq_op) :: Op
+  real(8) :: dcgi,dcgi00,sm
+  
+  Mtot = ma+mb 
+  if ((mc+md).ne.Mtot) then 
+     V_mscheme = 0.d0 
+     return
+  end if
+  
+  sm = dcgi00() 
+  sm = 0.d0 
+  
+  ja = jbas%jj(a) 
+  jb = jbas%jj(b) 
+  jc = jbas%jj(c) 
+  jd = jbas%jj(d) 
 
+  Jmin = max(abs(ja-jb),abs(jc-jd)) 
+  Jmax = min(ja+jb,jc+jd) 
+  
+  do Jtot = Jmin,Jmax,2
+     
+     sm = sm + v_elem(a,b,c,d,Jtot,op,jbas) *&
+          dcgi(ja,ma,jb,mb,Jtot,Mtot)*&
+          dcgi(jc,mc,jd,md,Jtot,Mtot)
+  end do 
+  
+  V_mscheme = sm 
+end function V_mscheme
+  
+real(8) function Tensor_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas) 
+  implicit none
+  
+  integer :: a,ma,b,mb,c,mc,d,md,J1min,J1max,mu,rank
+  integer :: ja,jb,jc,jd,J1,M1,J2,M2,J2min,J2max
+  type(spd) :: jbas
+  type(sq_op) :: Op
+  real(8) :: dcgi,dcgi00,sm
+  
+  M1 = ma+mb 
+  M2 = mc+md 
+  rank = Op%rank
+  MU = M1-M2
+  
+  sm = dcgi00() 
+  sm = 0.d0 
+  
+  ja = jbas%jj(a) 
+  jb = jbas%jj(b) 
+  jc = jbas%jj(c) 
+  jd = jbas%jj(d) 
+
+  J1min = abs(ja-jb)
+  J1max = ja+jb
+  J2min = abs(jc-jd)
+  J2max = jc+jd
+  
+  do J1 = J1min,J1max,2
+     do J2 = J2min,J2max,2 
+        
+        sm = sm + tensor_elem(a,b,c,d,J1,J2,op,jbas) *&
+             dcgi(ja,ma,jb,mb,J1,M1)*&
+             dcgi(jc,mc,jd,md,J2,M2)*&
+             dcgi(J2,M2,RANK,MU,J1,M1)/&
+             sqrt(J1 + 1.d0)
+     end do
+  end do
+  
+  Tensor_mscheme = sm 
+end function Tensor_mscheme
+  
+   
+ 
 real(8) function Vpandya(a,d,c,b,J,Op,jbas)
   ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
   implicit none 
