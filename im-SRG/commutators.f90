@@ -924,7 +924,8 @@ end do
 !$OMP END PARALLEL DO 
    
  end subroutine commutator_222_ph
-
+!======================================================================
+!=======================================================================
 real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   implicit none 
   

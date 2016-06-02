@@ -857,7 +857,7 @@ real(8) function EOM_triples(H,Xdag,jbas)
                     if ( .not. (triangle(jtot1,jk,jij))) cycle
 
                     w = EOM_TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)
-                    
+
                     sm = sm + w*w/denom*(jtot1+1.d0)/(rank+1.d0) 
            
                  end do
