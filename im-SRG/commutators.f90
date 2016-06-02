@@ -931,6 +931,7 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   integer,intent(in) :: ip,iq,ir,is,it,iu,Jtot,jpq,jst
   integer :: a,b,c,d,Jx,Jy,Jz,J2,J1,phase
   integer :: ja,jb,jc,jd,jp,jq,jr,js,jt,ju
+  integer :: tp,tq,tr,ts,tt,tu,lp,lq,lr,ls,lt,lu
   integer :: jmin,jmax , jmin2,jmax2
   type(sq_op) :: L,R
   type(spd) :: jbas
@@ -947,7 +948,21 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   js = jbas%jj(is)
   jt = jbas%jj(it)
   ju = jbas%jj(iu)  
-     
+  
+  tp = jbas%itzp(ip)
+  tq = jbas%itzp(iq)
+  tr = jbas%itzp(ir)  
+  ts = jbas%itzp(is)
+  tt = jbas%itzp(it)
+  tu = jbas%itzp(iu)       
+
+  lp = jbas%ll(ip)
+  lq = jbas%ll(iq)
+  lr = jbas%ll(ir)  
+  ls = jbas%ll(is)
+  lt = jbas%ll(it)
+  lu = jbas%ll(iu)  
+   
   ! FIRST TERM 
   !changed to q-r instead of q+r
   multfact = (-1)**((jq-jr)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
@@ -956,6 +971,9 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   sm = 0.d0   
   do a = 1,jbas%total_orbits 
      
+     if ( (jbas%itzp(a) + tp ).ne.(ts+tt)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(ls+lt,2)) cycle
+ 
      ja = jbas%jj(a) 
      
      if (.not. triangle(jp,ja,jst) ) cycle
@@ -985,6 +1003,10 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   ! added a minus sign
   do a = 1, jbas%total_orbits
 
+     if ( (jbas%itzp(a) + tp ).ne.(tu+tt)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(lu+lt,2)) cycle
+
+     
      ja = jbas%jj(a)
      jmin = max( abs(jp - ja) , abs(jt - ju) ) 
      jmax = min( jp+ja , jt+ju) 
@@ -1020,6 +1042,9 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   
   multfact = (-1)**((jq+jr+jst)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
   do a = 1, jbas%total_orbits
+
+     if ( (jbas%itzp(a) + tp ).ne.(tu+ts)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(lu+ls,2)) cycle
 
      ja = jbas%jj(a)     
      jmin = max( abs(jp - ja) , abs(js - ju) ) 
@@ -1057,7 +1082,10 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   ! so I get an integer later 
   sm = 0.d0   
   do a = 1,jbas%total_orbits 
-     
+
+     if ( (jbas%itzp(a) + tq ).ne.(tt+ts)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(lt+ls,2)) cycle
+
      ja = jbas%jj(a) 
      
      if (.not. triangle(jq,ja,jst) ) cycle
@@ -1087,7 +1115,10 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   multfact = (-1)**((jpq+js-jt+jp+jq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
   ! i've added (-1)**(jp+jq)
   do a = 1, jbas%total_orbits
-     
+
+     if ( (jbas%itzp(a) + tq ).ne.(tt+tu)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(lt+lu,2)) cycle
+
      ja = jbas%jj(a)
      jmin = max( abs(jq - ja) , abs(jt - ju) ) 
      jmax = min( jq+ja , jt+ju) 
@@ -1123,6 +1154,9 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   
   multfact = -1*(-1)**((jpq+jst+jp+jq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
   do a = 1, jbas%total_orbits
+
+     if ( (jbas%itzp(a) + tq ).ne.(ts+tu)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(ls+lu,2)) cycle
         
      ja = jbas%jj(a)
      jmin = max( abs(jq - ja) , abs(js - ju) ) 
@@ -1159,7 +1193,10 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   sm = 0.d0 
   multfact = (-1)**((jpq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
   do a = 1, jbas%total_orbits
-     
+
+     if ( (jbas%itzp(a) + tr ).ne.(ts+tt)) cycle
+     if ( mod(jbas%ll(a)+lr,2).ne.mod(ls+lt,2)) cycle
+        
      ja = jbas%jj(a)
      if (.not. triangle(ju,ja,jpq) ) cycle
      if (.not. triangle(jr,ja,jst) ) cycle
@@ -1178,7 +1215,10 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
    ! so I get an integer later 
    sm = 0.d0   
    do a = 1,jbas%total_orbits 
-     
+
+      if ( (jbas%itzp(a) + tr ).ne.(tu+tt)) cycle
+      if ( mod(jbas%ll(a)+lr,2).ne.mod(lu+lt,2)) cycle
+             
       ja = jbas%jj(a) 
      
       if (.not. triangle(js,ja,jpq) ) cycle
@@ -1209,7 +1249,10 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
   ! so I get an integer later 
   sm = 0.d0   
   do a = 1,jbas%total_orbits 
-     
+    
+     if ( (jbas%itzp(a) + tr ).ne.(tu+ts)) cycle
+     if ( mod(jbas%ll(a)+lr,2).ne.mod(lu+ls,2)) cycle
+                  
      ja = jbas%jj(a) 
      
      if (.not. triangle(ja,jt,jpq) ) cycle

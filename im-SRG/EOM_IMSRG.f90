@@ -759,6 +759,9 @@ real(8) function EOM_triples(H,Xdag,jbas)
   integer :: ax,bx,cx,ix,jx,kx,III,rank,fails
   integer :: jab_min,jab_max,jij_min,jij_max
   integer :: J_min, J_max,x,total_threads,thread
+  real(8) :: faa,fbb,fcc,fii,fjj,fkk,Gabab,Gkbkb,Gkckc
+  real(8) :: Gacac,Gbcbc,Gijij,Gikik,Gjkjk,Giaia
+  real(8) :: Gibib,Gicic,Gjaja,Gjbjb,Gjcjc,Gkaka  
   real(8) :: sm,denom,dlow,w,w_test
   
   print*, 'running triples on EOM state' 
@@ -792,9 +795,13 @@ real(8) function EOM_triples(H,Xdag,jbas)
         jab_min = abs(ja-jb) 
         jab_max = ja+jb
 
-        dlow = f_elem(a,a,H,jbas)&
-             +f_elem(b,b,H,jbas)+f_elem(c,c,H,jbas)
-
+        faa = f_elem(a,a,H,jbas)
+        fbb = f_elem(b,b,H,jbas)
+        fcc = f_elem(c,c,H,jbas)
+        Gabab = twobody_monopole(a,b,ja,jb,H,jbas) 
+        Gacac = twobody_monopole(a,c,ja,jc,H,jbas) 
+        Gbcbc = twobody_monopole(b,c,jb,jc,H,jbas) 
+        
         do q2 = 1, size(threebas)
 
            jtot2 = threebas(q2)%chan(1)
@@ -816,11 +823,30 @@ real(8) function EOM_triples(H,Xdag,jbas)
      
               jij_min = abs(ji-jj) 
               jij_max = ji+jj
-               
-
-              denom = f_elem(i,i,H,jbas)+f_elem(j,j,H,jbas)&
-                   +f_elem(k,k,H,jbas)-dlow
-
+              
+              fii = f_elem(i,i,H,jbas)
+              fjj = f_elem(j,j,H,jbas)
+              fkk = f_elem(k,k,H,jbas)
+              Gijij = twobody_monopole(i,j,ji,jj,H,jbas) 
+              Gikik = twobody_monopole(i,k,ji,jk,H,jbas) 
+              Gjkjk = twobody_monopole(j,k,jj,jk,H,jbas) 
+              
+              Giaia = twobody_monopole(i,a,ji,ja,H,jbas) 
+              Gibib = twobody_monopole(i,b,ji,jb,H,jbas) 
+              Gicic = twobody_monopole(i,c,ji,jc,H,jbas) 
+              
+              Gjaja = twobody_monopole(j,a,jj,ja,H,jbas) 
+              Gjbjb = twobody_monopole(j,b,jj,jb,H,jbas) 
+              Gjcjc = twobody_monopole(j,c,jj,jc,H,jbas) 
+              
+              Gkaka = twobody_monopole(k,a,jk,ja,H,jbas) 
+              Gkbkb = twobody_monopole(k,b,jk,jb,H,jbas) 
+              Gkckc = twobody_monopole(k,c,jk,jc,H,jbas) 
+              
+              denom = Xdag%E0-(faa+fbb+fcc-fii-fjj-fkk+Gabab+&
+                   Gacac+Gbcbc+Gijij+Gikik+Gjkjk-Giaia&
+                   -Gibib-Gicic-Gjaja-Gjbjb-Gjcjc-Gkaka-&
+                   Gkbkb-Gkckc) 
               
               do jab = jab_min,jab_max,2
 
