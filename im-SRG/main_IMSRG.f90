@@ -79,13 +79,14 @@ program main_IMSRG
   
   if (reading_bare) then 
      do_hf = read_twobody_operator(HS,'bare')
-     if (com_calc .or. r2rms_calc) then 
-        call duplicate_sq_op(HS,rirj)
-        call duplicate_sq_op(HS,pipj)
-        do_hf=read_twobody_operator(rirj,'rirj_bare')    
-        do_hf=read_twobody_operator(pipj,'pipj_bare')    
+     if (.not. do_hf) then 
+        if (com_calc .or. r2rms_calc) then 
+           call duplicate_sq_op(HS,rirj)
+           call duplicate_sq_op(HS,pipj)
+           do_hf=read_twobody_operator(rirj,'rirj_bare')    
+           do_hf=read_twobody_operator(pipj,'pipj_bare')    
+        end if
      end if
-
      if (.not. do_hf) goto 90
   end if 
   ! yes, goto 
