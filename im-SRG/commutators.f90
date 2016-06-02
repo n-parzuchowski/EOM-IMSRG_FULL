@@ -1122,11 +1122,11 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      if ( mod(jbas%ll(a)+lq,2).ne.mod(lt+lu,2)) cycle
 
      ja = jbas%jj(a)
-     jmin = max( abs(jq - ja) , abs(jt - ju))! ,abs(js-jtot)) 
-     jmax = min( jq+ja , jt+ju)!,js+jtot) 
+     jmin = max( abs(jq - ja) , abs(jt - ju) ,abs(js-jtot)) 
+     jmax = min( jq+ja , jt+ju,js+jtot) 
      
-     jmin2 = max( abs(jp - jr) , abs(ja - js))! ,abs(jq-jtot)) 
-     jmax2 = min( jp+jr , ja+js)!,jq+jtot)
+     jmin2 = max( abs(jp - jr) , abs(ja - js) ,abs(jq-jtot)) 
+     jmax2 = min( jp+jr , ja+js,jq+jtot)
      
      phase = (-1) ** ((ja + ju)/2) 
      
@@ -1161,11 +1161,11 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      if ( mod(jbas%ll(a)+lq,2).ne.mod(ls+lu,2)) cycle
         
      ja = jbas%jj(a)
-     jmin = max( abs(jq - ja) , abs(js - ju))! ,abs(jt-jtot)) 
-     jmax = min( jq+ja , js+ju)!,jt+jtot) 
+     jmin = max( abs(jq - ja) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( jq+ja , js+ju,jt+jtot) 
      
-     jmin2 = max( abs(jp - jr) , abs(ja - jt))!,abs(jq-jtot) ) 
-     jmax2 = min( jp+jr , ja+jt)!,jq+jtot)
+     jmin2 = max( abs(jp - jr) , abs(ja - jt),abs(jq-jtot) ) 
+     jmax2 = min( jp+jr , ja+jt,jq+jtot)
      
      phase = (-1) ** ((ja - js)/2) 
      
