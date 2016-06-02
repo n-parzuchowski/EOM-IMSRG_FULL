@@ -32,7 +32,7 @@ program main_IMSRG
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
-  t1 = 0.!fuckfaces
+  t1 = omp_get_wtime()
   heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
        13,14,29,30,27,28,25,26,23,24,21,22/)   
 
@@ -193,7 +193,7 @@ if (writing_bare) then
    end if 
 end if
 print*, 'FINISHED WITH HF' 
-stop
+
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 
@@ -283,12 +283,12 @@ stop
      call write_twobody_operator(HS,'decoupled')
   end if
 
-91 t2 = 0.!fuckfaces 
+91 t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
   
   if (ex_calc_int==1) then 
      call calculate_excited_states(HS%Jtarg,HS%Ptarg,3,HS,jbas,Otrans) 
-     t2 = 0.!fuckfaces 
+     t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -345,7 +345,7 @@ stop
       
      end select
      
-!     t2 = 0.!fuckfaces 
+!     t2 = omp_get_wtime() 
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
   
   end if 

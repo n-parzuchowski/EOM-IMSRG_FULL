@@ -57,15 +57,15 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
      call density_matrix(rho,D,DX,jbas)      
      call gamma_matrix(Vgam,H,rho,jbas)
      if (tbforce) call gamma_matrix_three_body(V3gam,rho,THREEBOD,THREEBOD_MONO,jbas)
-     
+   
      ! fock matrix
      do q = 1,T%blocks
         F%blkM(q)%matrix = T%blkM(q)%matrix + Vgam%blkM(Q)%matrix&
              + V3gam%blkM(q)%matrix
      end do
-      
+
+
      call diagonalize_blocks(F) 
-     
      ! new eigenvectors
      ! calculate conv. criteria
      ! store eigenvalues
@@ -253,7 +253,6 @@ subroutine gamma_matrix_three_body(gam,rho,THREEBOD,TB_MONO,jbas)
      gam%blkM(q)%matrix = 0.d0 
      jfoc = rho%blkM(q)%lmda(2)
      
-
      ! loop over states in this block
      do i = 1, gam%map(q)
         do j = i,gam%map(q) 
@@ -300,7 +299,7 @@ subroutine gamma_matrix_three_body(gam,rho,THREEBOD,TB_MONO,jbas)
                                 aux = bosonic_tp_index(IImono,JJmono,TB_MONO%dm(qmono))
                              end if 
                              
-                             IF (TB_MONO%mat(qmono)%RR(aux) < -99998.d0) then
+                             IF (TB_MONO%mat(qmono)%RR(aux) < -99998.0) then
                                 ! first step in here... (takes a long time) 
                                 ! sum over allowed JJ values
                                 sm_x = 0.d0 
@@ -314,10 +313,10 @@ subroutine gamma_matrix_three_body(gam,rho,THREEBOD,TB_MONO,jbas)
                                    end do
                                 end do
                                 
-                                TB_MONO%mat(qmono)%RR(aux) = sm_x 
+                                TB_MONO%mat(qmono)%RR(aux) = sm_x
                              else
                                 !additional steps out here. (fast)
-                                sm_x = TB_MONO%mat(qmono)%RR(aux) 
+                                sm_x = TB_MONO%mat(qmono)%RR(aux)
                              end if 
                              
                              sm = sm + 0.5*den1*den2*sm_x/(j1rho+1.d0)/(j2rho+1.d0) 

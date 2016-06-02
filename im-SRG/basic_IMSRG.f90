@@ -825,7 +825,7 @@ subroutine divide_work(r1)
   integer :: i ,g,q,k,b,j
   
 !$omp parallel
-  threads=1!fuckfaces 
+  threads=omp_get_num_threads() 
 !$omp end parallel
 !threads = 1
   b = 0.d0
@@ -869,7 +869,7 @@ subroutine divide_work_tensor(r1)
   integer :: i ,g,q,k,b,j,spot
 
 !$omp parallel
-  threads=1!fuckfaces 
+  threads=omp_get_num_threads() 
 !$omp end parallel
 !threads = 1
   b = 0.d0
@@ -918,7 +918,7 @@ subroutine divide_work_tpd(threebas)
   integer :: i ,g,q,k,b,j,blocks
   
 !$omp parallel
-  threads=1!fuckfaces 
+  threads=omp_get_num_threads() 
 !$omp end parallel
 !threads = 1
 
@@ -2292,9 +2292,11 @@ subroutine diagonalize_blocks(R)
   
   type(full_sp_block_mat) :: R
   integer :: a,q,info
-  
+  real(8) :: x 
+
+  info = 0
   do q=1,R%blocks
-    
+
      a=R%map(q)
      if (a == 0)  cycle 
     
@@ -2767,7 +2769,9 @@ subroutine allocate_sp_mat(jbas,H)
            allocate(H%blkM(q)%eigval(r))
            allocate(H%blkM(q)%extra(10*r)) 
            allocate(H%blkM(q)%states(r)) 
-        
+           H%blkM(q)%matrix=0.d0 
+           H%blkM(q)%eigval=0.d0 
+           H%blkM(q)%extra=0.d0 
            r = 1
            do i = 1, jbas%total_orbits
               if (l == jbas%ll(i)) then
@@ -2803,13 +2807,20 @@ subroutine duplicate_sp_mat(H,T)
   
   T%map = H%map 
   do q = 1, H%blocks
+
      T%blkM(q)%lmda = H%blkM(q)%lmda
      T%map(q) = H%map(q) 
      r = H%map(q) 
+
      allocate(T%blkM(q)%matrix(r,r)) 
      allocate(T%blkM(q)%eigval(r)) 
      allocate(T%blkM(q)%extra(10*r)) 
      allocate(T%blkM(q)%states(r))
+
+     T%blkM(q)%eigval = 0.d0
+     T%blkM(q)%extra = 0.d0 
+     T%blkM(q)%matrix = 0.d0 
+
      T%blkM(q)%states = H%blkM(q)%states
   end do 
 

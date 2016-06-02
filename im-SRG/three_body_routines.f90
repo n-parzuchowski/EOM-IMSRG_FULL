@@ -54,10 +54,13 @@ subroutine allocate_mono(monoSTOR,jbas)
    blocks = 8*(lmax+1)**3*((spjmax-1)/2+1)**3 
    
    allocate(monoSTOR%mat(blocks)) 
-   allocate(monoSTOR%dm(blocks)) 
+   allocate(monoSTOR%dm(blocks))  
+   monoSTOR%dm = 0 
    
    N = size(jbas%con) 
    allocate(monoSTOR%hash(N*N*N,2))
+   monoSTOR%hash = 0 
+   
    mem = 0.d0 
    q = 1
    
@@ -98,7 +101,7 @@ subroutine allocate_mono(monoSTOR,jbas)
                               end do
 
                               allocate(monoSTOR%mat(q)%RR(items*(items+1)/2)) 
-                              monoSTOR%mat(q)%RR = -99999.d0 
+                              monoSTOR%mat(q)%RR = -99999.0 
                               monoSTOR%dm(q) = items
                               mem = mem +sizeof(monoSTOR%mat(q)%RR)
                               q=q+1
@@ -682,6 +685,7 @@ subroutine allocate_three_body_storage(jbas,jbx,store_3b,eMax,lMax)
      NN = store_3b%kets(q) 
      elems = elems + (NN*NN+NN)/2
      allocate(store_3b%mat(q)%RR((NN*NN+NN)/2))
+     store_3b%mat(q)%RR = 0.0
      store_3b%Nsize(q) = NN
      mem = mem +sizeof(store_3b%mat(q)%RR)
   end do
@@ -892,7 +896,7 @@ AddToME(Jab_in,Jde_in,jtot,Tab_in,Tde_in,ttot,a_in,b_in,c_in,d_in,e_in,f_in,V_in
                  end if
                   
                  V_out = V_out + Cj_abc * Cj_def * Ct_abc * Ct_def &
-                      *STOR%mat(q)%RR(aux)
+                      * STOR%mat(q)%RR(aux)
          
               end do
            end do

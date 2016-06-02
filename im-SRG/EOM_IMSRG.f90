@@ -103,10 +103,10 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
               end if 
            end do
         end do
-        t1=0.!fuckfaces        
+        t1=omp_get_wtime()        
 !        dEtrips = 0.d0 
         dEtrips =  EOM_triples(HS,ladder_ops(i),jbas) 
-        t2=0.!fuckfaces
+        t2=omp_get_wtime()
         write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
              sum(ladder_ops(i)%fph**2),SD_shell_content,t2-t1
         
@@ -884,32 +884,35 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
      
      do ma = -1*ja,ja,2 
         
-        ! sm = sm - v_mscheme(p,mp,a,ma,s,ms,t,mt,AA,jbas)* &
-        !      tensor_mscheme(q,mq,r,mr,a,ma,u,mu,BB,jbas)
+        sm = sm - v_mscheme(p,mp,a,ma,s,ms,t,mt,AA,jbas)* &
+             tensor_mscheme(q,mq,r,mr,a,ma,u,mu,BB,jbas)
 
-        ! sm = sm - v_mscheme(p,mp,a,ma,t,mt,u,mu,AA,jbas)* &
-        !      tensor_mscheme(q,mq,r,mr,a,ma,s,ms,BB,jbas)
-        
-        ! sm = sm - v_mscheme(p,mp,a,ma,u,mu,s,ms,AA,jbas)* &
-        !      tensor_mscheme(q,mq,r,mr,a,ma,t,mt,BB,jbas)
+        sm = sm - v_mscheme(p,mp,a,ma,t,mt,u,mu,AA,jbas)* &
+             tensor_mscheme(q,mq,r,mr,a,ma,s,ms,BB,jbas)
 
-        sm = sm - 0*v_mscheme(q,mp,a,ma,s,ms,t,mt,AA,jbas)* &
+        sm = sm - v_mscheme(p,mp,a,ma,u,mu,s,ms,AA,jbas)* &
+             tensor_mscheme(q,mq,r,mr,a,ma,t,mt,BB,jbas)
+
+        ! four is bad
+        sm = sm - v_mscheme(q,mp,a,ma,s,ms,t,mt,AA,jbas)* &
              tensor_mscheme(r,mr,p,mp,a,ma,u,mu,BB,jbas)
 
-        ! sm = sm - v_mscheme(q,mq,a,ma,t,mt,u,mu,AA,jbas)* &
-        !      tensor_mscheme(r,mr,p,mp,a,ma,s,ms,BB,jbas)
+        sm = sm - v_mscheme(q,mq,a,ma,t,mt,u,mu,AA,jbas)* &
+             tensor_mscheme(r,mr,p,mp,a,ma,s,ms,BB,jbas)
 
-        ! sm = sm - v_mscheme(q,mq,a,ma,u,mu,s,ms,AA,jbas)* &
-        !      tensor_mscheme(r,mr,p,mp,a,ma,t,mt,BB,jbas)
+        ! six is bad
+        sm = sm - v_mscheme(q,mq,a,ma,u,mu,s,ms,AA,jbas)* &
+             tensor_mscheme(r,mr,p,mp,a,ma,t,mt,BB,jbas)
 
-        ! sm = sm - v_mscheme(r,mr,a,ma,s,ms,t,mt,AA,jbas)* &
-        !      tensor_mscheme(p,mp,q,mq,a,ma,u,mu,BB,jbas)
+        !bad
+        sm = sm - v_mscheme(r,mr,a,ma,s,ms,t,mt,AA,jbas)* &
+             tensor_mscheme(p,mp,q,mq,a,ma,u,mu,BB,jbas)
 
-        ! sm = sm - v_mscheme(r,mr,a,ma,t,mt,u,mu,AA,jbas)* &
-        !      tensor_mscheme(p,mp,q,mq,a,ma,s,ms,BB,jbas)
-
-        ! sm = sm - v_mscheme(r,mr,a,ma,u,mu,s,ms,AA,jbas)* &
-        !      tensor_mscheme(p,mp,q,mq,a,ma,t,mt,BB,jbas)
+        sm = sm - v_mscheme(r,mr,a,ma,t,mt,u,mu,AA,jbas)* &
+             tensor_mscheme(p,mp,q,mq,a,ma,s,ms,BB,jbas)
+        !bad
+        sm = sm - v_mscheme(r,mr,a,ma,u,mu,s,ms,AA,jbas)* &
+             tensor_mscheme(p,mp,q,mq,a,ma,t,mt,BB,jbas)
      end do
   end do
 
@@ -920,32 +923,32 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
      
      do ma = -1*ja,ja,2 
 
-        ! sm = sm + tensor_mscheme(p,mp,a,ma,s,ms,t,mt,BB,jbas)* &
-        !      v_mscheme(q,mq,r,mr,a,ma,u,mu,AA,jbas)
-        
-        ! sm = sm + tensor_mscheme(p,mp,a,ma,t,mt,u,mu,BB,jbas)* &
-        !      v_mscheme(q,mq,r,mr,a,ma,s,ms,AA,jbas)
-        
-        ! sm = sm + tensor_mscheme(p,mp,a,ma,u,mu,s,ms,BB,jbas)* &
-        !      v_mscheme(q,mq,r,mr,a,ma,t,mt,AA,jbas)
-        
+        sm = sm + tensor_mscheme(p,mp,a,ma,s,ms,t,mt,BB,jbas)* &
+             v_mscheme(q,mq,r,mr,a,ma,u,mu,AA,jbas)
+
+        sm = sm + tensor_mscheme(p,mp,a,ma,t,mt,u,mu,BB,jbas)* &
+             v_mscheme(q,mq,r,mr,a,ma,s,ms,AA,jbas)
+
+        sm = sm + tensor_mscheme(p,mp,a,ma,u,mu,s,ms,BB,jbas)* &
+             v_mscheme(q,mq,r,mr,a,ma,t,mt,AA,jbas)
+
         sm = sm + tensor_mscheme(q,mp,a,ma,s,ms,t,mt,BB,jbas)* &
              v_mscheme(r,mr,p,mp,a,ma,u,mu,AA,jbas)
-        
-        ! sm = sm + tensor_mscheme(q,mq,a,ma,t,mt,u,mu,BB,jbas)* &
-        !                v_mscheme(r,mr,p,mp,a,ma,s,ms,AA,jbas)
-        
-        ! sm = sm + tensor_mscheme(q,mq,a,ma,u,mu,s,ms,BB,jbas)* &
-        !                v_mscheme(r,mr,p,mp,a,ma,t,mt,AA,jbas)
-        
-        ! sm = sm + tensor_mscheme(r,mr,a,ma,s,ms,t,mt,BB,jbas)* &
-        !      v_mscheme(p,mp,q,mq,a,ma,u,mu,AA,jbas)
-        
-        ! sm = sm + tensor_mscheme(r,mr,a,ma,t,mt,u,mu,BB,jbas)* &
-        !      v_mscheme(p,mp,q,mq,a,ma,s,ms,AA,jbas)
-        
-        ! sm = sm + tensor_mscheme(r,mr,a,ma,u,mu,s,ms,BB,jbas)* &
-        !      v_mscheme(p,mp,q,mq,a,ma,t,mt,AA,jbas)
+
+        sm = sm + tensor_mscheme(q,mq,a,ma,t,mt,u,mu,BB,jbas)* &
+             v_mscheme(r,mr,p,mp,a,ma,s,ms,AA,jbas)
+
+        sm = sm + tensor_mscheme(q,mq,a,ma,u,mu,s,ms,BB,jbas)* &
+             v_mscheme(r,mr,p,mp,a,ma,t,mt,AA,jbas)
+
+        sm = sm + tensor_mscheme(r,mr,a,ma,s,ms,t,mt,BB,jbas)* &
+             v_mscheme(p,mp,q,mq,a,ma,u,mu,AA,jbas)
+
+        sm = sm + tensor_mscheme(r,mr,a,ma,t,mt,u,mu,BB,jbas)* &
+             v_mscheme(p,mp,q,mq,a,ma,s,ms,AA,jbas)
+
+        sm = sm + tensor_mscheme(r,mr,a,ma,u,mu,s,ms,BB,jbas)* &
+             v_mscheme(p,mp,q,mq,a,ma,t,mt,AA,jbas)
         
      end do
   end do
