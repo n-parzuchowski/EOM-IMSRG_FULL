@@ -1530,7 +1530,9 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      end do
 
   end do
+
   smtot = smtot + sm*multfact
+
   ! right-left
       
   sm = 0.d0 
@@ -1568,7 +1570,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      end do
 
   end do
-  
+
   smtot = smtot + sm*multfact
  
   ! FIFTH TERM    
@@ -1708,11 +1710,12 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      end do
  
   end do
+  
   smtot = smtot + sm*multfact
 
   sm = 0.d0 
   ! right-left
-  multfact = (-1)**((jp+jq+js+jtot1+Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
+  multfact = (-1)**((jp+jq+js+jtot2+Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
        (jtot1+1.d0)*(jtot2+1.d0)) 
 
   do ia=1,L%Nsp-L%belowEF
@@ -1752,7 +1755,6 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      end do
  
   end do
-     
   smtot = smtot + sm*multfact
 
 
@@ -1790,7 +1792,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
 
   ! right-left
   sm = 0.d0
-  multfact = (-1)**((Jpq+Jst+rank)/2) *sqrt((Jpq+1.d0)*(jtot1+1.d0)*&
+  multfact = (-1)**((Jpq+rank)/2) *sqrt((Jpq+1.d0)*(jtot1+1.d0)*&
        (jtot2+1.d0)) 
 
   do ia=1,L%Nsp-L%belowEF
@@ -1809,7 +1811,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
 
      do J3=j3min,j3max,2 
 
-        sm = sm + sj1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) &
+        sm = sm + sj1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) *(-1)**(J3/2) &
              * xxxsixj(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
 
      end do 
@@ -1948,7 +1950,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
   
   ! !Right-left  
   sm = 0.d0 
-  multfact = (-1)**((jt+jtot1+Jpq+Jst+rank)/2) *sqrt((Jst+1.d0)*(Jpq+1.d0) &
+  multfact = (-1)**((jt-jtot2+Jpq+Jst+rank)/2) *sqrt((Jst+1.d0)*(Jpq+1.d0) &
        *(jtot1+1.d0)*(jtot2+1.d0) )  
   
   do ia=1,L%Nsp-L%belowEF 
@@ -1964,7 +1966,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      j1max = max(jr + ja,jt+jtot1) 
      
      
-     phase = (-1)**((ja - js)/2)
+     phase = (-1)**((ja + js)/2)
            
      sj1 = phase * v_elem(ip,iq,a,it,Jpq,L,jbas)
      do J1 = j1min, j1max , 2      
@@ -1976,7 +1978,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      
         do J2 = j2min,j2max,2
 
-           sm = sm + sj2* sqrt(J2 + 1.d0)  &
+           sm = sm + sj2* sqrt(J2 + 1.d0) &
                 * sixj(js,jt,Jst,jtot2,ju,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,jt) &
                 * tensor_elem(ir,a,iu,is,J1,J2,R,jbas)
 

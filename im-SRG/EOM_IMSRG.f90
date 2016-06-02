@@ -831,16 +831,6 @@ real(8) function EOM_triples(H,Xdag,jbas)
                     if ( .not. (triangle(jtot1,jk,jij))) cycle
 
                     w = EOM_TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)
-                    w_test = W_via_mscheme(a,b,c,i,j,k,jtot1,jtot2,Jab,jij,H,Xdag,jbas) 
-
-                    
-                    if (abs(w-w_test) > 1e-6) then 
-                       writE(*,'(10(I4),2(f20.10))')  a,b,c,i,j,k,jtot1,jtot2,Jab,Jij,w,w_Test
-                       fails = fails+1 
-                       if (fails == 50) stop
-                    else
-                       writE(*,'(10(I4),2(f12.7))')  a,b,c,i,j,k,jtot1,jtot2,Jab,Jij,w,w_Test 
-                    end if
                     
                     sm = sm + w*w/denom*(jtot1+1.d0)/(rank+1.d0) 
            
@@ -893,24 +883,21 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
         sm = sm - v_mscheme(p,mp,a,ma,u,mu,s,ms,AA,jbas)* &
              tensor_mscheme(q,mq,r,mr,a,ma,t,mt,BB,jbas)
 
-        ! four is bad
-        sm = sm - v_mscheme(q,mp,a,ma,s,ms,t,mt,AA,jbas)* &
+        sm = sm - v_mscheme(q,mq,a,ma,s,ms,t,mt,AA,jbas)* &
              tensor_mscheme(r,mr,p,mp,a,ma,u,mu,BB,jbas)
 
         sm = sm - v_mscheme(q,mq,a,ma,t,mt,u,mu,AA,jbas)* &
              tensor_mscheme(r,mr,p,mp,a,ma,s,ms,BB,jbas)
 
-        ! six is bad
         sm = sm - v_mscheme(q,mq,a,ma,u,mu,s,ms,AA,jbas)* &
              tensor_mscheme(r,mr,p,mp,a,ma,t,mt,BB,jbas)
 
-        !bad
         sm = sm - v_mscheme(r,mr,a,ma,s,ms,t,mt,AA,jbas)* &
              tensor_mscheme(p,mp,q,mq,a,ma,u,mu,BB,jbas)
 
         sm = sm - v_mscheme(r,mr,a,ma,t,mt,u,mu,AA,jbas)* &
              tensor_mscheme(p,mp,q,mq,a,ma,s,ms,BB,jbas)
-        !bad
+
         sm = sm - v_mscheme(r,mr,a,ma,u,mu,s,ms,AA,jbas)* &
              tensor_mscheme(p,mp,q,mq,a,ma,t,mt,BB,jbas)
      end do
@@ -932,7 +919,7 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
         sm = sm + tensor_mscheme(p,mp,a,ma,u,mu,s,ms,BB,jbas)* &
              v_mscheme(q,mq,r,mr,a,ma,t,mt,AA,jbas)
 
-        sm = sm + tensor_mscheme(q,mp,a,ma,s,ms,t,mt,BB,jbas)* &
+        sm = sm + tensor_mscheme(q,mq,a,ma,s,ms,t,mt,BB,jbas)* &
              v_mscheme(r,mr,p,mp,a,ma,u,mu,AA,jbas)
 
         sm = sm + tensor_mscheme(q,mq,a,ma,t,mt,u,mu,BB,jbas)* &
