@@ -807,7 +807,7 @@ real(8) function EOM_triples(H,Xdag,jbas)
            jtot2 = threebas(q2)%chan(1)
 
            if (threebas(q2)%chan(2) .ne. TZ ) cycle
-           if (threebas(q2)%chan(3) .ne. PAR) cycle
+           if (mod(threebas(q2)%chan(3)+Xdag%dpar/2,2) .ne. PAR) cycle
            if (.not. triangle(jtot1,jtot2,rank) ) cycle 
 
 

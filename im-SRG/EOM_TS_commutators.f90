@@ -1253,10 +1253,13 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      
 
      sj1 = v_elem(ip,a,is,it,Jst,L,jbas)*phase
-
+     
+     if (abs(sj1) < 1e-8) cycle
+     
      do J2 = j2min, j2max , 2
         
         sj2 = sj1*sixj(jp,jq,Jpq,jr,jtot1,J2)*sqrt(J2+1.d0) 
+        if (abs(sj2) < 1e-8) cycle        
         
         j3min = min(abs(ja - ju),abs(jp-jtot2),abs(J2-rank))
         j3max = max(ja+ju,jp+jtot2,J2+rank) 
@@ -1299,7 +1302,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
 
         Vs1 = tensor_elem(ip,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2) 
         sj1 = sqrt(J1+1.d0)*xxxsixj(J1,Jst,rank,jtot2,jtot1,ju) 
-
+        if (abs(sj1) < 1e-8) cycle
         do J3 = j3min,j3max,2
 
            sm = sm +  phase *sj1*(J3 + 1.d0) &
@@ -1340,12 +1343,12 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      do J1 = j1min,j1max,2
         
         sj1 = sqrt(J1+1.d0)*phase  
-       
+        
         do J2 = j2min,j2max,2
            
            sj2 = sj1 * (J2+1.d0) * (-1)**(J2/2) * sixj(js,jt,Jst,ju,jtot2,J2) * &
                 sixj(jp,ja,J2,js,jtot2,J1) * v_elem(ip,a,it,iu,J2,L,jbas) 
-     
+           if (abs(sj2) < 1e-8) cycle
            j3min = min(abs(jq - jr),abs(J1-rank)) 
            j3max = max(jq+jr,J1+rank) 
      
@@ -1389,7 +1392,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            
            sj2 = sj1 * sqrt(J2+1.d0) * sixj(js,jt,Jst,ju,jtot2,J2) * (-1)**(J2/2) *&
                 xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
-           
+           if (abs(sj2) < 1e-8) cycle
            do J3 = j3min,j3max,2
               
               sm = sm + sj2 * (J3+1.d0) * sixj(jp,jq,Jpq,jr,jtot1,J3) &
@@ -1429,7 +1432,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      do J3 = j3min,j3max,2
         
         sj1 = phase*sixj(jp,jq,Jpq,jr,jtot1,J3)*sqrt(J3+1.d0)  
-        
+
         j1min = max(abs(ja - jt),abs(rank-J3))
         j1max = min(ja+jt,rank+J3) 
              
@@ -1437,7 +1440,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            
            sj2 =  sj1*(-1)**(J1/2)*tensor_elem(iq,ir,a,it,J3,J1,R,jbas)*&
                 xxxsixj(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
-
+           if (abs(sj2) < 1e-8) cycle
            do J2 = j2min,j2max,2
               sm = sm - (J2+1.d0) *sj2* sixj(js,jt,Jst,jtot2,ju,J2) &
                    * sixj(jp,ja,J2,jt,jtot2,J1) * v_elem(ip,a,iu,is,J2,L,jbas)
@@ -1468,14 +1471,14 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      do J2 = j2min,j2max,2
         
         sj1 = phase* sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0) 
-    
+        
         j1min = max(abs(jp - ja),abs(rank-J2))
         j1max = min(jp+ja ,rank+J2)
     
         do J1 = j1min,j1max,2 
            sj2 = sj1*(-1)**(J1/2)*xxxsixj(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
                 tensor_elem(ip,a,iu,is,J1,J2,R,jbas)      
-
+           if (abs(sj2) < 1e-8) cycle
            do J3 = j3min,j3max,2
               sm = sm + (J3+1.d0) *sj2* sixj(jp,jq,Jpq,jr,jtot1,J3) &
                    * sixj(jp,ja,J1,jt,jtot1,J3) * v_elem(iq,ir,a,it,J3,L,jbas)
@@ -1513,11 +1516,11 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja - ju)/2) ! changed to ja+js rather than ja-js 
      
      sj1 = v_elem(iq,a,is,it,Jst,L,jbas)*phase
-     
+     if (abs(sj1) < 1e-8) cycle
      do J1 = j1min,j1max,2
         
         sj2 = sj1*sixj(jp,jq,Jpq,jtot1,jr,J1)*sqrt(J1+1.d0)*(-1)**(J1/2)
-        
+        if (abs(sj2) < 1e-8) cycle
         j2min = max(abs(ja - ju),abs(rank-J1),abs(jq-jtot2))
         j2max = min(ja+ju,rank+J1,jq+jtot2)
         
@@ -1560,7 +1563,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
         
         sj1 = phase*sqrt(J1+1.d0)* &
              tensor_elem(iq,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2)
-        
+        if (abs(sj1) < 1e-8) cycle
         do J2 = j2min,j2max,2 
            
            sm = sm +  sj1*(J2+1.d0)*(-1)**(J2/2)*v_elem(ir,ip,a,iu,J2,L,jbas) *&
@@ -1601,12 +1604,13 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
         
         sj1 = phase*sixj(js,jt,Jst,ju,jtot2,J1)*(J1+1.d0)*(-1)**(J1/2)&
              *v_elem(iq,a,it,iu,J1,L,jbas) 
+        if (abs(sj1) < 1e-8) cycle
         
         do J3 = j3min,j3max,2 
            
            sj2 =  sj1*(-1)**(J3/2)*&
                 sixj(jq,ja,J1,js,jtot2,J3)*sqrt(J3+1.d0)
-
+           
            j2min = max(abs(jp - jr),abs(rank-J3),abs(jq-jtot1))
            j2max = min(jp+jr,rank+J3,jq+jtot1) 
    
@@ -1645,7 +1649,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
         
         sj1 = phase*(-1)**(J3/2)* sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
              v_elem(ir,ip,a,is,J3,L,jbas) 
-        
+        if (abs(sj1) < 1e-8) cycle
         do J2 = j2min,j2max,2 
            sj2 = sj1*(-1)**(J2/2)*sixj(js,jt,Jst,ju,jtot2,J2)*sqrt(J2+1.d0)
 
@@ -1693,7 +1697,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
         
         sj1 = phase*sixj(js,jt,Jst,jtot2,ju,J1)*(J1+1.d0) &
              *v_elem(iq,a,iu,is,J1,L,jbas) 
-        
+        if (abs(sj1) < 1e-8) cycle
         do J2 = j2min,j2max,2 
            
            sj2 =  sj1*(-1)**(J2/2)*&
@@ -1737,7 +1741,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
         
         sj1 = phase*(-1)**(J3/2) * sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
              v_elem(ir,ip,a,it,J3,L,jbas) 
-        
+        if (abs(sj1) < 1e-8) cycle
         do J2 = j2min,j2max,2 
 
            sj2 = sj1*sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0)
@@ -1780,7 +1784,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      j3max = min(ja+ju,Jpq+rank,jr+jtot2)  
      
      sj1 = v_elem(ir,a,is,it,Jst,L,jbas) * (-1)**((ja+ju)/2) 
-
+     if (abs(sj1) < 1e-8) cycle
      do J3=j3min,j3max,2 
         sm = sm - sj1* sixj(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
              * xxxsixj(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
@@ -1808,7 +1812,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      j3max = min(ja+jr,rank+Jst,ju+jtot1)  
      
      sj1 = v_elem(ip,iq,a,iu,Jpq,L,jbas) * (-1)**((ja+jtot2)/2) 
-
+     if (abs(sj1) < 1e-8) cycle
      do J3=j3min,j3max,2 
 
         sm = sm + sj1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) *(-1)**(J3/2) &
@@ -1851,7 +1855,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      do J1 = j1min, j1max , 2
         sj1 = phase*(-1)**(J1/2)*(J1+1.d0) * sixj(js,jt,Jst,ju,jtot2,J1)&
              * v_elem(ir,a,it,iu,J1,L,jbas) 
-     
+        if (abs(sj1) < 1e-8) cycle
         do J2 = j2min,j2max,2
         
            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
@@ -1885,6 +1889,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1)**((ja - ju)/2)
            
      sj1 = phase * v_elem(ip,iq,a,is,Jpq,L,jbas)
+     if (abs(sj1) < 1e-8) cycle
      do J1 = j1min, j1max , 2      
 
         sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,js,jtot1,Jpq) * sj1
@@ -1934,7 +1939,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      do J1 = j1min, j1max , 2
         sj1 = phase*(J1+1.d0) * sixj(js,jt,Jst,jtot2,ju,J1)&
              * v_elem(ir,a,iu,is,J1,L,jbas) 
-        
+        if (abs(sj1) < 1e-8) cycle
         do J2 = j2min,j2max,2
         
            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
@@ -1969,6 +1974,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1)**((ja + js)/2)
            
      sj1 = phase * v_elem(ip,iq,a,it,Jpq,L,jbas)
+     if (abs(sj1) < 1e-8) cycle
      do J1 = j1min, j1max , 2      
 
         sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,jt,jtot1,Jpq) * sj1

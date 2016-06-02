@@ -978,13 +978,14 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      
      if (.not. triangle(jp,ja,jst) ) cycle
      
-     jmin = max( abs(jq - jr) , abs(ja - ju) ) 
-     jmax = min( jq+jr , ja+ju) 
+     jmin = max( abs(jq - jr) , abs(ja - ju), abs(jp-Jtot) ) 
+     jmax = min( jq+jr , ja+ju, jp+jtot) 
      
      phase = (-1)**((ja - ju)/2)
         
      Vs1 = v_elem(ip,a,is,it,jst,R,jbas)
      Vs2 = v_elem(ip,a,is,it,jst,L,jbas)
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
      do J2 = jmin, jmax , 2
       
         sm = sm +  phase * (J2 + 1.d0) &
@@ -1008,11 +1009,11 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
 
      
      ja = jbas%jj(a)
-     jmin = max( abs(jp - ja) , abs(jt - ju) ) 
-     jmax = min( jp+ja , jt+ju) 
+     jmin = max( abs(jp - ja) , abs(jt - ju) ,abs(js-jtot)) 
+     jmax = min( jp+ja , jt+ju,js+jtot) 
      
-     jmin2 = max( abs(jq - jr) , abs(ja - js) ) 
-     jmax2 = min( jq+jr , ja+js)
+     jmin2 = max( abs(jq - jr) , abs(ja - js),abs(jp-jtot) ) 
+     jmax2 = min( jq+jr , ja+js,jp+jtot)
      
      phase = (-1) ** ((ja + ju)/2) 
      
@@ -1047,11 +1048,11 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      if ( mod(jbas%ll(a)+lp,2).ne.mod(lu+ls,2)) cycle
 
      ja = jbas%jj(a)     
-     jmin = max( abs(jp - ja) , abs(js - ju) ) 
-     jmax = min( jp+ja , js+ju) 
+     jmin = max( abs(jp - ja) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( jp+ja , js+ju , jt+jtot) 
      
-     jmin2 = max( abs(jq - jr) , abs(ja - jt) ) 
-     jmax2 = min( jq+jr , ja+jt)
+     jmin2 = max( abs(jq - jr) , abs(ja - jt) , abs(jp-jtot) ) 
+     jmax2 = min( jq+jr , ja+jt,jp+jtot)
      
      phase = (-1) ** ((ja + js)/2) ! changed to ja+js rather than ja-js 
      
@@ -1090,13 +1091,14 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      
      if (.not. triangle(jq,ja,jst) ) cycle
      
-     jmin = max( abs(jp - jr) , abs(ja - ju) ) 
-     jmax = min( jp+jr , ja+ju) 
+     jmin = max( abs(jp - jr) , abs(ja - ju),abs(jtot-jq)) 
+     jmax = min( jp+jr , ja+ju,jtot+jq) 
      
      phase = (-1)**((ja + ju)/2) ! minus for fun
       
      Vs1 = v_elem(iq,a,is,it,jst,R,jbas)
      Vs2 = v_elem(iq,a,is,it,jst,L,jbas)
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
      do J2 = jmin, jmax , 2
 
         sm = sm +  phase * (J2 + 1.d0)*(-1)**(J2/2) &
@@ -1120,11 +1122,11 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      if ( mod(jbas%ll(a)+lq,2).ne.mod(lt+lu,2)) cycle
 
      ja = jbas%jj(a)
-     jmin = max( abs(jq - ja) , abs(jt - ju) ) 
-     jmax = min( jq+ja , jt+ju) 
+     jmin = max( abs(jq - ja) , abs(jt - ju))! ,abs(js-jtot)) 
+     jmax = min( jq+ja , jt+ju)!,js+jtot) 
      
-     jmin2 = max( abs(jp - jr) , abs(ja - js) ) 
-     jmax2 = min( jp+jr , ja+js)
+     jmin2 = max( abs(jp - jr) , abs(ja - js))! ,abs(jq-jtot)) 
+     jmax2 = min( jp+jr , ja+js)!,jq+jtot)
      
      phase = (-1) ** ((ja + ju)/2) 
      
@@ -1159,11 +1161,11 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      if ( mod(jbas%ll(a)+lq,2).ne.mod(ls+lu,2)) cycle
         
      ja = jbas%jj(a)
-     jmin = max( abs(jq - ja) , abs(js - ju) ) 
-     jmax = min( jq+ja , js+ju) 
+     jmin = max( abs(jq - ja) , abs(js - ju))! ,abs(jt-jtot)) 
+     jmax = min( jq+ja , js+ju)!,jt+jtot) 
      
-     jmin2 = max( abs(jp - jr) , abs(ja - jt) ) 
-     jmax2 = min( jp+jr , ja+jt)
+     jmin2 = max( abs(jp - jr) , abs(ja - jt))!,abs(jq-jtot) ) 
+     jmax2 = min( jp+jr , ja+jt)!,jq+jtot)
      
      phase = (-1) ** ((ja - js)/2) 
      
@@ -1223,14 +1225,14 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      
       if (.not. triangle(js,ja,jpq) ) cycle
     
-      jmin = max( abs(ja - jr) , abs(jt - ju) ) 
-      jmax = min( ja+jr , jt+ju) 
+      jmin = max( abs(ja - jr) , abs(jt - ju),abs(js-jtot) ) 
+      jmax = min( ja+jr , jt+ju,js+jtot) 
      
       phase = (-1)**((ja + ju)/2)     
       
       Vs1 = v_elem(ip,iq,a,is,jpq,L,jbas)
       Vs2 = v_elem(ip,iq,a,is,jpq,R,jbas)
-
+      if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
       do J1 = jmin, jmax , 2
 
          sm = sm +  phase * (-1)**(J1/2)*(J1 + 1.d0) &
@@ -1257,13 +1259,14 @@ real(8) function commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
      
      if (.not. triangle(ja,jt,jpq) ) cycle
      
-     jmin = max( abs(ja - jr) , abs(js - ju) ) 
-     jmax = min( ja+jr , js+ju) 
+     jmin = max( abs(ja - jr) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( ja+jr , js+ju,jt+jtot) 
      
      phase = (-1)**((ja - js)/2) 
      
      Vs1 = v_elem(ip,iq,a,it,jpq,L,jbas)
      Vs2 = v_elem(ip,iq,a,it,jpq,R,jbas)
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
      do J1 = jmin, jmax , 2
      
         sm = sm +  phase * (J1 + 1.d0) &
