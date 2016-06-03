@@ -745,10 +745,23 @@ subroutine progress_bar( step  )
   flush 6 
 
 end subroutine 
-
 !=====================================================
 !=====================================================
 real(8) function EOM_triples(H,Xdag,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: H,Xdag
+  
+  if (Xdag%rank == 0 ) then 
+     EOM_triples = scalar_Triples(H,Xdag,jbas)
+  else
+     EOM_triples = tensor_Triples(H,Xdag,jbas)
+  end if
+end function EOM_triples
+!=====================================================
+!=====================================================
+real(8) function tensor_triples(H,Xdag,jbas) 
   implicit none 
   
   type(spd) :: jbas
@@ -827,6 +840,7 @@ real(8) function EOM_triples(H,Xdag,jbas)
               fii = f_elem(i,i,H,jbas)
               fjj = f_elem(j,j,H,jbas)
               fkk = f_elem(k,k,H,jbas)
+             
               Gijij = twobody_monopole(i,j,ji,jj,H,jbas) 
               Gikik = twobody_monopole(i,k,ji,jk,H,jbas) 
               Gjkjk = twobody_monopole(j,k,jj,jk,H,jbas) 
@@ -869,9 +883,127 @@ real(8) function EOM_triples(H,Xdag,jbas)
   end do
   end do
  !$OMP END PARALLEL DO 
-  EOM_triples = sm / 36.d0 
+  tensor_triples = sm / 36.d0 
 
-end function
+end function tensor_triples
+!=====================================================
+!=====================================================
+real(8) function scalar_triples(H,Xdag,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(tpd),allocatable,dimension(:) :: threebas
+  type(sq_op) :: H,Xdag,Xrag
+  integer :: a,b,c,i,j,k,jtot1,jtot2,Jab,Jij,g1
+  integer :: ja,jb,jc,ji,jj,jk,AAA,q,q2,TZ,PAR
+  integer :: ax,bx,cx,ix,jx,kx,III,rank,fails
+  integer :: jab_min,jab_max,jij_min,jij_max
+  integer :: J_min, J_max,x,total_threads,thread
+  real(8) :: faa,fbb,fcc,fii,fjj,fkk,Gabab,Gkbkb,Gkckc
+  real(8) :: Gacac,Gbcbc,Gijij,Gikik,Gjkjk,Giaia
+  real(8) :: Gibib,Gicic,Gjaja,Gjbjb,Gjcjc,Gkaka  
+  real(8) :: sm,denom,dlow,w,w_test
+  
+  print*, 'running triples on EOM state' 
+  sm = 0.d0   
+  call enumerate_three_body(threebas,jbas)  
+  total_threads = size(threebas(1)%direct_omp) - 1
+  rank = Xdag%rank
+  fails = 0
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,Xdag) & 
+!$OMP& REDUCTION(+:sm)  
+  
+  do thread = 1, total_threads
+  do q = 1+threebas(1)%direct_omp(thread),&
+       threebas(1)%direct_omp(thread+1)
+  !do q = 1, size(threebas)
+
+     jtot1 = threebas(q)%chan(1)      
+     TZ = threebas(q)%chan(2)      
+     PAR = threebas(q)%chan(3)      
+
+     do AAA = 1, size(threebas(q)%ppp(:,1)) 
+        
+        a = threebas(q)%ppp(AAA,1)
+        b = threebas(q)%ppp(AAA,2)
+        c = threebas(q)%ppp(AAA,3)
+
+        ja = jbas%jj(a)      
+        jb = jbas%jj(b) 
+        jc = jbas%jj(c) 
+
+        jab_min = abs(ja-jb) 
+        jab_max = ja+jb
+
+        faa = f_elem(a,a,H,jbas)
+        fbb = f_elem(b,b,H,jbas)
+        fcc = f_elem(c,c,H,jbas)
+        Gabab = twobody_monopole(a,b,ja,jb,H,jbas) 
+        Gacac = twobody_monopole(a,c,ja,jc,H,jbas) 
+        Gbcbc = twobody_monopole(b,c,jb,jc,H,jbas) 
+                
+        do III = 1, size(threebas(q)%hhh(:,1)) 
+              
+           i = threebas(q)%hhh(III,1)
+           j = threebas(q)%hhh(III,2)
+           k = threebas(q)%hhh(III,3)
+           
+           ji = jbas%jj(i)       
+           jj = jbas%jj(j) 
+           jk = jbas%jj(k)  
+
+           jij_min = abs(ji-jj) 
+           jij_max = ji+jj
+
+           fii = f_elem(i,i,H,jbas)
+           fjj = f_elem(j,j,H,jbas)
+           fkk = f_elem(k,k,H,jbas)
+
+           Gijij = twobody_monopole(i,j,ji,jj,H,jbas) 
+           Gikik = twobody_monopole(i,k,ji,jk,H,jbas) 
+           Gjkjk = twobody_monopole(j,k,jj,jk,H,jbas) 
+
+           Giaia = twobody_monopole(i,a,ji,ja,H,jbas) 
+           Gibib = twobody_monopole(i,b,ji,jb,H,jbas) 
+           Gicic = twobody_monopole(i,c,ji,jc,H,jbas) 
+
+           Gjaja = twobody_monopole(j,a,jj,ja,H,jbas) 
+           Gjbjb = twobody_monopole(j,b,jj,jb,H,jbas) 
+           Gjcjc = twobody_monopole(j,c,jj,jc,H,jbas) 
+
+           Gkaka = twobody_monopole(k,a,jk,ja,H,jbas) 
+           Gkbkb = twobody_monopole(k,b,jk,jb,H,jbas) 
+           Gkckc = twobody_monopole(k,c,jk,jc,H,jbas) 
+
+           denom = Xdag%E0-(faa+fbb+fcc-fii-fjj-fkk+Gabab+&
+                Gacac+Gbcbc+Gijij+Gikik+Gjkjk-Giaia&
+                -Gibib-Gicic-Gjaja-Gjbjb-Gjcjc-Gkaka-&
+                Gkbkb-Gkckc) 
+
+           do jab = jab_min,jab_max,2
+
+              if ( .not. (triangle(jtot1,jc,jab))) cycle
+
+              do jij = jij_min, jij_max,2
+
+                 if ( .not. (triangle(jtot1,jk,jij))) cycle
+
+                 w = EOM_scalar_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jab,jij,jbas)
+
+                 sm = sm + w*w/denom/(rank+1.d0) 
+
+              end do
+           end do
+
+           
+        end do
+     end do
+  end do
+  end do
+ !$OMP END PARALLEL DO 
+  scalar_triples = sm / 36.d0 
+
+end function scalar_triples
 
 
  

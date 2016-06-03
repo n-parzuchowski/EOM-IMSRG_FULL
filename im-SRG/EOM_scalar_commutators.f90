@@ -577,8 +577,710 @@ end subroutine
 !$OMP END PARALLEL DO 
    
 end subroutine 
-!=====================================================
-!=====================================================       
+!======================================================================
+!=======================================================================
+real(8) function EOM_scalar_commutator_223_single(L,R,ip,iq,ir,is,it,iu,Jtot,jpq,jst,jbas)
+  implicit none 
+  
+  integer,intent(in) :: ip,iq,ir,is,it,iu,Jtot,jpq,jst
+  integer :: a,b,c,d,Jx,Jy,Jz,J2,J1,phase,ia
+  integer :: ja,jb,jc,jd,jp,jq,jr,js,jt,ju
+  integer :: tp,tq,tr,ts,tt,tu,lp,lq,lr,ls,lt,lu
+  integer :: jmin,jmax , jmin2,jmax2
+  type(sq_op) :: L,R
+  type(spd) :: jbas
+  real(8) :: sm,sm_sub,multfact,smtot,d6ji,out,otherfact
+  real(8) :: Vs1,Vs2,dsum
+  
+  smtot = 0.d0 
+  
+  ! USING HEIKO'S EXPRESSIONS
+  
+  jp = jbas%jj(ip)
+  jq = jbas%jj(iq)
+  jr = jbas%jj(ir)  
+  js = jbas%jj(is)
+  jt = jbas%jj(it)
+  ju = jbas%jj(iu)  
+  
+  tp = jbas%itzp(ip)
+  tq = jbas%itzp(iq)
+  tr = jbas%itzp(ir)  
+  ts = jbas%itzp(is)
+  tt = jbas%itzp(it)
+  tu = jbas%itzp(iu)       
+
+  lp = jbas%ll(ip)
+  lq = jbas%ll(iq)
+  lr = jbas%ll(ir)  
+  ls = jbas%ll(is)
+  lt = jbas%ll(it)
+  lu = jbas%ll(iu)  
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+  ! FIRST TERM, holes
+  !changed to q-r instead of q+r
+  multfact = (-1)**((jq-jr)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
+  ! ju isn't in here because I need it to make add with ja
+  ! so I get an integer later 
+  sm = 0.d0   
+  do ia = 1,L%belowEF
+     a = jbas%holes(ia) 
+     
+     if ( (jbas%itzp(a) + tp ).ne.(ts+tt)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(ls+lt,2)) cycle
+ 
+     ja = jbas%jj(a) 
+     
+     if (.not. triangle(jp,ja,jst) ) cycle
+     
+     jmin = max( abs(jq - jr) , abs(ja - ju), abs(jp-Jtot) ) 
+     jmax = min( jq+jr , ja+ju, jp+jtot) 
+     
+     phase = (-1)**((ja - ju)/2)
+             
+     Vs2 = v_elem(ip,a,is,it,jst,L,jbas)
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
+     do J2 = jmin, jmax , 2
+      
+        sm = sm -  phase * (J2 + 1.d0) &
+            * sixj(jq,jp,jpq,Jtot,jr,J2) * sixj(ja,jp,jst,Jtot,ju,J2) &         
+            * Vs2 * v_elem(iq,ir,a,iu,J2,R,jbas)
+     end do
+  end do 
+  
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  ! FIRST TERM 
+  !changed to q-r instead of q+r
+  multfact = (-1)**((jq-jr)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
+  ! ju isn't in here because I need it to make add with ja
+  ! so I get an integer later 
+  sm = 0.d0   
+  do ia = 1,L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+     
+     if ( (jbas%itzp(a) + tp ).ne.(ts+tt)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(ls+lt,2)) cycle
+ 
+     ja = jbas%jj(a) 
+     
+     if (.not. triangle(jp,ja,jst) ) cycle
+     
+     jmin = max( abs(jq - jr) , abs(ja - ju), abs(jp-Jtot) ) 
+     jmax = min( jq+jr , ja+ju, jp+jtot) 
+     
+     phase = (-1)**((ja - ju)/2)
+        
+     Vs1 = v_elem(ip,a,is,it,jst,R,jbas)
+
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
+     do J2 = jmin, jmax , 2
+      
+        sm = sm +  phase * (J2 + 1.d0) &
+            * sixj(jq,jp,jpq,Jtot,jr,J2) * sixj(ja,jp,jst,Jtot,ju,J2) &
+            * Vs1 * v_elem(iq,ir,a,iu,J2,L,jbas)
+
+     end do
+  end do 
+  
+  smtot = smtot + sm*multfact
+
+
+
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  !SECOND TERM
+  sm = 0.d0 
+  
+  multfact = (-1)**((jq+jr+js-jt)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  ! added a minus sign
+  do ia = 1, L%belowEF
+     a = jbas%holes(ia) 
+     
+     if ( (jbas%itzp(a) + tp ).ne.(tu+tt)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(lu+lt,2)) cycle
+
+     
+     ja = jbas%jj(a)
+     jmin = max( abs(jp - ja) , abs(jt - ju) ,abs(js-jtot)) 
+     jmax = min( jp+ja , jt+ju,js+jtot) 
+     
+     jmin2 = max( abs(jq - jr) , abs(ja - js),abs(jp-jtot) ) 
+     jmax2 = min( jq+jr , ja+js,jp+jtot)
+     
+     phase = (-1) ** ((ja + ju)/2) 
+     
+     do J1 = jmin,jmax,2
+        
+        otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
+        
+        sm_sub = 0.d0
+        do J2 = jmin2,jmax2,2 
+           
+           sm_sub = sm_sub - (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
+                * sixj(jp,ja,J1,js,Jtot,J2) * &
+           v_elem(ip,a,it,iu,J1,L,jbas) * v_elem(iq,ir,a,is,J2,R,jbas)
+        end do 
+        
+        sm = sm + sm_sub * phase * otherfact
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  !SECOND TERM
+  sm = 0.d0 
+  
+  multfact = (-1)**((jq+jr+js-jt)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  ! added a minus sign
+  do ia = 1, L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+     
+     if ( (jbas%itzp(a) + tp ).ne.(tu+tt)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(lu+lt,2)) cycle
+
+     
+     ja = jbas%jj(a)
+     jmin = max( abs(jp - ja) , abs(jt - ju) ,abs(js-jtot)) 
+     jmax = min( jp+ja , jt+ju,js+jtot) 
+     
+     jmin2 = max( abs(jq - jr) , abs(ja - js),abs(jp-jtot) ) 
+     jmax2 = min( jq+jr , ja+js,jp+jtot)
+     
+     phase = (-1) ** ((ja + ju)/2) 
+     
+     do J1 = jmin,jmax,2
+        
+        otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
+        
+        sm_sub = 0.d0
+        do J2 = jmin2,jmax2,2 
+           
+           sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
+                * sixj(jp,ja,J1,js,Jtot,J2) * &
+          v_elem(ip,a,it,iu,J1,R,jbas) * v_elem(iq,ir,a,is,J2,L,jbas)
+        end do 
+        
+        sm = sm + sm_sub * phase * otherfact
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  ! THIRD TERM    
+  sm = 0.d0 
+  
+  multfact = (-1)**((jq+jr+jst)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  do ia = 1, L%belowEF
+     a = jbas%holes(ia) 
+
+     if ( (jbas%itzp(a) + tp ).ne.(tu+ts)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(lu+ls,2)) cycle
+
+     ja = jbas%jj(a)     
+     jmin = max( abs(jp - ja) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( jp+ja , js+ju , jt+jtot) 
+     
+     jmin2 = max( abs(jq - jr) , abs(ja - jt) , abs(jp-jtot) ) 
+     jmax2 = min( jq+jr , ja+jt,jp+jtot)
+     
+     phase = (-1) ** ((ja + js)/2) ! changed to ja+js rather than ja-js 
+     
+     do J1 = jmin,jmax,2
+        
+        otherfact = (J1+1.d0) *sixj(js,jt,jst,Jtot,ju,J1)  
+        
+        sm_sub = 0.d0
+        do J2 = jmin2,jmax2,2 
+           
+           sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
+                * sixj(jp,ja,J1,jt,Jtot,J2) * &
+          (v_elem(ip,a,iu,is,J1,R,jbas) * v_elem(iq,ir,a,it,J2,L,jbas) &
+           -v_elem(ip,a,iu,is,J1,L,jbas) * v_elem(iq,ir,a,it,J2,R,jbas))
+        end do 
+        
+        sm = sm + sm_sub * phase * otherfact
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  ! THIRD TERM    
+  sm = 0.d0 
+  
+  multfact = (-1)**((jq+jr+jst)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  do ia = 1, L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+
+     if ( (jbas%itzp(a) + tp ).ne.(tu+ts)) cycle
+     if ( mod(jbas%ll(a)+lp,2).ne.mod(lu+ls,2)) cycle
+
+     ja = jbas%jj(a)     
+     jmin = max( abs(jp - ja) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( jp+ja , js+ju , jt+jtot) 
+     
+     jmin2 = max( abs(jq - jr) , abs(ja - jt) , abs(jp-jtot) ) 
+     jmax2 = min( jq+jr , ja+jt,jp+jtot)
+     
+     phase = (-1) ** ((ja + js)/2) ! changed to ja+js rather than ja-js 
+     
+     do J1 = jmin,jmax,2
+        
+        otherfact = (J1+1.d0) *sixj(js,jt,jst,Jtot,ju,J1)  
+        
+        sm_sub = 0.d0
+        do J2 = jmin2,jmax2,2 
+           
+           sm_sub = sm_sub + (J2+1.d0) * sixj(jq,jp,jpq,Jtot,jr,J2) &
+                * sixj(jp,ja,J1,jt,Jtot,J2) * &
+          v_elem(ip,a,iu,is,J1,R,jbas) * v_elem(iq,ir,a,it,J2,L,jbas)
+        end do 
+        
+        sm = sm + sm_sub * phase * otherfact
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  ! FOURTH TERM
+  multfact = (-1)**((Jpq + jp+jq)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
+  ! ju isn't in here because I need it to make add with ja
+  ! so I get an integer later 
+  sm = 0.d0   
+  do ia = 1,L%belowEF
+     a = jbas%holes(ia)
+     
+     if ( (jbas%itzp(a) + tq ).ne.(tt+ts)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(lt+ls,2)) cycle
+
+     ja = jbas%jj(a) 
+     
+     if (.not. triangle(jq,ja,jst) ) cycle
+     
+     jmin = max( abs(jp - jr) , abs(ja - ju),abs(jtot-jq)) 
+     jmax = min( jp+jr , ja+ju,jtot+jq) 
+     
+     phase = (-1)**((ja + ju)/2) ! minus for fun
+      
+     Vs2 = v_elem(iq,a,is,it,jst,L,jbas)
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
+     do J2 = jmin, jmax , 2
+
+        sm = sm -  phase * (J2 + 1.d0)*(-1)**(J2/2) &
+            * sixj(jp,jq,jpq,Jtot,jr,J2) * sixj(ja,jq,jst,Jtot,ju,J2) &
+            * Vs2 * v_elem(ir,ip,a,iu,J2,R,jbas)
+
+     end do
+  end do 
+  
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  ! FOURTH TERM
+  multfact = (-1)**((Jpq + jp+jq)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
+  ! ju isn't in here because I need it to make add with ja
+  ! so I get an integer later 
+  sm = 0.d0   
+  do ia = 1,L%Nsp-L%belowEF
+     a = jbas%parts(ia)
+     
+     if ( (jbas%itzp(a) + tq ).ne.(tt+ts)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(lt+ls,2)) cycle
+
+     ja = jbas%jj(a) 
+     
+     if (.not. triangle(jq,ja,jst) ) cycle
+     
+     jmin = max( abs(jp - jr) , abs(ja - ju),abs(jtot-jq)) 
+     jmax = min( jp+jr , ja+ju,jtot+jq) 
+     
+     phase = (-1)**((ja + ju)/2) ! minus for fun
+      
+     Vs1 = v_elem(iq,a,is,it,jst,R,jbas)
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
+     do J2 = jmin, jmax , 2
+
+        sm = sm +  phase * (J2 + 1.d0)*(-1)**(J2/2) &
+            * sixj(jp,jq,jpq,Jtot,jr,J2) * sixj(ja,jq,jst,Jtot,ju,J2) &
+            *  Vs1 * v_elem(ir,ip,a,iu,J2,L,jbas)
+
+     end do
+  end do 
+  
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  ! FIFTH TERM 
+  sm = 0.d0 
+  
+  multfact = (-1)**((jpq+js-jt+jp+jq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  ! i've added (-1)**(jp+jq)
+  do ia = 1, L%belowEF
+     a = jbas%holes(ia) 
+
+     if ( (jbas%itzp(a) + tq ).ne.(tt+tu)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(lt+lu,2)) cycle
+
+     ja = jbas%jj(a)
+     jmin = max( abs(jq - ja) , abs(jt - ju) ,abs(js-jtot)) 
+     jmax = min( jq+ja , jt+ju,js+jtot) 
+     
+     jmin2 = max( abs(jp - jr) , abs(ja - js) ,abs(jq-jtot)) 
+     jmax2 = min( jp+jr , ja+js,jq+jtot)
+     
+     phase = (-1) ** ((ja + ju)/2) 
+     
+     do J1 = jmin,jmax,2
+        
+        otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
+        
+        sm_sub = 0.d0
+        do J2 = jmin2,jmax2,2 
+           
+           sm_sub = sm_sub - (-1)**(J2/2)*(J2+1.d0) &
+            * sixj(jp,jq,jpq,Jtot,jr,J2)* sixj(jq,ja,J1,js,Jtot,J2) &
+           * v_elem(iq,a,it,iu,J1,L,jbas) * v_elem(ir,ip,a,is,J2,R,jbas)
+        end do 
+        
+        sm = sm + sm_sub * phase * otherfact
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  ! FIFTH TERM 
+  sm = 0.d0 
+  
+  multfact = (-1)**((jpq+js-jt+jp+jq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  ! i've added (-1)**(jp+jq)
+  do ia = 1, L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+     if ( (jbas%itzp(a) + tq ).ne.(tt+tu)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(lt+lu,2)) cycle
+
+     ja = jbas%jj(a)
+     jmin = max( abs(jq - ja) , abs(jt - ju) ,abs(js-jtot)) 
+     jmax = min( jq+ja , jt+ju,js+jtot) 
+     
+     jmin2 = max( abs(jp - jr) , abs(ja - js) ,abs(jq-jtot)) 
+     jmax2 = min( jp+jr , ja+js,jq+jtot)
+     
+     phase = (-1) ** ((ja + ju)/2) 
+     
+     do J1 = jmin,jmax,2
+        
+        otherfact = (J1+1.d0) *(-1)**(J1/2) *sixj(jt,js,jst,Jtot,ju,J1)  
+        
+        sm_sub = 0.d0
+        do J2 = jmin2,jmax2,2 
+           
+           sm_sub = sm_sub + (-1)**(J2/2)*(J2+1.d0) &
+            * sixj(jp,jq,jpq,Jtot,jr,J2)* sixj(jq,ja,J1,js,Jtot,J2) &
+          *v_elem(iq,a,it,iu,J1,R,jbas) * v_elem(ir,ip,a,is,J2,L,jbas)
+        end do 
+        
+        sm = sm + sm_sub * phase * otherfact
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+  
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ! SIXTH TERM
+  sm = 0.d0 
+  
+  multfact = -1*(-1)**((jpq+jst+jp+jq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  do ia = 1, L%belowEF
+     a = jbas%holes(ia) 
+     
+     if ( (jbas%itzp(a) + tq ).ne.(ts+tu)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(ls+lu,2)) cycle
+        
+     ja = jbas%jj(a)
+     jmin = max( abs(jq - ja) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( jq+ja , js+ju,jt+jtot) 
+     
+     jmin2 = max( abs(jp - jr) , abs(ja - jt),abs(jq-jtot) ) 
+     jmax2 = min( jp+jr , ja+jt,jq+jtot)
+     
+     phase = (-1) ** ((ja - js)/2) 
+     
+     do J1 = jmin,jmax,2
+        
+        otherfact = (J1+1.d0)*sixj(js,jt,jst,Jtot,ju,J1)  
+        
+        sm_sub = 0.d0
+        do J2 = jmin2,jmax2,2 
+           
+           sm_sub = sm_sub - (-1)**(J2/2)*(J2+1.d0) &
+            * sixj(jp,jq,jpq,Jtot,jr,J2)* sixj(jq,ja,J1,jt,Jtot,J2) &
+           *v_elem(iq,a,iu,is,J1,L,jbas) * v_elem(ir,ip,a,it,J2,R,jbas)
+        end do 
+        
+        sm = sm + sm_sub * phase * otherfact
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ! SIXTH TERM
+  sm = 0.d0 
+  
+  multfact = -1*(-1)**((jpq+jst+jp+jq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  do ia = 1, L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+     
+     if ( (jbas%itzp(a) + tq ).ne.(ts+tu)) cycle
+     if ( mod(jbas%ll(a)+lq,2).ne.mod(ls+lu,2)) cycle
+        
+     ja = jbas%jj(a)
+     jmin = max( abs(jq - ja) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( jq+ja , js+ju,jt+jtot) 
+     
+     jmin2 = max( abs(jp - jr) , abs(ja - jt),abs(jq-jtot) ) 
+     jmax2 = min( jp+jr , ja+jt,jq+jtot)
+     
+     phase = (-1) ** ((ja - js)/2) 
+     
+     do J1 = jmin,jmax,2
+        
+        otherfact = (J1+1.d0)*sixj(js,jt,jst,Jtot,ju,J1)  
+        
+        sm_sub = 0.d0
+        do J2 = jmin2,jmax2,2 
+           
+           sm_sub = sm_sub + (-1)**(J2/2)*(J2+1.d0) &
+            * sixj(jp,jq,jpq,Jtot,jr,J2)* sixj(jq,ja,J1,jt,Jtot,J2) &
+          *v_elem(iq,a,iu,is,J1,R,jbas) * v_elem(ir,ip,a,it,J2,L,jbas)
+        end do 
+        
+        sm = sm + sm_sub * phase * otherfact
+        
+     end do
+ 
+  end do
+     
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ! SEVENTH TERM
+  
+  sm = 0.d0 
+  multfact = (-1)**((jpq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  do ia = 1, L%belowEF
+     a = jbas%holes(ia) 
+     
+     if ( (jbas%itzp(a) + tr ).ne.(ts+tt)) cycle
+     if ( mod(jbas%ll(a)+lr,2).ne.mod(ls+lt,2)) cycle
+        
+     ja = jbas%jj(a)
+     if (.not. triangle(ju,ja,jpq) ) cycle
+     if (.not. triangle(jr,ja,jst) ) cycle
+
+     ! using ja-ju instead of ja+ju
+     sm = sm - (-1)**((ja-ju)/2)*sixj(jr,ja,jst,ju,Jtot,jpq) &
+     *v_elem(ir,a,is,it,jst,L,jbas) * v_elem(ip,iq,a,iu,jpq,R,jbas)
+  end do 
+  
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ! SEVENTH TERM
+  
+  sm = 0.d0 
+  multfact = (-1)**((jpq)/2) *sqrt((jpq+1.d0)*(jst+1.d0))
+  do ia = 1, L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+     
+     if ( (jbas%itzp(a) + tr ).ne.(ts+tt)) cycle
+     if ( mod(jbas%ll(a)+lr,2).ne.mod(ls+lt,2)) cycle
+        
+     ja = jbas%jj(a)
+     if (.not. triangle(ju,ja,jpq) ) cycle
+     if (.not. triangle(jr,ja,jst) ) cycle
+
+     ! using ja-ju instead of ja+ju
+     sm = sm + (-1)**((ja-ju)/2)*sixj(jr,ja,jst,ju,Jtot,jpq) &
+      *v_elem(ir,a,is,it,jst,R,jbas) * v_elem(ip,iq,a,iu,jpq,L,jbas)
+  end do 
+  
+  smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+  !EIGHTH TERM 
+   multfact = (-1)**((Jpq+js+jt)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
+   ! ju isn't in here because I need it to make add with ja
+   ! so I get an integer later 
+   sm = 0.d0   
+   do ia = 1,L%belowEF
+      a = jbas%holes(ia) 
+
+      if ( (jbas%itzp(a) + tr ).ne.(tu+tt)) cycle
+      if ( mod(jbas%ll(a)+lr,2).ne.mod(lu+lt,2)) cycle
+             
+      ja = jbas%jj(a) 
+     
+      if (.not. triangle(js,ja,jpq) ) cycle
+    
+      jmin = max( abs(ja - jr) , abs(jt - ju),abs(js-jtot) ) 
+      jmax = min( ja+jr , jt+ju,js+jtot) 
+     
+      phase = (-1)**((ja + ju)/2)     
+      
+      Vs2 = v_elem(ip,iq,a,is,jpq,R,jbas)
+      if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
+      do J1 = jmin, jmax , 2
+
+         sm = sm -  phase * (-1)**(J1/2)*(J1 + 1.d0) &
+             * sixj(jt,js,jst,Jtot,ju,J1) * sixj(jr,ja,J1,js,Jtot,jpq) &
+             *v_elem(ir,a,it,iu,J1,L,jbas) * Vs2
+
+      end do
+   end do 
+  
+   smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+  !EIGHTH TERM 
+   multfact = (-1)**((Jpq+js+jt)/2) *sqrt((jpq+1.d0) * (jst+1.d0 )) 
+   ! ju isn't in here because I need it to make add with ja
+   ! so I get an integer later 
+   sm = 0.d0   
+   do ia = 1,L%Nsp-L%belowEF
+      a = jbas%parts(ia) 
+
+      if ( (jbas%itzp(a) + tr ).ne.(tu+tt)) cycle
+      if ( mod(jbas%ll(a)+lr,2).ne.mod(lu+lt,2)) cycle
+             
+      ja = jbas%jj(a) 
+     
+      if (.not. triangle(js,ja,jpq) ) cycle
+    
+      jmin = max( abs(ja - jr) , abs(jt - ju),abs(js-jtot) ) 
+      jmax = min( ja+jr , jt+ju,js+jtot) 
+     
+      phase = (-1)**((ja + ju)/2)     
+      
+      Vs1 = v_elem(ip,iq,a,is,jpq,L,jbas)
+      if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
+      do J1 = jmin, jmax , 2
+
+         sm = sm +  phase * (-1)**(J1/2)*(J1 + 1.d0) &
+             * sixj(jt,js,jst,Jtot,ju,J1) * sixj(jr,ja,J1,js,Jtot,jpq) &
+             * v_elem(ir,a,it,iu,J1,R,jbas) * Vs1
+
+      end do
+   end do 
+  
+   smtot = smtot + sm*multfact
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ! NINTH TERM
+  multfact = (-1)**((Jst-Jpq)/2) *sqrt((Jpq+1.d0) * (Jst+1.d0 )) 
+  ! ju isn't in here because I need it to make add with ja
+  ! so I get an integer later 
+  sm = 0.d0   
+  do ia = 1,L%belowEF
+     a = jbas%holes(ia) 
+     
+     if ( (jbas%itzp(a) + tr ).ne.(tu+ts)) cycle
+     if ( mod(jbas%ll(a)+lr,2).ne.mod(lu+ls,2)) cycle
+                  
+     ja = jbas%jj(a) 
+     
+     if (.not. triangle(ja,jt,jpq) ) cycle
+     
+     jmin = max( abs(ja - jr) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( ja+jr , js+ju,jt+jtot) 
+     
+     phase = (-1)**((ja - js)/2) 
+     
+     Vs2 = v_elem(ip,iq,a,it,jpq,R,jbas)
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
+     do J1 = jmin, jmax , 2
+     
+        sm = sm -  phase * (J1 + 1.d0) &
+            * sixj(js,jt,jst,Jtot,ju,J1) * sixj(jr,ja,J1,jt,Jtot,jpq) &
+            * v_elem(ir,a,iu,is,J1,L,jbas) * Vs2
+        
+     end do
+  end do 
+  
+  smtot = smtot + sm*multfact
+
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ! NINTH TERM
+  multfact = (-1)**((Jst-Jpq)/2) *sqrt((Jpq+1.d0) * (Jst+1.d0 )) 
+  ! ju isn't in here because I need it to make add with ja
+  ! so I get an integer later 
+  sm = 0.d0   
+  do ia = 1,L%Nsp-L%belowEF
+     a = jbas%parts(ia) 
+     
+     if ( (jbas%itzp(a) + tr ).ne.(tu+ts)) cycle
+     if ( mod(jbas%ll(a)+lr,2).ne.mod(lu+ls,2)) cycle
+                  
+     ja = jbas%jj(a) 
+     
+     if (.not. triangle(ja,jt,jpq) ) cycle
+     
+     jmin = max( abs(ja - jr) , abs(js - ju) ,abs(jt-jtot)) 
+     jmax = min( ja+jr , js+ju,jt+jtot) 
+     
+     phase = (-1)**((ja - js)/2) 
+     
+     Vs1 = v_elem(ip,iq,a,it,jpq,L,jbas)
+     if ((abs(vs1)<1e-8).and.(abs(vs2)<1e-8))cycle
+     do J1 = jmin, jmax , 2
+     
+        sm = sm +  phase * (J1 + 1.d0) &
+            * sixj(js,jt,jst,Jtot,ju,J1) * sixj(jr,ja,J1,jt,Jtot,jpq) &
+            * v_elem(ir,a,iu,is,J1,R,jbas) * Vs1
+        
+     end do
+  end do 
+  
+  smtot = smtot + sm*multfact
+       
+  EOM_scalar_commutator_223_single = smtot
+
+end function EOM_scalar_commutator_223_single
+
 end module 
   
   
