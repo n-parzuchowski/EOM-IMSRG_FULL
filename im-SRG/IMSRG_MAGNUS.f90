@@ -808,7 +808,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   real(8) :: faa,fbb,fcc,fii,fjj,fkk,Gabab,Gkbkb,Gkckc
   real(8) :: Gacac,Gbcbc,Gijij,Gikik,Gjkjk,Giaia
   real(8) :: Gibib,Gicic,Gjaja,Gjbjb,Gjcjc,Gkaka    
-  real(8) :: sm,denom,dlow,w
+  real(8) :: sm,denom,dlow,w,pre1,pre2
   
   sm = 0.d0   
   total_threads = size(threebas(1)%direct_omp) - 1
@@ -822,9 +822,10 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   
      Jtot = threebas(q)%chan(1) 
      do AAA = 1, size(threebas(q)%ppp(:,1)) 
-        
+        pre1 = 1.d0 
         a = threebas(q)%ppp(AAA,1)
         b = threebas(q)%ppp(AAA,2)
+        if (a==b) pre1 = 0.5d0
         c = threebas(q)%ppp(AAA,3)
 
         ja = jbas%jj(a)      
@@ -843,8 +844,10 @@ real(8) function restore_triples(H,OM,threebas,jbas)
         
         do III = 1, size(threebas(q)%hhh(:,1)) 
              
+           pre2 = 1.d0 
            i = threebas(q)%hhh(III,1)
            j = threebas(q)%hhh(III,2)
+           if (i==j) pre2 = 0.5d0
            k = threebas(q)%hhh(III,3)
 
            ji = jbas%jj(i)       
@@ -888,7 +891,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
                  if ( .not. (triangle(Jtot,jk,Jij))) cycle
                  if ((i==j) .and. (mod(Jij/2,2)==1)) cycle
                  w = commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)
-                  sm = sm + w*w/denom*(Jtot+1.d0)
+                  sm = sm + w*w/denom*(Jtot+1.d0)*pre1*pre2
                  !sm =sm  + commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2&
                   !    /denom*(Jtot+1.d0) 
               end do
@@ -899,7 +902,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   end do
   end do 
  !$OMP END PARALLEL DO 
-  restore_triples = sm / 36.d0 
+  restore_triples = sm / 9.d0 
 
 end function
 !================================================

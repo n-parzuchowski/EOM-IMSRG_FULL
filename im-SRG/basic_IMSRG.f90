@@ -4120,7 +4120,7 @@ subroutine enumerate_three_body(threebas,jbas)
       li = jbas%ll(i)      
       ti = jbas%itzp(i)
       
-      do jx = 1,holes
+      do jx = ix,holes
          j =jbas%holes(jx)
          jj = jbas%jj(j)
          lj = jbas%ll(j)      
@@ -4160,7 +4160,7 @@ subroutine enumerate_three_body(threebas,jbas)
       li = jbas%ll(i)      
       ti = jbas%itzp(i)
       
-      do jx = 1,holes
+      do jx = ix,holes
          j =jbas%holes(jx)
          jj = jbas%jj(j)
          lj = jbas%ll(j)      
@@ -4205,7 +4205,7 @@ subroutine enumerate_three_body(threebas,jbas)
       la = jbas%ll(a)      
       ta = jbas%itzp(a)
       
-      do bx = 1,parts
+      do bx = ax,parts
          b =jbas%parts(bx)
          jb = jbas%jj(b)
          lb = jbas%ll(b)      
@@ -4247,7 +4247,7 @@ subroutine enumerate_three_body(threebas,jbas)
       la = jbas%ll(a)      
       ta = jbas%itzp(a)
       
-      do bx = 1,parts
+      do bx = ax,parts
          b =jbas%parts(bx)
          jb = jbas%jj(b)
          lb = jbas%ll(b)      
