@@ -3562,6 +3562,20 @@ integer function fermionic_tp_index(i,j,n)
 end function 
 !===================================================== 
 !=====================================================  
+subroutine print_basis(jbas,HS) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) :: HS
+  integer i
+
+  print*, '   n    l    j    tz   energy ' 
+  do i = 1, jbas%total_orbits 
+     write(*,'(4(I5),f12.7)') jbas%nn(i),jbas%ll(i),jbas%jj(i),jbas%itzp(i),f_elem(i,i,HS,jbas) 
+  end do
+end subroutine print_basis
+!=====================================================
+!=====================================================
 subroutine print_matrix(matrix)
   implicit none 
   
@@ -4129,7 +4143,7 @@ subroutine enumerate_three_body(threebas,jbas)
          Jij_min = abs(ji - jj) 
          Jij_max = ji + jj 
          
-         do kx= 1,holes
+         do kx= jx,holes
             
             k =jbas%holes(kx)
             jk = jbas%jj(k)
@@ -4169,7 +4183,7 @@ subroutine enumerate_three_body(threebas,jbas)
          Jij_min = abs(ji - jj) 
          Jij_max = ji + jj 
          
-         do kx= 1,holes
+         do kx= jx,holes
             
             k =jbas%holes(kx)
             jk = jbas%jj(k)
@@ -4214,7 +4228,7 @@ subroutine enumerate_three_body(threebas,jbas)
          Jab_min = abs(ja - jb) 
          Jab_max = ja + jb 
          
-         do cx= 1,parts
+         do cx= bx,parts
             
             c =jbas%parts(cx)
             jc = jbas%jj(c)
@@ -4256,7 +4270,7 @@ subroutine enumerate_three_body(threebas,jbas)
          Jab_min = abs(ja - jb) 
          Jab_max = ja + jb 
          
-         do cx= 1,parts
+         do cx= bx,parts
             
             c =jbas%parts(cx)
             jc = jbas%jj(c)

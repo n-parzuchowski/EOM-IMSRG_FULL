@@ -799,9 +799,22 @@ real(8) function tensor_triples(H,Xdag,jbas)
         pre1 = 1.d0
         a = threebas(q)%ppp(AAA,1)
         b = threebas(q)%ppp(AAA,2)
-        if (a==b) pre1 = 0.5
         c = threebas(q)%ppp(AAA,3)
         
+        if (a==b) then 
+           if (a==c) then 
+              pre1 = 6.d0
+           else
+              pre1 = 2.d0
+           end if
+        else if (a==c) then 
+           pre1 = 2.d0
+        else if (b==c) then 
+           pre1 = 2.d0 
+        else
+           pre1 = 1.d0 
+        end if
+
         ja = jbas%jj(a)      
         jb = jbas%jj(b) 
         jc = jbas%jj(c) 
@@ -834,8 +847,21 @@ real(8) function tensor_triples(H,Xdag,jbas)
                  pre2=1.d0
                  i = threebas(q2)%hhh(III,1)
                  j = threebas(q2)%hhh(III,2)
-                 if (i==j) pre2 = 0.5d0
                  k = threebas(q2)%hhh(III,3)
+                 
+                 if (i==j) then 
+                    if (i==k) then 
+                       pre2 = 6.d0
+                    else
+                       pre2 = 2.d0
+                    end if
+                 else if (i==k) then 
+                    pre2 = 2.d0
+                 else if (j==k) then 
+                    pre2 = 2.d0 
+                 else
+                    pre2 = 1.d0 
+                 end if
 
                  ji = jbas%jj(i)       
                  jj = jbas%jj(j) 
@@ -864,10 +890,10 @@ real(8) function tensor_triples(H,Xdag,jbas)
                  Gkbkb = twobody_monopole(k,b,jk,jb,H,jbas) 
                  Gkckc = twobody_monopole(k,c,jk,jc,H,jbas) 
 
-                 denom = Xdag%E0-(faa+fbb+fcc-fii-fjj-fkk+Gabab+&
+                 denom = (Xdag%E0-(faa+fbb+fcc-fii-fjj-fkk+Gabab+&
                       Gacac+Gbcbc+Gijij+Gikik+Gjkjk-Giaia&
                       -Gibib-Gicic-Gjaja-Gjbjb-Gjcjc-Gkaka-&
-                      Gkbkb-Gkckc)
+                      Gkbkb-Gkckc))*pre1*pre2
               
               
                  do jij = jij_min, jij_max,2
@@ -876,7 +902,7 @@ real(8) function tensor_triples(H,Xdag,jbas)
                     if ((i==j).and.(mod(Jij/2,2)==1)) cycle
                     
                     w = EOM_TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)
-                    sm = sm + w*w/denom*(jtot1+1.d0)/(rank+1.d0)*pre1*pre2
+                    sm = sm + w*w/denom*(jtot1+1.d0)/(rank+1.d0)
 
                  end do
               end do
@@ -887,7 +913,7 @@ real(8) function tensor_triples(H,Xdag,jbas)
   end do
   end do
  !$OMP END PARALLEL DO 
-  tensor_triples = sm / 9.d0 
+  tensor_triples = sm
 
 end function tensor_triples
 !=====================================================
@@ -930,9 +956,21 @@ real(8) function scalar_triples(H,Xdag,jbas)
         pre1 = 1.d0
         a = threebas(q)%ppp(AAA,1)
         b = threebas(q)%ppp(AAA,2)
-        if (a==b) pre1 = 0.5d0
-        
         c = threebas(q)%ppp(AAA,3)
+
+        if (a==b) then 
+           if (a==c) then 
+              pre1 = 6.d0
+           else
+              pre1 = 2.d0
+           end if
+        else if (a==c) then 
+           pre1 = 2.d0
+        else if (b==c) then 
+           pre1 = 2.d0 
+        else
+           pre1 = 1.d0 
+        end if
 
         ja = jbas%jj(a)      
         jb = jbas%jj(b) 
@@ -953,9 +991,22 @@ real(8) function scalar_triples(H,Xdag,jbas)
            pre2 = 1.d0 
            i = threebas(q)%hhh(III,1)
            j = threebas(q)%hhh(III,2)
-           if (a==b) pre2 = 0.5d0
            k = threebas(q)%hhh(III,3)
            
+           if (i==j) then 
+              if (i==k) then 
+                 pre2 = 6.d0
+              else
+                 pre2 = 2.d0
+              end if
+           else if (i==k) then 
+              pre2 = 2.d0
+           else if (j==k) then 
+              pre2 = 2.d0 
+           else
+              pre2 = 1.d0 
+           end if 
+
            ji = jbas%jj(i)       
            jj = jbas%jj(j) 
            jk = jbas%jj(k)  
@@ -983,10 +1034,10 @@ real(8) function scalar_triples(H,Xdag,jbas)
            Gkbkb = twobody_monopole(k,b,jk,jb,H,jbas) 
            Gkckc = twobody_monopole(k,c,jk,jc,H,jbas) 
 
-           denom = Xdag%E0-(faa+fbb+fcc-fii-fjj-fkk+Gabab+&
+           denom = (Xdag%E0-(faa+fbb+fcc-fii-fjj-fkk+Gabab+&
                 Gacac+Gbcbc+Gijij+Gikik+Gjkjk-Giaia&
                 -Gibib-Gicic-Gjaja-Gjbjb-Gjcjc-Gkaka-&
-                Gkbkb-Gkckc) 
+                Gkbkb-Gkckc) )*pre1*pre2
 
            do jab = jab_min,jab_max,2
 
@@ -998,7 +1049,7 @@ real(8) function scalar_triples(H,Xdag,jbas)
                  if ((i==j) .and. (mod(Jij/2,2)==1)) cycle
                  w = EOM_scalar_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jab,jij,jbas)
 
-                 sm = sm + w*w/denom/(rank+1.d0) *pre1*pre2
+                 sm = sm + w*w/denom/(rank+1.d0)
 
               end do
            end do
@@ -1009,7 +1060,7 @@ real(8) function scalar_triples(H,Xdag,jbas)
   end do
   end do
  !$OMP END PARALLEL DO 
-  scalar_triples = sm / 9.d0 
+  scalar_triples = sm 
 
 end function scalar_triples
 

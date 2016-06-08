@@ -822,12 +822,24 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   
      Jtot = threebas(q)%chan(1) 
      do AAA = 1, size(threebas(q)%ppp(:,1)) 
-        pre1 = 1.d0 
+
         a = threebas(q)%ppp(AAA,1)
         b = threebas(q)%ppp(AAA,2)
-        if (a==b) pre1 = 0.5d0
         c = threebas(q)%ppp(AAA,3)
 
+        if (a==b) then 
+           if (a==c) then 
+              pre1 = 6.d0
+           else
+              pre1 = 2.d0
+           end if
+        else if (a==c) then 
+           pre1 = 2.d0
+        else if (b==c) then 
+           pre1 = 2.d0 
+        else
+           pre1 = 1.d0 
+        end if
         ja = jbas%jj(a)      
         jb = jbas%jj(b) 
         jc = jbas%jj(c) 
@@ -844,12 +856,24 @@ real(8) function restore_triples(H,OM,threebas,jbas)
         
         do III = 1, size(threebas(q)%hhh(:,1)) 
              
-           pre2 = 1.d0 
            i = threebas(q)%hhh(III,1)
            j = threebas(q)%hhh(III,2)
-           if (i==j) pre2 = 0.5d0
            k = threebas(q)%hhh(III,3)
 
+           if (i==j) then 
+              if (i==k) then 
+                 pre2 = 6.d0
+              else
+                 pre2 = 2.d0
+              end if
+           else if (i==k) then 
+              pre2 = 2.d0
+           else if (j==k) then 
+              pre2 = 2.d0 
+           else
+              pre2 = 1.d0 
+           end if 
+              
            ji = jbas%jj(i)       
            jj = jbas%jj(j) 
            jk = jbas%jj(k)  
@@ -880,7 +904,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
            denom = -1*(faa+fbb+fcc-fii-fjj-fkk+Gabab+&
                 Gacac+Gbcbc+Gijij+Gikik+Gjkjk-Giaia&
                 -Gibib-Gicic-Gjaja-Gjbjb-Gjcjc-Gkaka-&
-                Gkbkb-Gkckc) 
+                Gkbkb-Gkckc)*pre1*pre2 
            
            do jab = jab_min,jab_max,2
                
@@ -891,7 +915,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
                  if ( .not. (triangle(Jtot,jk,Jij))) cycle
                  if ((i==j) .and. (mod(Jij/2,2)==1)) cycle
                  w = commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)
-                  sm = sm + w*w/denom*(Jtot+1.d0)*pre1*pre2
+                  sm = sm + w*w/denom*(Jtot+1.d0)
                  !sm =sm  + commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2&
                   !    /denom*(Jtot+1.d0) 
               end do
@@ -902,7 +926,7 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   end do
   end do 
  !$OMP END PARALLEL DO 
-  restore_triples = sm / 9.d0 
+  restore_triples = sm! / 9.d0 
 
 end function
 !================================================

@@ -286,12 +286,7 @@ print*, 'FINISHED WITH HF'
 
 91 t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
-  
-  print*, '    n   l  j   energy ' 
-  do i = 1, 30,2 
-     write(*,'(3(I5),f12.7)') jbas%nn(i),jbas%ll(i),jbas%jj(i),f_elem(i,i,HS,jbas) 
-  end do 
-  
+    
   if (ex_calc_int==1) then 
      call calculate_excited_states(HS%Jtarg,HS%Ptarg,3,HS,jbas,Otrans) 
      t2 = omp_get_wtime() 
