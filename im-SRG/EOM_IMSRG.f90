@@ -17,10 +17,12 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   type(sq_op) :: HS 
   type(sq_op),optional :: O1
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
+  real(8),allocatable,dimension(:) :: trips
   integer :: J,PAR,Numstates,i,q,aa,jj
   character(2) :: Jlabel,Plabel,betalabel  
   
   allocate(ladder_ops(numstates)) 
+  allocate(trips(numstates))
   ladder_ops%herm = 1
 
   ladder_ops%rank = J 
@@ -79,7 +81,6 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
               end if
            end do 
         end do 
-        stop
         
         write(51,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2,Mfi**2
      end do
@@ -90,26 +91,19 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
      print*
      print*, 'EXCITED STATE ENERGIES:'
-     print*, '======================================================='
-     print*, '      dE             E_0 + dE       n(1p1h)     n(1v1h)' 
-     print*, '======================================================='
-     do i = 1, Numstates
+     print*, '================================================================'!==========='
+     print*, '      dE                dE(T)       dE_0 + dE         n(1p1h)  ' !  n(1v1h) ' 
+     print*, '================================================================'!==========='
+     do i = 1, Numstates!          x       x       xxxxxxx   
         SD_Shell_content = 0.d0 
 
-        do jj = 1, HS%belowEF
-           do aa = 1, HS%Nsp-HS%belowEF
-              if (jbas%parts(aa).le.12) then 
-                 SD_Shell_content = SD_Shell_content +  ladder_ops(i)%fph(aa,jj)**2
-              end if 
-           end do
-        end do
         t1=omp_get_wtime()        
-!        dEtrips = 0.d0 
         dEtrips =  EOM_triples(HS,ladder_ops(i),jbas) 
+        trips(i) =dEtrips
         t2=omp_get_wtime()
         write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
-             sum(ladder_ops(i)%fph**2),SD_shell_content,t2-t1
-        stop
+             sum(ladder_ops(i)%fph**2),t2-t1
+
      end do
      print*
      print*
@@ -131,7 +125,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
        trim(adjustl(prefix))//&
        '_EOM_spec_law'//trim(betalabel)//'.dat')  
   do i = 1, Numstates
-     write(72,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0, &
+     write(72,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0, &
           sum(ladder_ops(i)%fph**2)
   end do
 
@@ -143,7 +137,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   write(75,'(5(e17.7))') HS%lawson_beta, HS%E0,ladder_ops(1:3)%E0+HS%E0
   close(75)
   
-end subroutine 
+end subroutine calculate_excited_states
 
 subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)    
   
@@ -777,7 +771,6 @@ real(8) function tensor_triples(H,Xdag,jbas)
   real(8) :: Gibib,Gicic,Gjaja,Gjbjb,Gjcjc,Gkaka  
   real(8) :: sm,denom,dlow,w,w_test,min_Denom,pre1,pre2
   
-  print*, 'running triples on EOM state' 
   sm = 0.d0   
   call enumerate_three_body(threebas,jbas)  
   total_threads = size(threebas(1)%direct_omp) - 1
@@ -934,7 +927,6 @@ real(8) function scalar_triples(H,Xdag,jbas)
   real(8) :: Gibib,Gicic,Gjaja,Gjbjb,Gjcjc,Gkaka  
   real(8) :: sm,denom,dlow,w,w_test,pre1,pre2
   
-  print*, 'running triples on EOM state' 
   sm = 0.d0   
   call enumerate_three_body(threebas,jbas)  
   total_threads = size(threebas(1)%direct_omp) - 1
