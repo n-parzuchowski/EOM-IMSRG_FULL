@@ -2325,7 +2325,7 @@ subroutine store_6j(jbas,trips)
   
   !if (trips == 'y') then  
      ! this is necessary for three-body calculations
-     num_half = (3*jbas%Jtotal_max + 1)/2
+     num_half = (3*jbas%Jtotal_max + 1)/2 !triples are common so I am making this default.
      ! however, it clearly increases the memory requirements
 !  else
  !    num_half = (jbas%Jtotal_max+6 + 1)/2
@@ -2344,7 +2344,6 @@ subroutine store_6j(jbas,trips)
   
   ! the second index refers to j4,j5 which cannot be ordered
   ! so we need an extra set of states for the reverse ordering (nferm) 
-  print*, num_half
   do j1 = 1, num_half
      do j2 = j1, num_half 
 
@@ -4146,7 +4145,6 @@ subroutine enumerate_three_body(threebas,jbas)
             end do 
             
             if (Jij > Jij_max) cycle 
-            
             num_hhh = num_hhh + 1 
         end do 
      end do 
@@ -4188,7 +4186,7 @@ subroutine enumerate_three_body(threebas,jbas)
             end do 
             
             if (Jij > Jij_max) cycle 
-           
+
             num_hhh = num_hhh + 1
             threebas(q)%hhh(num_hhh,1) = i 
             threebas(q)%hhh(num_hhh,2) = j 
@@ -4233,7 +4231,7 @@ subroutine enumerate_three_body(threebas,jbas)
             end do 
             
             if (Jab > Jab_max) cycle 
-            
+
             num_ppp = num_ppp + 1 
         end do 
      end do 
@@ -4275,7 +4273,7 @@ subroutine enumerate_three_body(threebas,jbas)
             end do 
             
             if (Jab > Jab_max) cycle 
-            
+
             num_ppp = num_ppp + 1 
             threebas(q)%ppp(num_ppp,1) = a 
             threebas(q)%ppp(num_ppp,2) = b 

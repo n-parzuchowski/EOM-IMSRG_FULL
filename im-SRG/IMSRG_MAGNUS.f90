@@ -881,12 +881,13 @@ real(8) function restore_triples(H,OM,threebas,jbas)
            
            do jab = jab_min,jab_max,2
                
-              if ( .not. (triangle(Jtot,jc,jab))) cycle
-               
+              if ( .not. (triangle(Jtot,jc,Jab))) cycle
+              if ((a==b) .and. (mod(Jab/2,2)==1)) cycle               
               do jij = jij_min, jij_max,2
                   
-                 if ( .not. (triangle(Jtot,jk,jij))) cycle
-                  w = commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)
+                 if ( .not. (triangle(Jtot,jk,Jij))) cycle
+                 if ((i==j) .and. (mod(Jij/2,2)==1)) cycle
+                 w = commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)
                   sm = sm + w*w/denom*(Jtot+1.d0)
                  !sm =sm  + commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2&
                   !    /denom*(Jtot+1.d0) 

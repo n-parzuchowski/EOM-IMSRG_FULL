@@ -109,7 +109,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
         t2=omp_get_wtime()
         write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
              sum(ladder_ops(i)%fph**2),SD_shell_content,t2-t1
-        
+        stop
      end do
      print*
      print*
@@ -775,7 +775,7 @@ real(8) function tensor_triples(H,Xdag,jbas)
   real(8) :: faa,fbb,fcc,fii,fjj,fkk,Gabab,Gkbkb,Gkckc
   real(8) :: Gacac,Gbcbc,Gijij,Gikik,Gjkjk,Giaia
   real(8) :: Gibib,Gicic,Gjaja,Gjbjb,Gjcjc,Gkaka  
-  real(8) :: sm,denom,dlow,w,w_test
+  real(8) :: sm,denom,dlow,w,w_test,min_Denom
   
   print*, 'running triples on EOM state' 
   sm = 0.d0   
@@ -784,12 +784,12 @@ real(8) function tensor_triples(H,Xdag,jbas)
   rank = Xdag%rank
   fails = 0
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,Xdag) & 
-!$OMP& REDUCTION(+:sm)  
+!$OMP& REDUCTION(+:sm)  reduction(+:global_counter1) reduction(+:global_counter2)
   
   do thread = 1, total_threads
   do q = 1+threebas(1)%direct_omp(thread),&
        threebas(1)%direct_omp(thread+1)
-  !do q = 1, size(threebas)
+  !!do q = 1, size(threebas)
 
      jtot1 = threebas(q)%chan(1)      
      TZ = threebas(q)%chan(2)      
@@ -800,7 +800,7 @@ real(8) function tensor_triples(H,Xdag,jbas)
         a = threebas(q)%ppp(AAA,1)
         b = threebas(q)%ppp(AAA,2)
         c = threebas(q)%ppp(AAA,3)
-
+        
         ja = jbas%jj(a)      
         jb = jbas%jj(b) 
         jc = jbas%jj(c) 
@@ -860,20 +860,21 @@ real(8) function tensor_triples(H,Xdag,jbas)
               denom = Xdag%E0-(faa+fbb+fcc-fii-fjj-fkk+Gabab+&
                    Gacac+Gbcbc+Gijij+Gikik+Gjkjk-Giaia&
                    -Gibib-Gicic-Gjaja-Gjbjb-Gjcjc-Gkaka-&
-                   Gkbkb-Gkckc) 
+                   Gkbkb-Gkckc)
               
               do jab = jab_min,jab_max,2
 
-                 if ( .not. (triangle(jtot1,jc,jab))) cycle
+                 if ( .not. (triangle(jtot1,jc,Jab))) cycle
+                 if ((a==b).and.(mod(Jab/2,2)==1)) cycle
                  
                  do jij = jij_min, jij_max,2
                     
-                    if ( .not. (triangle(jtot1,jk,jij))) cycle
-
+                    if ( .not. (triangle(jtot2,jk,Jij))) cycle
+                    if ((i==j).and.(mod(Jij/2,2)==1)) cycle
+                    
                     w = EOM_TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)
-
                     sm = sm + w*w/denom*(jtot1+1.d0)/(rank+1.d0) 
-           
+                    
                  end do
               end do
 
@@ -982,12 +983,12 @@ real(8) function scalar_triples(H,Xdag,jbas)
 
            do jab = jab_min,jab_max,2
 
-              if ( .not. (triangle(jtot1,jc,jab))) cycle
-
+              if ( .not. (triangle(jtot1,jc,Jab))) cycle
+              if ((a==b) .and. (mod(Jab/2,2)==1)) cycle
               do jij = jij_min, jij_max,2
 
                  if ( .not. (triangle(jtot1,jk,jij))) cycle
-
+                 if ((i==j) .and. (mod(Jij/2,2)==1)) cycle
                  w = EOM_scalar_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jab,jij,jbas)
 
                  sm = sm + w*w/denom/(rank+1.d0) 
