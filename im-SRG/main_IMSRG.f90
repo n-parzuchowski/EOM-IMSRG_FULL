@@ -13,7 +13,7 @@ program main_IMSRG
   implicit none
   
   type(spd) :: jbas,jbx
-  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num
+  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cc_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
@@ -23,7 +23,7 @@ program main_IMSRG
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
   integer :: na,la,lb
-  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x
+  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
   external :: build_gs_white,build_specific_space,build_gs_atan,build_gs_w2
@@ -223,6 +223,10 @@ print*, 'FINISHED WITH HF'
 
 
      if ( decouple ) then 
+        if (trips .ne. 'n') then 
+           call duplicate_Sq_op(HS,H0)
+           call copy_sq_op(HS,H0)
+        end if
         call magnus_decouple(HS,exp_omega,jbas,quads,trips,build_gs_w2)    
         if (writing_omega) call write_twobody_operator(exp_omega,'omega')
      else
@@ -283,7 +287,33 @@ print*, 'FINISHED WITH HF'
   if (writing_decoupled) then 
      call write_twobody_operator(HS,'decoupled')
   end if
-
+!============TRIPLES MAGNUS=============================================
+  if (trips == 'y') then 
+!     call enumerate_three_body(threebas,jbas)
+     t1 = omp_get_wtime()
+     corr =  restore_triples(H0,exp_omega,jbas) 
+     t2 = omp_get_wtime()
+     print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
+     open(unit=39,file=trim(OUTPUT_DIR)//&
+       trim(adjustl(prefix))//'_magnus_triples.dat')
+     write(39,'(2(e15.7))') HS%E0,HS%E0+corr
+     close(39)
+     
+  else if (trips == 'C') then
+     t1 = omp_get_wtime()
+     call duplicate_sq_op(H0,CR)         
+     ! completely renormalized bit.
+     call CR_EXPAND(CR,exp_omega,H0,jbas,quads) 
+     corr =  restore_triples(CR,exp_omega,jbas)
+     t2 = omp_get_wtime()
+     print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
+     open(unit=39,file=trim(OUTPUT_DIR)//&
+       trim(adjustl(prefix))//'_magnus_cr_triples.dat')
+     write(39,'(2(e15.7))') HS%E0,HS%E0+corr
+     close(39)
+  end if
+  
+!=======================================================================
 91 t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
     

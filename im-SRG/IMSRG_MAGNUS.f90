@@ -23,17 +23,17 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   logical :: trip_calc,xxCR,chkpoint_restart
   external :: build_generator 
   
-  trip_calc = .false. 
-  xxCr = .false. 
+  ! trip_calc = .false. 
+  ! xxCr = .false. 
 
-  if (trips=='y') then 
-     ! triples correction
-     trip_calc=.true.
-  else if (trips == 'C') then 
-     ! triples correction with full internal BCH
-     trip_calc=.true. 
-     xxCr = .true.
-  end if 
+  ! if (trips=='y') then 
+  !    ! triples correction
+  !    trip_calc=.true.
+  ! else if (trips == 'C') then 
+  !    ! triples correction with full internal BCH
+  !    trip_calc=.true. 
+  !    xxCr = .true.
+  ! end if 
      
   HS%neq = 1
   call duplicate_sq_op(HS,H) !evolved hamiltonian
@@ -123,26 +123,26 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   end do
  
 ! triples correction ===========================================================
-  if (trip_calc) then 
-     call enumerate_three_body(threebas,jbas)
-     t1 = omp_get_wtime()
-     if ( xxCR ) then 
-        call duplicate_sq_op(H,CR)         
-        ! completely renormalized bit.
-        call CR_EXPAND(CR,G,H,jbas,quads) 
-        corr =  restore_triples(CR,G,threebas,jbas)
-     else
-        corr =  restore_triples(H,G,threebas,jbas) 
-     end if 
-     t2 = omp_get_wtime()
+  ! if (trip_calc) then 
+  !    call enumerate_three_body(threebas,jbas)
+  !    t1 = omp_get_wtime()
+  !    if ( xxCR ) then 
+  !       call duplicate_sq_op(H,CR)         
+  !       ! completely renormalized bit.
+  !       call CR_EXPAND(CR,G,H,jbas,quads) 
+  !       corr =  restore_triples(CR,G,threebas,jbas)
+  !    else
+  !       corr =  restore_triples(H,G,threebas,jbas) 
+  !    end if 
+  !    t2 = omp_get_wtime()
    
-     print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
+  !    print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
      
-     open(unit=39,file=trim(OUTPUT_DIR)//&
-       trim(adjustl(prefix))//'_magnus_triples.dat')
-     write(39,'(I6,4(e15.7))') steps,s,HS%E0+corr,HS%E0+E_mbpt2,crit
-     close(39)
-  end if
+  !    open(unit=39,file=trim(OUTPUT_DIR)//&
+  !      trim(adjustl(prefix))//'_magnus_triples.dat')
+  !    write(39,'(I6,4(e15.7))') steps,s,HS%E0+corr,HS%E0+E_mbpt2,crit
+  !    close(39)
+  ! end if
   
 end subroutine  
 !===========================================================================
@@ -794,11 +794,11 @@ subroutine euler_step(G,DG,s,stp)
 end subroutine 
 !=====================================================
 !=====================================================
-real(8) function restore_triples(H,OM,threebas,jbas) 
+real(8) function restore_triples(H,OM,jbas) 
   implicit none 
   
   type(spd) :: jbas
-  type(tpd),dimension(:) :: threebas
+  type(tpd),allocatable,dimension(:) :: threebas
   type(sq_op) :: H,OM
   integer :: a,b,c,i,j,k,Jtot,Jab,Jij,g1
   integer :: ja,jb,jc,ji,jj,jk,AAA,q
@@ -810,8 +810,10 @@ real(8) function restore_triples(H,OM,threebas,jbas)
   real(8) :: Gibib,Gicic,Gjaja,Gjbjb,Gjcjc,Gkaka    
   real(8) :: sm,denom,dlow,w,pre1,pre2
   
+  
   sm = 0.d0   
-  total_threads = size(threebas(1)%direct_omp) - 1
+    call enumerate_three_body(threebas,jbas)  
+    total_threads = size(threebas(1)%direct_omp) - 1
 
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,OM) & 
 !$OMP& REDUCTION(+:sm)  
