@@ -12,7 +12,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   implicit none
   
   real(8) :: BE2,Mfi ,SD_shell_content,dEtrips
-  real(8) :: t1,t2,omp_get_wtime
+  real(8) :: t1,t2,t0,omp_get_wtime
   type(spd) :: jbas
   type(sq_op) :: HS 
   type(sq_op),optional :: O1
@@ -99,8 +99,6 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      do i = 1, Numstates!          x       x       xxxxxxx   
         SD_Shell_content = 0.d0 
 
-        t1=omp_get_wtime()        
-        t2=omp_get_wtime()
         write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
              sum(ladder_ops(i)%fph**2),t2-t1
 
@@ -150,15 +148,18 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
        '_EOM_trips_law'//trim(betalabel)//'.dat',position='append')    
 
   
-
+  t0=omp_get_wtime() 
   do i = istart, Numstates
      print*, 'computing triples on state:',i
+     t1=omp_get_wtime()        
      dEtrips  =  EOM_triples(HS,ladder_ops(i),jbas) 
+     t2=omp_get_wtime()
      trips(i) =  dEtrips
-     write(*,'(3(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
-          sum(ladder_ops(i)%fph**2) 
+     write(*,'(4(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
+          sum(ladder_ops(i)%fph**2) ,t2-t1
      write(72,'(3(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
           sum(ladder_ops(i)%fph**2)
+     if ( (36000-t2+t0) < (1.5 * (t2-t1)) ) stop 
   end do
   close(72)
   
