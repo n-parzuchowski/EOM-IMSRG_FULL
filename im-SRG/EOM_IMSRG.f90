@@ -18,7 +18,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   type(sq_op),optional :: O1
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   real(8),allocatable,dimension(:) :: trips
-  integer :: J,PAR,Numstates,i,q,aa,jj
+  integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist
   character(2) :: Jlabel,Plabel,betalabel  
   
   allocate(ladder_ops(numstates)) 
@@ -54,8 +54,10 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
        ' FOR EXCITED STATES: J=',J/2,' P=',PAR  
   print*
 
-  call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
-  
+  if (read_ladder_operators(ladder_ops,jbas)) then 
+     call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
+     call write_ladder_operators(ladder_ops,jbas)
+  end if
   
   
    if ( allocated(O1%tblck)  ) then 
@@ -98,8 +100,6 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
         SD_Shell_content = 0.d0 
 
         t1=omp_get_wtime()        
-        dEtrips =  EOM_triples(HS,ladder_ops(i),jbas) 
-        trips(i) =dEtrips
         t2=omp_get_wtime()
         write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
              sum(ladder_ops(i)%fph**2),t2-t1
@@ -125,11 +125,43 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
        trim(adjustl(prefix))//&
        '_EOM_spec_law'//trim(betalabel)//'.dat')  
   do i = 1, Numstates
-     write(72,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0, &
-          sum(ladder_ops(i)%fph**2)
+     write(72,'(3(f16.9))') ladder_ops(i)%E0,ladder_ops(i)%E0+HS%E0,sum(ladder_ops(i)%fph**2)
   end do
 
   close(72)
+
+  
+  open(unit=72,file=trim(OUTPUT_DIR)//&
+       trim(adjustl(prefix))//&
+       '_EOM_trips_law'//trim(betalabel)//'.dat')    
+  
+  istart = 1
+  do 
+     read(72,*,iostat=ist) 
+     if (ist < 0) exit ! we have reached the end of the file
+     print*, istart 
+     istart = istart + 1
+  end do 
+  
+  close(72) 
+  
+  open(unit=72,file=trim(OUTPUT_DIR)//&
+       trim(adjustl(prefix))//&
+       '_EOM_trips_law'//trim(betalabel)//'.dat',position='append')    
+
+  
+
+  do i = istart, Numstates
+     print*, 'computing triples on state:',i
+     dEtrips  =  EOM_triples(HS,ladder_ops(i),jbas) 
+     trips(i) =  dEtrips
+     write(*,'(3(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
+          sum(ladder_ops(i)%fph**2) 
+     write(72,'(3(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
+          sum(ladder_ops(i)%fph**2)
+  end do
+  close(72)
+  
   
   open(unit=75,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_lawson_check.dat'&
@@ -271,7 +303,9 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   print*, '1p1h Amplitudes: ', sps
   print*, '2p2h Amplitudes: ', tps
   N = sps + tps ! number of ph and pphh SDs 
-
+  Q1%neq = N
+  Q2%neq = N
+  Vecs%neq = N
   ido = 0  ! status integer is 0 at start
   BMAT = 'I' ! standard eigenvalue problem (N for generalized) 
   which = 'SM' ! compute smallest eigenvalues in magnitude ('SA') is algebraic. 
@@ -479,190 +513,6 @@ subroutine unwrap( v, AX ,N ,jbas)
         end do 
      end do 
   end do 
-
-end subroutine 
-!======================================================================================
-!======================================================================================
-subroutine unwrap_tensor( v, AX ,N ,jbas) 
-  implicit none 
-  
-  type(spd) :: jbas
-  integer :: N ,i, II,JJ, parts,holes,q,IX,JX,qx
-  real(8),dimension(N) :: v
-  type(sq_op) :: AX 
-  
-  i = 1
-  
-  holes = AX%belowEF
-  parts = AX%Nsp- holes 
-  
-
-  do ix = 1,parts
-     do jx = 1,holes
-        
-        ii = jbas%parts(ix)
-        JJ = jbas%holes(jx) 
-  
-        if (triangle(jbas%jj(II),jbas%jj(JJ),AX%rank)) then  
-
-           if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
-           if (mod(jbas%ll(II) + jbas%ll(JJ) + AX%dpar/2,2) .ne. 0 ) cycle
-        
-           AX%fph(IX,JX) = v(i) 
-           i = i+ 1
-        end if 
-     end do
-  end do
-  
-  ! tensor case
-  
-  do q = 1, AX%nblocks
-     
-     do II = 1,size( AX%tblck(q)%tgam(3)%X(:,1) ) 
-        do JJ = 1, size( AX%tblck(q)%tgam(3)%X(1,:) )  
-           
-           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
-              
-              if ( AX%tblck(q)%tensor_qn(1,1)%Y(II,1) == &
-                   AX%tblck(q)%tensor_qn(1,1)%Y(II,2) ) cycle
-           end if
-
-           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
-
-              if ( AX%tblck(q)%tensor_qn(3,2)%Y(JJ,1) == &
-                   AX%tblck(q)%tensor_qn(3,2)%Y(JJ,2) ) cycle
-           end if
-
-           AX%tblck(q)%tgam(3)%X(II,JJ) = v(i)
-           i = i + 1
-        end do
-     end do
-
-     ! IF THE Js ARE THE SAME THEN WE NEED TO MAKE SURE THAT IS REFLECTED IN 
-     ! THE TRANSPOSE
-     if (AX%tblck(q)%Jpair(1) == AX%tblck(q)%Jpair(2)) then 
-        if (AX%dpar == 2 ) then 
-           qx = tensor_block_index(AX%tblck(q)%Jpair(1),AX%tblck(q)%Jpair(2)&
-                ,AX%rank,AX%tblck(q)%lam(3),mod(AX%tblck(q)%lam(2)+1,2))
-           AX%tblck(qx)%tgam(7)%X = Transpose(AX%tblck(q)%tgam(3)%X)  
-        else       
-           AX%tblck(q)%tgam(7)%X = Transpose(AX%tblck(q)%tgam(3)%X)  
-        end if
-        
-        cycle 
-     
-     end if
-     
-     ! OTHERWISE BUSINESS AS USUAL.
-     do II = 1,size( AX%tblck(q)%tgam(7)%X(:,1) ) 
-        do JJ = 1, size( AX%tblck(q)%tgam(7)%X(1,:) )  
-
-           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
-
-              if ( AX%tblck(q)%tensor_qn(3,1)%Y(II,1) == &
-                   AX%tblck(q)%tensor_qn(3,1)%Y(II,2) ) cycle
-           end if
-
-           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
-
-              if ( AX%tblck(q)%tensor_qn(1,2)%Y(JJ,1) == &
-                   AX%tblck(q)%tensor_qn(1,2)%Y(JJ,2) ) cycle
-           end if
-
-           AX%tblck(q)%tgam(7)%X(II,JJ) = v(i)
-           i = i + 1
-        end do
-     end do
-
-  end do
-
-end subroutine 
-!======================================================================================
-!======================================================================================
-subroutine rewrap_tensor( v, AX ,N ,jbas) 
-  implicit none 
-  
-  type(spd) :: jbas
-  integer :: N ,i, II,JJ, parts,holes,q,IX,JX,qx
-  real(8),dimension(N) :: v
-  type(sq_op) :: AX 
-  
-  i = 1
-  
-  holes = AX%belowEF
-  parts = AX%Nsp- holes 
-  
-  do ix = 1,parts
-     do jx = 1,holes
-        
-        ii = jbas%parts(ix)
-        JJ = jbas%holes(jx) 
-  
-        if (triangle(jbas%jj(II),jbas%jj(JJ),AX%rank)) then  
-
-           if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
-           if (mod(jbas%ll(II) + jbas%ll(JJ) + AX%dpar/2,2) .ne. 0 ) cycle
-        
-           v(i) = AX%fph(IX,JX) 
-           i = i + 1
-        end if 
-     end do
-  end do
-  
-  ! tensor case
-  
-  do q = 1, AX%nblocks
-     
-     do II = 1,size( AX%tblck(q)%tgam(3)%X(:,1) ) 
-        do JJ = 1, size( AX%tblck(q)%tgam(3)%X(1,:) )  
-           
-           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
-              
-              if ( AX%tblck(q)%tensor_qn(1,1)%Y(II,1) == &
-                   AX%tblck(q)%tensor_qn(1,1)%Y(II,2) ) cycle
-           end if
-
-           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
-
-              if ( AX%tblck(q)%tensor_qn(3,2)%Y(JJ,1) == &
-                   AX%tblck(q)%tensor_qn(3,2)%Y(JJ,2) ) cycle
-           end if
-
-           v(i) = AX%tblck(q)%tgam(3)%X(II,JJ) 
-           i = i + 1
-        end do
-     end do
-
-     ! IF THE Js ARE THE SAME THEN WE NEED TO MAKE SURE THAT IS REFLECTED IN 
-     ! THE TRANSPOSE
-     if (AX%tblck(q)%Jpair(1) == AX%tblck(q)%Jpair(2)) then 
-        
-        cycle 
-     
-     end if
-     
-     ! OTHERWISE BUSINESS AS USUAL.
-     do II = 1,size( AX%tblck(q)%tgam(7)%X(:,1) ) 
-        do JJ = 1, size( AX%tblck(q)%tgam(7)%X(1,:) )  
-
-           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
-
-              if ( AX%tblck(q)%tensor_qn(3,1)%Y(II,1) == &
-                   AX%tblck(q)%tensor_qn(3,1)%Y(II,2) ) cycle
-           end if
-
-           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
-
-              if ( AX%tblck(q)%tensor_qn(1,2)%Y(JJ,1) == &
-                   AX%tblck(q)%tensor_qn(1,2)%Y(JJ,2) ) cycle
-           end if
-
-           v(i) = AX%tblck(q)%tgam(7)%X(II,JJ) 
-           i = i + 1
-        end do
-     end do
-
-  end do
 
 end subroutine 
 !============================================================================  
@@ -1055,8 +905,321 @@ real(8) function scalar_triples(H,Xdag,jbas)
   scalar_triples = sm 
 
 end function scalar_triples
+!======================================================================================
+!======================================================================================
+subroutine unwrap_tensor( v, AX ,N ,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: N ,i, II,JJ, parts,holes,q,IX,JX,qx
+  real(8),dimension(N) :: v
+  type(sq_op) :: AX 
+  
+  i = 1
+  
+  holes = AX%belowEF
+  parts = AX%Nsp- holes 
+  
+
+  do ix = 1,parts
+     do jx = 1,holes
+        
+        ii = jbas%parts(ix)
+        JJ = jbas%holes(jx) 
+  
+        if (triangle(jbas%jj(II),jbas%jj(JJ),AX%rank)) then  
+
+           if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
+           if (mod(jbas%ll(II) + jbas%ll(JJ) + AX%dpar/2,2) .ne. 0 ) cycle
+        
+           AX%fph(IX,JX) = v(i) 
+           i = i+ 1
+        end if 
+     end do
+  end do
+  
+  ! tensor case
+  
+  do q = 1, AX%nblocks
+     
+     do II = 1,size( AX%tblck(q)%tgam(3)%X(:,1) ) 
+        do JJ = 1, size( AX%tblck(q)%tgam(3)%X(1,:) )  
+           
+           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
+              
+              if ( AX%tblck(q)%tensor_qn(1,1)%Y(II,1) == &
+                   AX%tblck(q)%tensor_qn(1,1)%Y(II,2) ) cycle
+           end if
+
+           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(3,2)%Y(JJ,1) == &
+                   AX%tblck(q)%tensor_qn(3,2)%Y(JJ,2) ) cycle
+           end if
+
+           AX%tblck(q)%tgam(3)%X(II,JJ) = v(i)
+           i = i + 1
+        end do
+     end do
+
+     ! IF THE Js ARE THE SAME THEN WE NEED TO MAKE SURE THAT IS REFLECTED IN 
+     ! THE TRANSPOSE
+     if (AX%tblck(q)%Jpair(1) == AX%tblck(q)%Jpair(2)) then 
+        if (AX%dpar == 2 ) then 
+           qx = tensor_block_index(AX%tblck(q)%Jpair(1),AX%tblck(q)%Jpair(2)&
+                ,AX%rank,AX%tblck(q)%lam(3),mod(AX%tblck(q)%lam(2)+1,2))
+           AX%tblck(qx)%tgam(7)%X = Transpose(AX%tblck(q)%tgam(3)%X)  
+        else       
+           AX%tblck(q)%tgam(7)%X = Transpose(AX%tblck(q)%tgam(3)%X)  
+        end if
+        
+        cycle 
+     
+     end if
+     
+     ! OTHERWISE BUSINESS AS USUAL.
+     do II = 1,size( AX%tblck(q)%tgam(7)%X(:,1) ) 
+        do JJ = 1, size( AX%tblck(q)%tgam(7)%X(1,:) )  
+
+           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(3,1)%Y(II,1) == &
+                   AX%tblck(q)%tensor_qn(3,1)%Y(II,2) ) cycle
+           end if
+
+           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(1,2)%Y(JJ,1) == &
+                   AX%tblck(q)%tensor_qn(1,2)%Y(JJ,2) ) cycle
+           end if
+
+           AX%tblck(q)%tgam(7)%X(II,JJ) = v(i)
+           i = i + 1
+        end do
+     end do
+
+  end do
+
+end subroutine 
+!======================================================================================
+!======================================================================================
+subroutine rewrap_tensor( v, AX ,N ,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  integer :: N ,i, II,JJ, parts,holes,q,IX,JX,qx
+  real(8),dimension(N) :: v
+  type(sq_op) :: AX 
+  
+  i = 1
+  
+  holes = AX%belowEF
+  parts = AX%Nsp- holes 
+  
+  do ix = 1,parts
+     do jx = 1,holes
+        
+        ii = jbas%parts(ix)
+        JJ = jbas%holes(jx) 
+  
+        if (triangle(jbas%jj(II),jbas%jj(JJ),AX%rank)) then  
+
+           if (jbas%itzp(II) .ne. jbas%itzp(JJ) ) cycle
+           if (mod(jbas%ll(II) + jbas%ll(JJ) + AX%dpar/2,2) .ne. 0 ) cycle
+        
+           v(i) = AX%fph(IX,JX) 
+           i = i + 1
+        end if 
+     end do
+  end do
+  
+  ! tensor case
+  
+  do q = 1, AX%nblocks
+     
+     do II = 1,size( AX%tblck(q)%tgam(3)%X(:,1) ) 
+        do JJ = 1, size( AX%tblck(q)%tgam(3)%X(1,:) )  
+           
+           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
+              
+              if ( AX%tblck(q)%tensor_qn(1,1)%Y(II,1) == &
+                   AX%tblck(q)%tensor_qn(1,1)%Y(II,2) ) cycle
+           end if
+
+           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(3,2)%Y(JJ,1) == &
+                   AX%tblck(q)%tensor_qn(3,2)%Y(JJ,2) ) cycle
+           end if
+
+           v(i) = AX%tblck(q)%tgam(3)%X(II,JJ) 
+           i = i + 1
+        end do
+     end do
+
+     ! IF THE Js ARE THE SAME THEN WE NEED TO MAKE SURE THAT IS REFLECTED IN 
+     ! THE TRANSPOSE
+     if (AX%tblck(q)%Jpair(1) == AX%tblck(q)%Jpair(2)) then 
+        
+        cycle 
+     
+     end if
+     
+     ! OTHERWISE BUSINESS AS USUAL.
+     do II = 1,size( AX%tblck(q)%tgam(7)%X(:,1) ) 
+        do JJ = 1, size( AX%tblck(q)%tgam(7)%X(1,:) )  
+
+           if (mod(AX%tblck(q)%Jpair(1)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(3,1)%Y(II,1) == &
+                   AX%tblck(q)%tensor_qn(3,1)%Y(II,2) ) cycle
+           end if
+
+           if (mod(AX%tblck(q)%Jpair(2)/2,2) == 1) then 
+
+              if ( AX%tblck(q)%tensor_qn(1,2)%Y(JJ,1) == &
+                   AX%tblck(q)%tensor_qn(1,2)%Y(JJ,2) ) cycle
+           end if
+
+           v(i) = AX%tblck(q)%tgam(7)%X(II,JJ) 
+           i = i + 1
+        end do
+     end do
+
+  end do
+
+end subroutine rewrap_tensor
+!======================================================
+!======================================================
+subroutine write_ladder_operators(AX,jbas) 
+  ! first figure out how many equations there are:
+ 
+  type(sq_op),dimension(:) :: AX 
+  type(spd) :: jbas
+  integer Atot,Ntot,q,i,numstates,neq
+  real(8),allocatable,dimension(:):: outvec 
+  character(200) :: prefix2,stringout
+  integer(c_int) :: rx,filehandle
+  logical :: isthere
+  
+  numstates = size(AX)
+
+  if (prefix(1:8) == 'testcase') return  
+
+  do i = 1,200
+     if (prefix(i:i+1) == 'hw') exit
+  end do
+  
+  prefix2(1:i+6)=prefix(1:i+6) 
+  print*, 'Writing normal ordered ladder operators to ',&
+       '../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+       '_ladder.gz'
+  neq = AX(1)%neq
+  
+  allocate(outvec(numstates*neq)) 
+
+  if (AX(1)%rank == 0 ) then 
+     do q = 1, numstates
+        call rewrap(outvec((q-1)*neq+1:q*neq),AX(q),neq,jbas) 
+     end do
+  else
+     do q = 1, numstates
+        call rewrap_tensor(outvec((q-1)*neq+1:q*neq),AX(q),neq,jbas) 
+     end do
+  end if 
+
+  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+       '_ladder.gz'//achar(0),'w'//achar(0)) 
 
 
+  write(stringout(1:20),'(d20.14)') dfloat(neq) 
+  stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
+  call write_gz(filehandle,stringout) 
+
+  do q = 1,numstates
+       write(stringout(1:20),'(d20.14)') AX(q)%E0 
+       stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
+       call write_gz(filehandle,stringout) 
+  end do 
+  
+  do q =1,neq*numstates
+     write(stringout(1:20),'(d20.14)') outvec(q)
+     stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
+     call write_gz(filehandle,stringout)    
+  end do
+   
+  rx = gzClose(filehandle) 
+end subroutine write_ladder_operators
+!======================================================
+!======================================================
+logical function read_ladder_operators(AX,jbas) 
+ 
+  type(sq_op),dimension(:) :: AX 
+  type(spd) :: jbas
+  integer Atot,Ntot,q,i,numstates,neq
+  real(8),allocatable,dimension(:):: outvec 
+  character(200) :: prefix2
+  character(20) :: instring
+  integer(c_int) :: rx,filehandle
+  logical :: isthere
+  real(8) :: neq_float
+  
+  read_ladder_operators = .true. 
+  if (prefix(1:8) == 'testcase') return  
+
+  do i = 1,200
+     if (prefix(i:i+1) == 'hw') exit
+  end do
+  
+  prefix2(1:i+6)=prefix(1:i+6) 
+    
+  inquire(file='../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+       '_ladder.gz',exist=isthere)
+  
+  if ( .not. isthere ) then 
+     return
+  end if 
+  
+  numstates = size(AX)
+
+  print*, 'Reading normal ordered ladder operators from ',&
+       '../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+       '_ladder.gz'
+
+  
+  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+       '_ladder.gz'//achar(0),'r'//achar(0)) 
+  
+  instring = read_normal_gz(filehandle) 
+
+  read(instring,'(d20.14)') neq_float 
+  
+  neq = nint(neq_float) 
+  allocate(outvec(numstates*neq)) 
+  
+  do q =1,numstates
+     instring = read_normal_gz(filehandle) 
+     read(instring,'(d20.14)') AX(q)%E0
+  end do
+
+  do q =1,neq*numstates
+     instring = read_normal_gz(filehandle) 
+     read(instring,'(d20.14)') outvec(q)
+  end do
+
+  if (AX(1)%rank == 0) then 
+     do q = 1, numstates
+        call unwrap( outvec((q-1)*neq+1:q*neq), AX(q) ,neq ,jbas) 
+     end do
+  else
+     do q = 1, numstates
+        call unwrap_tensor( outvec((q-1)*neq+1:q*neq), AX(q) ,neq ,jbas) 
+     end do
+  end if 
+  rx = gzClose(filehandle) 
+  read_ladder_operators = .false. 
+
+end function read_ladder_operators
  
 real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas) 
   implicit none 

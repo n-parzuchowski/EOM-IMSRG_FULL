@@ -3201,7 +3201,6 @@ subroutine write_omega_checkpoint(H,s)
   integer Atot,Ntot,q,i
   real(8),allocatable,dimension(:):: outvec 
   real(8),intent(in) :: s
-  real(8) :: sx
   character(200) :: prefix2,stringout
   integer(c_int) :: rx,filehandle
   logical :: isthere
@@ -4693,6 +4692,7 @@ real(8) function Vpandya(a,d,c,b,J,Op,jbas)
   Vpandya = sm 
 end function
      
+
 end module       
 
 
