@@ -777,7 +777,7 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   integer :: i,j,n,q,n1,n2,qx,Tz,Jtot,PAR,II,JJ,reclen,iend
   integer :: np,nb,nh,nt,count,count2,a,b,c,d,begin,mass,pholes,nholes
   real(8) :: gmat
-  character(200) :: prefix2
+  character(200) :: prefix2,fname
   character(1) :: tag
 
   do i = 1,200
@@ -946,37 +946,61 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
      do PAR = 0,1
         
         if (PAR == 0) then 
-           open(unit=22,file=prefix2(1:iend)//'_'//tag//'+.ini')
+           fname = prefix2(1:iend)//'_'//tag//'+.ini' 
+           fname = adjustl(fname)
+           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag//'+')
         else
            if (Jtot==0) cycle 
-           open(unit=22,file=prefix2(1:iend)//'_'//tag//'-.ini')
+           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag//'-')
+           fname = prefix2(1:iend)//'_'//tag//'-.ini' 
+           fname = adjustl(fname)
         end if 
+        open(unit=22,file=trim(fname))
         
         
         
-        
-        write(22,*) '!spfile' 
-        write(22,*) 'sp_energy_HF'//prefix2(1:iend)//'.dat'
-        write(22,*) '!kinfile' 
-        write(22,*) 'kinetic_HF'//prefix2(1:iend)//'.dat'
-        write(22,*) '!n_occ (p) , n_occ(n)' 
+        write(22,*) achar(8)//'!spfile' 
+        write(22,*) achar(8)//'spfiles/sp_energy_HF'&
+             //prefix2(1:iend)//'.dat'
+        write(22,*) achar(8)//'!kinfile' 
+        write(22,*) achar(8)//'kinfiles/kinetic_HF'&
+             //prefix2(1:iend)//'.dat'
+        write(22,*) achar(8)//'!n_occ (p) , n_occ(n)' 
         write(22,'(2(I4))') pholes,nholes
-        write(22,*) '!mass nuc' 
-        write(22,*) mass 
-        write(22,*) '!g_matrix_files' 
-        write(22,*) 'V1HF'//prefix2(1:iend)//'.int'
-        write(22,*) 'V2HF'//prefix2(1:iend)//'.int'
-        write(22,*) '!channel file'
-        write(22,*) 'channels_HF'//prefix2(1:iend)//'.dat'
-        write(22,*) '!u_hf file'
-        write(22,*) 'umat_HF'//prefix2(1:iend)//'.dat'
-        write(22,*) '!subspace,diis'
+        write(22,*) achar(8)//'!mass nuc' 
+        write(22,'(I4)') mass 
+        write(22,*) achar(8)//'!g_matrix_files' 
+        write(22,*) achar(8)//'intfiles/V1HF'//prefix2(1:iend)//'.int'
+        write(22,*) achar(8)//'intfiles/V2HF'//prefix2(1:iend)//'.int'
+        write(22,*) achar(8)//'!channel file'
+        write(22,*) achar(8)//'intfiles/channels_HF'//prefix2(1:iend)//'.dat'
+        write(22,*) achar(8)//'!u_hf file'
+        write(22,*) achar(8)//'intfiles/umat_HF'//prefix2(1:iend)//'.dat'
+        write(22,*) achar(8)//'!subspace,diis'
         write(22,'(2(I4))') 10,10
-        write(22,*) '!J,PAR,TZ,NUMSTATES'
+        write(22,*) achar(8)//'!J,PAR,TZ,NUMSTATES'
         write(22,'(4(I4))') Jtot,PAR,0,5
         
         close(22) 
         
+        write(23,*) achar(8)//'#!/bin/sh/'
+        write(23,*) 
+        write(23,*) achar(8)//'#PBS -l walltime=4:00:00'
+        write(23,*) achar(8)//'#PBS -l nodes=1:ppn=8'
+        write(23,*) achar(8)//'#PBS -l mem=5gb'
+        write(23,*) achar(8)//'#PBS -j oe'
+        write(23,*) achar(8)//'#PBS -N O16_cc_vsrg2.0_emax4_hw24_3-_law0.0'
+        write(23,*) achar(8)//'#PBS -M parzuchowski@frib.msu.edu'
+        write(23,*) achar(8)//'#PBS -m a'
+        write(23,*)
+        write(23,*) achar(8)//'cd $HOME/Gaute_EOMCC'
+        write(23,*)
+        write(23,*) achar(8)//'export OMP_NUM_THREADS=8'
+        write(23,*) achar(8)//'./prog_ccm_ex.exe < inifiles/'//trim(fname)&
+             //'> output/'//prefix2(1:iend)//'_ccsdt.out'
+        write(23,*) achar(8)//'qstat -f ${PBS_JOBID}'
+        write(23,*) achar(8)//'exit 0'
+        close(23)
      end do
   end do
   
