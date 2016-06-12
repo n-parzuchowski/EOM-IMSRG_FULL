@@ -99,6 +99,8 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  if ( tbforce ) call meanfield_2b(rho,H,THREEBOD,jbas) 
  call transform_2b_to_HF(D,H,jbas) 
 
+ 
+ call output_gaute_format(T,D,H,jbas) 
 ! now we transform any other observables 
 ! here I am assuming that these are NOT normal orderded yet 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -762,7 +764,223 @@ subroutine meanfield_2b(rho,H,TB,jbas)
   end do
 !$OMP END PARALLEL DO
 end subroutine
+!============================================================
+!============================================================
+subroutine output_gaute_format(T,Dcof,HS,jbas) 
+  implicit none 
   
+  type(spd) :: jbas
+  type(sq_op) :: HS
+  type(full_sp_block_mat) :: T,Dcof 
+  real(8),allocatable,dimension(:,:) :: Tkin,Coefs,Vfull
+  integer,allocatable,dimension(:,:) :: qnbig
+  integer :: i,j,n,q,n1,n2,qx,Tz,Jtot,PAR,II,JJ,reclen,iend
+  integer :: np,nb,nh,nt,count,count2,a,b,c,d,begin,mass,pholes,nholes
+  real(8) :: gmat
+  character(200) :: prefix2
+  character(1) :: tag
+
+  do i = 1,200
+     if (prefix(i:i+1) == 'hw') exit
+  end do
+  
+  iend =  i+3
+  prefix2(1:iend)=prefix(1:iend) 
+  
+  N = jbas%total_orbits
+  
+  ! PUT 1B MATRIX ELEMENTS IN A MORE REASONABLE FORMAT
+  allocate(Tkin(N,N),Coefs(N,N))
+  Coefs = 0.d0 
+  Tkin = 0.d0 
+  do q = 1,T%blocks
+
+     do i = 1, T%map(q) 
+        n1 = T%blkM(q)%states(i)
+        do j = 1, T%map(q) 
+           n2 = T%blkM(q)%states(j) 
+           
+           Tkin(n1,n2) =  T%blkM(q)%matrix(i,j) 
+           Coefs(n1,n2) = Dcof%blkM(q)%matrix(i,j)
+  
+        end do 
+     end do 
+  end do 
+  
+  ! WRITE UMAT FILE 
+  open(unit=31,file='umat_HF'//prefix2(1:iend)//'.dat')
+  ! WRITE KINETIC FILE
+  open(unit=32,file='kinetic_HF'//prefix2(1:iend)//'.dat')
+  do i = 1, N
+     do j = 1, N
+        write(31,'(2(I5),2(f22.14))') i,j,coefs(i,j),0.d0
+        write(32,'(2(I5),4(f22.14))') i,j,Tkin(i,j),0.d0,0.d0,0.d0
+     end do 
+  end do 
+  close(31)   
+  close(32)
+  
+  ! WRITE SP FILE
+  open(unit=31,file='sp_energy_HF'//prefix2(1:iend)//'.dat')
+  write(31,'(f20.14)') HS%hospace
+  
+  do i = 1, N
+     write(31,'(5(I5),2(f20.14))') i,jbas%nn(i),jbas%ll(i),&
+          jbas%jj(i),jbas%itzp(i),0.d0,0.d0
+  end do 
+  close(31)
+  
+  ! write channel file... 
+  open(unit=83,file='channels_HF'//prefix2(1:iend)//'.dat')
+ ! as well as interaction files.
+  gmat = 0.d0
+  inquire(iolength=reclen) i,i,i,i,i,gmat,gmat
+  open(unit=81,file='V1HF'//prefix2(1:iend)//'.int',&
+       access='direct',recl=reclen,convert='LITTLE_ENDIAN')
+  open(unit=82,file='V2HF'//prefix2(1:iend)//'.int',&
+       access='direct',recl=reclen,convert='LITTLE_ENDIAN')
+  q = 1 
+  count = 0
+  count2=0
+  do Tz = -1, 1
+     do PAR = 0,1
+        do Jtot = 0,jbas%jtotal_max
+
+           begin = count + 1
+           if ( Jtot == jbas%jtotal_max )then 
+              if (Tz .ne. 0 ) cycle 
+              if (PAR .ne. 0) cycle 
+           end if 
+           
+           qx = block_index(2*Jtot,Tz,PAR) 
+!           print*, q, Jtot,PAR,Tz
+           np = HS%mat(qx)%npp
+           nb = HS%mat(qx)%nph
+           nh = HS%mat(qx)%nhh 
+        
+           nt = np+nh+nb
+           if (nt == 0) cycle
+     
+           allocate(Vfull(nt,nt)) 
+           allocate(qnbig(nt,2)) 
+     
+           ! mapping things out to a square matrix 
+     
+           Vfull(1:nh,1:nh) = HS%mat(qx)%gam(5)%X 
+           
+           Vfull(nh+1:nb+nh,1:nh) = HS%mat(qx)%gam(6)%X
+           Vfull(1:nh,nh+1:nb+nh) = Transpose(HS%mat(qx)%gam(6)%X) 
+           
+           Vfull(nh+nb+1:nt,1:nh) = HS%mat(qx)%gam(3)%X 
+           Vfull(1:nh,nh+nb+1:nt) = Transpose(HS%mat(qx)%gam(3)%X) 
+           
+           Vfull(nh+1:nb+nh,nh+1:nb+nh) = HS%mat(qx)%gam(4)%X
+     
+           Vfull(nh+nb+1:nt,nh+1:nh+nb) = HS%mat(qx)%gam(2)%X
+           Vfull(nh+1:nh+nb,nh+nb+1:nt) = Transpose(HS%mat(qx)%gam(2)%X)
+           
+           Vfull(nh+nb+1:nt,nh+nb+1:nt) = HS%mat(qx)%gam(1)%X 
+     
+           qnbig(1:nh,:) = HS%mat(qx)%qn(3)%Y
+           qnbig(nh+1:nh+nb,:) = HS%mat(qx)%qn(2)%Y
+           qnbig(nh+nb+1:nt,:) = HS%mat(qx)%qn(1)%Y
+                
+           
+           do II = 1, nt
+              a = qnbig(II,1)
+              b = qnbig(II,2)
+             
+              do JJ = II,nt
+              
+                 c = qnbig(JJ,1)
+                 d = qnbig(JJ,2)
+                 
+                 gmat = Vfull(II,JJ) 
+                 
+                 if (abs(gmat) < 1e-10) cycle
+                 
+                 if ( II > nh+nb .and. JJ > nh+nb) then 
+                    
+                    count = count + 1
+                    
+                    write(81,rec=count) q,a,b,c,d,gmat,0.d0
+                 else
+                    
+                    count2 = count2+1 
+                    write(82,rec=count2) q,a,b,c,d,gmat,0.d0
+                 end if 
+                 
+              end do
+           end do
+           
+           write(83,'(I7,2(I13))') q,begin,count
+
+           deallocate(Vfull)
+           deallocate(qnbig)
+           q = q + 1
+           
+           
+        end do
+     end do
+  end do
+  write(83,'(I7,2(I13))') 1,count2,count2
+  close(83);close(82);close(81)
+
+  mass = 0
+  pholes = 0
+  do i = 1, jbas%total_orbits,2
+     pholes = pholes + jbas%con(i)
+     mass = mass + jbas%con(i)*(jbas%jj(i)+1) 
+  end do 
+
+  nholes = 0
+  do i = 2, jbas%total_orbits,2
+     nholes = nholes + jbas%con(i)
+     mass = mass + jbas%con(i)*(jbas%jj(i)+1)
+  end do 
+  
+  ! make input files
+  do Jtot = 0,3 
+     write(tag,'(I1)') Jtot
+
+     do PAR = 0,1
+        
+        if (PAR == 0) then 
+           open(unit=22,file=prefix2(1:iend)//'_'//tag//'+.ini')
+        else
+           if (Jtot==0) cycle 
+           open(unit=22,file=prefix2(1:iend)//'_'//tag//'-.ini')
+        end if 
+        
+        
+        
+        
+        write(22,*) '!spfile' 
+        write(22,*) 'sp_energy_HF'//prefix2(1:iend)//'.dat'
+        write(22,*) '!kinfile' 
+        write(22,*) 'kinetic_HF'//prefix2(1:iend)//'.dat'
+        write(22,*) '!n_occ (p) , n_occ(n)' 
+        write(22,'(2(I4))') pholes,nholes
+        write(22,*) '!mass nuc' 
+        write(22,*) mass 
+        write(22,*) '!g_matrix_files' 
+        write(22,*) 'V1HF'//prefix2(1:iend)//'.int'
+        write(22,*) 'V2HF'//prefix2(1:iend)//'.int'
+        write(22,*) '!channel file'
+        write(22,*) 'channels_HF'//prefix2(1:iend)//'.dat'
+        write(22,*) '!u_hf file'
+        write(22,*) 'umat_HF'//prefix2(1:iend)//'.dat'
+        write(22,*) '!subspace,diis'
+        write(22,'(2(I4))') 10,10
+        write(22,*) '!J,PAR,TZ,NUMSTATES'
+        write(22,'(4(I4))') Jtot,PAR,0,5
+        
+        close(22) 
+        
+     end do
+  end do
+  
+end subroutine 
   
 end module         
                 
