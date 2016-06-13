@@ -89,7 +89,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
          + V3gam%blkM(q)%matrix
     T%blkM(q)%eigval = F%blkM(q)%eigval    
  end do
-
+ 
  call transform_1b_to_HF(D,Dx,F,H,jbas,T,Vgam,V3gam) 
   
  ! this needs to come after the transformation
@@ -100,7 +100,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  call transform_2b_to_HF(D,H,jbas) 
 
  
- call output_gaute_format(T,D,H,jbas) 
+ call output_gaute_format(F,D,H,jbas) 
 ! now we transform any other observables 
 ! here I am assuming that these are NOT normal orderded yet 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -774,11 +774,13 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   type(full_sp_block_mat) :: T,Dcof 
   real(8),allocatable,dimension(:,:) :: Tkin,Coefs,Vfull
   integer,allocatable,dimension(:,:) :: qnbig
-  integer :: i,j,n,q,n1,n2,qx,Tz,Jtot,PAR,II,JJ,reclen,iend
+  integer :: i,j,n,q,n1,n2,qx,Tz,Jtot,PAR,II,JJ,reclen,iend,ix 
   integer :: np,nb,nh,nt,count,count2,a,b,c,d,begin,mass,pholes,nholes
   real(8) :: gmat
   character(200) :: prefix2,fname
   character(1) :: tag
+  integer,allocatable,dimension(:) :: mapping 
+  
 
   do i = 1,200
      if (prefix(i:i+1) == 'hw') exit
@@ -788,7 +790,10 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   prefix2(1:iend)=prefix(1:iend) 
   
   N = jbas%total_orbits
-  
+  allocate(mapping(N))
+  mapping(1:HS%belowEF) = jbas%holes
+  mapping(HS%belowEF+1:HS%nsp) = jbas%parts
+
   ! PUT 1B MATRIX ELEMENTS IN A MORE REASONABLE FORMAT
   allocate(Tkin(N,N),Coefs(N,N))
   Coefs = 0.d0 
@@ -809,14 +814,16 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   
   ! WRITE UMAT FILE 
   open(unit=31,file='umat_HF'//prefix2(1:iend)//'.dat')
-  ! WRITE KINETIC FILE
-  open(unit=32,file='kinetic_HF'//prefix2(1:iend)//'.dat')
+  ! WRITE FOCK FILE
+  open(unit=32,file='fock_HF'//prefix2(1:iend)//'.dat')
+  write(32,'(f22.14)') HS%E0 
   do i = 1, N
      do j = 1, N
-        write(31,'(2(I5),2(f22.14))') i,j,coefs(i,j),0.d0
-        write(32,'(2(I5),4(f22.14))') i,j,Tkin(i,j),0.d0,0.d0,0.d0
+        write(31,'(2(I5),2(f22.14))') i,j,coefs(mapping(i),mapping(j)),0.d0
+        write(32,'(2(I5),4(f22.14))') i,j,Tkin(mapping(i),mapping(j)),0.d0,0.d0,0.d0
      end do 
   end do 
+  
   close(31)   
   close(32)
   
@@ -825,8 +832,9 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   write(31,'(f20.14)') HS%hospace
   
   do i = 1, N
-     write(31,'(5(I5),2(f20.14))') i,jbas%nn(i),jbas%ll(i),&
-          jbas%jj(i),jbas%itzp(i),0.d0,0.d0
+     ix = mapping(i)
+     write(31,'(5(I5),2(f20.14))') i,jbas%nn(ix),jbas%ll(ix),&
+          jbas%jj(ix),jbas%itzp(ix),0.d0,0.d0
   end do 
   close(31)
   
@@ -887,13 +895,13 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
                 
            
            do II = 1, nt
-              a = qnbig(II,1)
-              b = qnbig(II,2)
+              a = mapping(qnbig(II,1))
+              b = mapping(qnbig(II,2))
              
               do JJ = II,nt
               
-                 c = qnbig(JJ,1)
-                 d = qnbig(JJ,2)
+                 c = mapping(qnbig(JJ,1))
+                 d = mapping(qnbig(JJ,2))
                  
                  gmat = Vfull(II,JJ) 
                  
@@ -963,7 +971,7 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
         write(22,'(A)') '"spfiles/sp_energy_HF'&
              //prefix2(1:iend)//'.dat"'
         write(22,'(A)') '!kinfile' 
-        write(22,'(A)') '"kinfiles/kinetic_HF'&
+        write(22,'(A)') '"kinfiles/fock_HF'&
              //prefix2(1:iend)//'.dat"'
         write(22,'(A)') '!n_occ (p) , n_occ(n)' 
         write(22,'(2(I4))') pholes,nholes
@@ -987,7 +995,7 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
         
         write(23,'(A)') '#!/bin/sh/'
         write(23,*) 
-        write(23,'(A)') '#PBS -l walltime=4:00:00'
+        write(23,'(A)') '#PBS -l walltime=10:00:00'
         write(23,'(A)') '#PBS -l nodes=1:ppn=8'
         write(23,'(A)') '#PBS -l mem=5gb'
         write(23,'(A)') '#PBS -j oe'
@@ -1006,7 +1014,8 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
      end do
   end do
   
-end subroutine 
+!  stop 'OUTPUT THE GAUTE FORMAT'
+end subroutine output_gaute_format
   
 end module         
                 
