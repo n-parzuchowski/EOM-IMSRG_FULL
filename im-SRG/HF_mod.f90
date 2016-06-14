@@ -100,7 +100,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  call transform_2b_to_HF(D,H,jbas) 
 
  
- call output_gaute_format(F,D,H,jbas) 
+! call output_gaute_format(F,D,H,jbas) 
 ! now we transform any other observables 
 ! here I am assuming that these are NOT normal orderded yet 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -779,7 +779,7 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   real(8) :: gmat
   character(200) :: prefix2,fname
   character(1) :: tag
-  integer,allocatable,dimension(:) :: mapping 
+  integer,allocatable,dimension(:) :: mapping,inversemap 
   
 
   do i = 1,200
@@ -790,10 +790,23 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   prefix2(1:iend)=prefix(1:iend) 
   
   N = jbas%total_orbits
-  allocate(mapping(N))
+  allocate(mapping(N),inversemap(N))
   mapping(1:HS%belowEF) = jbas%holes
   mapping(HS%belowEF+1:HS%nsp) = jbas%parts
-
+  
+  do i = 1, N
+     do j = 1, N
+        if (j == mapping(i)) then 
+           inversemap(j) = i
+           exit
+        end if 
+     end do 
+  end do 
+  
+  print*, mapping
+  print*
+  print*, inversemap
+  
   ! PUT 1B MATRIX ELEMENTS IN A MORE REASONABLE FORMAT
   allocate(Tkin(N,N),Coefs(N,N))
   Coefs = 0.d0 
@@ -895,13 +908,13 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
                 
            
            do II = 1, nt
-              a = mapping(qnbig(II,1))
-              b = mapping(qnbig(II,2))
+              a = inverseMap(qnbig(II,1))
+              b = inverseMap(qnbig(II,2))
              
               do JJ = II,nt
               
-                 c = mapping(qnbig(JJ,1))
-                 d = mapping(qnbig(JJ,2))
+                 c = inversemap(qnbig(JJ,1))
+                 d = inversemap(qnbig(JJ,2))
                  
                  gmat = Vfull(II,JJ) 
                  
@@ -1003,7 +1016,7 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
         write(23,'(A)') '#PBS -M parzuchowski@frib.msu.edu'
         write(23,'(A)') '#PBS -m a'
         write(23,*)
-        write(23,'(A)') 'cd $HOME/Gaute_EOMCC'
+        write(23,'(A)') 'cd $HOME/CC_GAUTE/CCSDT'
         write(23,*)
         write(23,'(A)') 'export OMP_NUM_THREADS=8'
         write(23,'(A)') './prog_ccm_ex.exe < inifiles/'//trim(fname)&
@@ -1014,7 +1027,7 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
      end do
   end do
   
-!  stop 'OUTPUT THE GAUTE FORMAT'
+  stop 'OUTPUT THE GAUTE FORMAT'
 end subroutine output_gaute_format
   
 end module         
