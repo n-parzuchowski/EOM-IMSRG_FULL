@@ -100,7 +100,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  call transform_2b_to_HF(D,H,jbas) 
 
  
- call output_gaute_format(F,D,H,jbas) 
+! call output_gaute_format(F,D,H,jbas) 
 ! now we transform any other observables 
 ! here I am assuming that these are NOT normal orderded yet 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -778,8 +778,8 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   integer :: np,nb,nh,nt,count,count2,a,b,c,d,begin,mass,pholes,nholes
   real(8) :: gmat
   character(200) :: prefix2,fname
-  character(1) :: tag
-  integer,allocatable,dimension(:) :: mapping 
+  character(2) :: tag
+  integer,allocatable,dimension(:) :: mapping,inversemap 
   
 
   do i = 1,200
@@ -790,10 +790,23 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   prefix2(1:iend)=prefix(1:iend) 
   
   N = jbas%total_orbits
-  allocate(mapping(N))
+  allocate(mapping(N),inversemap(N))
   mapping(1:HS%belowEF) = jbas%holes
   mapping(HS%belowEF+1:HS%nsp) = jbas%parts
-
+  
+  do i = 1, N
+     do j = 1, N
+        if (j == mapping(i)) then 
+           inversemap(j) = i
+           exit
+        end if 
+     end do 
+  end do 
+  
+  print*, mapping
+  print*
+  print*, inversemap
+  
   ! PUT 1B MATRIX ELEMENTS IN A MORE REASONABLE FORMAT
   allocate(Tkin(N,N),Coefs(N,N))
   Coefs = 0.d0 
@@ -895,13 +908,13 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
                 
            
            do II = 1, nt
-              a = mapping(qnbig(II,1))
-              b = mapping(qnbig(II,2))
+              a = inverseMap(qnbig(II,1))
+              b = inverseMap(qnbig(II,2))
              
               do JJ = II,nt
               
-                 c = mapping(qnbig(JJ,1))
-                 d = mapping(qnbig(JJ,2))
+                 c = inversemap(qnbig(JJ,1))
+                 d = inversemap(qnbig(JJ,2))
                  
                  gmat = Vfull(II,JJ) 
                  
@@ -949,18 +962,20 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   
   ! make input files
   do Jtot = 0,3 
-     write(tag,'(I1)') Jtot
+     write(tag(1:1),'(I1)') Jtot
 
      do PAR = 0,1
         
         if (PAR == 0) then 
-           fname = prefix2(1:iend)//'_'//tag//'+.ini' 
+           tag(2:2) ='+' 
+           fname = prefix2(1:iend)//'_'//tag//'.ini' 
            fname = adjustl(fname)
-           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag//'+')
+           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag)
         else
            if (Jtot==0) cycle 
-           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag//'-')
-           fname = prefix2(1:iend)//'_'//tag//'-.ini' 
+           tag(2:2) ='-' 
+           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag)
+           fname = prefix2(1:iend)//'_'//tag//'.ini' 
            fname = adjustl(fname)
         end if 
         open(unit=22,file=trim(fname))
@@ -993,28 +1008,28 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
         
         close(22) 
         
-        write(23,'(A)') '#!/bin/sh/'
+        write(23,'(A)') '#!/bin/sh'
         write(23,*) 
-        write(23,'(A)') '#PBS -l walltime=10:00:00'
+        write(23,'(A)') '#PBS -l walltime=04:00:00'
         write(23,'(A)') '#PBS -l nodes=1:ppn=8'
-        write(23,'(A)') '#PBS -l mem=5gb'
+        write(23,'(A)') '#PBS -l mem=10gb'
         write(23,'(A)') '#PBS -j oe'
-        write(23,'(A)') '#PBS -N O16_cc_vsrg2.0_emax4_hw24_3-_law0.0'
+        write(23,'(A)') '#PBS -N '//prefix2(1:iend)//'_'//tag 
         write(23,'(A)') '#PBS -M parzuchowski@frib.msu.edu'
         write(23,'(A)') '#PBS -m a'
         write(23,*)
-        write(23,'(A)') 'cd $HOME/Gaute_EOMCC'
+        write(23,'(A)') 'cd $HOME/CC_GAUTE/CCSDT'
         write(23,*)
         write(23,'(A)') 'export OMP_NUM_THREADS=8'
-        write(23,'(A)') './prog_ccm_ex.exe < inifiles/'//trim(fname)&
-             //'> output/'//prefix2(1:iend)//'_ccsdt.out'
+        write(23,'(A)') './prog_ccm_ex.exe inifiles/'//trim(fname)&
+             //'> output/'//prefix2(1:iend)//'_ccsdt_'//tag//'.out'
         write(23,'(A)') 'qstat -f ${PBS_JOBID}'
         write(23,'(A)') 'exit 0'
         close(23)
      end do
   end do
   
-!  stop 'OUTPUT THE GAUTE FORMAT'
+  stop 'OUTPUT THE GAUTE FORMAT'
 end subroutine output_gaute_format
   
 end module         
