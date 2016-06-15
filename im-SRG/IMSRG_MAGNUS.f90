@@ -520,7 +520,6 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
  
   advals(1) = abs(H%E0)   
 
-     
   do iw = 2 ,15
      
      coef = coef/(iw-1.d0)

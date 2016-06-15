@@ -27,7 +27,7 @@ program main_IMSRG
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
   external :: build_gs_white,build_specific_space,build_gs_atan,build_gs_w2
-  external :: build_ex_imtime
+  external :: build_ex_imtime,build_sd_shellmodel
   integer :: heiko(30)
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
@@ -67,7 +67,6 @@ program main_IMSRG
 
   call initialize_transition_operator&
        (trans_type,trans_rank,Otrans,HS,jbas,trans_calc)  
-
 !============================================================
 !  CAN WE SKIP STUFF?  
 !============================================================
@@ -89,6 +88,22 @@ program main_IMSRG
      end if
      if (.not. do_hf) goto 90
   end if 
+
+
+        do i = 1, jbas%total_orbits
+           do j = 1, jbas%total_orbits
+              if (abs(f_tensor_elem(i,j,Otrans,jbas))>1e-6) then 
+                 write(72,'(2(I5),f20.13)') i,j,f_tensor_elem(i,j,Otrans,jbas)
+              END IF
+           end do
+        end do
+
+  
+  do i = 1, jbas%total_orbits
+     if (jbas%con(i) == 1) then 
+        print*, i, jbas%nn(i),jbas%ll(i),jbas%jj(i),jbas%itzp(i)
+     end if 
+  end do 
   ! yes, goto 
 !=============================================================
 !=============================================================
@@ -250,7 +265,23 @@ print*, 'FINISHED WITH HF'
     
      if (trans_calc) then
         print*, 'TRANSFORMING TRANSITION OPERATOR'
+
         call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
+
+        ! print*, 'a, n(a),l(a),2*j(a),2*t(a)'
+        ! do i = 1, 12
+        !    print*, i,jbas%nn(i),jbas%ll(i),jbas%jj(i),jbas%itzp(i)
+        ! end do 
+
+       ! print*, ' a b <a||o||b>' 
+        do i = 1, jbas%total_orbits
+           do j = 1, jbas%total_orbits
+              if (abs(f_tensor_elem(i,j,Otrans,jbas))>1e-6) then 
+                 write(75,'(2(I5),f20.13)') i,j,f_tensor_elem(i,j,Otrans,jbas)
+              END IF
+           end do
+        end do
+
      end if
     
   case (2) ! traditional
@@ -312,7 +343,7 @@ print*, 'FINISHED WITH HF'
      write(39,'(2(e15.7))') HS%E0,HS%E0+corr
      close(39)
   end if
-  
+
 !=======================================================================
 91 t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1

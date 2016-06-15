@@ -71,6 +71,7 @@ module basic_IMSRG
      integer :: Jtarg,Ptarg,valcut,Rank,dpar,eMax,lmax
      real(8) :: E0,hospace,lawson_beta,com_hw 
      logical :: pphh_ph
+     character(2) :: trans_label
   END TYPE sq_op
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   type sp_block_mat
@@ -180,29 +181,30 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,trips,jbx)
      
      jbas%lMax_3file=20
      jbas%lMax_2file=20
-     jbas%E3Max_3file = 42 
-     jbas%EMax_3file = 14 
-     jbas%EMax_2file = 14 
+     jbas%E3Max_3file=42 
+     jbas%EMax_3file=14 
+     jbas%EMax_2file=14 
      
-     
-     do i = 1, 500
-        if (threebody_file(i:i+3)=='eMax') then 
-           read(threebody_file(i+4:i+5),'(I2)') jbas%eMax_3file
-        end if
-               
-        if (threebody_file(i:i+3)=='lMax') then 
-           read(threebody_file(i+4:i+5),'(I2)') jbas%lMax_3file
-        end if
-        
-        if (threebody_file(i:i+3)=='EMax') then 
-           read(threebody_file(i+4:i+5),'(I2)') jbas%E3Max_3file
-        end if
-        
-        if (threebody_file(i:i+3)=='me3j') then 
-           
-           exit
-        end if
-     end do
+     if (threebody_file(1:4).ne.'none') then 
+        do i = 1, 500
+           if (threebody_file(i:i+3)=='eMax') then 
+              read(threebody_file(i+4:i+5),'(I2)') jbas%eMax_3file
+           end if
+
+           if (threebody_file(i:i+3)=='lMax') then 
+              read(threebody_file(i+4:i+5),'(I2)') jbas%lMax_3file
+           end if
+
+           if (threebody_file(i:i+3)=='EMax') then 
+              read(threebody_file(i+4:i+5),'(I2)') jbas%E3Max_3file
+           end if
+
+           if (threebody_file(i:i+3)=='me3j') then 
+
+              exit
+           end if
+        end do
+     end if
 
      do i = 1, 500
         if (intfile(i:i+3)=='eMax') then 

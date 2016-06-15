@@ -9,7 +9,7 @@ subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
   
   type(spd) :: jbas
   type(sq_op) :: Op,zr
-  character(1) :: trs_type
+  character(1) :: trs_type,ranklab
   integer :: rank 
   logical :: tcalc
   
@@ -18,7 +18,9 @@ subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
      case ('E') ! ELECTRIC TRANSITION
          Op%rank = 2*rank
          Op%herm = 1
-         Op%dpar = (-1)**rank 
+         Op%dpar = abs((-1)**rank-1) 
+         write(ranklab,'(I1)') rank 
+         Op%trans_label = trs_type//ranklab         
          if (rank==0) then 
             print*, 'not implemented'
          else
@@ -27,7 +29,18 @@ subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
             call calculate_EX(Op,jbas)
          end if 
      case ('M') ! MAGNETIC TRANSITION
-        stop 'not implemented'
+        Op%rank = 2*rank
+        Op%herm = 1
+        Op%dpar = abs((-1)**(rank-1)-1) 
+        write(ranklab,'(I1)') rank 
+        Op%trans_label = trs_type//ranklab
+        if (rank==0) then 
+           print*, 'not implemented'
+        else
+           call allocate_tensor(jbas,Op,zr)
+           Op%hospace=zr%hospace
+           call calculate_MX(Op,jbas)
+        end if
      case ('F') ! FERMI TRANSITION
         stop 'not implemented'
      case ('G') ! GAMOW-TELLER TRANSITION
@@ -574,9 +587,6 @@ subroutine calculate_EX(op,jbas)
         
         la = jbas%ll(a) 
         lb = jbas%ll(b) 
-
-       
-        if (.not. (triangle(2*la,2*lb,rank))) cycle
        
         if ( mod(la+lb+rank/2,2) == 1) cycle 
         
@@ -609,7 +619,6 @@ subroutine calculate_EX(op,jbas)
         la = jbas%ll(a) 
         lb = jbas%ll(b) 
         
-        if (.not. (triangle(2*la,2*lb,rank))) cycle
         if ( mod(la+lb+rank/2,2) == 1) cycle 
         
         ja = jbas%jj(a) 
@@ -641,7 +650,6 @@ subroutine calculate_EX(op,jbas)
         la = jbas%ll(a) 
         lb = jbas%ll(b) 
         
-        if (.not. (triangle(2*la,2*lb,rank))) cycle
         if ( mod(la+lb+rank/2,2) == 1) cycle 
         
         ja = jbas%jj(a) 
@@ -660,6 +668,146 @@ subroutine calculate_EX(op,jbas)
   end do     
         
 end subroutine calculate_EX
+!==================================================================================
+!==================================================================================
+subroutine calculate_MX(op,jbas) 
+  ! calculates electromagnetic transition operator 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: op   
+  integer :: a,b,ax,bx,rank,na,nb,kappa
+  integer :: ta,tb,tc,td,la,lb,lc,ld,ja,jb,jc,jd
+  real(8) :: pol,charge(2),dcgi,dcgi00,x,dcg,hw,holength
+  real(8) :: mu_N_overC,gl(2),gs(2)
+  
+
+  pol = 0.0d0   ! between -1 and 0 
+  hw = op%hospace
+  holength = sqrt(hbarc2_over_mc2/hw) 
+  mu_N_overc = 1.d0!sqrt(hbarc2_over_mc2/4.d0) 
+  x = dcgi00()
+  ! right now the units of this operator are: e fm^(X)
+  ! so the charge is not multiplied by the fundamental charge. 
+  charge(1) = (1+pol) 
+  charge(2) = pol 
+  gl(1) = 1
+  gl(2) = 0
+  gs(1) = 5.586
+  gs(2) = -3.826
+  ! access the correct charge with: 
+  ! charge( (jbas%tz(i) + 1)/2 + 1 )  
+  
+  rank = op%rank
+  
+  do ax = 1, op%belowEF 
+     do bx = 1, op%belowEF 
+ 
+        a = jbas%holes(ax)
+        b = jbas%holes(bx) 
+        
+        ta = jbas%itzp(a) 
+        tb = jbas%itzp(b) 
+       
+        if (ta .ne. tb) cycle
+        
+        la = jbas%ll(a) 
+        lb = jbas%ll(b) 
+
+        if ( mod(la+lb+rank/2,2) == 0) cycle 
+        
+        ja = jbas%jj(a) 
+        jb = jbas%jj(b) 
+               
+        if (.not.(triangle(ja,jb,rank))) cycle
+        
+        na = jbas%nn(a)
+        nb = jbas%nn(b) 
+        
+        kappa = (-1) ** ((ja+1)/2+la)*(ja+1) &
+             +(-1) ** ((jb+1)/2+lb)*(jb+1) 
+        
+        op%fhh(ax,bx) = mu_N_overC*charge(1) &
+             /sqrt(4.d0*Pi_const)*(-1) **((ja + rank - 1)/2) * &
+             sqrt((ja +1.d0) * (jb+1.d0)) * dcgi(ja,1,jb,-1,rank,0) *&
+             RabLAM(na,la,nb,lb,RANK/2-1)*holength**(rank/2-1)*&
+             (rank-kappa)/2*(gl((ta+1)/2+1)*(1+kappa/(rank+2.d0))-gs((ta+1)/2+1)/2.d0) 
+     end do 
+  end do 
+        
+  do ax = 1, op%nsp-op%belowEF 
+     do bx = 1, op%nsp-op%belowEF 
+  
+        a = jbas%parts(ax)
+        b = jbas%parts(bx) 
+        
+        ta = jbas%itzp(a) 
+        tb = jbas%itzp(b) 
+        
+        if (ta .ne. tb) cycle
+        
+        la = jbas%ll(a) 
+        lb = jbas%ll(b) 
+
+        if ( mod(la+lb+rank/2,2) == 0) cycle 
+        
+        ja = jbas%jj(a) 
+        jb = jbas%jj(b) 
+        
+        if (.not.(triangle(ja,jb,rank))) cycle
+        
+        na = jbas%nn(a)
+        nb = jbas%nn(b) 
+
+        kappa = (-1) ** ((ja+1)/2+la)*(ja+1) &
+             +(-1) ** ((jb+1)/2+lb)*(jb+1) 
+        
+        op%fpp(ax,bx) = mu_N_overC*charge(1) &
+             /sqrt(4.d0*Pi_const)*(-1) **((ja + rank - 1)/2) * &
+             sqrt((ja +1.d0) * (jb+1.d0)) * dcgi(ja,1,jb,-1,rank,0) *&
+             RabLAM(na,la,nb,lb,RANK/2-1)*holength**(rank/2-1)*&
+             (rank-kappa)/2*(gl((ta+1)/2+1)*(1+kappa/(rank+2.d0))-gs((ta+1)/2+1)/2.d0) 
+       
+     end do 
+  end do     
+
+  do ax = 1, op%nsp-op%belowEF 
+     do bx = 1, op%belowEF 
+  
+        a = jbas%parts(ax)
+        b = jbas%holes(bx) 
+        
+        ta = jbas%itzp(a) 
+        tb = jbas%itzp(b) 
+        
+        if (ta .ne. tb) cycle
+        
+        la = jbas%ll(a) 
+        lb = jbas%ll(b) 
+!        if (la .ne. lb) cycle
+        if ( mod(la+lb+rank/2,2) == 0) cycle 
+        
+        ja = jbas%jj(a) 
+        jb = jbas%jj(b) 
+        
+        if (.not.(triangle(ja,jb,rank))) cycle
+        
+        na = jbas%nn(a)
+        nb = jbas%nn(b) 
+
+        kappa = (-1) ** ((ja+1)/2+la)*(ja+1) &
+             +(-1) ** ((jb+1)/2+lb)*(jb+1) 
+
+        op%fph(ax,bx) = mu_N_overC*charge(1) &
+             /sqrt(4.d0*Pi_const)*(-1) **((ja + rank - 1)/2) * &
+             sqrt((ja +1.d0) * (jb+1.d0)) * dcgi(ja,1,jb,-1,rank,0) *&
+             RabLAM(na,la,nb,lb,RANK/2-1)*holength**(rank/2-1)*&
+             (rank-kappa)/2*(gl((ta+1)/2+1)*(1+kappa/(rank+2.d0))-gs((ta+1)/2+1)/2.d0) 
+        
+     end do
+  end do     
+        
+end subroutine calculate_MX
   
 real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas ) 
   implicit none
@@ -715,10 +863,11 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
               do J1 = abs(ji-jj),ji+jj,2
                  do J2 = abs(ja-jb),ja+jb,2
                     
-              phase = (-1) **((J1+J2)/2) 
-              sm = sm + phase*0.25d0*&
-                   tensor_elem(i,j,a,b,J1,J2,Trans_op,jbas)*&
-                   tensor_elem(a,b,i,j,J2,J1,Qdag,jbas) 
+                    phase = (-1) **((J1+J2)/2) 
+                    sm = sm + phase*0.25d0*&
+                         tensor_elem(i,j,a,b,J1,J2,Trans_op,jbas)*&
+                         tensor_elem(a,b,i,j,J2,J1,Qdag,jbas) 
+                    
                  end do 
               end do 
            end do
@@ -726,7 +875,9 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
      end do
   end do
         
-  transition_to_ground_ME = sm * (-1.d0)**(rank/2)/sqrt(rank+1.d0) 
+  transition_to_ground_ME = sm * (-1.d0)**(rank/2)
+  !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
+  !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
   
 end function transition_to_ground_ME
 

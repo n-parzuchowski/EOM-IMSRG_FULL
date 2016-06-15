@@ -11,8 +11,8 @@ contains
 subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1) 
   implicit none
   
-  real(8) :: BE2,Mfi ,SD_shell_content,dEtrips
-  real(8) :: t1,t2,t0,omp_get_wtime
+  real(8) :: BE,Mfi ,SD_shell_content,dEtrips
+  real(8) :: t1,t2,t0,omp_get_wtime,XX,QQ,sm,sm2 
   type(spd) :: jbas
   type(sq_op) :: HS 
   type(sq_op),optional :: O1
@@ -20,6 +20,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   real(8),allocatable,dimension(:) :: trips
   integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist
   character(2) :: Jlabel,Plabel,betalabel  
+  character(2) :: statelabel
   
   allocate(ladder_ops(numstates)) 
   allocate(trips(numstates))
@@ -54,37 +55,36 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
        ' FOR EXCITED STATES: J=',J/2,' P=',PAR  
   print*
 
-  if (read_ladder_operators(ladder_ops,jbas)) then 
+!  if (read_ladder_operators(ladder_ops,jbas)) then 
      call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
-     call write_ladder_operators(ladder_ops,jbas)
-  end if
+ !    call write_ladder_operators(ladder_ops,jbas)
+ ! end if
   
   
    if ( allocated(O1%tblck)  ) then 
+  
+     write(statelabel(1:1),'(I1)') O1%rank/2
+     if (O1%dpar == 0 ) then 
+        statelabel(2:2) = '+'
+     else
+        statelabel(2:2) = '-'
+     end if
      
      print*
      write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
      print*
      print*, 'EXCITED STATE ENERGIES:'
-     print*, '================================================='
-     print*, '      dE             E_0 + dE        B(E2)       '
-     print*, '================================================='
+     print*, '==========================================================================================='
+     print*, '      dE             E_0 + dE       B('//O1%trans_label//';'//statelabel//'->0+)'// &
+          '    B('//O1%trans_label//';0+->'//statelabel//')     n(1p1h)'
+     print*, '============================================================================================'
   
      do i = 1, Numstates
         Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
-        BE2 = Mfi**2/(J+1.d0) 
+        BE = Mfi**2/(J+1.d0) 
         
-        write(*,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2,Mfi**2 
-       
-        do aa = 1,Hs%nsp-HS%belowEF
-           do jj = 1, HS%belowEF
-              if ( abs(f_tensor_elem(jbas%holes(jj),jbas%parts(aa),ladder_ops(i),jbaS)) > 1e-6) then 
-                 print*, jbas%holes(jj),jbas%parts(aa),f_tensor_elem(jbas%holes(jj),jbas%parts(aa),ladder_ops(i),jbaS)
-              end if
-           end do 
-        end do 
-        
-        write(51,'(4(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE2,Mfi**2
+        write(*,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
+        write(51,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
      end do
   
   else
