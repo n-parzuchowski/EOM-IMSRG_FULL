@@ -778,7 +778,7 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   integer :: np,nb,nh,nt,count,count2,a,b,c,d,begin,mass,pholes,nholes
   real(8) :: gmat
   character(200) :: prefix2,fname
-  character(1) :: tag
+  character(2) :: tag
   integer,allocatable,dimension(:) :: mapping,inversemap 
   
 
@@ -962,18 +962,20 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
   
   ! make input files
   do Jtot = 0,3 
-     write(tag,'(I1)') Jtot
+     write(tag(1:1),'(I1)') Jtot
 
      do PAR = 0,1
         
         if (PAR == 0) then 
-           fname = prefix2(1:iend)//'_'//tag//'+.ini' 
+           tag(2:2) ='+' 
+           fname = prefix2(1:iend)//'_'//tag//'.ini' 
            fname = adjustl(fname)
-           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag//'+')
+           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag)
         else
            if (Jtot==0) cycle 
-           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag//'-')
-           fname = prefix2(1:iend)//'_'//tag//'-.ini' 
+           tag(2:2) ='-' 
+           open(unit=23,file='pbs_'//prefix2(1:iend)//'_'//tag)
+           fname = prefix2(1:iend)//'_'//tag//'.ini' 
            fname = adjustl(fname)
         end if 
         open(unit=22,file=trim(fname))
@@ -1006,21 +1008,21 @@ subroutine output_gaute_format(T,Dcof,HS,jbas)
         
         close(22) 
         
-        write(23,'(A)') '#!/bin/sh/'
+        write(23,'(A)') '#!/bin/sh'
         write(23,*) 
-        write(23,'(A)') '#PBS -l walltime=10:00:00'
+        write(23,'(A)') '#PBS -l walltime=04:00:00'
         write(23,'(A)') '#PBS -l nodes=1:ppn=8'
-        write(23,'(A)') '#PBS -l mem=5gb'
+        write(23,'(A)') '#PBS -l mem=10gb'
         write(23,'(A)') '#PBS -j oe'
-        write(23,'(A)') '#PBS -N O16_cc_vsrg2.0_emax4_hw24_3-_law0.0'
+        write(23,'(A)') '#PBS -N '//prefix2(1:iend)//'_'//tag 
         write(23,'(A)') '#PBS -M parzuchowski@frib.msu.edu'
         write(23,'(A)') '#PBS -m a'
         write(23,*)
         write(23,'(A)') 'cd $HOME/CC_GAUTE/CCSDT'
         write(23,*)
         write(23,'(A)') 'export OMP_NUM_THREADS=8'
-        write(23,'(A)') './prog_ccm_ex.exe < inifiles/'//trim(fname)&
-             //'> output/'//prefix2(1:iend)//'_ccsdt.out'
+        write(23,'(A)') './prog_ccm_ex.exe inifiles/'//trim(fname)&
+             //'> output/'//prefix2(1:iend)//'_ccsdt_'//tag//'.out'
         write(23,'(A)') 'qstat -f ${PBS_JOBID}'
         write(23,'(A)') 'exit 0'
         close(23)
