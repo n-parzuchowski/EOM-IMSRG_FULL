@@ -332,7 +332,7 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
   type(cc_mat) :: WCC,ADCC,GCC
-  real(8) :: adnorm,fullnorm,s,advals(15),sm,sm2,coef
+  real(8) :: adnorm,fullnorm,s,advals(30),sm,sm2,coef
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
 
@@ -488,7 +488,7 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
   type(pandya_mat) :: WCC,ADCC
   type(cc_mat) :: GCC 
-  real(8) ::  coef,adnorm,fullnorm,s,advals(15),sm,sm2,dcgi,dcgi00
+  real(8) ::  coef,adnorm,fullnorm,s,advals(30),sm,sm2,dcgi,dcgi00
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
   
@@ -520,7 +520,7 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
  
   advals(1) = abs(H%E0)   
 
-  do iw = 2 ,15
+  do iw = 2 ,30
      
      coef = coef/(iw-1.d0)
      ! current value of HS is renamed INT1 

@@ -882,7 +882,7 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   real(8) :: val,t1,t2,t3,t4,omp_get_wtime
   real(8) :: vv,xx,yy,zz
   
-  call seed_random_number
+!  call seed_random_number
   
   BB%rank = rank
   BB%dpar = dpar

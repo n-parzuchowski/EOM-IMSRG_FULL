@@ -18,7 +18,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   type(sq_op),optional :: O1
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   real(8),allocatable,dimension(:) :: trips
-  integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist
+  integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist,prots,neuts
   character(2) :: Jlabel,Plabel,betalabel  
   character(2) :: statelabel
   
@@ -30,6 +30,14 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   ladder_ops%dpar = 2*PAR
   ladder_ops%pphh_ph = .true. 
 
+  prots = 0 
+  neuts = 0 
+  do i = 1, jbas%total_orbits,2 
+     prots = prots + (jbas%jj(i)+1)*jbas%con(i) 
+  end do 
+  do i = 2, jbas%total_orbits,2 
+     neuts = neuts + (jbas%jj(i)+1)*jbas%con(i) 
+  end do   
   
   if ( ladder_ops(1)%rank .ne. 0 ) then 
 
@@ -78,15 +86,24 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      print*, '      dE             E_0 + dE       B('//O1%trans_label//';'//statelabel//'->0+)'// &
           '    B('//O1%trans_label//';0+->'//statelabel//')     n(1p1h)'
      print*, '============================================================================================'
-  
+ 
+     open(unit = 51, file = 'excited_states_for_FCI.dat', position='append') 
+
+     if((ladder_ops(1)%rank == 2) .and. (ladder_ops(1)%dpar==2) ) then 
+        write(51,'(5(I5),5(d25.14))') prots,neuts,HS%eMax,0,0,0.d0 &
+             ,HS%E0,0.d0,0.d0,0.d0
+     end if
+
      do i = 1, Numstates
         Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
         BE = Mfi**2/(J+1.d0) 
         
-        write(*,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
-        write(51,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
+        write(*,'(5(f16.9))')  ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
+        write(51,'(5(I5),5(d25.14))') prots,neuts,HS%eMax,ladder_ops(i)%rank/2,ladder_ops(1)%dpar/2,ladder_ops(i)%E0 &
+             ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
+
      end do
-  
+     close(51) 
   else
      
      print*
@@ -129,39 +146,39 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   close(72)
 
   
-  open(unit=72,file=trim(OUTPUT_DIR)//&
-       trim(adjustl(prefix))//&
-       '_EOM_trips_law'//trim(betalabel)//'.dat')    
+  ! open(unit=72,file=trim(OUTPUT_DIR)//&
+  !      trim(adjustl(prefix))//&
+  !      '_EOM_trips_law'//trim(betalabel)//'.dat')    
   
-  istart = 1
-  do 
-     read(72,*,iostat=ist) 
-     if (ist < 0) exit ! we have reached the end of the file
-     print*, istart 
-     istart = istart + 1
-  end do 
+  ! istart = 1
+  ! do 
+  !    read(72,*,iostat=ist) 
+  !    if (ist < 0) exit ! we have reached the end of the file
+  !    print*, istart 
+  !    istart = istart + 1
+  ! end do 
   
-  close(72) 
+  ! close(72) 
   
-  open(unit=72,file=trim(OUTPUT_DIR)//&
-       trim(adjustl(prefix))//&
-       '_EOM_trips_law'//trim(betalabel)//'.dat',position='append')    
+  ! open(unit=72,file=trim(OUTPUT_DIR)//&
+  !      trim(adjustl(prefix))//&
+  !      '_EOM_trips_law'//trim(betalabel)//'.dat',position='append')    
 
   
-  t0=omp_get_wtime() 
-  do i = istart, Numstates
-     print*, 'computing triples on state:',i
-     t1=omp_get_wtime()        
-     dEtrips  =  EOM_triples(HS,ladder_ops(i),jbas) 
-     t2=omp_get_wtime()
-     trips(i) =  dEtrips
-     write(*,'(4(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
-          sum(ladder_ops(i)%fph**2) ,t2-t1
-     write(72,'(3(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
-          sum(ladder_ops(i)%fph**2)
-     if ( (36000-t2+t0) < (1.5 * (t2-t1)) ) stop 
-  end do
-  close(72)
+  ! t0=omp_get_wtime() 
+  ! do i = istart, Numstates
+  !    print*, 'computing triples on state:',i
+  !    t1=omp_get_wtime()        
+  !    dEtrips  =  EOM_triples(HS,ladder_ops(i),jbas) 
+  !    t2=omp_get_wtime()
+  !    trips(i) =  dEtrips
+  !    write(*,'(4(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
+  !         sum(ladder_ops(i)%fph**2) ,t2-t1
+  !    write(72,'(3(f16.9))') ladder_ops(i)%E0+trips(i),ladder_ops(i)%E0+HS%E0+trips(i), &
+  !         sum(ladder_ops(i)%fph**2)
+  !    if ( (36000-t2+t0) < (1.5 * (t2-t1)) ) stop 
+  ! end do
+  ! close(72)
   
   
   open(unit=75,file=trim(OUTPUT_DIR)//&
