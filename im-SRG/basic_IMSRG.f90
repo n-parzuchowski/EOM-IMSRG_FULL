@@ -1153,7 +1153,120 @@ subroutine read_interaction(H,jbas,htype,hw,rr,pp)
   end do   
   close(39)
       
-end subroutine
+end subroutine read_interaction
+!==================================================================  
+!==================================================================
+subroutine calculate_pipj(pp,jbas) 
+  implicit none
+  
+  type(sq_op) :: pp
+  type(spd) :: jbas
+  integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x,II,JJ,mass
+  real(8) :: V,Vcm,g1,g2,g3,pre,hw,V1
+  integer :: C1,C2,int1,int2,i1,i2,htype,COM,n1,n2,g_ix
+  logical :: rr_calc,pp_calc
+  
+  
+  N = jbas%total_orbits
+  
+  mass = 0.d0 
+  do a = 1, N
+     mass = mass + jbas%con(a) *(jbas%jj(a)+1) 
+  end do
+
+  call calculate_h0_harm_osc(pp%hospace,jbas,pp,4)
+
+  do q = 1, pp%nblocks
+     
+     J = pp%mat(q)%lam(1) 
+  
+     do g_ix = 1,6 
+   
+        ! figure out how big the array is
+        n1 = size(pp%mat(q)%gam(g_ix)%X(:,1))
+        n2 = size(pp%mat(q)%gam(g_ix)%X(1,:))
+        if ((n1*n2) == 0) cycle 
+        
+        ! read in information about which 
+        ! array we are using from public arrays
+        c1 = sea1(g_ix) 
+        c2 = sea2(g_ix) 
+        
+        do II = 1, n1
+           a = pp%mat(q)%qn(c1)%Y(II,1)
+           b = pp%mat(q)%qn(c1)%Y(II,2)
+           do JJ = 1, n2 
+              c = pp%mat(q)%qn(c2)%Y(JJ,1)
+              d = pp%mat(q)%qn(c2)%Y(JJ,2)        
+
+              pp%mat(q)%gam(g_ix)%X(II,JJ) = p1_p2( a, b, c, d, J ,jbas )* &
+                   pp%hospace/mass
+
+           end do 
+        end do 
+
+     end do 
+  end do   
+
+      
+end subroutine calculate_pipj
+!==================================================================  
+!==================================================================
+subroutine calculate_rirj(rr,jbas) 
+  implicit none
+  
+  type(sq_op) :: rr
+  type(spd) :: jbas
+  integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x,II,JJ,mass
+  real(8) :: V,Vcm,g1,g2,g3,pre,hw,V1
+  integer :: C1,C2,int1,int2,i1,i2,htype,COM,n1,n2,g_ix
+  logical :: rr_calc,pp_calc
+  
+  
+  N = jbas%total_orbits
+  
+  mass = 0.d0 
+  do a = 1, N
+     mass = mass + jbas%con(a) *(jbas%jj(a)+1) 
+  end do
+  ! check if we are concerned with other operators
+
+  call calculate_h0_harm_osc(rr%hospace,jbas,rr,5)
+     
+  do q = 1, rr%nblocks
+     
+     J = rr%mat(q)%lam(1) 
+  
+     do g_ix = 1,6 
+   
+        ! figure out how big the array is
+        n1 = size(rr%mat(q)%gam(g_ix)%X(:,1))
+        n2 = size(rr%mat(q)%gam(g_ix)%X(1,:))
+        if ((n1*n2) == 0) cycle 
+        
+        ! read in information about which 
+        ! array we are using from public arrays
+        c1 = sea1(g_ix) 
+        c2 = sea2(g_ix) 
+        
+        do II = 1, n1
+           a = rr%mat(q)%qn(c1)%Y(II,1)
+           b = rr%mat(q)%qn(c1)%Y(II,2)
+           do JJ = 1, n2 
+              c = rr%mat(q)%qn(c2)%Y(JJ,1)
+              d = rr%mat(q)%qn(c2)%Y(JJ,2)        
+
+              rr%mat(q)%gam(g_ix)%X(II,JJ) = r1_r2( a, b, c, d, J ,jbas )* &
+                   rr%hospace/mass
+
+           end do 
+        end do 
+
+     end do 
+  end do   
+
+      
+end subroutine calculate_rirj
 !==================================================================  
 !==================================================================
 subroutine read_gz(H,jbas,htype,hw,rr,pp) 

@@ -78,8 +78,18 @@ program main_IMSRG
   
   if (reading_bare) then 
      do_hf = read_twobody_operator(HS,'bare')
-     call read_umat(coefs,jbas)
-     if (.not. do_hf) goto 90
+
+     if (.not. do_hf) then
+        if (COM_calc) then 
+           call duplicate_sq_op(HS,rirj)
+           call duplicate_sq_op(HS,pipj)
+           call calculate_pipj(pipj,jbas)
+           call calculate_rirj(rirj,jbas)
+        end if
+
+        call read_umat(coefs,jbas)
+        goto 90
+     end if
   end if 
   ! yes, goto 
 !=============================================================
@@ -163,7 +173,7 @@ program main_IMSRG
   end if
 
   ! Normal Order Observables 
-  if (hartree_fock) then 
+90 if (hartree_fock) then    
      call observable_to_HF(pipj,coefs,jbas)
      call observable_to_HF(rirj,coefs,jbas)
      call observable_to_HF(r2_rms,coefs,jbas)
@@ -187,7 +197,7 @@ print*, 'BASIS SETUP COMPLETE'
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
      
-90 call print_header
+  call print_header
   select case (method_int) 
 
           
