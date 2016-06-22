@@ -404,7 +404,66 @@ subroutine find_holes(jbas,pholes,nholes,hk)
      
   end do 
 
-end subroutine  
+end subroutine find_holes
+!==============================================================
+!==============================================================
+subroutine print_system(jbas) 
+  implicit none
+  
+  type(spd) :: jbas
+  integer :: n,p,i 
+  
+  p = 0 
+  n = 0 
+  do i = 1, jbas%total_orbits 
+     if ( jbas%itzp(i) == -1) then 
+        p = p +jbas%con(i) * (jbas%jj(i)+1)
+     else
+        n = n +jbas%con(i) * (jbas%jj(i)+1) 
+     end if
+  end do 
+  
+  write(*,'(A9,I4)') 'PROTONS: ',p 
+  write(*,'(A9,I4)') 'NEUTRONS: ',n 
+  write(*,*)
+  write(*,*) 'FILLED PROTON ORBITALS:'
+  do i = 1, jbas%total_orbits 
+     if ( jbas%con(i) == 1) then 
+        if (jbas%itzp(i) == -1) write(*,*) '   ',spec_not(i,jbas) 
+     end if
+  end do 
+  write(*,*)
+  write(*,*) 'FILLED NEUTRON ORBITALS:'
+  do i = 1, jbas%total_orbits 
+     if ( jbas%con(i) == 1) then 
+        if (jbas%itzp(i) == 1) write(*,*) '   '//spec_not(i,jbas) 
+     end if
+  end do   
+  write(*,*)
+end subroutine print_system  
+!==============================================
+!==============================================
+character(5) function spec_not(i,jbas) 
+  implicit none
+  
+  integer :: i 
+  type(spd) :: jbas
+  character(1),dimension(6) :: l_let 
+  character(1) :: j_str,n_str,l_str
+  
+  l_let = (/'s','p','d','f','g','h'/) 
+  
+  write(n_str,'(I1)') jbas%nn(i)
+  write(j_str,'(I1)') jbas%jj(i) 
+  
+  if (jbas%ll(i) > 5) then 
+     l_str = 'x' 
+  else
+     l_str = l_let(jbas%ll(i)+1)
+  end if 
+  
+  spec_not = n_str//l_str//j_str//'/2' 
+end function spec_not
 !==============================================
 !==============================================
 subroutine allocate_blocks(jbas,op) 
