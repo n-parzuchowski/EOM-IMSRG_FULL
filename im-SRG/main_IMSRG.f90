@@ -28,13 +28,10 @@ program main_IMSRG
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
   external :: build_gs_white,build_specific_space,build_gs_atan,build_gs_w2
   external :: build_ex_imtime,build_sd_shellmodel
-  integer :: heiko(30)
 !============================================================
 ! READ INPUTS SET UP STORAGE STRUCTURE
 !============================================================
   t1 = omp_get_wtime()
-  heiko = (/1,2,5,6,3,4,11,12,9,10,7,8,19,20,17,18,15,16,&
-       13,14,29,30,27,28,25,26,23,24,21,22/)   
 
   call getarg(1,inputs_from_command) 
   
@@ -53,6 +50,8 @@ program main_IMSRG
 
   call read_sp_basis(jbas,HS%Aprot,HS%Aneut,HS%eMax,HS%lmax,trips,jbx)
 
+  call print_system(jbas) 
+  
   if (TEST_COMMUTATORS) then 
      ! run this by typing ' X' after the input file in the command line
      ! This takes forever, you might want to comment some of this out. 
@@ -79,22 +78,9 @@ program main_IMSRG
   
   if (reading_bare) then 
      do_hf = read_twobody_operator(HS,'bare')
-     if (.not. do_hf) then 
-        if (com_calc .or. r2rms_calc) then 
-           call duplicate_sq_op(HS,rirj)
-           call duplicate_sq_op(HS,pipj)
-           do_hf=read_twobody_operator(rirj,'rirj_bare')    
-           do_hf=read_twobody_operator(pipj,'pipj_bare')    
-        end if
-     end if
+     call read_umat(coefs,jbas)
      if (.not. do_hf) goto 90
   end if 
-  
-  do i = 1, jbas%total_orbits
-     if (jbas%con(i) == 1) then 
-        print*, i, jbas%nn(i),jbas%ll(i),jbas%jj(i),jbas%itzp(i)
-     end if 
-  end do 
   ! yes, goto 
 !=============================================================
 !=============================================================
@@ -162,29 +148,8 @@ program main_IMSRG
   end if 
     
   if (hartree_fock) then 
-  
-    if (COM_calc) then 
-       call calc_HF(HS,threebod,jbas,coefs,pipj,rirj)
-       call normal_order(pipj,jbas)
-       call normal_order(rirj,jbas)
-     else if (r2rms_calc) then 
-        call calc_HF(HS,threebod,jbas,coefs,r2_rms)
-        call normal_order(r2_rms,jbas)
-     else if (trans_calc) then 
-        call calc_HF(HS,threebod,jbas,coefs,Otrans)
-     else
-        call calc_HF(HS,threebod,jbas,coefs)
-     end if 
-    ! calc_HF normal orders the hamiltonian
-  
+     call calc_HF(HS,threebod,jbas,coefs)   
   else 
-     if (COM_calc) then
-        call normal_order(pipj,jbas)
-        call normal_order(rirj,jbas)
-     else if (r2rms_calc) then 
-        call normal_order(r2_rms,jbas)
-     end if 
-
      call normal_order(HS,jbas) 
   end if
 
@@ -192,15 +157,24 @@ program main_IMSRG
 
   ! lawson 0b term
 12 HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
-if (writing_bare) then 
-   call write_twobody_operator(HS,'bare')   
-   if (com_calc .or. r2rms_calc) then 
-      call write_twobody_operator(rirj,'rirj_bare')    
-      call write_twobody_operator(pipj,'pipj_bare')    
-   end if 
-end if
-print*, 'FINISHED WITH HF' 
+  if (writing_bare) then 
+     call write_twobody_operator(HS,'bare')   
+     call write_umat(coefs)
+  end if
 
+  ! Normal Order Observables 
+  if (hartree_fock) then 
+     call observable_to_HF(pipj,coefs,jbas)
+     call observable_to_HF(rirj,coefs,jbas)
+     call observable_to_HF(r2_rms,coefs,jbas)
+     call observable_to_HF(Otrans,coefs,jbas) 
+  else 
+     call normal_order(pipj,jbas) 
+     call normal_order(rirj,jbas)
+     call normal_order(r2_rms,jbas)
+  end if
+
+print*, 'BASIS SETUP COMPLETE' 
 !============================================================
 ! IM-SRG CALCULATION 
 !============================================================ 

@@ -127,8 +127,8 @@ module basic_IMSRG
   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
   real(8),public,parameter :: Pi_const = acos(-1.d0) 
   character(200),public :: spfile,intfile,prefix,threebody_file
-  character(40),public :: playplace = '/mnt/research/imsrg/nsuite/me/playplace/'
-  character(22),public :: scratch = '/mnt/scratch/parzuch6/'
+  character(500),public :: playplace = '/mnt/research/imsrg/nsuite/me/playplace/'
+  character(500),public :: scratch = '/mnt/scratch/parzuch6/'
   ! If you have multiple places where you might want to write/read from, list them here. 
   ! You can have as many as you want, just make sure to increase the dimension accordingly. 
   ! Fortran is stupid about strings so make sure the strings are the same length, or it will get pissed.    
@@ -3200,6 +3200,61 @@ subroutine copy_rank0_to_tensor_format(A,B,jbas)
 end subroutine copy_rank0_to_tensor_format
 !======================================================
 !======================================================
+subroutine write_umat(C)
+  ! write square matrix to file
+  ! this subroutine assumes it's the HF unitary transformation
+  implicit none 
+  
+  type(full_sp_block_mat) :: C
+  integer :: i,q
+
+  if (prefix(1:8) == 'testcase') return  
+  
+  do i = 1,200
+     if (prefix(i:i+1) == 'hw') exit
+  end do
+
+  open(unit=77,file=trim(playplace)//trim(adjustl(prefix(1:i+3)))//'_umat.bin',&
+       form = 'unformatted', &
+       access = 'stream') 
+  
+  do q = 1, C%blocks
+     write(77) C%blkM(q)%matrix 
+  end do 
+  
+  close(77)
+end subroutine write_umat
+!======================================================
+!======================================================
+subroutine read_umat(C,jbas)
+  ! read square matrix from file
+  ! this subroutine assumes it's the HF unitary transformation
+  implicit none 
+  
+  type(spd) :: jbas
+  type(full_sp_block_mat) :: C
+  integer :: i,q
+  
+  call allocate_sp_mat(jbas,C)
+
+  if (prefix(1:8) == 'testcase') return  
+  
+  do i = 1,200
+     if (prefix(i:i+1) == 'hw') exit
+  end do
+
+  open(unit=77,file=trim(playplace)//trim(adjustl(prefix(1:i+3)))//'_umat.bin',&
+       form = 'unformatted', &
+       access = 'stream') 
+
+  do q = 1, C%blocks
+     read(77) C%blkM(q)%matrix 
+  end do 
+  
+  close(77)
+end subroutine read_umat
+!======================================================
+!======================================================
 subroutine write_twobody_operator(H,stage) 
   ! first figure out how many equations there are:
  
@@ -3219,7 +3274,7 @@ subroutine write_twobody_operator(H,stage)
   
   prefix2(1:i+3)=prefix(1:i+3) 
   print*, 'Writing normal ordered interaction to ',&
-       playplace//trim(adjustl(prefix2(1:i+3)))//&
+       trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'
   
   Atot = H%belowEF
@@ -3242,7 +3297,7 @@ subroutine write_twobody_operator(H,stage)
   call vectorize(H,outvec) 
   
   
-  filehandle = gzOpen(playplace//trim(adjustl(prefix2(1:i+3)))//&
+  filehandle = gzOpen(trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'w'//achar(0)) 
   
   do q =1,neq
@@ -3283,7 +3338,7 @@ subroutine write_omega_checkpoint(H,s)
   end if 
 
   print*, 'Writing normal ordered interaction to ',&
-       scratch//trim(adjustl(prefix2(1:i+11)))//'.bin'
+       trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin'
   
   Atot = H%belowEF
   Ntot = H%Nsp
@@ -3305,7 +3360,7 @@ subroutine write_omega_checkpoint(H,s)
   call vectorize(H,outvec) 
   
   
-  ! filehandle = gzOpen(scratch//trim(adjustl(prefix2(1:i+11)))&
+  ! filehandle = gzOpen(trim(scratch)//trim(adjustl(prefix2(1:i+11)))&
   !      //'.gz'//achar(0),'w'//achar(0)) 
   
   ! do q =1,neq
@@ -3316,7 +3371,7 @@ subroutine write_omega_checkpoint(H,s)
    
   ! rx = gzClose(filehandle) 
 
-  open(unit=77,file=scratch//trim(adjustl(prefix2(1:i+11)))//'.bin',&
+  open(unit=77,file=trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin',&
        form = 'unformatted', &
        access = 'stream') 
   write(77) outvec 
@@ -3332,9 +3387,9 @@ subroutine write_omega_checkpoint(H,s)
      prefix2(i+4:i+11) = '_s'//s_position
   end if 
   
-  print*, 'removing '//scratch//trim(adjustl(prefix2(1:i+11)))//'.bin' 
-  inquire(file=scratch//trim(adjustl(prefix2(1:i+11)))//'.bin',exist=isthere)
-  if (isthere) call system('rm '//scratch//trim(adjustl(prefix2(1:i+11)))//'.bin')   
+  print*, 'removing '//trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin' 
+  inquire(file=trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin',exist=isthere)
+  if (isthere) call system('rm '//trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin')   
   print*, 'sucessful' 
 
 end subroutine write_omega_checkpoint
@@ -3372,7 +3427,7 @@ logical function read_omega_checkpoint(H,s)
         prefix2(i+4:i+11) = '_s'//s_position
      end if
      
-     inquire(file=scratch//trim(adjustl(prefix2(1:i+11)))//'.bin',exist=isthere)
+     inquire(file=trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin',exist=isthere)
      if (isthere) exit 
      s = s-2.d0
   end do
@@ -3383,7 +3438,7 @@ logical function read_omega_checkpoint(H,s)
   
 !  print*, 'Bypassing Hartree Fock and normal odering.' 
   print*, 'Reading normal ordered output from ',&
-       scratch//trim(adjustl(prefix2(1:i+11)))//'.bin'
+       trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin'
 
   Atot = H%belowEF
   Ntot = H%Nsp
@@ -3401,7 +3456,7 @@ logical function read_omega_checkpoint(H,s)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  ! filehandle = gzOpen(scratch//trim(adjustl(prefix2(1:i+11)))&
+  ! filehandle = gzOpen(trim(scratch)//trim(adjustl(prefix2(1:i+11)))&
   !      //'.gz'//achar(0),'r'//achar(0)) 
   
   ! do q =1,neq
@@ -3411,7 +3466,7 @@ logical function read_omega_checkpoint(H,s)
   
   ! rx = gzClose(filehandle) 
 
-  open(unit=77,file=scratch//trim(adjustl(prefix2(1:i+11)))//'.bin',&
+  open(unit=77,file=trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin',&
        form = 'unformatted', &
        access = 'stream') 
   read(77) outvec 
@@ -3445,7 +3500,7 @@ logical function read_twobody_operator(H,stage)
   
   prefix2(1:i+3)=prefix(1:i+3) 
     
-  inquire(file=playplace//trim(adjustl(prefix2(1:i+3)))//&
+  inquire(file=trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz',exist=isthere)
   
   if ( .not. isthere ) then 
@@ -3454,7 +3509,7 @@ logical function read_twobody_operator(H,stage)
   
 !  print*, 'Bypassing Hartree Fock and normal odering.' 
   print*, 'Reading normal ordered output from ',&
-       playplace//trim(adjustl(prefix))//&
+       trim(playplace)//trim(adjustl(prefix))//&
        '_'//stage//'_normal_ordered.gz'
 
   Atot = H%belowEF
@@ -3473,7 +3528,7 @@ logical function read_twobody_operator(H,stage)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  filehandle = gzOpen(playplace//trim(adjustl(prefix2(1:i+3)))//&
+  filehandle = gzOpen(trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'r'//achar(0)) 
   
   do q =1,neq
@@ -3866,7 +3921,29 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
 1234 i = i + 1     
   end do
 
-end subroutine
+  do while (.not. (found))  
+     !!! NOTE: IFORT IS TOO STUPID TO EXECUTE THIS NEXT INQUIRE 
+     !!! IN A PORTABLE WAY ...  
+     
+     open(unit=78,file=trim(scratch)//'ifort_sucks.fail',status='replace',err=1235)
+     close(78)
+     exit
+1235 scratch = adjustl(TBME_DIR) ! default 
+     exit
+  end do
+  
+  do while (.not. (found))  
+     !!! NOTE: IFORT IS TOO STUPID TO EXECUTE THIS NEXT INQUIRE 
+     !!! IN A PORTABLE WAY... 
+     
+     open(unit=78,file=trim(playplace)//'ifort_sucks.fail',status='replace',err=1236)
+     close(78)
+     exit
+1236 playplace = adjustl(TBME_DIR) ! default 
+     exit
+  end do
+  
+end subroutine read_main_input_file
 !=======================================================  
 !=======================================================
 function optimum_omega_for_CM_hamiltonian(hw,Ew) result(epm) 

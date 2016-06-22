@@ -6,7 +6,7 @@ module HF_mod
   
 contains
 !====================================================
-subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
+subroutine calc_HF(H,THREEBOD,jbas,D)
   ! returns H in the normal orderd Hartree Fock basis
   implicit none 
   
@@ -14,11 +14,9 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
   type(mono_3b) :: THREEBOD_MONO
   type(spd) :: jbas
   type(sq_op) :: H 
-  type(sq_op),optional :: O1,O2,O3 ! other observables
   type(full_sp_block_mat) :: T,F,Vgam,V3gam,rho,D,Dx
   integer :: q,r,i,j,k,l
   real(8) :: crit,sm
-  real(8),allocatable,dimension(:,:) :: TRANS_MAT,OPERATOR
   logical :: tbforce=.false. 
   
   if ( allocated( THREEBOD%mat) ) tbforce = .true.  
@@ -99,42 +97,38 @@ subroutine calc_HF(H,THREEBOD,jbas,D,O1,O2,O3)
  if ( tbforce ) call meanfield_2b(rho,H,THREEBOD,jbas) 
  call transform_2b_to_HF(D,H,jbas) 
 
- 
 ! call output_gaute_format(F,D,H,jbas) 
-! now we transform any other observables 
-! here I am assuming that these are NOT normal orderded yet 
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-! work with additional operators 
- if (present(O1)) then 
-    if (O1%rank > 0) then 
-       call transform_1b_to_HF_tensor(D,O1,jbas) 
-    else
-       call write_kin_matrix(T,O1,jbas) 
-       call transform_1b_to_HF(D,Dx,T,O1,jbas)
-       call transform_2b_to_HF(D,O1,jbas) 
-    end if 
-end if
- 
- if (present(O2)) then 
-    if (O2%rank > 0) then 
-       call transform_1b_to_HF_tensor(D,O2,jbas) 
-    else
-       call write_kin_matrix(T,O2,jbas) 
-       call transform_1b_to_HF(D,Dx,T,O2,jbas)
-       call transform_2b_to_HF(D,O2,jbas) 
-    end if
-end if
- 
- if (present(O3)) then 
-    if (O3%rank > 0) then 
-       call transform_1b_to_HF_tensor(D,O3,jbas) 
-    else
-       call write_kin_matrix(T,O3,jbas) 
-       call transform_1b_to_HF(D,Dx,T,O3,jbas)
-       call transform_2b_to_HF(D,O3,jbas) 
-    end if
- end if
 end subroutine calc_HF
+!====================================================
+subroutine observable_to_HF(Op,coefs,jbas) 
+  ! transforms observable to HF basis
+  ! works for scalar observables 
+  ! and ONE BODY TENSORS ONLY 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(full_sp_block_mat) :: coefs,T,Dx
+  type(sq_op) :: Op 
+  
+  if (allocated(Op%tblck)) then 
+     call transform_1b_to_HF_tensor(coefs,Op,jbas) 
+     ! NOTE THAT SINCE THIS IS A 1-BODY OBSERVABLE,
+     ! NORMAL ORDERING IS NOT NECESSARY
+     ! THERE SHOULDN'T BE A ZERO BODY PIECE EITHER
+     ! THAT WOULD BE A 0+ -> 0+ TRANSITION, WHICH IS 
+     ! FORBIDDEN FOR ALL RANK> 0 TENSORS 
+  else if (allocated(Op%mat)) then 
+     call duplicate_sp_mat(coefs,T)
+     call duplicate_sp_mat(coefs,Dx)   
+     call write_kin_matrix(T,Op,jbas) 
+     call transform_1b_to_HF(coefs,Dx,T,Op,jbas)
+     call transform_2b_to_HF(coefs,Op,jbas) 
+     call normal_order(Op,jbas)
+  else 
+     return
+  end if
+ 
+end subroutine
 !====================================================
 subroutine write_kin_matrix(T,H,jbas)
   ! the kinetic energy matrix has already been calculated
