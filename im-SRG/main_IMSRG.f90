@@ -5,7 +5,7 @@ program main_IMSRG
   use IMSRG_MAGNUS
   use IMSRG_CANONICAL
   use operators
-  use me2j_format
+  use interaction_IO
   use EOM_IMSRG
   use brute_force_testing
   use three_body_routines
@@ -64,12 +64,30 @@ program main_IMSRG
   HS%herm = 1
   HS%hospace = hw
 
+!=================================================================
+! SET UP OPERATORS
+!=================================================================
+  
   call initialize_transition_operator&
        (trans_type,trans_rank,Otrans,HS,jbas,trans_calc)  
+
+  if (COM_calc) then 
+     call duplicate_sq_op(HS,rirj)
+     call duplicate_sq_op(HS,pipj)
+     call calculate_pipj(pipj,jbas)
+     call calculate_rirj(rirj,jbas)
+  end if
+  
+  if (r2rms_calc) then 
+     call duplicate_sq_op(HS,rirj)
+     call duplicate_sq_op(HS,r2_rms) 
+     call initialize_rms_radius(r2_rms,rirj,jbas) 
+  end if 
+  
 !============================================================
 !  CAN WE SKIP STUFF?  
 !============================================================
-
+  
   do_hf = .true. 
   IF (reading_decoupled) then 
      do_hf = read_twobody_operator(HS,'decoupled') 
@@ -80,69 +98,29 @@ program main_IMSRG
      do_hf = read_twobody_operator(HS,'bare')
 
      if (.not. do_hf) then
-        if (COM_calc) then 
-           call duplicate_sq_op(HS,rirj)
-           call duplicate_sq_op(HS,pipj)
-           call calculate_pipj(pipj,jbas)
-           call calculate_rirj(rirj,jbas)
-        end if
-
         call read_umat(coefs,jbas)
         goto 90
      end if
   end if 
   ! yes, goto 
 !=============================================================
+! READ INTERACTION 
 !=============================================================
-  print*, 'READ 2-BODY INTERACTION'
+  print*, 'reading 2-body interaction'
   ! for calculating COM expectation value
-  if (COM_calc) then  
-     
-     call duplicate_sq_op(HS,rirj)
-     call duplicate_sq_op(HS,pipj)
-     
-     if (me2j) then  ! heiko format or scott format? 
-        call read_me2j_interaction(HS,jbas,jbx,ham_type,hw,rr=rirj,pp=pipj) 
-     else if (mortbin) then 
-        call read_gz(HS,jbas,ham_type,hw,rr=rirj,pp=pipj)
-     else
-        call read_interaction(HS,jbas,ham_type,hw,rr=rirj,pp=pipj)
-     end if
-     
-     call calculate_h0_harm_osc(hw,jbas,pipj,4)
-     call calculate_h0_harm_osc(hw,jbas,rirj,5)
- !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  else if (r2rms_calc) then ! radius of some sort 
   
-     call duplicate_sq_op(HS,rirj)
-     call duplicate_sq_op(HS,r2_rms) 
-     
-     if (me2j) then 
-        call read_me2j_interaction(HS,jbas,jbx,ham_type,hw,rr=rirj)
-     else if (mortbin) then 
-        call read_gz(HS,jbas,ham_type,hw,rr=rirj)  
-     else
-        call read_interaction(HS,jbas,ham_type,hw,rr=rirj)
-     end if
-     
-     call initialize_rms_radius(r2_rms,rirj,jbas) 
- !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-  else    ! normal boring
-  
-     if (me2j) then 
-        call read_me2j_interaction(HS,jbas,jbx,ham_type,hw) 
-     else if (me2b) then
-        ! pre normal ordered interaction with three body included at No2b       
-        print*, 'READING PRE-NORMAL ORDERED INTERACTION FROM HEIKO' 
-        call read_me2b_interaction(HS,jbas,ham_type,hw) 
-        goto 12 ! skip the normal ordering. 
-        ! it's already done.  line 128 or search "bare" 
-     else if (mortbin) then 
-        call read_gz(HS,jbas,ham_type,hw) 
-     else
-        call read_interaction(HS,jbas,ham_type,hw)
-     end if
-     
+  if (me2j) then 
+     call read_me2j_interaction(HS,jbas,jbx,ham_type) 
+  else if (me2b) then
+     ! pre normal ordered interaction with three body included at No2b       
+     print*, 'READING PRE-NORMAL ORDERED INTERACTION FROM HEIKO' 
+     call read_me2b_interaction(HS,jbas,ham_type,hw) 
+     goto 12 ! skip the normal ordering. 
+     ! it's already done.  line 128 or search "bare" 
+  else if (mortbin) then 
+     call read_gz(HS,jbas,ham_type) 
+  else
+     call read_interaction(HS,jbas,ham_type)
   end if
     
 !============================================================

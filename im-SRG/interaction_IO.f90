@@ -1,9 +1,236 @@
-module me2j_format
+module interaction_IO
   use basic_IMSRG
   implicit none
   
   contains
+!==================================================================  
+!==================================================================
+subroutine read_interaction(H,jbas,htype) 
+  ! read interaction from ASCII file produced by VRenormalize
+  implicit none
+  
+  type(sq_op) :: H
+  type(spd) :: jbas
+  integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
+  real(8) :: V,Vcm,g1,g2,g3,pre,hw,V1
+  integer :: C1,C2,int1,int2,i1,i2,htype,COM
+  
+  hw = H%hospace
+  
+  open(unit=39,file = trim(TBME_DIR)//trim(adjustl(intfile))) 
+  
+  read(39,*);read(39,*);read(39,*);read(39,*)
+  read(39,*);read(39,*);read(39,*);read(39,*) !skip all of the garbage 
+  
+  COM = 0
+  if (htype == 1) COM = 1 ! remove center of mass hamiltonian? 
+  
+  N = jbas%total_orbits
+  
+  do 
+     read(39,*,iostat=ist) Tz,Par,J,a,b,c,d,V!,g1,g2,g3
+     !read(39,*) Tz,Par,J,a,b,c,d,V,g1,g2,g3
+     
+     ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
+     ! g2 is r1*r2 ME 
+     ! g3 is p1*p2 ME 
+     
+     if (ist > 0) STOP 'interaction file error' 
+     if (ist < 0) exit
 
+     g2 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     g3 = p1_p2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     ! so I am doing it explicitly. 
+     
+     g1 = (g3 + H%com_hw**2 /hw**2 *g2)*H%lawson_beta ! lawson term    
+
+     V = V + (g1 - g3*COM) *hw/(H%Aneut + H%Aprot) ! center of mass correction
+ 
+     
+     q = block_index(J,Tz,Par) 
+     
+     C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+     C2 = jbas%con(c)+jbas%con(d) + 1
+    
+     qx = C1*C2
+     qx = qx + adjust_index(qx)   !Vpppp nature  
+
+     ! get the indeces in the correct order
+     pre = 1
+
+     if ( a > b )  then 
+        
+        x = bosonic_tp_index(b,a,N) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
+        pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
+     else
+       ! if (a == b) pre = pre * sqrt( 2.d0 )
+       
+        x = bosonic_tp_index(a,b,N) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
+     end if
+  
+     if (c > d)  then     
+        
+        x = bosonic_tp_index(d,c,N) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
+        
+        pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
+     else 
+       ! if (c == d) pre = pre * sqrt( 2.d0 )
+      
+        x = bosonic_tp_index(c,d,N) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
+     end if
+     ! kets/bras are pre-scaled by sqrt(2) if they 
+     ! have two particles in the same sp-shell
+        
+     ! get the units right. I hope 
+   
+     if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
+        H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
+        H%mat(q)%gam(qx)%X(i1,i2)  = V *pre        
+     else if (C1>C2) then
+        H%mat(q)%gam(qx)%X(i2,i1)  = V *pre        
+     else
+        H%mat(q)%gam(qx)%X(i1,i2) =  V *pre 
+     end if 
+     ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
+     
+  end do
+  close(39)
+      
+end subroutine read_interaction
+!==================================================================  
+!==================================================================
+subroutine read_gz(H,jbas,htype) 
+  ! read interaction from gz file produced by VRenormalize 
+  implicit none
+  
+  type(sq_op) :: H
+  type(spd) :: jbas
+  integer :: ist,J,Tz,Par,a,b,c,d,q,qx,N,j_min,x
+  real(8) :: V,Vcm,g1,g2,g3,pre,hw
+  integer :: C1,C2,int1,int2,i1,i2,htype,COM
+  integer :: ntot,npp,npn,nnn,count,i
+  integer(c_int) :: filehandle,sz
+  character(200) :: string_in, fixed
+  
+  hw = H%hospace 
+  filehandle = gzOpen(trim(TBME_DIR)//trim(adjustl(intfile))//achar(0),"r"//achar(0))  
+  
+  COM = 0
+  if (htype == 1) COM = 1 ! remove center of mass hamiltonian? 
+  
+  N = jbas%total_orbits
+  
+  ! the first line is the number of matrix elements... I hope. 
+  string_in = read_morten_gz(filehandle) 
+  
+  do i = 3, 20
+     if (string_in(i:i+3) == 'XXXX') exit
+  end do 
+  fixed = string_in(1:i-2) 
+  read(fixed,'(I49)') ntot  
+  write(*,'(A11,I20)') '# of TBME: ',ntot
+
+  do count = 1, ntot
+
+     string_in = read_morten_gz(filehandle) 
+     string_in = adjustl(string_in)
+
+     do i = 20, 80
+        if (string_in(i:i+3) == 'XXXX') exit
+     end do
+     if (string_in(1:1) == '-') then 
+        fixed = '  '//string_in(1:i-2) 
+     else 
+        fixed = '   '//string_in(1:i-2) 
+     end if 
+
+     read(fixed(1:4),'(I4)') Tz
+     read(fixed(5:8),'(I4)') Par
+     read(fixed(9:12),'(I4)') J
+     read(fixed(13:16),'(I4)') a
+     read(fixed(17:20),'(I4)') b
+     read(fixed(21:24),'(I4)') c
+     read(fixed(25:28),'(I4)') d     
+     read(fixed(29:49),'(e20.6)') V
+
+     g2 = r1_r2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     g3 = p1_p2( a, b, c, d, J ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
+     
+     ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
+     ! g2 is r1*r2 ME 
+     ! g3 is p1*p2 ME 
+     g1 = (g3 + H%com_hw**2 /hw**2 *g2)*H%lawson_beta ! lawson term    
+
+     V = V + (g1 - g3*COM) *hw/(H%Aneut + H%Aprot) ! center of mass correction
+          
+     q = block_index(J,Tz,Par) 
+     
+     C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+     C2 = jbas%con(c)+jbas%con(d) + 1
+    
+     qx = C1*C2
+     qx = qx + adjust_index(qx)   !Vpppp nature  
+
+     ! get the indeces in the correct order
+     pre = 1
+     if ( a > b )  then 
+        
+        x = bosonic_tp_index(b,a,N) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
+        pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J)/2 ) 
+     else
+       ! if (a == b) pre = pre * sqrt( 2.d0 )
+       
+        x = bosonic_tp_index(a,b,N) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i1 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
+     end if
+  
+     if (c > d)  then     
+        
+        x = bosonic_tp_index(d,c,N) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
+        
+        pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J)/2 ) 
+     else 
+       ! if (c == d) pre = pre * sqrt( 2.d0 )
+      
+        x = bosonic_tp_index(c,d,N) 
+        j_min = jbas%xmap(x)%Z(1)  
+        i2 = jbas%xmap(x)%Z( (J-j_min)/2 + 2) 
+     end if
+     ! kets/bras are pre-scaled by sqrt(2) if they 
+     ! have two particles in the same sp-shell
+        
+     ! get the units right. I hope 
+   
+     
+     if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
+        H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
+        H%mat(q)%gam(qx)%X(i1,i2)  = V *pre                
+     else if (C1>C2) then
+        H%mat(q)%gam(qx)%X(i2,i1)  = V *pre        
+     else
+        H%mat(q)%gam(qx)%X(i1,i2) = V * pre        
+     end if 
+     ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
+     
+  end do   
+  sz = gzclose(filehandle)
+      
+end subroutine read_gz
+!=============================================================================
+!=============================================================================
 subroutine get_me2j_spfile()
   ! This constructs the sps file for
   ! me2j's format, after it's been converted to a pn-basis 
@@ -52,7 +279,7 @@ subroutine get_me2j_spfile()
 end subroutine
 !=====================================================================================
 !=====================================================================================
-subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp) 
+subroutine read_me2j_interaction(H,jbas,jbx,htype) 
   use gzipmod
   implicit none 
   
@@ -64,7 +291,6 @@ subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp)
   real(8) :: V,g1,g2,g3,hw,pre2
   type(spd) :: jbas,jbx
   type(sq_op) :: H
-  type(sq_op),optional :: pp,rr
   logical :: pp_calc,rr_calc
   character(1) :: rem
   character(2) :: eMaxchr
@@ -72,12 +298,8 @@ subroutine read_me2j_interaction(H,jbas,jbx,htype,hw,rr,pp)
   integer(c_int) :: hndle,hndle2,hndle3,sz,sz2,sz3,rx
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
   
-  pp_calc=.false.
-  rr_calc=.false.
+  hw = H%hospace
   COM = 0
-
-  if (present(pp)) pp_calc=.true.
-  if (present(rr)) rr_calc=.true.
   if (htype == 1) COM = 1
 
   lMax = H%lmax
@@ -320,40 +542,13 @@ do ax = nlj1,nlj1+1
      if ((qx == 1) .or. (qx == 5) .or. (qx == 4)) then 
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
-        
-        if (rr_calc) then 
-           rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot)
-           rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot)
-        end if 
-
-        if (pp_calc) then 
-           pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot)
-           pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot)
-        end if 
-
-        
+                
      else if (C1>C2) then
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
-        
-        if (rr_calc) then 
-           rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot) 
-        end if
-        
-        if (pp_calc) then 
-           pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot) 
-        end if
 
      else
         H%mat(q)%gam(qx)%X(i1,i2) = V * pre
-        
-        if (rr_calc) then 
-           rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot) 
-        end if
-
-        if (pp_calc) then 
-           pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot) 
-        end if
-
+       
      end if 
      ! I shouldn't have to worry about hermiticity here, input is assumed to be hermitian
     
