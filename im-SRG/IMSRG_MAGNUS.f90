@@ -23,18 +23,6 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   logical :: trip_calc,xxCR,chkpoint_restart
   external :: build_generator 
   
-  ! trip_calc = .false. 
-  ! xxCr = .false. 
-
-  ! if (trips=='y') then 
-  !    ! triples correction
-  !    trip_calc=.true.
-  ! else if (trips == 'C') then 
-  !    ! triples correction with full internal BCH
-  !    trip_calc=.true. 
-  !    xxCr = .true.
-  ! end if 
-     
   HS%neq = 1
   call duplicate_sq_op(HS,H) !evolved hamiltonian
   if (.not. allocated(G%mat)) call duplicate_sq_op(HS,G) !magnus operator
@@ -80,7 +68,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      crit=abs(E_mbpt2)
   
   else 
-     
+
      ! CHECKPOINT RESTART
      open(unit=36,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_0b_magnus_flow.dat',position='append')
@@ -94,55 +82,32 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
 
   end if 
   
-     
   do while (crit > 1e-6) 
-     
+ 
      steps = steps + 1
-     
+ 
      if (checkpointing) then 
         if (mod(steps,4)==0) then 
            call write_omega_checkpoint(G,s)
         end if
      end if 
-     
+ 
      call MAGNUS_EXPAND(DG,G,AD,jbas)
  
      call euler_step(G,DG,s,ds) 
-     
+ 
      call BCH_EXPAND(HS,G,H,jbas,quads) 
-     
+ 
      call build_generator(HS,DG,jbas)   
-
+ 
      E_mbpt2 = mbpt2(HS,jbas) 
-     
+ 
      crit = abs(E_mbpt2)  
-       
+
      write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
      write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-
-  end do
- 
-! triples correction ===========================================================
-  ! if (trip_calc) then 
-  !    call enumerate_three_body(threebas,jbas)
-  !    t1 = omp_get_wtime()
-  !    if ( xxCR ) then 
-  !       call duplicate_sq_op(H,CR)         
-  !       ! completely renormalized bit.
-  !       call CR_EXPAND(CR,G,H,jbas,quads) 
-  !       corr =  restore_triples(CR,G,threebas,jbas)
-  !    else
-  !       corr =  restore_triples(H,G,threebas,jbas) 
-  !    end if 
-  !    t2 = omp_get_wtime()
-   
-  !    print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
      
-  !    open(unit=39,file=trim(OUTPUT_DIR)//&
-  !      trim(adjustl(prefix))//'_magnus_triples.dat')
-  !    write(39,'(I6,4(e15.7))') steps,s,HS%E0+corr,HS%E0+E_mbpt2,crit
-  !    close(39)
-  ! end if
+  end do
   
 end subroutine  
 !===========================================================================
@@ -332,9 +297,10 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
   type(spd) :: jbas
   type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
   type(cc_mat) :: WCC,ADCC,GCC
-  real(8) :: adnorm,fullnorm,s,advals(30),sm,sm2,coef
+  real(8) :: adnorm,fullnorm,s,advals(20),sm,sm2,coef
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
+
 
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
@@ -366,7 +332,7 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
  
   advals(1) = abs(H%E0)   
 
-  do iw = 2 ,30
+  do iw = 2 ,20
 
      coef = coef/(iw-1.d0) 
      ! current value of HS is renamed INT1 
@@ -403,8 +369,8 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
           
      advals(iw) = mat_frob_norm(INT2)*coef
      if (advals(iw) < conv) exit
-     
   end do 
+  if (iw > 20) STOP 'clipping BCH'
   
 end subroutine BCH_EXPAND
 !=========================================================================
@@ -811,8 +777,8 @@ real(8) function restore_triples(H,OM,jbas)
   
   
   sm = 0.d0   
-    call enumerate_three_body(threebas,jbas)  
-    total_threads = size(threebas(1)%direct_omp) - 1
+  call enumerate_three_body(threebas,jbas)  
+  total_threads = size(threebas(1)%direct_omp) - 1
 
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,OM) & 
 !$OMP& REDUCTION(+:sm)  
@@ -841,6 +807,7 @@ real(8) function restore_triples(H,OM,jbas)
         else
            pre1 = 1.d0 
         end if
+ 
         ja = jbas%jj(a)      
         jb = jbas%jj(b) 
         jc = jbas%jj(c) 
@@ -851,6 +818,7 @@ real(8) function restore_triples(H,OM,jbas)
         faa = f_elem(a,a,H,jbas)
         fbb = f_elem(b,b,H,jbas)
         fcc = f_elem(c,c,H,jbas)
+
         Gabab = twobody_monopole(a,b,ja,jb,H,jbas) 
         Gacac = twobody_monopole(a,c,ja,jc,H,jbas) 
         Gbcbc = twobody_monopole(b,c,jb,jc,H,jbas) 
@@ -906,13 +874,13 @@ real(8) function restore_triples(H,OM,jbas)
                 Gacac+Gbcbc+Gijij+Gikik+Gjkjk-Giaia&
                 -Gibib-Gicic-Gjaja-Gjbjb-Gjcjc-Gkaka-&
                 Gkbkb-Gkckc)*pre1*pre2 
-           
+
            do jab = jab_min,jab_max,2
                
               if ( .not. (triangle(Jtot,jc,Jab))) cycle
               if ((a==b) .and. (mod(Jab/2,2)==1)) cycle               
               do jij = jij_min, jij_max,2
-                  
+                 
                  if ( .not. (triangle(Jtot,jk,Jij))) cycle
                  if ((i==j) .and. (mod(Jij/2,2)==1)) cycle
                  w = commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)

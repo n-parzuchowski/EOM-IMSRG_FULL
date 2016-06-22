@@ -21,6 +21,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist,prots,neuts
   character(2) :: Jlabel,Plabel,betalabel  
   character(2) :: statelabel
+  REAL(8),dimension(Numstates) :: Es,BEs 
   
   allocate(ladder_ops(numstates)) 
   allocate(trips(numstates))
@@ -68,9 +69,9 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
  !    call write_ladder_operators(ladder_ops,jbas)
  ! end if
   
-  
    if ( allocated(O1%tblck)  ) then 
-  
+
+      
      write(statelabel(1:1),'(I1)') O1%rank/2
      if (O1%dpar == 0 ) then 
         statelabel(2:2) = '+'
@@ -87,23 +88,30 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
           '    B('//O1%trans_label//';0+->'//statelabel//')     n(1p1h)'
      print*, '============================================================================================'
  
-     open(unit = 51, file = 'excited_states_for_FCI.dat', position='append') 
+!     open(unit = 51, file = 'excited_states_for_FCI.dat', position='append') 
 
-     if((ladder_ops(1)%rank == 2) .and. (ladder_ops(1)%dpar==2) ) then 
-        write(51,'(5(I5),5(d25.14))') prots,neuts,HS%eMax,0,0,0.d0 &
-             ,HS%E0,0.d0,0.d0,0.d0
-     end if
+     ! if((ladder_ops(1)%rank == 2) .and. (ladder_ops(1)%dpar==2) ) then 
+     !    write(51,'(5(I5),5(d25.14))') prots,neuts,HS%eMax,0,0,0.d0 &
+     !         ,HS%E0,0.d0,0.d0,0.d0
+     ! end if
 
      do i = 1, Numstates
+        
         Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
         BE = Mfi**2/(J+1.d0) 
         
-        write(*,'(5(f16.9))')  ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
-        write(51,'(5(I5),5(d25.14))') prots,neuts,HS%eMax,ladder_ops(i)%rank/2,ladder_ops(1)%dpar/2,ladder_ops(i)%E0 &
-             ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
-
+        Es(i) = ladder_ops(i)%E0
+        BEs(i) = BE
+        write(*,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
+ !       write(51,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
+        
      end do
-     close(51) 
+     
+     open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+          '_energies_strengths'//O1%trans_label//'.dat',position='append')
+     write(31,'(2(I10),11(d25.14))') nint(HS%hospace),HS%eMax,HS%E0,Es,BEs 
+     close(31)  
+     
   else
      
      print*
@@ -118,7 +126,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
 
         write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
              sum(ladder_ops(i)%fph**2),t2-t1
-
+        
      end do
      print*
      print*
@@ -145,7 +153,6 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
 
   close(72)
 
-  
   ! open(unit=72,file=trim(OUTPUT_DIR)//&
   !      trim(adjustl(prefix))//&
   !      '_EOM_trips_law'//trim(betalabel)//'.dat')    
@@ -1130,7 +1137,7 @@ subroutine write_ladder_operators(AX,jbas)
   
   prefix2(1:i+6)=prefix(1:i+6) 
   print*, 'Writing normal ordered ladder operators to ',&
-       '../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+       playplace//trim(adjustl(prefix2(1:i+6)))//&
        '_ladder.gz'
   neq = AX(1)%neq
   
@@ -1146,7 +1153,7 @@ subroutine write_ladder_operators(AX,jbas)
      end do
   end if 
 
-  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+  filehandle = gzOpen(playplace//trim(adjustl(prefix2(1:i+6)))//&
        '_ladder.gz'//achar(0),'w'//achar(0)) 
 
 
@@ -1191,7 +1198,7 @@ logical function read_ladder_operators(AX,jbas)
   
   prefix2(1:i+6)=prefix(1:i+6) 
     
-  inquire(file='../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+  inquire(file=playplace//trim(adjustl(prefix2(1:i+6)))//&
        '_ladder.gz',exist=isthere)
   
   if ( .not. isthere ) then 
@@ -1201,11 +1208,11 @@ logical function read_ladder_operators(AX,jbas)
   numstates = size(AX)
 
   print*, 'Reading normal ordered ladder operators from ',&
-       '../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+       playplace//trim(adjustl(prefix2(1:i+6)))//&
        '_ladder.gz'
 
   
-  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+6)))//&
+  filehandle = gzOpen(playplace//trim(adjustl(prefix2(1:i+6)))//&
        '_ladder.gz'//achar(0),'r'//achar(0)) 
   
   instring = read_normal_gz(filehandle) 

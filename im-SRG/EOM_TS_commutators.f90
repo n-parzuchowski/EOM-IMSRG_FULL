@@ -515,7 +515,7 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
                  
                 ! use w1, because it sums over the pp indices
                 sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J1/2) * pm 
+                 *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J1/2)
                 
              end do              
           
@@ -541,7 +541,7 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
 
                 ! use w1, because it sums over the pp indices
                 sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
-                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J1/2) * pm 
+                 *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J1/2)
                 
              end do              
           
