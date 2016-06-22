@@ -127,7 +127,8 @@ module basic_IMSRG
   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
   real(8),public,parameter :: Pi_const = acos(-1.d0) 
   character(200),public :: spfile,intfile,prefix,threebody_file
-  
+  character(40),public :: playplace = '/mnt/research/imsrg/nsuite/me/playplace/'
+  character(22),public :: scratch = '/mnt/scratch/parzuch6/'
   ! If you have multiple places where you might want to write/read from, list them here. 
   ! You can have as many as you want, just make sure to increase the dimension accordingly. 
   ! Fortran is stupid about strings so make sure the strings are the same length, or it will get pissed.    
@@ -1382,7 +1383,6 @@ real(8) function f_elem(a,b,op,jbas)
         end if
      case(2) 
         ! hh 
-
         f_elem = op%fhh(a-pb4(a),b-pb4(b)) 
   end select
 
@@ -3160,7 +3160,7 @@ subroutine write_twobody_operator(H,stage)
   
   prefix2(1:i+3)=prefix(1:i+3) 
   print*, 'Writing normal ordered interaction to ',&
-       '../../TBME_input/'//trim(adjustl(prefix2(1:i+3)))//&
+       playplace//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'
   
   Atot = H%belowEF
@@ -3183,7 +3183,7 @@ subroutine write_twobody_operator(H,stage)
   call vectorize(H,outvec) 
   
   
-  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+3)))//&
+  filehandle = gzOpen(playplace//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'w'//achar(0)) 
   
   do q =1,neq
@@ -3224,7 +3224,7 @@ subroutine write_omega_checkpoint(H,s)
   end if 
 
   print*, 'Writing normal ordered interaction to ',&
-       '../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz'
+       scratch//trim(adjustl(prefix2(1:i+11)))//'.bin'
   
   Atot = H%belowEF
   Ntot = H%Nsp
@@ -3246,16 +3246,22 @@ subroutine write_omega_checkpoint(H,s)
   call vectorize(H,outvec) 
   
   
-  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))&
-       //'.gz'//achar(0),'w'//achar(0)) 
+  ! filehandle = gzOpen(scratch//trim(adjustl(prefix2(1:i+11)))&
+  !      //'.gz'//achar(0),'w'//achar(0)) 
   
-  do q =1,neq
-     write(stringout(1:20),'(e20.14)') outvec(q)
-     stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
-     call write_gz(filehandle,stringout)    
-  end do
+  ! do q =1,neq
+  !    write(stringout(1:20),'(e20.14)') outvec(q)
+  !    stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
+  !    call write_gz(filehandle,stringout)    
+  ! end do
    
-  rx = gzClose(filehandle) 
+  ! rx = gzClose(filehandle) 
+
+  open(unit=77,file=scratch//trim(adjustl(prefix2(1:i+11)))//'.bin',&
+       form = 'unformatted', &
+       access = 'stream') 
+  write(77) outvec 
+  close(77) 
 
   sx = s - 2.d0 
   write(s_position,'(f6.3)') sx
@@ -3267,10 +3273,9 @@ subroutine write_omega_checkpoint(H,s)
      prefix2(i+4:i+11) = '_s'//s_position
   end if 
   
-  print*, 'removing '//'../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz' 
-  inquire(file='../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
-  if (isthere) call system('rm '//'../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz') 
-  
+  print*, 'removing '//scratch//trim(adjustl(prefix2(1:i+11)))//'.bin' 
+  inquire(file=scratch//trim(adjustl(prefix2(1:i+11)))//'.bin',exist=isthere)
+  if (isthere) call system('rm '//scratch//trim(adjustl(prefix2(1:i+11)))//'.bin')   
   print*, 'sucessful' 
 
 end subroutine write_omega_checkpoint
@@ -3308,7 +3313,7 @@ logical function read_omega_checkpoint(H,s)
         prefix2(i+4:i+11) = '_s'//s_position
      end if
      
-     inquire(file='../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz',exist=isthere)
+     inquire(file=scratch//trim(adjustl(prefix2(1:i+11)))//'.bin',exist=isthere)
      if (isthere) exit 
      s = s-2.d0
   end do
@@ -3319,7 +3324,7 @@ logical function read_omega_checkpoint(H,s)
   
 !  print*, 'Bypassing Hartree Fock and normal odering.' 
   print*, 'Reading normal ordered output from ',&
-       '../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))//'.gz'
+       scratch//trim(adjustl(prefix2(1:i+11)))//'.bin'
 
   Atot = H%belowEF
   Ntot = H%Nsp
@@ -3337,15 +3342,22 @@ logical function read_omega_checkpoint(H,s)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+11)))&
-       //'.gz'//achar(0),'r'//achar(0)) 
+  ! filehandle = gzOpen(scratch//trim(adjustl(prefix2(1:i+11)))&
+  !      //'.gz'//achar(0),'r'//achar(0)) 
   
-  do q =1,neq
-     instring = read_normal_gz(filehandle) 
-     read(instring,'(e20.14)') outvec(q)
-  end do
+  ! do q =1,neq
+  !    instring = read_normal_gz(filehandle) 
+  !    read(instring,'(e20.14)') outvec(q)
+  ! end do
   
-  rx = gzClose(filehandle) 
+  ! rx = gzClose(filehandle) 
+
+  open(unit=77,file=scratch//trim(adjustl(prefix2(1:i+11)))//'.bin',&
+       form = 'unformatted', &
+       access = 'stream') 
+  read(77) outvec 
+  close(77) 
+
   
   call repackage(H,outvec) 
   read_omega_checkpoint = .false. 
@@ -3365,6 +3377,7 @@ logical function read_twobody_operator(H,stage)
   logical :: isthere
 
   read_twobody_operator = .true. 
+
   if (prefix(1:8) == 'testcase') return  
 
   do i = 1,200
@@ -3373,7 +3386,7 @@ logical function read_twobody_operator(H,stage)
   
   prefix2(1:i+3)=prefix(1:i+3) 
     
-  inquire(file='../../TBME_input/'//trim(adjustl(prefix2(1:i+3)))//&
+  inquire(file=playplace//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz',exist=isthere)
   
   if ( .not. isthere ) then 
@@ -3382,7 +3395,7 @@ logical function read_twobody_operator(H,stage)
   
 !  print*, 'Bypassing Hartree Fock and normal odering.' 
   print*, 'Reading normal ordered output from ',&
-       '../../TBME_input/'//trim(adjustl(prefix))//&
+       playplace//trim(adjustl(prefix))//&
        '_'//stage//'_normal_ordered.gz'
 
   Atot = H%belowEF
@@ -3401,7 +3414,7 @@ logical function read_twobody_operator(H,stage)
   H%neq = neq
   allocate(outvec(neq)) 
    
-  filehandle = gzOpen('../../TBME_input/'//trim(adjustl(prefix2(1:i+3)))//&
+  filehandle = gzOpen(playplace//trim(adjustl(prefix2(1:i+3)))//&
        '_'//stage//'_normal_ordered.gz'//achar(0),'r'//achar(0)) 
   
   do q =1,neq

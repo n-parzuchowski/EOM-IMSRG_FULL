@@ -70,6 +70,7 @@ program main_IMSRG
 !============================================================
 !  CAN WE SKIP STUFF?  
 !============================================================
+
   do_hf = .true. 
   IF (reading_decoupled) then 
      do_hf = read_twobody_operator(HS,'decoupled') 
@@ -88,16 +89,6 @@ program main_IMSRG
      end if
      if (.not. do_hf) goto 90
   end if 
-
-
-        do i = 1, jbas%total_orbits
-           do j = 1, jbas%total_orbits
-              if (abs(f_tensor_elem(i,j,Otrans,jbas))>1e-6) then 
-                 write(72,'(2(I5),f20.13)') i,j,f_tensor_elem(i,j,Otrans,jbas)
-              END IF
-           end do
-        end do
-
   
   do i = 1, jbas%total_orbits
      if (jbas%con(i) == 1) then 
@@ -236,12 +227,13 @@ print*, 'FINISHED WITH HF'
         decouple = read_twobody_operator( exp_omega ,'omega' )
      end if 
 
+     if (trips .ne. 'n') then 
+        call duplicate_Sq_op(HS,H0)
+        call copy_sq_op(HS,H0)
+     end if
 
      if ( decouple ) then 
-        if (trips .ne. 'n') then 
-           call duplicate_Sq_op(HS,H0)
-           call copy_sq_op(HS,H0)
-        end if
+
         call magnus_decouple(HS,exp_omega,jbas,quads,trips,build_gs_w2)    
         if (writing_omega) call write_twobody_operator(exp_omega,'omega')
      else
@@ -267,20 +259,6 @@ print*, 'FINISHED WITH HF'
         print*, 'TRANSFORMING TRANSITION OPERATOR'
 
         call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
-
-        ! print*, 'a, n(a),l(a),2*j(a),2*t(a)'
-        ! do i = 1, 12
-        !    print*, i,jbas%nn(i),jbas%ll(i),jbas%jj(i),jbas%itzp(i)
-        ! end do 
-
-       ! print*, ' a b <a||o||b>' 
-        do i = 1, jbas%total_orbits
-           do j = 1, jbas%total_orbits
-              if (abs(f_tensor_elem(i,j,Otrans,jbas))>1e-6) then 
-                 write(75,'(2(I5),f20.13)') i,j,f_tensor_elem(i,j,Otrans,jbas)
-              END IF
-           end do
-        end do
 
      end if
     
@@ -321,6 +299,7 @@ print*, 'FINISHED WITH HF'
 !============TRIPLES MAGNUS=============================================
   if (trips == 'y') then 
 !     call enumerate_three_body(threebas,jbas)
+     print*, 'computing triples'
      t1 = omp_get_wtime()
      corr =  restore_triples(H0,exp_omega,jbas) 
      t2 = omp_get_wtime()
@@ -416,14 +395,14 @@ contains
 
 subroutine test
 
-  call compare_tensor_scalar_commutator(jbas,-1,1) 
-  stop
-  deallocate(jbas%xmap) 
-  call test_scalar_scalar_commutator(jbas,-1,1) 
-  deallocate(jbas%xmap)
-  call test_EOM_scalar_scalar_commutator(jbas,1,1)
-  deallocate(jbas%xmap)
-  call test_EOM_scalar_tensor_commutator(jbas,1,1,4,0)  
+  ! call compare_tensor_scalar_commutator(jbas,-1,1) 
+  ! stop
+  ! deallocate(jbas%xmap) 
+  ! call test_scalar_scalar_commutator(jbas,-1,1) 
+  ! deallocate(jbas%xmap)
+  ! call test_EOM_scalar_scalar_commutator(jbas,1,1)
+  ! deallocate(jbas%xmap)
+  call test_EOM_scalar_tensor_commutator(jbas,1,1,6,1)  
   deallocate(jbas%xmap,jbas%xmap_tensor,phase_hh,phase_pp)
   deallocate(half6j%tp_mat)
   call test_scalar_tensor_commutator(jbas,-1,1,4,0) 

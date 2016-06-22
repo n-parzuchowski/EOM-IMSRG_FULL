@@ -89,6 +89,7 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
               i =jbas%holes(ix) 
               a =jbas%parts(ax)
               if (a > cut) cycle 
+              if (i < 10) cycle
               if (jbas%itzp(i) .ne. jbas%itzp(a) ) cycle ! cannot change from p to n
             
               if (.not. (triangle(jbas%jj(i),jbas%jj(a),JT))) cycle 
@@ -114,6 +115,7 @@ subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut)
               i =jbas%holes(ix) 
               a =jbas%parts(ax)              
               if (a > cut) cycle 
+              if (i < 10) cycle
               if (jbas%itzp(i) .ne. jbas%itzp(a) ) cycle ! cannot change from p to n
             
               if (.not. (triangle(jbas%jj(i),jbas%jj(a),JT))) cycle 
