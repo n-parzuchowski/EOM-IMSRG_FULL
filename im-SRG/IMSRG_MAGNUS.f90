@@ -274,15 +274,17 @@ subroutine transform_observable_BCH(Op,G,jbas,quads)
   type(sq_op) :: Op,G,Oevolved
   character(1) :: quads
   
-  call duplicate_sq_op(Op,Oevolved) 
+
   
   if (Op%rank > 0) then      
-     call BCH_TENSOR(Oevolved,G,Op,jbas,quads)    
+     call BCH_TENSOR(G,Op,jbas,quads)    
   else
+     call duplicate_sq_op(Op,Oevolved) 
      call BCH_EXPAND(Oevolved,G,Op,jbas,quads)
+     call copy_sq_op(Oevolved,Op) 
   end if 
   
-  call copy_sq_op(Oevolved,Op) 
+
  
 end subroutine   
 !=========================================================================
@@ -443,7 +445,7 @@ subroutine BCH_EXPAND_1b(HS,G,H,jbas,quads)
 end subroutine BCH_EXPAND_1b
 !=========================================================================
 !=========================================================================
-subroutine BCH_TENSOR(HS,G,H,jbas,quads) 
+subroutine BCH_TENSOR(G,HS,jbas,quads) 
   implicit none 
   
   real(8), parameter :: conv = 1e-6
@@ -451,7 +453,7 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
   type(spd) :: jbas
-  type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
+  type(sq_op) :: G, ETA, INT2, INT3,HS, AD,w1,w2
   type(pandya_mat) :: WCC,ADCC
   type(cc_mat) :: GCC 
   real(8) ::  coef,adnorm,fullnorm,s,advals(30),sm,sm2,dcgi,dcgi00
@@ -460,11 +462,9 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
   
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
-  call duplicate_sq_op(HS,INT1) !workspace
   call duplicate_sq_op(HS,INT2) !workspace
   call duplicate_sq_op(HS,AD) !workspace
   INT2%herm = 1
-  INT1%herm = 1 
   AD%herm = 1
   call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
   call init_ph_mat(G,GCC,jbas) !cross coupled ME
@@ -473,26 +473,19 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
   advals = 0.d0 
   coef = 1.d0
   ! intermediates must be HERMITIAN
-  INT2%herm = 1
-  INT1%herm = 1 
-  AD%herm = 1
-  
   !! so here:  H is the current hamiltonian and we 
   !! copy it onto HS.  We copy this onto 
   !! INT2, just to make things easier for everyone.
 
-  call copy_sq_op( H , HS )  !basic_IMSRG
   call copy_sq_op( HS , INT2 )
  
-  advals(1) = abs(H%E0)   
+  advals(1) = abs(HS%E0)   
 
   do iw = 2 ,30
      
      coef = coef/(iw-1.d0)
-     ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
      ! AD refers AD_n and INT2 becomes AD_{n+1} . 
-     call copy_sq_op( HS , INT1) 
      call copy_sq_op( INT2 , AD ) 
      ! so to start, AD is equal to H
      call clear_sq_op(INT2)    
@@ -513,8 +506,8 @@ subroutine BCH_TENSOR(HS,G,H,jbas,quads)
      call TS_commutator_221(w1,w2,G%herm*AD%herm,INT2,jbas)
      call TS_commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
      
-     ! so now just add INT1 + c_n * INT2 to get current value of HS
-     call add_sq_op(INT1 ,1.d0 , INT2 , coef , HS )   !basic_IMSRG
+     ! so now just add HS + c_n * INT2 to get current value of HS
+     call append_operator( INT2 , coef , HS )   !basic_IMSRG
          
      advals(iw) = mat_frob_norm(INT2)*coef
     if (advals(iw) < conv) exit

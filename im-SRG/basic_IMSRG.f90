@@ -628,7 +628,7 @@ subroutine allocate_blocks(jbas,op)
         end do
      end do
   end do
-  mem= mem/1024./1024.
+  mem= mem*8/1024./1024.
   print*, 'MEMORY OF 2 BODY STORAGE IS: ',mem,'MB'
   call divide_work(op) 
 end subroutine
@@ -643,13 +643,14 @@ subroutine allocate_tensor(jbas,op,zerorank)
   integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x,rank
   integer :: Jtot1,Jtot2,Jtot,Tz,Par1,Par2,nph1,npp1,nhh1,nph2,npp2,nhh2
   integer :: CX,j_min,j_max,numJ,q1,q2
-  real(8) :: d6ji,lwake
+  real(8) :: d6ji,lwake,size,mem
 
   ! rank is multiplied by 2 as well
   rank = op%rank 
   op%hospace = zerorank%hospace
   if ( mod(rank,2) == 1 ) STOP 'RANK MUST BE MULTIPLIED BY 2'
-
+  if ( mod(op%dpar,2) == 1) STOP 'dPAR MUST BE MULTIPLIED BY 2' 
+  mem = 0.d0 
   AX = sum(jbas%con) !number of shells under eF 
   op%belowEF = AX
   op%Nsp = jbas%total_orbits
@@ -691,14 +692,15 @@ subroutine allocate_tensor(jbas,op,zerorank)
  
   allocate(op%fph(N-AX,AX))
   op%fph = 0.d0
-
+  mem = mem + sizeof(op%fph)  
   if (.not. op%pphh_ph ) then 
      allocate(op%fpp(N-AX,N-AX))
      allocate(op%fhh(AX,AX)) 
      op%fpp = 0.d0     
      op%fhh = 0.d0 
+     mem = mem + sizeof(op%fpp)+sizeof(op%fhh) 
   end if 
-  
+
   q = 1
   do Jtot1 = 0,2*jbas%Jtotal_max,2 
      do Jtot2 = max(abs(Jtot1 - rank),Jtot1), Jtot1+rank, 2   
@@ -773,6 +775,8 @@ subroutine allocate_tensor(jbas,op,zerorank)
               end if 
               allocate(op%tblck(q)%tgam(3)%X(npp1,nhh2)) !Vpphh
               allocate(op%tblck(q)%tgam(7)%X(nhh1,npp2)) !Vhhpp
+              mem = mem + sizeof(op%tblck(q)%tgam(3)%X) 
+              mem = mem + sizeof(op%tblck(q)%tgam(7)%X)
               if (.not. op%pphh_ph ) then 
                  allocate(op%tblck(q)%tgam(1)%X(npp1,npp2)) !Vpppp
                  allocate(op%tblck(q)%tgam(5)%X(nhh1,nhh2)) !Vhhhh              
@@ -781,6 +785,13 @@ subroutine allocate_tensor(jbas,op,zerorank)
                  allocate(op%tblck(q)%tgam(6)%X(nph1,nhh2)) !Vphhh
                  allocate(op%tblck(q)%tgam(8)%X(nph1,npp2)) !Vphpp
                  allocate(op%tblck(q)%tgam(9)%X(nhh1,nph2)) !Vhhph
+                 mem = mem + sizeof(op%tblck(q)%tgam(1)%X)
+                 mem = mem + sizeof(op%tblck(q)%tgam(2)%X)
+                 mem = mem + sizeof(op%tblck(q)%tgam(4)%X)
+                 mem = mem + sizeof(op%tblck(q)%tgam(5)%X)
+                 mem = mem + sizeof(op%tblck(q)%tgam(6)%X)
+                 mem = mem + sizeof(op%tblck(q)%tgam(8)%X)
+                 mem = mem + sizeof(op%tblck(q)%tgam(9)%X)
               end if 
             
               do i = 1,9
@@ -796,7 +807,8 @@ subroutine allocate_tensor(jbas,op,zerorank)
       end do
    end do
 
-
+   
+   print*, 'Tensor Operator Memory =', mem/1024./1024./1024. , 'GB' 
    ! i need to fill this last array for tensor_elem
    do q = 1, zerorank%nblocks
    nph1 = 0 ; npp1 = 0 ; nhh1 = 0
@@ -3304,9 +3316,39 @@ subroutine add_sq_op(A,ax,B,bx,C)
      end if 
   end do 
   
-end subroutine 
+end subroutine add_sq_op
 !=====================================================
 !=====================================================
+subroutine append_operator(B,bx,C) 
+  ! A*ax + B*bx = C 
+  implicit none 
+  
+  type(sq_op) :: B,C
+  real(8) :: bx,ax 
+  integer :: q,i,j,holes,parts,nh,np,nb
+     
+  ax = 1.d0
+  C%E0 = C%E0*ax + B%E0*bx
+  C%fhh = C%fhh*ax + B%fhh*bx
+  C%fpp = C%fpp*ax + B%fpp*bx
+  C%fph = C%fph*ax + B%fph*bx
+  
+  do q = 1, C%nblocks
+              
+     if (C%rank > 0) then 
+        do i = 1,9
+           C%tblck(q)%tgam(i)%X = C%tblck(q)%tgam(i)%X*ax &
+                + B%tblck(q)%tgam(i)%X*bx
+        end do
+     else 
+
+        do i = 1,6
+           C%mat(q)%gam(i)%X = C%mat(q)%gam(i)%X*ax + B%mat(q)%gam(i)%X*bx
+        end do
+     end if 
+  end do 
+  
+end subroutine append_operator
 !=====================================================
 !=====================================================
 subroutine scale_sq_op(A,ax) 
