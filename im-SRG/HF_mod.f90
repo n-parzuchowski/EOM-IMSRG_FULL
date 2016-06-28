@@ -97,7 +97,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D)
  if ( tbforce ) call meanfield_2b(rho,H,THREEBOD,jbas) 
  call transform_2b_to_HF(D,H,jbas) 
 
-! call output_gaute_format(F,D,H,jbas) 
+ call output_gaute_format(F,D,H,jbas) 
 end subroutine calc_HF
 !====================================================
 subroutine observable_to_HF(Op,coefs,jbas) 

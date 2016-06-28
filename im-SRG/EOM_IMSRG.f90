@@ -123,11 +123,18 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
      print*, '================================================================'!==========='
      do i = 1, Numstates!          x       x       xxxxxxx   
         SD_Shell_content = 0.d0 
-
+        Es(i) = ladder_ops(i)%E0
+        BEs(i) = 0.d0 
         write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
              sum(ladder_ops(i)%fph**2),t2-t1
         
      end do
+     open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+          '_energies_strengths'//O1%trans_label//'.dat',position='append')
+     write(31,'(2(I10),11(d25.14))') nint(HS%hospace),HS%eMax,HS%E0,Es,BEs 
+     close(31) 
+
+
      print*
      print*
   end if 

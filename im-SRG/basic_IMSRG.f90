@@ -2927,7 +2927,7 @@ subroutine write_umat(C)
      if (prefix(i:i+1) == 'hw') exit
   end do
 
-  open(unit=77,file=trim(playplace)//trim(adjustl(prefix(1:i+3)))//'_umat.bin',&
+  open(unit=77,file=trim(scratch)//trim(adjustl(prefix(1:i+3)))//'_umat.bin',&
        form = 'unformatted', &
        access = 'stream') 
   
@@ -2956,7 +2956,7 @@ subroutine read_umat(C,jbas)
      if (prefix(i:i+1) == 'hw') exit
   end do
 
-  open(unit=77,file=trim(playplace)//trim(adjustl(prefix(1:i+3)))//'_umat.bin',&
+  open(unit=77,file=trim(scratch)//trim(adjustl(prefix(1:i+3)))//'_umat.bin',&
        form = 'unformatted', &
        access = 'stream') 
 
@@ -2987,8 +2987,8 @@ subroutine write_twobody_operator(H,stage)
   
   prefix2(1:i+3)=prefix(1:i+3) 
   print*, 'Writing normal ordered interaction to ',&
-       trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
-       '_'//stage//'_normal_ordered.gz'
+       trim(scratch)//trim(adjustl(prefix2(1:i+3)))//&
+       '_'//stage//'_normal_ordered.bin'
   
   Atot = H%belowEF
   Ntot = H%Nsp
@@ -3008,18 +3008,26 @@ subroutine write_twobody_operator(H,stage)
   allocate(outvec(neq)) 
   
   call vectorize(H,outvec) 
+
+  open(unit=77,file=trim(scratch)//trim(adjustl(prefix2(1:i+3)))//&
+       '_'//stage//'_normal_ordered.bin',&
+       form = 'unformatted', &
+       access = 'stream') 
+  write(77) outvec 
+  close(77) 
   
   
-  filehandle = gzOpen(trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
-       '_'//stage//'_normal_ordered.gz'//achar(0),'w'//achar(0)) 
+  ! filehandle = gzOpen(trim(scratch)//trim(adjustl(prefix2(1:i+3)))//&
+  !      '_'//stage//'_normal_ordered.gz'//achar(0),'w'//achar(0)) 
   
-  do q =1,neq
-     write(stringout(1:20),'(e20.14)') outvec(q)
-     stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
-     call write_gz(filehandle,stringout)    
-  end do
+  ! do q =1,neq
+  !    write(stringout(1:20),'(e20.14)') outvec(q)
+  !    stringout = adjustl(trim(adjustl(stringout(1:20)))//' XXXX')
+  !    call write_gz(filehandle,stringout)    
+  ! end do
    
-  rx = gzClose(filehandle) 
+  ! rx = gzClose(filehandle) 
+
 end subroutine write_twobody_operator
 !======================================================
 !======================================================
@@ -3044,6 +3052,7 @@ subroutine write_omega_checkpoint(H,s)
   write(s_position,'(f6.3)') s
   
   prefix2(1:i+3)=prefix(1:i+3)
+
   if ( s < 10.000) then
      prefix2(i+4:i+11) = '_s'//trim(adjustl(s_position))//'0'
   else 
@@ -3201,7 +3210,7 @@ logical function read_twobody_operator(H,stage)
   character(200) :: prefix2
   character(20) :: instring
   integer(c_int) :: rx,filehandle
-  logical :: isthere
+  logical :: isthere,isgz 
 
   read_twobody_operator = .true. 
 
@@ -3212,23 +3221,39 @@ logical function read_twobody_operator(H,stage)
   end do
   
   prefix2(1:i+3)=prefix(1:i+3) 
-    
+  
   inquire(file=trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
-       '_'//stage//'_normal_ordered.gz',exist=isthere)
+       '_'//stage//'_normal_ordered.gz',exist=isgz)
+  
+  inquire(file=trim(scratch)//trim(adjustl(prefix2(1:i+3)))//&
+       '_'//stage//'_normal_ordered.bin',exist=isthere)
+
+  if ((isgz) .and. (isthere) ) then 
+     isgz = .false. 
+  end if 
   
   if (stage == 'bare') then 
-     inquire(file=trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
+     inquire(file=trim(scratch)//trim(adjustl(prefix2(1:i+3)))//&
           '_umat.bin',exist=isthere)
   end if
+  
   if ( .not. isthere ) then 
      return
   end if 
   
-!  print*, 'Bypassing Hartree Fock and normal odering.' 
-  print*, 'Reading normal ordered output from ',&
-       trim(playplace)//trim(adjustl(prefix))//&
-       '_'//stage//'_normal_ordered.gz'
+  if (isgz) then 
 
+     print*, 'Reading normal ordered output from ',&
+          trim(playplace)//trim(adjustl(prefix))//&
+          '_'//stage//'_normal_ordered.gz'
+  else
+
+     print*, 'Reading normal ordered output from ',&
+          trim(scratch)//trim(adjustl(prefix))//&
+          '_'//stage//'_normal_ordered.bin'
+
+  end if 
+  
   Atot = H%belowEF
   Ntot = H%Nsp
   
@@ -3242,18 +3267,40 @@ logical function read_twobody_operator(H,stage)
      
      neq = neq + (nh*nh+nh +  nb*nb+nb + np*np+np)/2 + nb*np + nh*np + nh*nb 
   end do 
+
   H%neq = neq
   allocate(outvec(neq)) 
    
-  filehandle = gzOpen(trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
-       '_'//stage//'_normal_ordered.gz'//achar(0),'r'//achar(0)) 
+
+  if (isgz) then 
+     
+     filehandle = gzOpen(trim(playplace)//trim(adjustl(prefix2(1:i+3)))//&
+          '_'//stage//'_normal_ordered.gz'//achar(0),'r'//achar(0)) 
   
-  do q =1,neq
-     instring = read_normal_gz(filehandle) 
-     read(instring,'(e20.14)') outvec(q)
-  end do
-  
-  rx = gzClose(filehandle) 
+     do q =1,neq
+        instring = read_normal_gz(filehandle) 
+        read(instring,'(e20.14)') outvec(q)
+     end do
+     
+     rx = gzClose(filehandle) 
+     
+     open(unit=77,file=trim(scratch)//trim(adjustl(prefix2(1:i+3)))//&
+          '_'//stage//'_normal_ordered.bin',&
+          form = 'unformatted', &
+          access = 'stream') 
+     write(77) outvec 
+     close(77) 
+     
+  else
+
+     open(unit=77,file=trim(scratch)//trim(adjustl(prefix2(1:i+3)))//&
+          '_'//stage//'_normal_ordered.bin',&
+          form = 'unformatted', &
+          access = 'stream') 
+     read(77) outvec 
+     close(77) 
+     
+  end if 
   
   call repackage(H,outvec) 
   read_twobody_operator = .false. 
