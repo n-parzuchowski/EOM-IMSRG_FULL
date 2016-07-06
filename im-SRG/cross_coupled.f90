@@ -1858,6 +1858,82 @@ integer function ex_pandya_rval(i,l,Ntot,q,LCC)
   
   ex_pandya_rval = LCC%nbmap(x)%Z(g)
 end function ex_pandya_rval
-!=====================================================
-!=====================================================    
+!=================================================================     
+!=================================================================
+real(8) function WCCX(a,d,b,c,J1,J2,WCC,RCC,jbas)
+  implicit none
+  
+  integer :: a,b,c,d,rad,rbc,Ntot,q1,q2
+  integer :: J1,J2,PAR,PAR2,Tz,qx,rank  
+  type(spd) :: jbas
+  type(pandya_mat) :: WCC,RCC 
+  
+  Ntot = jbas%total_orbits
+  rank = RCC%rank
+  
+  PAR = mod(jbas%ll(a) + jbas%ll(d) ,2) 
+  Tz = abs(jbas%itzp(a) - jbas%itzp(d))/2 
+  
+  PAR2 = mod(PAR + RCC%dpar/2,2)
+  if ( abs(jbas%itzp(b) - jbas%itzp(c)) .ne. 2*Tz) then 
+     WCCX = 0.d0 
+     return
+  end if 
+  
+  if (mod(jbas%ll(b) + jbas%ll(c) ,2)  .ne. PAR2) then 
+     WCCX = 0.d0 
+     return
+  end if
+  
+  q1 = block_index(J1,Tz,PAR)
+  q2 = block_index(J2,Tz,PAR2)
+  
+  rad = fetch_rval(a,d,Ntot,q1,RCC)
+  rbc = fetch_rval(b,c,Ntot,q2,RCC)
+  
+  qx = CCtensor_block_index(J1,J2,rank,Tz,PAR)
+  
+  WCCX = WCC%CCX(qx)%X(rad,rbc)
+    
+end function WCCX
+!============================================================
+!============================================================
+real(8) function WCCR(a,d,b,c,J1,J2,WCC,RCC,jbas)
+  implicit none
+  
+  integer :: a,b,c,d,rad,rbc,Ntot,q1,q2
+  integer :: J1,J2,PAR,PAR2,Tz,qx,rank  
+  type(spd) :: jbas
+  type(pandya_mat) :: WCC,RCC 
+  
+  Ntot = jbas%total_orbits
+  rank = RCC%rank
+  
+  PAR = mod(jbas%ll(a) + jbas%ll(d) ,2) 
+  Tz = abs(jbas%itzp(a) - jbas%itzp(d))/2 
+  
+  PAR2 = mod(PAR + RCC%dpar/2,2)
+  if ( abs(jbas%itzp(b) - jbas%itzp(c)) .ne. 2*Tz) then 
+     WCCR = 0.d0 
+     return
+  end if 
+  
+  if (mod(jbas%ll(b) + jbas%ll(c) ,2)  .ne. PAR2) then 
+     WCCR = 0.d0 
+     return
+  end if
+  
+  q1 = block_index(J1,Tz,PAR)
+  q2 = block_index(J2,Tz,PAR2)
+  
+  rad = fetch_rval(a,d,Ntot,q1,RCC)
+  rbc = fetch_rval(b,c,Ntot,q2,RCC)
+  
+  qx = CCtensor_block_index(J1,J2,rank,Tz,PAR)
+  
+  WCCR = WCC%CCR(qx)%X(rad,rbc)
+
+end function WCCR
+!============================================================
+!============================================================
 end module

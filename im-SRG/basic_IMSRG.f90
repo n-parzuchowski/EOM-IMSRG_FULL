@@ -1651,12 +1651,13 @@ subroutine add_elem_to_tensor(V,ax,bx,cx,dx,J1x,J2x,op,jbas)
      c = cx
      d = dx
   else
-     J2 = J1x 
-     switch = .true. 
-     a = cx
-     b = dx
-     c = ax
-     d = bx 
+     return 
+     ! J2 = J1x 
+     ! switch = .true. 
+     ! a = cx
+     ! b = dx
+     ! c = ax
+     ! d = bx 
   end if
   
   !make sure the matrix element exists first
@@ -1724,6 +1725,7 @@ subroutine add_elem_to_tensor(V,ax,bx,cx,dx,J1x,J2x,op,jbas)
   N = op%Nsp
   ! get the indeces in the correct order
   if ( a > b )  then 
+     return 
      x = bosonic_tp_index(b,a,N) 
      j_min = jbas%xmap_tensor(x)%Z(1)  
      i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
@@ -1736,6 +1738,7 @@ subroutine add_elem_to_tensor(V,ax,bx,cx,dx,J1x,J2x,op,jbas)
   end if 
   
   if (c > d)  then     
+     return
      x = bosonic_tp_index(d,c,N) 
      j_min = jbas%xmap_tensor(x)%Z(1)  
      i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2) 
@@ -1751,21 +1754,9 @@ subroutine add_elem_to_tensor(V,ax,bx,cx,dx,J1x,J2x,op,jbas)
 
   ! right now i1 and i2 still refer to where the pair is located
   ! in the rank zero qn storage
+  If (C1>C2) qx = qx + tensor_adjust(qx)       
 
-  
-  
-   If (C1>C2) qx = qx + tensor_adjust(qx)       
-
-   if (((c == 20) .or.(c == 14)).and.((d == 20) .or.(d == 14)).and.(c.ne.d)) then 
-      if (((a == 18) .or.(a == 14)).and.((b == 18) .or.(b == 14)).and.(a.ne.b)) then 
-         if ((J2 == 6).and.(J1==4)) then
-            print*, 'adding', V*phase      
-         end if
-      end if
-   end if
-     
-   
-   op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V * phase  
+  op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V  
     
  end subroutine add_elem_to_tensor
 !==============================================================
@@ -4768,8 +4759,6 @@ real(8) function Vgenpandya(a,d,c,b,J1,J2,Op,jbas)
   
   Vgenpandya = sm 
 end function Vgenpandya
-     
-   
 
 end module       
 

@@ -850,11 +850,12 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
                     
                     val = scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
                   
+                  
+                    print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)                
                     if (abs(val-tensor_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
-                       print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)                
-            
-                       STOP 'TWO BODY FAILURE'  
-                    end if 
+                       print*,'TWO BODY FAILURE'  
+                       stop
+                    end if
                  end do 
               end do
               
@@ -1615,7 +1616,7 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   integer :: ja,jb,jc,jd,Jtot,JTM,totorb,rank
   type(spd) :: jbas
   type(sq_op) :: AA,BB 
-  real(8) :: sm,coef9,d6ji,pre
+  real(8) :: sm,coef9,d6ji,pre,ass,smcock
 
   rank = BB%rank  
   sm = 0.d0 
@@ -1717,57 +1718,53 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
 
   sm = 0.d0
   do J3 = 0,JTM,2
-     do J4 = J3,JTM,2 
-        pre = 1.d0 
-        !if (J4==J3) pre = 0.5d0
+     do J4 = 0,JTM,2 
         do i = 1, jbas%total_orbits
+           ji = jbas%jj(i)
            do j = 1, jbas%total_orbits
-                    
+              jj = jbas%jj(j) 
               if (jbas%con(i)-jbas%con(j) == 0) cycle
-
-!dick              
-              sm = sm + (jbas%con(i)*0-jbas%con(j))*&
+               
+              sm = sm + (jbas%con(i)-jbas%con(j))*&
                    (-1)**((ja+jb+J2+J3+J4)/2) * &
                    sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
                    coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
-                   vcc(a,d,j,i,J3,AA,jbas) * Vgenpandya(i,j,c,b,J3,J4,BB,jbas)*pre
+                   vcc(a,d,j,i,J3,AA,jbas) * Vgenpandya(i,j,c,b,J3,J4,BB,jbas)
               
-              ! RAGNAR's expression
+              ! RAGNAR's expression 'cows'
               ! sm = sm + (jbas%con(i)-jbas%con(j))*&
               !      (-1)**((jb+jd+J2+J4)/2) * &
               !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
               !      coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
               !      Vpandya(a,d,i,j,J3,AA,jbas) * Vgenpandya(i,j,c,b,J3,J4,BB,jbas)
 
+              sm = sm - (jbas%con(i)-jbas%con(j))*&
+                   (-1)**((J1+J2+J3+J4)/2) * &
+                   sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+                   coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
+                   vcc(b,d,j,i,J3,AA,jbas) * Vgenpandya(i,j,c,a,J3,J4,BB,jbas)
 
-              ! sm = sm - (jbas%con(i)-jbas%con(j))*&
-              !      (-1)**((J1+J2+J3+J4)/2) * &
-              !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-              !      coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
-              !      vcc(b,d,j,i,J3,AA,jbas) * Vgenpandya(i,j,c,a,J3,J4,BB,jbas)*pre
+              sm = sm + (jbas%con(i)-jbas%con(j))*&
+                   (-1)**((jc+jd+J1+J3+J4)/2) * &
+                   sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+                   coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank)* &
+                   vcc(b,c,j,i,J3,AA,jbas) * Vgenpandya(i,j,d,a,J3,J4,BB,jbas)
 
-              ! sm = sm + (jbas%con(i)-jbas%con(j))*&
-              !      (-1)**((jc+jd+J1+J3+J4)/2) * &
-              !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-              !      coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank)* &
-              !      vcc(b,c,j,i,J3,AA,jbas) * Vgenpandya(i,j,d,a,J3,J4,BB,jbas)*pre
-
-              ! sm = sm - (jbas%con(i)-jbas%con(j))*&
-              !      (-1)**((ja+jb+jc+jd+J3+J4)/2) * &
-              !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-              !      coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* &
-              !      vcc(a,c,j,i,J3,AA,jbas) * Vgenpandya(i,j,d,b,J3,J4,BB,jbas)*pre
+              sm = sm - (jbas%con(i)-jbas%con(j))*&
+                   (-1)**((ja+jb+jc+jd+J3+J4)/2) * &
+                   sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+                   coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* &
+                   vcc(a,c,j,i,J3,AA,jbas) * Vgenpandya(i,j,d,b,J3,J4,BB,jbas)
               
              
            end do
         end do
-        print*, J3,J4,sm ,'brute'
      end do
   end do
 
   scalar_tensor_2body_comm = sm 
   
-end function 
+end function scalar_tensor_2body_comm
 !============================================================
 !============================================================
 real(8) function EOM_scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas) 
