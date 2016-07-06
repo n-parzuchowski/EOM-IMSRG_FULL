@@ -1894,7 +1894,7 @@ real(8) function WCCX(a,d,b,c,J1,J2,WCC,RCC,jbas)
   qx = CCtensor_block_index(J1,J2,rank,Tz,PAR)
   
   WCCX = WCC%CCX(qx)%X(rad,rbc)
-    
+
 end function WCCX
 !============================================================
 !============================================================
