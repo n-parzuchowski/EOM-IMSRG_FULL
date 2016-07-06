@@ -746,7 +746,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
 !     call seed_random_number
   
      BB%rank = rank
-     BB%dpar = par
+     BB%dpar = dpar
      AA%rank = 0
      BB%pphh_ph = .false.
  
@@ -766,7 +766,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
 
   OUT%herm = -1* AA%herm * BB%herm 
   
-  print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
+  print*, 'TESTING SCALAR-TENSOR COMMUTATORS rank:' ,BB%rank,'parity:',BB%dpar
 !  t1 = OMP_get_wtime()
   call calculate_generalized_pandya(BB,BBCC,jbas)
 !  t2 = OMP_get_wtime()

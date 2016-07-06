@@ -1492,19 +1492,18 @@ end subroutine TS_commutator_222_pp_hh
       
       PAR = mod(qx-1,2)
       Tz = mod((qx-1)/2,2) 
-         
+      J3 = RCC%Jval(qx) 
+      J4 = RCC%Jval2(qx)          
       if (nb1 .ne. 0 ) then 
-         J3 = RCC%Jval(qx) 
+
          factor = 1.0/sqrt(J3+1.d0)*LCC%herm
-         q1 = J3/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
-         
+         q1 = J3/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1) 
          call dgemm('N','N',r1,r2,nb1,factor,LCC%CCX(q1)%X,r1,&
               RCC%CCR(qx)%X,nb1,bet,WCC%CCX(qx)%X,r1)       
       end if
          
       if (nb2 .ne. 0 ) then 
         
-         J4 = RCC%Jval2(qx) 
          PAR2 = mod(PAR+RCC%dpar/2,2) 
          q2 = J4/2+1 + Tz*(JTM+1) + 2*PAR2*(JTM+1)
          factor = 1.d0/sqrt(J4+1.d0)
@@ -1587,13 +1586,6 @@ end subroutine TS_commutator_222_pp_hh
                           *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(i,l,k,j,J3,J4,WCC,RCC,jbas) &
                           - (-1)**((J3+J4)/2)*RCC%herm *WCCR(l,i,j,k,J3,J4,WCC,RCC,jbas) )
                   end if
-
-                  if (( i == 16) .and.( j == 17) .and.( k == 19) .and.( l == 20) ) then 
-                     if (( J1 == 2 ) .and. (J2 == 4) ) then 
-                        write(41,*) J3,J4,sm
-                     end if
-                  end if
-             
                end if 
             end if 
             end if
@@ -1616,12 +1608,6 @@ end subroutine TS_commutator_222_pp_hh
                           * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
                           *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(j,k,l,i,J3,J4,WCC,RCC,jbas) &
                           - (-1)**((J3+J4)/2)*RCC%herm *WCCR(k,j,i,l,J3,J4,WCC,RCC,jbas) )
-                  end if
-
-                  if (( i == 16) .and.( j == 17) .and.( k == 19) .and.( l == 20) ) then 
-                     if (( J1 == 2 ) .and. (J2 == 4) ) then 
-                        write(42,*) J3,J4,sm
-                     end if
                   end if
             
                end if 
@@ -1655,11 +1641,6 @@ end subroutine TS_commutator_222_pp_hh
                           - (-1)**((J3+J4)/2)*RCC%herm *WCCR(l,j,i,k,J3,J4,WCC,RCC,jbas) )
                      
                   end if
-                  if (( i == 16) .and.( j == 17) .and.( k == 19) .and.( l == 20) ) then 
-                     if (( J1 == 2 ) .and. (J2 == 4) ) then 
-                        write(43,*) J3,J4,sm
-                     end if
-                  end if
 
                end if 
             end if 
@@ -1686,12 +1667,6 @@ end subroutine TS_commutator_222_pp_hh
                           *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(i,k,l,j,J3,J4,WCC,RCC,jbas) &
                           - (-1)**((J3+J4)/2)*RCC%herm *WCCR(k,i,j,l,J3,J4,WCC,RCC,jbas) )
                   end if
-            
-                  if (( i == 16) .and.( j == 17) .and.( k == 19) .and.( l == 20) ) then 
-                     if (( J1 == 2 ) .and. (J2 == 4) ) then 
-                        write(44,*) J3,J4,sm
-                     end if
-                  end if
 
                end if 
             end if 
@@ -1712,410 +1687,6 @@ end do
  end subroutine TS_commutator_222_ph
 !=================================================================
 !=================================================================
- subroutine TS_commutator_222_ph_old(LCC,RCC,RES,WCC,jbas) 
-   ! VERIFIED ph channel 2body TS_commutator. DFWT! 
-   implicit none 
-  
-   type(spd) :: jbas
-   type(sq_op) :: RES
-   type(pandya_mat) :: RCC,WCC
-   type(cc_mat) :: LCC
-   integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank,a,b,c,d
-   integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max,ja,jb,jc,jd
-   integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
-   integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,J1min,J2min,J1max,J2max
-   integer :: phase_J3J4,phase_abcd,phase_ac,phase_bc
-   integer :: phase_bd,phase_ad 
-   real(8) :: nj_ad3bc4,nj_da3cb4,prefactor_34,prefactor_134,prefactor_1234             
-   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex,V,WX
-   logical :: square
-   
-   rank = RES%rank
-   Ntot = RES%Nsp
-   JTM = jbas%Jtotal_max
-   total_threads = size(RES%direct_omp) - 1
-   ! construct intermediate matrices
-
-   do q = 1,RCC%nblocks
-      if (RCC%jval2(q) > jbas%jtotal_max*2) cycle
-      
-      nb2 = size(RCC%CCX(q)%X(1,:))
-      nb1 = size(RCC%CCR(q)%X(:,1))
-      r1 = size(RCC%CCX(q)%X(:,1))
-      r2 = size(RCC%CCR(q)%X(1,:))      
-      
-      if (r1 * r2 == 0) cycle
-      
-      PAR = mod(q-1,2)
-      Tz = mod((q-1)/2,2) 
-         
-      if (nb1 .ne. 0 ) then 
-         J3 = RCC%Jval(q) 
-         factor = 1.0/sqrt(J3+1.d0)*LCC%herm
-         q1 = J3/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
-         
-         call dgemm('N','N',r1,r2,nb1,factor,LCC%CCX(q1)%X,r1,&
-              RCC%CCR(q)%X,nb1,bet,WCC%CCX(q)%X,r1)       
-      end if
-         
-      if (nb2 .ne. 0 ) then 
-        
-         J4 = RCC%Jval2(q) 
-         PAR2 = mod(PAR+RCC%dpar/2,2) 
-         q2 = J4/2+1 + Tz*(JTM+1) + 2*PAR2*(JTM+1)
-         factor = 1.d0/sqrt(J4+1.d0)
-         
-         call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(q)%X,r1,&
-              LCC%CCX(q2)%X,r2,bet,WCC%CCR(q)%X,r1) 
-      end if
-      
-!       do IX = 1, r1
-         
-!          a = RCC%qn1(q)%Y(IX,1)
-!          d = RCC%qn1(q)%Y(IX,2)
-         
-!          ja = jbas%jj(a) 
-!          jd = jbas%jj(d) 
-!          li = jbas%ll(a) 
-!          ll = jbas%ll(d)
-!          ti = jbas%itzp(a) 
-!          tl = jbas%itzp(d)
-         
-!          do JX = 1, r2 
-            
-!             b = RCC%qn2(q)%Y(JX,1)
-!             c = RCC%qn2(q)%Y(JX,2)
-            
-!             jb = jbas%jj(b) 
-!             jc = jbas%jj(c) 
-!             lj = jbas%ll(b) 
-!             lk = jbas%ll(c)
-!             tj = jbas%itzp(b) 
-!             tk = jbas%itzp(c)
-         
-!             if (ti+tj .ne. tk+tl) cycle
-!             if (mod(lk+ll+RCC%dpar/2,2) .ne. mod(li+lj,2)) cycle
-            
-            
-!             pre = 1.d0
-!             pre2 = 1.d0 
-!             if (a == b )  pre = .70710678118d0
-!             if (c == d )  pre2 = .70710678118d0
-            
-!             phase_J3J4 = (-1) ** (( J3 + J4 )/2)                     
-!             prefactor_34=sqrt((J3+1.d0)*(J4+1.d0))*pre*pre2
-!             phase_abcd = (-1) ** (( ja + jb + jc + jd )/2)
-!             phase_ac = (-1) ** (( ja + jc )/2)
-!             phase_bc = (-1) ** (( jb + jc )/2)
-!             phase_bd = (-1) ** (( jb + jd )/2)
-!             phase_ad = (-1) ** (( ja + jd )/2)
-            
-!             WX = WCC%CCX(q)%X(IX,JX)  
-            
-!             J1min = abs(ja-jb)
-!             J2min = abs(jc-jd)
-!             J1max = ja+jb
-!             J2max = jc+jd
-                       
-!             do J1 = J1min,J1max,2 
-!                prefactor_134 = sqrt(J1+1.d0)*prefactor_34
-               
-!                do J2 =max(J1,J2min),J2max,2 
-                  
-!                   prefactor_1234 = sqrt(J2+1.d0)*prefactor_134
-                                   
-!                   nj_ad3bc4 = ninej(ja,jd,J3,jb,jc,J4,J1,J2,rank)
-! !fuck
-! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  
-!                   V = prefactor_1234 * phase_ac * (-1) ** ((J2+rank)/2) * &
-!                        RCC%herm * nj_ad3bc4 * WX 
-                  
-!                   ! if (((c == 20) .or.(c == 14)).and.((d == 20) .or.(d == 14)).and.(c.ne.d)) then 
-!                   !    if (((a == 18) .or.(a == 14)).and.((b == 18) .or.(b == 14)).and.(a.ne.b)) then 
-                        
-!                   !       if ((J2 == 6).and.(J1==4)) then 
-!                   !          print*, J3,J4,V,'soph',a,b,c,d
-!                   !       end if
-!                   !    end if
-!                   ! end if
-                  
-!                   !call add_elem_to_tensor(V,a,b,c,d,J1,J2,RES,jbas) 
-! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  
-!                 !   V = prefactor_1234 * phase_bc *(-1)**((J1+J2+rank)/2) * RCC%herm &
-! !                        * nj_ad3bc4 * WX 
-
-! !                   call add_elem_to_tensor(V,b,a,c,d,J1,J2,RES,jbas) 
-! ! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  
-! !                   V = prefactor_1234 *phase_bd *(-1)**((J1+rank)/2) *RCC%herm &
-! !                        * nj_ad3bc4 * WX 
-                  
-! !                   call add_elem_to_tensor(V,b,a,d,c,J1,J2,RES,jbas) 
-! ! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  
-! !                   V = prefactor_1234 * phase_ad * (-1)**(Rank/2) * RCC%herm &
-! !                        * nj_ad3bc4 * WX 
-                  
-! !                   call add_elem_to_tensor(V,a,b,d,c,J1,J2,RES,jbas) 
-! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  
-!                end do 
-!             end do
-
-
-!             do J1 = J2min,J2max,2 
-!                prefactor_134 = sqrt(J1+1.d0)*prefactor_34
-               
-!                do J2 =max(J1,J1min),J1max,2 
-!                   prefactor_1234 = sqrt(J2+1.d0)*prefactor_134
-!                   nj_da3cb4 = ninej(jd,ja,J3,jc,jb,J4,J1,J2,rank)
-                  
-! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
-!                   V  = (-1)*prefactor_1234*phase_ac*phase_J3J4*(-1)**(J2/2)&
-!                        *LCC%herm * nj_da3cb4 * WX 
-
-!      !             call add_elem_to_tensor(V,d,c,b,a,J1,J2,RES,jbas) 
-! ! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  
-! !                   V = -1 * prefactor_1234 * phase_bc * phase_J3J4 * LCC%herm &
-! !                        * nj_da3cb4 * WX 
-                  
-! !                   call add_elem_to_tensor(V,d,c,a,b,J1,J2,RES,jbas) 
-! ! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-! !                   V = -1 * prefactor_1234 * phase_bd *(-1)**((J1+J2+J3)/2) * LCC%herm &
-! !                        * nj_da3cb4 * WX  
-                  
-! !                   call add_elem_to_tensor(V,c,d,a,b,J1,J2,RES,jbas) 
-! ! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  
-! !                   V = (-1)*prefactor_1234 * phase_ad *LCC%herm *phase_J3J4*&
-! !                        (-1)**((J1+J2)/2) * nj_da3cb4 * WX 
-                  
-! !                   call add_elem_to_tensor(V,c,d,b,a,J1,J2,RES,jbas) 
-! ! !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-
-
-!                end do 
-!             end do
-
-!          end do
-!       end do
-!       !    ! if (J3 == J4) then 
-!       !     !   WCC%CCX(q)%X = WCC%CCX(q)%X*2
-!       !     !end if
-!       ! if (J3 .ne. J4) then 
-!       !    WCC%CCR(q)%X = 0.d0 
-!       ! end if
-!      ! WCC%CCX(q)%X = 0.d0 
-!       !WCC%CCR(q)%X = 0.d0 
-   end do
-
-
-!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
-  do thread = 1, total_threads
-     do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
-
-!   do q = 1,RES%nblocks
-      J1 = RES%tblck(q)%jpair(1)
-      J2 = RES%tblck(q)%jpair(2)
-               
-      do g_ix = 1,9 
-   
-         ! figure out how big the array is
-         n1 = size(RES%tblck(q)%tgam(g_ix)%X(:,1))
-         n2 = size(RES%tblck(q)%tgam(g_ix)%X(1,:))
-         if ((n1*n2) == 0) cycle 
-        
-         ! read in information about which 
-         ! array we are using from public arrays
-         c1 = sea1(g_ix) 
-         c2 = sea2(g_ix) 
-         square = sqs(g_ix) 
-         jxstart = jst(g_ix) 
-         
-      do  IX =  1, n1 
-         pre = 1.d0 
-
-         i = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
-         j = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
- 
-         if (i == j )  pre  = .70710678118d0
-         
-         ji = jbas%jj(i) 
-         jj = jbas%jj(j) 
-         li = jbas%ll(i) 
-         lj = jbas%ll(j)
-         ti = jbas%itzp(i) 
-         tj = jbas%itzp(j)
-         
-         do JX =1,n2
-            pre2 = 1.d0 
-            k = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
-            l = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
-            
-            if (k == l )  pre2 = .70710678118d0
-            jk = jbas%jj(k) 
-            jl = jbas%jj(l) 
-            lk = jbas%ll(k) 
-            ll = jbas%ll(l)
-            tk = jbas%itzp(k) 
-            tl = jbas%itzp(l)
-           
-            phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
-            
-            sm = 0.d0 
-            sm_ex = 0.d0 
-                       
-            J3min = abs(ji - jl) 
-            J3max = ji + jl
-            
-            J4min = abs(jj - jk)
-            J4max = jj + jk 
-            
-            
-            Tz = abs(ti -tl)/2                         
-            PAR = mod(li+ll,2) 
-
-            if (mod(lk+lj+RCC%dpar/2,2) == PAR) then 
-               if (abs(tk - tj) == Tz*2)  then 
-             
-            do J3 = J3min,J3max,2
-            
-               q1 = block_index(J3,Tz,PAR)
-              
-               ril = fetch_rval(i,l,Ntot,q1,RCC)
-               rli = fetch_rval(l,i,Ntot,q1,RCC)
-
-                do J4 = max( J3 , J4min ) , J4max,2 
-            
-                  if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  PAR2 = mod(PAR + RCC%dpar/2,2) 
-                  q2 = block_index(J4,Tz,PAR2)
-               
-                  rjk = fetch_rval(j,k,Ntot,q2,RCC)
-                  rkj = fetch_rval(k,j,Ntot,q2,RCC)
-                  
-                  qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
-                  sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                       ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-!                       WCC%CCX(qx)%X(rli,rkj)*(-1)**((J3+J4)/2)*(-1)**((jl+ji)/2)  &
-                       WCCX(l,i,k,j,J3,J4,WCC,RCC,jbas)*(-1)**((J3+J4)/2)*(-1)**((jl+ji)/2)  &
-                      + WCCR(i,l,k,j,J3,J4,WCC,RCC,jbas) * phase1 * LCC%herm &
-                      - (-1)**(rank/2)*phase1*RCC%herm*LCC%herm * &
-                      WCCX(i,l,j,k,J3,J4,WCC,RCC,jbas)*(-1)**((jl+ji)/2) - (-1)**(( J3+J4+rank)/2) &
-                      * RCC%herm * WCCR(l,i,j,k,J3,J4,WCC,RCC,jbas) )
-     
-                end do 
-               
-                do J4 = J4min , min(J4max,J3-2),2 
-                  if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  
-                  PAR2 = mod(PAR + RCC%dpar/2,2)                  
-                  q2 = block_index(J4,Tz,PAR2)
-                  
-                  rjk = fetch_rval(j,k,Ntot,q2,RCC)     
-                  rkj = fetch_rval(k,j,Ntot,q2,RCC)
-                  
-                  qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
-                  sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                       ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
-                       WCC%CCR(qx)%X(rjk,rli)*phase1*(-1)**((rank+J3+J4)/2)*LCC%herm &
-                       + WCC%CCX(qx)%X(rkj,rli)*(-1)**((jk+jj)/2) * (-1)**(rank/2) &
-                        - RCC%herm * WCC%CCR(qx)%X(rkj,ril) &
-                     - phase1*(-1)**((J3+J4)/2) * RCC%herm *LCC%herm * &
-                          WCC%CCX(qx)%X(rjk,ril)*(-1)**((jk+jj)/2) )
-
-               end do
-               
-            
-            end do 
-            
-               end if 
-            end if 
-
-            ! exchange of 1 set of indeces
-            J3min = abs(jj - jl) 
-            J3max = jj + jl
-            
-            J4min = abs(ji - jk)
-            J4max = ji + jk 
-            
-            Tz = abs(tl -tj)/2 
-            PAR = mod(ll+lj,2) 
-
-            if (mod(li+lk+RCC%dpar/2,2) == PAR) then 
-               if (abs(ti - tk) == Tz*2)  then 
-
-            do J3 = J3min,J3max,2
-               q1 = block_index(J3,Tz,PAR)
-            
-               rjl = fetch_rval(j,l,Ntot,q1,RCC)
-               rlj = fetch_rval(l,j,Ntot,q1,RCC)
-
-               do J4 = max( J3 , J4min ) , J4max,2 
-                 
-                  if (.not. (triangle(J3,J4,rank))) cycle
-                 
-                  
-                  PAR2 = mod(PAR + RCC%dpar/2,2)
-                  q2 = block_index(J4,Tz,PAR2)
-             
-                  rki = fetch_rval(k,i,Ntot,q2,RCC)
-                  rik = fetch_rval(i,k,Ntot,q2,RCC)
-              
-                  qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
-               
-                  sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                       ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
-                       (-1)**((J3+J4)/2) * WCC%CCX(qx)%X(rlj,rki)*(-1)**((jl+jj)/2)  & 
-                       - phase1*RCC%herm*LCC%herm*(-1)**(rank/2)* &
-                       WCC%CCX(qx)%X(rjl,rik)*(-1)**((jl+jj)/2) + phase1*LCC%herm * &
-                       WCC%CCR(qx)%X(rjl,rki) - (-1)**((J3+J4+rank)/2)* &
-                       RCC%herm * WCC%CCR(qx)%X(rlj,rik) )
-                  
-                end do 
-               
-                do J4 = J4min , min(J4max,J3-2),2 
-                  if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  PAR2 = mod(PAR + RCC%dpar/2,2)
-                  q2 = block_index(J4,Tz,PAR2)
-     
-                  rki = fetch_rval(k,i,Ntot,q2,RCC)
-                  rik = fetch_rval(i,k,Ntot,q2,RCC)
-
-                  qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
-                  
-                  sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                       ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
-                       (-1)**((J3+J4+rank)/2) *phase1*LCC%herm &
-                       * WCC%CCR(qx)%X(rik,rlj)  & 
-                       - RCC%herm*WCC%CCR(qx)%X(rki,rjl) &
-                       + (-1)**(rank/2) * WCC%CCX(qx)%X(rki,rlj)*(-1)**((jk+ji)/2) &
-                       - phase1*(-1)**((J3+J4)/2) * LCC%herm * RCC%herm * &
-                       WCC%CCX(qx)%X(rik,rjl)*(-1)**((jk+ji)/2) ) 
-                  
-               end do
-               
-               
-           end do 
-               end if 
-            end if 
-            
-          RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX) + ( sm * &
-               (-1) ** ((ji+jj+J2)/2) + sm_ex * (-1)**((J1+J2)/2) )&
-               *   pre * pre2 *   sqrt((J1+1.d0)*(J2+1.d0))
-   
-         end do 
-      end do
-      end do 
-   end do
-
-   end do 
-!$OMP END PARALLEL DO 
-   
- end subroutine TS_commutator_222_ph_old
-!=====================================================
-!=====================================================      
 real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,Jst,jbas)
   implicit none 
   
