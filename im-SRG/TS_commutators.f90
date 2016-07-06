@@ -1590,12 +1590,17 @@ end subroutine TS_commutator_222_pp_hh
             end if 
             end if
             end if
+            end if 
+            end if 
+            
+            if ( Tz == abs(tj-tk)/2 )  then 
+            if ( PAR == mod(lj+lk,2)  ) then              
                         
             
             if (triangle(jj,jk,J3)) then
             if (triangle(ji,jl,J4)) then
-            if (mod(lj+lk+RCC%dpar/2,2) == PAR) then 
-               if (abs(tj - tk) == Tz*2)  then 
+            if (mod(li+ll+RCC%dpar/2,2) == PAR) then 
+               if (abs(ti - tl) == Tz*2)  then 
                          
                   sm = sm - (-1) **((jk+jl+J1+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(jj,jk,J3,ji,jl,J4,J1,J2,rank) &
@@ -1620,13 +1625,13 @@ end subroutine TS_commutator_222_pp_hh
             end if 
 
                         
-            if (Tz  ==  abs(ti-tk)/2 ) then 
-            if (PAR ==  mod(li+lk,2) ) then  
+            if (Tz  ==  abs(tj-tl)/2 ) then 
+            if (PAR ==  mod(lj+ll,2) ) then  
 
             if (triangle(jj,jl,J3)) then
             if (triangle(ji,jk,J4)) then
-            if (mod(lj+ll+RCC%dpar/2,2) == PAR) then 
-               if (abs(tj-tl) == Tz*2)  then 
+            if (mod(li+lk+RCC%dpar/2,2) == PAR) then 
+               if (abs(ti-tk) == Tz*2)  then 
                                       
                   sm = sm + (-1) **((J1+J2+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) &
@@ -1646,7 +1651,11 @@ end subroutine TS_commutator_222_pp_hh
             end if 
             end if
             end if 
-          
+            end if 
+            end if
+            
+            if (Tz  ==  abs(ti-tk)/2 ) then 
+            if (PAR ==  mod(li+lk,2) ) then  
             
             if (triangle(jj,jl,J4)) then
             if (triangle(ji,jk,J3)) then
