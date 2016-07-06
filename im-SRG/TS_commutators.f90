@@ -1509,12 +1509,10 @@ end subroutine TS_commutator_222_pp_hh
          q2 = J4/2+1 + Tz*(JTM+1) + 2*PAR2*(JTM+1)
          factor = 1.d0/sqrt(J4+1.d0)
          
-         call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(qx)%X,r1,&
-              LCC%CCX(q2)%X,r2,bet,WCC%CCR(qx)%X,r1) 
+        call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(qx)%X,r1,&
+             LCC%CCX(q2)%X,r2,bet,WCC%CCR(qx)%X,r1) 
       end if
-      
-
-      
+            
 !!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
 !  do thread = 1, total_threads
  !    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
@@ -1567,34 +1565,16 @@ end subroutine TS_commutator_222_pp_hh
            
             sm = 0.d0
             phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
-                       
-            J3min = abs(ji - jl) 
-            J3max = ji + jl
-            
-            J4min = abs(jj - jk)
-            J4max = jj + jk 
-                        
-            
-            
-            
-            
-            
-            
-            if ( Tz == abs(ti -tl)/2 )  then 
+                                   
+            if ( Tz == abs(ti-tl)/2 )  then 
             if ( PAR == mod(li+ll,2)  ) then              
 
             if (triangle(jj,jk,J4)) then
             if (triangle(ji,jl,J3)) then
+
             if (mod(lk+lj+RCC%dpar/2,2) == PAR) then 
                if (abs(tk - tj) == Tz*2)  then 
-             
-            !do J3 = J3min,J3max,2             
-             !   do J4 = max( J3 , J4min ) , J4max,2 
-            
-!                  if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  PAR2 = mod(PAR + RCC%dpar/2,2) 
-                         
+                                      
                   sm = sm - (-1) **((ji+jj+J2+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank) &
                        * ((-1)**((ji + jl)/2)* LCC%herm * WCCX(l,i,k,j,J3,J4,WCC,RCC,jbas) &
@@ -1607,34 +1587,23 @@ end subroutine TS_commutator_222_pp_hh
                           *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(i,l,k,j,J3,J4,WCC,RCC,jbas) &
                           - (-1)**((J3+J4)/2)*RCC%herm *WCCR(l,i,j,k,J3,J4,WCC,RCC,jbas) )
                   end if
-              ! end do               
-            !end do 
-            
+
+                  if (( i == 16) .and.( j == 17) .and.( k == 19) .and.( l == 20) ) then 
+                     if (( J1 == 2 ) .and. (J2 == 4) ) then 
+                        write(41,*) J3,J4,sm
+                     end if
+                  end if
+             
                end if 
             end if 
             end if
             end if
-
-
-
-
-            J3min = abs(jj - jk) 
-            J3max = jj + jk
-            
-            J4min = abs(ji - jl)
-            J4max = ji + jl 
                         
+            
             if (triangle(jj,jk,J3)) then
             if (triangle(ji,jl,J4)) then
             if (mod(lj+lk+RCC%dpar/2,2) == PAR) then 
                if (abs(tj - tk) == Tz*2)  then 
-             
-          !  do J3 = J3min,J3max,2             
-           !     do J4 = max( J3 , J4min ) , J4max,2 
-            
-!                  if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  PAR2 = mod(PAR + RCC%dpar/2,2) 
                          
                   sm = sm - (-1) **((jk+jl+J1+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(jj,jk,J3,ji,jl,J4,J1,J2,rank) &
@@ -1648,46 +1617,31 @@ end subroutine TS_commutator_222_pp_hh
                           *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(j,k,l,i,J3,J4,WCC,RCC,jbas) &
                           - (-1)**((J3+J4)/2)*RCC%herm *WCCR(k,j,i,l,J3,J4,WCC,RCC,jbas) )
                   end if
-         !      end do               
-         !   end do 
+
+                  if (( i == 16) .and.( j == 17) .and.( k == 19) .and.( l == 20) ) then 
+                     if (( J1 == 2 ) .and. (J2 == 4) ) then 
+                        write(42,*) J3,J4,sm
+                     end if
+                  end if
             
                end if 
             end if 
             end if 
             end if 
-
-
-
-
-
-
-
-
+            
+            
             end if 
             end if 
-            
-            
-            J3min = abs(jj - jl) 
-            J3max = jj + jl
-            
-            J4min = abs(ji - jk)
-            J4max = ji + jk 
+
                         
-            if (Tz  ==  abs(ti -tk)/2 ) then 
+            if (Tz  ==  abs(ti-tk)/2 ) then 
             if (PAR ==  mod(li+lk,2) ) then  
 
             if (triangle(jj,jl,J3)) then
             if (triangle(ji,jk,J4)) then
             if (mod(lj+ll+RCC%dpar/2,2) == PAR) then 
-               if (abs(tj - tl) == Tz*2)  then 
-             
-            !do J3 = J3min,J3max,2             
-             !   do J4 = max( J3 , J4min ) , J4max,2 
-            
- !                 if (.not. (triangle(J3,J4,rank))) cycle
-                  
-                  PAR2 = mod(PAR + RCC%dpar/2,2) 
-                         
+               if (abs(tj-tl) == Tz*2)  then 
+                                      
                   sm = sm + (-1) **((J1+J2+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) &
                        * ((-1)**((jj + jl)/2)* LCC%herm * WCCX(l,j,k,i,J3,J4,WCC,RCC,jbas) &
@@ -1701,39 +1655,22 @@ end subroutine TS_commutator_222_pp_hh
                           - (-1)**((J3+J4)/2)*RCC%herm *WCCR(l,j,i,k,J3,J4,WCC,RCC,jbas) )
                      
                   end if
+                  if (( i == 16) .and.( j == 17) .and.( k == 19) .and.( l == 20) ) then 
+                     if (( J1 == 2 ) .and. (J2 == 4) ) then 
+                        write(43,*) J3,J4,sm
+                     end if
+                  end if
 
-            !   end do               
-            !end do 
-            
                end if 
             end if 
             end if
             end if 
-            
-
-
-
-
-
-
-            J3min = abs(ji - jk) 
-            J3max = ji + jk
-            
-            J4min = abs(jj - jl)
-            J4max = jj + jl 
-                        
-   !         Tz = abs(tj -tl)/2                         
-    !        PAR = mod(lj+ll,2) 
+          
             
             if (triangle(jj,jl,J4)) then
             if (triangle(ji,jk,J3)) then
             if (mod(lj+ll+RCC%dpar/2,2) == PAR) then 
-               if (abs(tj - tl) == Tz*2)  then 
-             
-      !      do J3 = J3min,J3max,2             
-       !         do J4 = max( J3 , J4min ) , J4max,2 
-            
-!                  if (.not. (triangle(J3,J4,rank))) cycle
+               if (abs(tj-tl) == Tz*2)  then 
                   
                   PAR2 = mod(PAR + RCC%dpar/2,2) 
                          
@@ -1749,9 +1686,13 @@ end subroutine TS_commutator_222_pp_hh
                           *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(i,k,l,j,J3,J4,WCC,RCC,jbas) &
                           - (-1)**((J3+J4)/2)*RCC%herm *WCCR(k,i,j,l,J3,J4,WCC,RCC,jbas) )
                   end if
-        !       end do               
-        !    end do 
             
+                  if (( i == 16) .and.( j == 17) .and.( k == 19) .and.( l == 20) ) then 
+                     if (( J1 == 2 ) .and. (J2 == 4) ) then 
+                        write(44,*) J3,J4,sm
+                     end if
+                  end if
+
                end if 
             end if 
             end if 
@@ -1759,15 +1700,9 @@ end subroutine TS_commutator_222_pp_hh
 
             end if
             end if 
-           !'tits' 
-
-            
+   
             RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX)+sm*pre*pre2 
             
-          !RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX) + ( sm * &
-           !    (-1) ** ((ji+jj+J2)/2) + sm_ex * (-1)**((J1+J2)/2) )&
-            !   *   pre * pre2 *   sqrt((J1+1.d0)*(J2+1.d0))
-   
          end do 
       end do
       end do 

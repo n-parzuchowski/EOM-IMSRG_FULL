@@ -812,7 +812,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
  !do a = 12, jbas%total_orbits
      
   iii = 0 
-  do while (iii < 15)  
+  do while (iii < 25)  
      call random_number(vv)
      call random_number(xx)
      call random_number(yy)
