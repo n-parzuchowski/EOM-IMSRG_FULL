@@ -129,6 +129,7 @@ module basic_IMSRG
   character(200),public :: spfile,intfile,prefix,threebody_file
   character(500),public :: playplace = '/mnt/research/imsrg/nsuite/me/playplace/'
   character(500),public :: scratch = '/mnt/scratch/parzuch6/'
+  character(200),public :: resubmitter 
   ! If you have multiple places where you might want to write/read from, list them here. 
   ! You can have as many as you want, just make sure to increase the dimension accordingly. 
   ! Fortran is stupid about strings so make sure the strings are the same length, or it will get pissed.    
@@ -3099,7 +3100,12 @@ subroutine write_omega_checkpoint(H,s)
   write(77) outvec 
   close(77) 
 
-  sx = s - 2.d0 
+  if (H%eMax==14) then 
+     sx = s - 0.5d0 
+  else
+     sx = s - 2.d0
+  end if 
+  
   write(s_position,'(f6.3)') sx
   
   prefix2(1:i+3)=prefix(1:i+3)
@@ -3113,6 +3119,11 @@ subroutine write_omega_checkpoint(H,s)
   inquire(file=trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin',exist=isthere)
   if (isthere) call system('rm '//trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin')   
   print*, 'sucessful' 
+
+  if (trim(resubmitter) .ne. '') then 
+     call system('cd ../../  && qsub '//trim(resubmitter))
+     stop 'RESUBMITTED JOB'
+  end if
 
 end subroutine write_omega_checkpoint
 !======================================================
@@ -3128,6 +3139,7 @@ logical function read_omega_checkpoint(H,s)
   character(20) :: instring
   character(6) :: s_position 
   integer(c_int) :: rx,filehandle
+  real(8) :: ds
   logical :: isthere
 
 
@@ -3138,6 +3150,12 @@ logical function read_omega_checkpoint(H,s)
      if (prefix(i:i+1) == 'hw') exit
   end do
 
+  if ( H%eMax==14) then 
+     ds = 0.5d0
+  else
+     ds = 2.d0 
+  end if 
+  
   s = 95.5d0 
   do while (s >1.0)
      write(s_position,'(f6.3)') s
@@ -3151,7 +3169,7 @@ logical function read_omega_checkpoint(H,s)
      
      inquire(file=trim(scratch)//trim(adjustl(prefix2(1:i+11)))//'.bin',exist=isthere)
      if (isthere) exit 
-     s = s-2.d0
+     s = s-ds 
   end do
 
   if ( .not. isthere ) then 

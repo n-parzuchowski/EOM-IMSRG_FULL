@@ -34,6 +34,7 @@ program main_IMSRG
   t1 = omp_get_wtime()
 
   call getarg(1,inputs_from_command) 
+  call getarg(2,resubmitter) 
   
   if (trim(inputs_from_command) == 'X') then 
      test_commutators = .true.

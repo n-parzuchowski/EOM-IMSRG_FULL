@@ -11,7 +11,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   ! runs IMSRG using magnus expansion method
   implicit none 
   
-  integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
+  integer :: Atot,Ntot,nh,np,nb,q,steps,i,j,chk
   type(spd) :: jbas
   type(tpd),allocatable,dimension(:) :: threebas
   type(sq_op) :: H,G,HS,AD
@@ -20,7 +20,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   real(8) :: ds,s,sx,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
   real(8) :: omp_get_wtime,t1,t2
   character(1) :: quads,trips
-  logical :: trip_calc,xxCR,chkpoint_restart
+  logical :: trip_calc,xxCR,chkpoint_restart,first
   external :: build_generator 
   
   HS%neq = 1
@@ -48,6 +48,12 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   crit = 10.
   steps = 0
   
+  if (HS%eMax==14) then 
+     chk = 1
+  else
+     chk = 4
+  end if 
+  
   if (checkpointing) then 
      chkpoint_restart = read_omega_checkpoint(G,sx) 
   else
@@ -66,7 +72,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      Eold=0.
      E_mbpt2 = mbpt2(HS,jbas) 
      crit=abs(E_mbpt2)
-  
+     first = .false.  
   else 
 
      ! CHECKPOINT RESTART
@@ -79,16 +85,21 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      s= sx
   
      steps = nint(sx/ds)
-
+     first = .true. 
   end if 
   
+
   do while (crit > 1e-6) 
  
      steps = steps + 1
  
      if (checkpointing) then 
-        if (mod(steps,4)==0) then 
-           call write_omega_checkpoint(G,s)
+        if (mod(steps,chk)==0) then 
+           if (first) then 
+              first = .false.
+           else
+              call write_omega_checkpoint(G,s)
+           end if
         end if
      end if 
  
