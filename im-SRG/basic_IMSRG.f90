@@ -1623,7 +1623,143 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
    
    tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
     
-end function
+end function tensor_elem
+!==============================================================
+!==============================================================
+subroutine add_elem_to_tensor(V,ax,bx,cx,dx,J1x,J2x,op,jbas) 
+  ! grabs the matrix element you are looking for
+  ! right now it's not as versatile as v_elem because 
+  ! it doesn't know ahead of time what the symmetries are
+  implicit none
+  
+  integer :: a,b,c,d,J1,J2,rank,T,P,q,qx,c1,c2,N,J1x,J2x
+  integer :: int1,int2,i1,i2,j_min,x,k1,k2,ax,bx,cx,dx
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  ,phase
+  logical :: fail_c,switch
+  type(sq_op) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c,V
+  
+  J1 = min(J1x,J2x) 
+  
+  if (J1 == J1x) then 
+     switch = .false. 
+     J2 = J2x 
+     phase = 1
+     a = ax
+     b = bx
+     c = cx
+     d = dx
+  else
+     return 
+     ! J2 = J1x 
+     ! switch = .true. 
+     ! a = cx
+     ! b = dx
+     ! c = ax
+     ! d = bx 
+  end if
+  
+  !make sure the matrix element exists first
+ 
+  rank = op%rank
+
+  if ( .not. (triangle ( J1,J2,rank ))) then 
+     return
+  end if 
+ 
+  
+  fail_c = .true. 
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+  if ( .not. ((triangle(ja,jb,J1)) .and. (triangle (jc,jd,J2))) ) then 
+     return
+  end if
+     
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+
+  P = mod(la + lb,2) 
+     
+  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
+    return
+  end if 
+        
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)
+     
+  T = (ta + tb)/2
+     
+  if ((tc+td) .ne. 2*T) then     
+    return
+  end if 
+
+  q = tensor_block_index(J1,J2,rank,T,P) 
+
+  if (switch) then 
+     phase =  OP%tblck(q)%lam(1)*op%herm 
+  end if 
+  !! this is a ridiculous but efficient? way of 
+  !! figuring out which Vpppp,Vhhhh,Vphph.... 
+  !! array we are referencing. QX is a number between 
+  !! 1 and 6 which refers to a unique array for the pphh characteristic
+  
+  C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+  C2 = jbas%con(c)+jbas%con(d) + 1
+    
+  qx = C1*C2
+  qx = qx + adjust_index(qx)   !Vpppp nature  
+  
+  ! see subroutine "allocate_blocks" for mapping from qx to each 
+  ! of the 6 storage arrays
+    
+  pre = 1 
+  
+  N = op%Nsp
+  ! get the indeces in the correct order
+  if ( a > b )  then 
+     return 
+     x = bosonic_tp_index(b,a,N) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
+     pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J1)/2 ) 
+  else
+     if (a == b) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(a,b,N)
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
+  end if 
+  
+  if (c > d)  then     
+     return
+     x = bosonic_tp_index(d,c,N) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2) 
+     pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J2)/2 ) 
+  else 
+     if (c == d) pre = pre * sqrt( 2.d0 )
+     x = bosonic_tp_index(c,d,N) 
+     j_min = jbas%xmap_tensor(x)%Z(1)  
+     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2)  
+  end if 
+ 
+  ! grab the matrix element
+
+  ! right now i1 and i2 still refer to where the pair is located
+  ! in the rank zero qn storage
+  If (C1>C2) qx = qx + tensor_adjust(qx)       
+
+  op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V  
+    
+ end subroutine add_elem_to_tensor
 !==============================================================
 !==============================================================
 real(8) function pphh_tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas) 
@@ -4538,7 +4674,7 @@ real(8) function Vcc(a,b,c,d,J,Op,jbas)
   sm = 0.d0 
   
   do J_int = jmin,jmax,2
-     sm = sm + sqrt(J+1.d0) * (J_int+1.d0) * &
+     sm = sm + (J_int+1.d0) * &
           (-1)**((ja+jd + J + J_int)/2) * &
           sixj(jb,ja,J,jc,jd,J_int) * &
           v_elem(a,c,b,d,J_int,Op,jbas) 
@@ -4623,9 +4759,7 @@ real(8) function Tensor_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas)
   
   Tensor_mscheme = sm 
 end function Tensor_mscheme
-  
    
- 
 real(8) function Vpandya(a,d,c,b,J,Op,jbas)
   ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
   implicit none 
@@ -4653,8 +4787,43 @@ real(8) function Vpandya(a,d,c,b,J,Op,jbas)
   end do 
   
   Vpandya = sm 
-end function
-     
+end function Vpandya
+  
+real(8) function Vgenpandya(a,d,c,b,J1,J2,Op,jbas)
+  ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
+  implicit none 
+  
+  integer :: a,b,c,d,J1,J2,rank,J4min,J4max
+  integer :: ja,jb,jc,jd,J3,J4,j3min,j3max
+  type(spd) :: jbas
+  type(sq_op) :: Op
+  real(8) :: sm ,coef9
+  
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  rank = Op%rank 
+
+  j3min = abs(ja-jb)
+  j4min = abs(jc-jd) 
+  j3max = ja+jb
+  j4max = jc+jd  
+  
+  sm = 0.d0 
+  
+  do J3 = j3min,j3max,2
+     do J4 = j4min,j4max,2 
+     sm = sm - sqrt((J1+1.d0)*(J2+1.d0) &
+          *(J3+1.d0)*(J4+1.d0)) * &
+          coef9(ja,jd,J1,jb,jc,J2,J3,J4,rank) * &
+          tensor_elem(a,b,c,d,J3,J4,Op,jbas) * &
+          (-1)**((jb+jd+J2+J4)/2) 
+     end do 
+  end do 
+  
+  Vgenpandya = sm 
+end function Vgenpandya
 
 end module       
 

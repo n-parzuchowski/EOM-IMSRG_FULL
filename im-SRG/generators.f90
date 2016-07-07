@@ -156,7 +156,6 @@ subroutine build_gs_w2(H,ETA,jbas)
 
   call build_gs_atanxx(H,H2,ETA2,jbas)   
   call add_sq_op(ETA1,1.5d0,ETA2,0.5d0,ETA) 
-  !'tit'
 
 end subroutine build_gs_w2
 !==========================================================

@@ -3,7 +3,7 @@ module cross_coupled
   
    type :: ph_mat
       type(int_vec),allocatable,dimension(:) :: qmap,nbmap
-      type(real_mat),allocatable,dimension(:) :: CCX
+      type(real_mat),allocatable,dimension(:) :: CCX 
       integer :: nblocks,Nsp,herm
       integer,allocatable,dimension(:) :: Jval
    end type ph_mat 
@@ -11,11 +11,13 @@ module cross_coupled
   type,extends(ph_mat) :: cc_mat
      type(int_vec),allocatable,dimension(:) :: rmap
      integer,allocatable,dimension(:) :: nph,rlen
+!     type(int_mat), allocatable,dimension(:) :: qn1,qn2
   end type cc_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   type,extends(ph_mat) :: pandya_mat
      type(int_vec),allocatable,dimension(:) :: rmap
      type(real_mat),allocatable,dimension(:) :: CCR
+     type(int_mat), allocatable,dimension(:) :: qn1,qn2
      integer,allocatable,dimension(:) :: Jval2
      integer :: rank,dpar
   end type pandya_mat
@@ -327,7 +329,8 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
   allocate(CCME%rmap(NX*NX))  ! map of pair index to r indeces
   allocate(CCME%qmap(NX*NX))  ! map of pair index to q indeces
   allocate(CCME%nbmap(NX*NX)) 
-  
+  allocate(CCME%qn1(NX*NX),CCME%qn2(NX*NX))
+
   do i = 1, NX
      do j = 1,NX
         
@@ -371,7 +374,6 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
                     ji = jbas%jj(i) 
                     jj = jbas%jj(j) 
 
-
                     if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
 
                     if ( mod(jbas%ll(i) + jbas%ll(j),2) == PAR ) then
@@ -381,7 +383,7 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
                              nb1 = nb1 + 1 
                           end if
                           r1 = r1+1                       
-
+                          
                        end if
                     end if
                     
@@ -400,12 +402,56 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
               allocate( CCME%CCX(q1)%X(r1,nb2) ) 
               allocate( CCME%CCR(q1)%X(nb1,r2) ) 
 
+              allocate( CCME%qn1(q1)%Y(r1,2),CCME%qn2(q1)%Y(r2,2)) 
+              
               nb1 = 0 
               r1 = 0 
               nb2 = 0 
               r2 = 0
 
+              ! I only need one of these arrays per J, so I use the same shape as before. 
+              do i = 1, NX
+                 do j = 1,NX 
+                   
+                    ji = jbas%jj(i) 
+                    jj = jbas%jj(j) 
+                                        
+                    if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
+
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == PAR ) then
+                       if (triangle(ji,jj,Jtot1)) then 
+
+                          r1 = r1+1                       
+                          
+                          CCME%qn1(q1)%Y(r1,1) = i 
+                          CCME%qn1(q1)%Y(r1,2) = j
+
+                       end if
+                    end if
+                    
+
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == mod(PAR+op%dpar/2,2) ) then
+                       if (triangle(ji,jj,Jtot2)) then 
+                          
+                          r2 = r2+1
+                          CCME%qn2(q1)%Y(r2,1) = i 
+                          CCME%qn2(q1)%Y(r2,2) = j 
+ 
+                       end if
+                    end if
+                   
+                    
+                 end do
+              end do
+              
               if (max(abs(Jtot1 - rank),Jtot1) .ne. Jtot2) cycle
+
+              nb1 = 0 
+              r1 = 0 
+              nb2 = 0 
+              r2 = 0
+
+              
               ! I only need one of these arrays per J, so I use the same shape as before. 
               do i = 1, NX
                  do j = 1,NX 
@@ -419,7 +465,7 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
                     if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
 
                     x = CCindex(i,j,NX) 
-
+                    
                     g = 1
                     do while (CCME%qmap(x)%Z(g) .ne. 0) 
                        g = g + 1
@@ -434,8 +480,7 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
                     q = block_index(Jtot1,Tz,Par)          
                     CCME%qmap(x)%Z(g) = q
                     CCME%rmap(x)%Z(g) = r1
-                    
-                    
+                                        
                  end do
               end do
               
@@ -1317,8 +1362,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas)
                                 
                              end do
                           end do
-                          
-                     
+                                               
                           CCME%CCX(q1)%X(Rindx,NBindx2) = sm * & 
                                (-1) **( (jh+jb+Jtot2) / 2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
                           ! NOTE THAT the ph belongs to the LARGER J
@@ -1362,7 +1406,6 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas)
                           CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
                                (-1) **( (jp+ja+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))&
                                * (-1)**((jp+jh)/2) 
-                                                
                        end if
                     end if
                  end if 
@@ -1815,6 +1858,81 @@ integer function ex_pandya_rval(i,l,Ntot,q,LCC)
   
   ex_pandya_rval = LCC%nbmap(x)%Z(g)
 end function ex_pandya_rval
-!=====================================================
-!=====================================================    
+!=================================================================     
+!=================================================================
+real(8) function WCCX(a,d,b,c,J1,J2,WX,RCC,jbas)
+  implicit none
+  
+  integer :: a,b,c,d,rad,rbc,Ntot,q1,q2
+  integer :: J1,J2,PAR,PAR2,Tz,qx,rank  
+  type(spd) :: jbas
+  type(pandya_mat) :: RCC 
+  real(8),dimension(:,:) :: WX 
+  
+  Ntot = jbas%total_orbits
+  rank = RCC%rank
+  
+  PAR = mod(jbas%ll(a) + jbas%ll(d) ,2) 
+  Tz = abs(jbas%itzp(a) - jbas%itzp(d))/2 
+  
+  PAR2 = mod(PAR + RCC%dpar/2,2)
+  if ( abs(jbas%itzp(b) - jbas%itzp(c)) .ne. 2*Tz) then 
+     WCCX = 0.d0 
+     return
+  end if 
+  
+  if (mod(jbas%ll(b) + jbas%ll(c) ,2)  .ne. PAR2) then 
+     WCCX = 0.d0 
+     return
+  end if
+  
+  q1 = block_index(J1,Tz,PAR)
+  q2 = block_index(J2,Tz,PAR2)
+  
+  rad = fetch_rval(a,d,Ntot,q1,RCC)
+  rbc = fetch_rval(b,c,Ntot,q2,RCC)
+  
+  WCCX = WX(rad,rbc)
+
+end function WCCX
+!============================================================
+!============================================================
+real(8) function WCCR(a,d,b,c,J1,J2,WCC,RCC,jbas)
+  implicit none
+  
+  integer :: a,b,c,d,rad,rbc,Ntot,q1,q2
+  integer :: J1,J2,PAR,PAR2,Tz,qx,rank  
+  type(spd) :: jbas
+  type(pandya_mat) :: WCC,RCC 
+  
+  Ntot = jbas%total_orbits
+  rank = RCC%rank
+  
+  PAR = mod(jbas%ll(a) + jbas%ll(d) ,2) 
+  Tz = abs(jbas%itzp(a) - jbas%itzp(d))/2 
+  
+  PAR2 = mod(PAR + RCC%dpar/2,2)
+  if ( abs(jbas%itzp(b) - jbas%itzp(c)) .ne. 2*Tz) then 
+     WCCR = 0.d0 
+     return
+  end if 
+  
+  if (mod(jbas%ll(b) + jbas%ll(c) ,2)  .ne. PAR2) then 
+     WCCR = 0.d0 
+     return
+  end if
+  
+  q1 = block_index(J1,Tz,PAR)
+  q2 = block_index(J2,Tz,PAR2)
+  
+  rad = fetch_rval(a,d,Ntot,q1,RCC)
+  rbc = fetch_rval(b,c,Ntot,q2,RCC)
+  
+  qx = CCtensor_block_index(J1,J2,rank,Tz,PAR)
+  
+  WCCR = WCC%CCR(qx)%X(rad,rbc)
+
+end function WCCR
+!============================================================
+!============================================================
 end module
