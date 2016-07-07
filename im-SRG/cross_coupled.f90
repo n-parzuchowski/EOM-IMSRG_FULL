@@ -1860,13 +1860,14 @@ integer function ex_pandya_rval(i,l,Ntot,q,LCC)
 end function ex_pandya_rval
 !=================================================================     
 !=================================================================
-real(8) function WCCX(a,d,b,c,J1,J2,WCC,RCC,jbas)
+real(8) function WCCX(a,d,b,c,J1,J2,WX,RCC,jbas)
   implicit none
   
   integer :: a,b,c,d,rad,rbc,Ntot,q1,q2
   integer :: J1,J2,PAR,PAR2,Tz,qx,rank  
   type(spd) :: jbas
-  type(pandya_mat) :: WCC,RCC 
+  type(pandya_mat) :: RCC 
+  real(8),dimension(:,:) :: WX 
   
   Ntot = jbas%total_orbits
   rank = RCC%rank
@@ -1891,9 +1892,7 @@ real(8) function WCCX(a,d,b,c,J1,J2,WCC,RCC,jbas)
   rad = fetch_rval(a,d,Ntot,q1,RCC)
   rbc = fetch_rval(b,c,Ntot,q2,RCC)
   
-  qx = CCtensor_block_index(J1,J2,rank,Tz,PAR)
-  
-  WCCX = WCC%CCX(qx)%X(rad,rbc)
+  WCCX = WX(rad,rbc)
 
 end function WCCX
 !============================================================

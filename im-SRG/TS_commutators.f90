@@ -1456,13 +1456,14 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
 end subroutine TS_commutator_222_pp_hh
 !=================================================================
 !=================================================================
- subroutine TS_commutator_222_ph(LCC,RCC,RES,WCC,jbas) 
+ subroutine TS_commutator_222_ph(LCC,RCC,RES,jbas) 
    ! VERIFIED ph channel 2body TS_commutator. DFWT! 
    implicit none 
   
    type(spd) :: jbas
    type(sq_op) :: RES
-   type(pandya_mat) :: RCC,WCC
+   type(pandya_mat) :: RCC
+   real(8),allocatable,dimension(:,:) :: Wx,Wy 
    type(cc_mat) :: LCC
    integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank,a,b,c,d
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max,ja,jb,jc,jd
@@ -1471,7 +1472,7 @@ end subroutine TS_commutator_222_pp_hh
    integer :: phase_J3J4,phase_abcd,phase_ac,phase_bc
    integer :: phase_bd,phase_ad 
    real(8) :: nj_ad3bc4,nj_da3cb4,prefactor_34,prefactor_134,prefactor_1234             
-   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex,V,WX
+   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex,V
    logical :: square
    
    rank = RES%rank
@@ -1490,16 +1491,20 @@ end subroutine TS_commutator_222_pp_hh
       
       if (r1 * r2 == 0) cycle
       
+      allocate(Wx(r1,r2),Wy(r1,r2)) 
+      Wx = 0.d0 
+      Wy = 0.d0
       PAR = mod(qx-1,2)
       Tz = mod((qx-1)/2,2) 
       J3 = RCC%Jval(qx) 
       J4 = RCC%Jval2(qx)          
+      
       if (nb1 .ne. 0 ) then 
 
          factor = 1.0/sqrt(J3+1.d0)*LCC%herm
          q1 = J3/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1) 
          call dgemm('N','N',r1,r2,nb1,factor,LCC%CCX(q1)%X,r1,&
-              RCC%CCR(qx)%X,nb1,bet,WCC%CCX(qx)%X,r1)       
+              RCC%CCR(qx)%X,nb1,bet,Wx,r1)       
       end if
          
       if (nb2 .ne. 0 ) then 
@@ -1509,7 +1514,7 @@ end subroutine TS_commutator_222_pp_hh
          factor = 1.d0/sqrt(J4+1.d0)
          
         call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(qx)%X,r1,&
-             LCC%CCX(q2)%X,r2,bet,WCC%CCR(qx)%X,r1) 
+             LCC%CCX(q2)%X,r2,bet,Wy,r1) 
       end if
             
 !!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
@@ -1576,15 +1581,15 @@ end subroutine TS_commutator_222_pp_hh
                                       
                   sm = sm - (-1) **((ji+jj+J2+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank) &
-                       * ((-1)**((ji + jl)/2)* LCC%herm * WCCX(l,i,k,j,J3,J4,WCC,RCC,jbas) &
-                       - (-1)**((jj+jk+J3+J4+rank)/2) *  RCC%herm *WCCX(i,l,j,k,J3,J4,WCC,RCC,jbas) ) 
+                       * ((-1)**((ji + jl)/2)* LCC%herm * WCCX(l,i,k,j,J3,J4,Wx,RCC,jbas) &
+                       - (-1)**((jj+jk+J3+J4+rank)/2) *  RCC%herm *WCCX(i,l,j,k,J3,J4,Wx,RCC,jbas) ) 
                   
                   IF ( J3 .ne. J4 ) THEN
                      
                      sm = sm + (-1)**((jk+jl+J1+J3+J4)/2) *ninej(jj,jk,J4,ji,jl,J3,J1,J2,rank) &
                           * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
-                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(i,l,k,j,J3,J4,WCC,RCC,jbas) &
-                          - (-1)**((J3+J4)/2)*RCC%herm *WCCR(l,i,j,k,J3,J4,WCC,RCC,jbas) )
+                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(i,l,k,j,J3,J4,Wy,RCC,jbas) &
+                          - (-1)**((J3+J4)/2)*RCC%herm *WCCX(l,i,j,k,J3,J4,Wy,RCC,jbas) )
                   end if
                end if 
             end if 
@@ -1604,15 +1609,15 @@ end subroutine TS_commutator_222_pp_hh
                          
                   sm = sm - (-1) **((jk+jl+J1+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(jj,jk,J3,ji,jl,J4,J1,J2,rank) &
-                       * ((-1)**((jj + jk)/2)* LCC%herm * WCCX(k,j,l,i,J3,J4,WCC,RCC,jbas) &
-                       - (-1)**((ji+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(j,k,i,l,J3,J4,WCC,RCC,jbas) ) 
+                       * ((-1)**((jj + jk)/2)* LCC%herm * WCCX(k,j,l,i,J3,J4,Wx,RCC,jbas) &
+                       - (-1)**((ji+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(j,k,i,l,J3,J4,Wx,RCC,jbas) ) 
                   
                   IF ( J3 .ne. J4 ) THEN
                      
                      sm = sm + (-1)**((ji+jj+J2+J3+J4)/2) *ninej(ji,jl,J4,jj,jk,J3,J1,J2,rank) &
                           * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
-                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(j,k,l,i,J3,J4,WCC,RCC,jbas) &
-                          - (-1)**((J3+J4)/2)*RCC%herm *WCCR(k,j,i,l,J3,J4,WCC,RCC,jbas) )
+                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(j,k,l,i,J3,J4,Wy,RCC,jbas) &
+                          - (-1)**((J3+J4)/2)*RCC%herm *WCCX(k,j,i,l,J3,J4,Wy,RCC,jbas) )
                   end if
             
                end if 
@@ -1635,15 +1640,15 @@ end subroutine TS_commutator_222_pp_hh
                                       
                   sm = sm + (-1) **((J1+J2+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) &
-                       * ((-1)**((jj + jl)/2)* LCC%herm * WCCX(l,j,k,i,J3,J4,WCC,RCC,jbas) &
-                       - (-1)**((ji+jk+J3+J4+rank)/2) *  RCC%herm *WCCX(j,l,i,k,J3,J4,WCC,RCC,jbas) ) 
+                       * ((-1)**((jj + jl)/2)* LCC%herm * WCCX(l,j,k,i,J3,J4,Wx,RCC,jbas) &
+                       - (-1)**((ji+jk+J3+J4+rank)/2) *  RCC%herm *WCCX(j,l,i,k,J3,J4,Wx,RCC,jbas) ) 
                   
                   IF ( J3 .ne. J4 ) THEN
                      
                      sm = sm - (-1)**((ji+jj+jk+jl+J3+J4)/2) *ninej(ji,jk,J4,jj,jl,J3,J1,J2,rank) &
                           * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
-                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(j,l,k,i,J3,J4,WCC,RCC,jbas) &
-                          - (-1)**((J3+J4)/2)*RCC%herm *WCCR(l,j,i,k,J3,J4,WCC,RCC,jbas) )
+                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(j,l,k,i,J3,J4,Wy,RCC,jbas) &
+                          - (-1)**((J3+J4)/2)*RCC%herm *WCCX(l,j,i,k,J3,J4,Wy,RCC,jbas) )
                      
                   end if
 
@@ -1666,15 +1671,15 @@ end subroutine TS_commutator_222_pp_hh
                          
                   sm = sm + (-1) **((ji+jj+jk+jl+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
                        * (J3+1.d0) * (J4+1.d0) ) * ninej(ji,jk,J3,jj,jl,J4,J1,J2,rank) &
-                       * ((-1)**((ji + jk)/2)* LCC%herm * WCCX(k,i,l,j,J3,J4,WCC,RCC,jbas) &
-                       - (-1)**((jj+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(i,k,j,l,J3,J4,WCC,RCC,jbas) ) 
+                       * ((-1)**((ji + jk)/2)* LCC%herm * WCCX(k,i,l,j,J3,J4,Wx,RCC,jbas) &
+                       - (-1)**((jj+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(i,k,j,l,J3,J4,Wx,RCC,jbas) ) 
                   
                   IF ( J3 .ne. J4 ) THEN
                      
                      sm = sm - (-1)**((J1+J2+J3+J4)/2) *ninej(jj,jl,J4,ji,jk,J3,J1,J2,rank) &
                           * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
-                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCR(i,k,l,j,J3,J4,WCC,RCC,jbas) &
-                          - (-1)**((J3+J4)/2)*RCC%herm *WCCR(k,i,j,l,J3,J4,WCC,RCC,jbas) )
+                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(i,k,l,j,J3,J4,Wy,RCC,jbas) &
+                          - (-1)**((J3+J4)/2)*RCC%herm *WCCX(k,i,j,l,J3,J4,Wy,RCC,jbas) )
                   end if
 
                end if 
@@ -1692,6 +1697,7 @@ end subroutine TS_commutator_222_pp_hh
       end do 
       end do
 !!$OMP END PARALLEL DO 
+      deallocate(Wx,Wy)
 end do
  end subroutine TS_commutator_222_ph
 !=================================================================
