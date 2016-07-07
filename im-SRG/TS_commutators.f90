@@ -1481,6 +1481,7 @@ end subroutine TS_commutator_222_pp_hh
    total_threads = size(RES%direct_omp) - 1
    ! construct intermediate matrices
 
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES)  
    do qx = 1,RCC%nblocks
       if (RCC%jval2(qx) > jbas%jtotal_max*2) cycle
       
@@ -1517,7 +1518,7 @@ end subroutine TS_commutator_222_pp_hh
              LCC%CCX(q2)%X,r2,bet,Wy,r1) 
       end if
             
-!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,WCC)  
+
 !  do thread = 1, total_threads
  !    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
 
@@ -1696,9 +1697,10 @@ end subroutine TS_commutator_222_pp_hh
       end do
       end do 
       end do
-!!$OMP END PARALLEL DO 
+
       deallocate(Wx,Wy)
-end do
+   end do
+!$OMP END PARALLEL DO 
  end subroutine TS_commutator_222_ph
 !=================================================================
 !=================================================================
