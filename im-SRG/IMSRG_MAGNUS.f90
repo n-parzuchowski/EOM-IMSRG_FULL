@@ -468,7 +468,6 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   AD%herm = 1
   call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
   call init_ph_mat(G,GCC,jbas) !cross coupled ME
-  call init_ph_wkspc(ADCC,WCC) ! workspace for CCME
   
   advals = 0.d0 
   coef = 1.d0
@@ -504,7 +503,7 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
      call TS_commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)
 
      call TS_commutator_221(w1,w2,G%herm*AD%herm,INT2,jbas)
-     call TS_commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
+     call TS_commutator_222_ph(GCC,ADCC,INT2,jbas)
      
      ! so now just add HS + c_n * INT2 to get current value of HS
      call append_operator( INT2 , coef , HS )   !basic_IMSRG
