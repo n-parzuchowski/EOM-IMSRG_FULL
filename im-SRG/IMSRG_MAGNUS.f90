@@ -459,7 +459,7 @@ end subroutine BCH_EXPAND_1b
 subroutine BCH_TENSOR(G,HS,jbas,quads) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-6
+  real(8), parameter :: conv = 1e-4
   integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
@@ -490,7 +490,7 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   call copy_sq_op( HS , INT2 )
  
   advals(1) = abs(HS%E0)   
-
+  
   do iw = 2 ,30
      
      coef = coef/(iw-1.d0)

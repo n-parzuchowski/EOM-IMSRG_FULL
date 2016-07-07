@@ -1470,10 +1470,9 @@ end subroutine TS_commutator_222_pp_hh
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
    integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,J1min,J2min,J1max,J2max
    integer :: phase_J3J4,phase_abcd,phase_ac,phase_bc
-   integer :: phase_bd,phase_ad 
-   real(8) :: nj_ad3bc4,nj_da3cb4,prefactor_34,prefactor_134,prefactor_1234             
-   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex,V
-   logical :: square
+   integer :: phase_bd,phase_ad,nj_perm,full_int_phase  
+   real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex, nj1,nj2  
+   logical :: square,ASS
    
    rank = RES%rank
    Ntot = RES%Nsp
@@ -1481,7 +1480,6 @@ end subroutine TS_commutator_222_pp_hh
    total_threads = size(RES%direct_omp) - 1
    ! construct intermediate matrices
 
-!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES)  
    do qx = 1,RCC%nblocks
       if (RCC%jval2(qx) > jbas%jtotal_max*2) cycle
       
@@ -1508,7 +1506,7 @@ end subroutine TS_commutator_222_pp_hh
               RCC%CCR(qx)%X,nb1,bet,Wx,r1)       
       end if
          
-      if (nb2 .ne. 0 ) then 
+      if ((nb2 .ne. 0) .and. (J3 .ne. J4)) then 
         
          PAR2 = mod(PAR+RCC%dpar/2,2) 
          q2 = J4/2+1 + Tz*(JTM+1) + 2*PAR2*(JTM+1)
@@ -1517,15 +1515,19 @@ end subroutine TS_commutator_222_pp_hh
         call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(qx)%X,r1,&
              LCC%CCX(q2)%X,r2,bet,Wy,r1) 
       end if
-            
 
-!  do thread = 1, total_threads
- !    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
+!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,Wx,Wy)            
+  do thread = 1, total_threads
+    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
 
-   do q = 1,RES%nblocks
+  ! do q = 1,RES%nblocks      
+      if (Tz == 1) then 
+         if ( RES%tblck(q)%lam(3) .ne. 0 ) cycle 
+      end if
+
       J1 = RES%tblck(q)%jpair(1)
       J2 = RES%tblck(q)%jpair(2)
-               
+      ASS = .false.
       do g_ix = 1,9 
    
          ! figure out how big the array is
@@ -1540,167 +1542,171 @@ end subroutine TS_commutator_222_pp_hh
          square = sqs(g_ix) 
          jxstart = jst(g_ix) 
          
-      do  IX =  1, n1 
-         pre = 1.d0 
-
-         i = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
-         j = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
+         do  IX =  1, n1 
+            pre = 1.d0 
+            
+            i = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
+            j = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
  
-         if (i == j )  pre  = .70710678118d0
+            if (i == j )  pre  = .70710678118d0
+            
+            ji = jbas%jj(i) 
+            jj = jbas%jj(j) 
+            li = jbas%ll(i) 
+            lj = jbas%ll(j)
+            ti = jbas%itzp(i) 
+            tj = jbas%itzp(j)
          
-         ji = jbas%jj(i) 
-         jj = jbas%jj(j) 
-         li = jbas%ll(i) 
-         lj = jbas%ll(j)
-         ti = jbas%itzp(i) 
-         tj = jbas%itzp(j)
-         
-         do JX =1,n2
-            pre2 = 1.d0 
-            k = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
-            l = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
-            
-            if (k == l )  pre2 = .70710678118d0
-            jk = jbas%jj(k) 
-            jl = jbas%jj(l) 
-            lk = jbas%ll(k) 
-            ll = jbas%ll(l)
-            tk = jbas%itzp(k) 
-            tl = jbas%itzp(l)
-           
-            sm = 0.d0
-            phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
-                                   
-            if ( Tz == abs(ti-tl)/2 )  then 
-            if ( PAR == mod(li+ll,2)  ) then              
-
-            if (triangle(jj,jk,J4)) then
-            if (triangle(ji,jl,J3)) then
-
-            if (mod(lk+lj+RCC%dpar/2,2) == PAR) then 
-               if (abs(tk - tj) == Tz*2)  then 
-                                      
-                  sm = sm - (-1) **((ji+jj+J2+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
-                       * (J3+1.d0) * (J4+1.d0) ) * ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank) &
-                       * ((-1)**((ji + jl)/2)* LCC%herm * WCCX(l,i,k,j,J3,J4,Wx,RCC,jbas) &
-                       - (-1)**((jj+jk+J3+J4+rank)/2) *  RCC%herm *WCCX(i,l,j,k,J3,J4,Wx,RCC,jbas) ) 
-                  
-                  IF ( J3 .ne. J4 ) THEN
+            do JX =1,n2
+               pre2 = 1.d0 
+               k = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
+               l = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
+               
+               if (k == l )  pre2 = .70710678118d0
+               jk = jbas%jj(k) 
+               jl = jbas%jj(l) 
+               lk = jbas%ll(k) 
+               ll = jbas%ll(l)
+               tk = jbas%itzp(k) 
+               tl = jbas%itzp(l)
+               
+               
+               sm = 0.d0
+               phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
                      
-                     sm = sm + (-1)**((jk+jl+J1+J3+J4)/2) *ninej(jj,jk,J4,ji,jl,J3,J1,J2,rank) &
-                          * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
-                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(i,l,k,j,J3,J4,Wy,RCC,jbas) &
-                          - (-1)**((J3+J4)/2)*RCC%herm *WCCX(l,i,j,k,J3,J4,Wy,RCC,jbas) )
+               if ( Tz == abs(ti-tl)/2 )  then 
+                  if ( PAR == mod(li+ll,2)  ) then              
+
+                     if (triangle(jj,jk,J4)) then
+                        if (triangle(ji,jl,J3)) then
+
+                           if (mod(lk+lj+RCC%dpar/2,2) == PAR) then 
+                              if (abs(tk - tj) == Tz*2)  then 
+                                 ASS = .true.
+                                 nj1 = ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank) 
+                                 
+                                 sm = sm - (-1) **(J2/2) * nj1  &
+                                      * ((-1)**((jj-jl+J3+J4)/2)* LCC%herm * WCCX(l,i,k,j,J3,J4,Wx,RCC,jbas) &
+                                      - (-1)**((ji-jk+rank)/2) *  RCC%herm *WCCX(i,l,j,k,J3,J4,Wx,RCC,jbas) ) 
+
+                                 IF ( J3 .ne. J4 ) THEN
+
+                                    sm = sm + (-1)**(J2/2) * nj1  &
+                                         *((-1)**((jk+jl)/2) *LCC%herm * WCCX(i,l,k,j,J3,J4,Wy,RCC,jbas) &
+                                         - (-1)**((ji+jj+J3+J4+rank)/2)*RCC%herm *WCCX(l,i,j,k,J3,J4,Wy,RCC,jbas) )
+                                 end if
+                              end if
+                           end if
+                        end if
+                     end if
                   end if
-               end if 
-            end if 
-            end if
-            end if
-            end if 
-            end if 
-            
-            if ( Tz == abs(tj-tk)/2 )  then 
-            if ( PAR == mod(lj+lk,2)  ) then              
-                        
-            
-            if (triangle(jj,jk,J3)) then
-            if (triangle(ji,jl,J4)) then
-            if (mod(li+ll+RCC%dpar/2,2) == PAR) then 
-               if (abs(ti - tl) == Tz*2)  then 
-                         
-                  sm = sm - (-1) **((jk+jl+J1+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
-                       * (J3+1.d0) * (J4+1.d0) ) * ninej(jj,jk,J3,ji,jl,J4,J1,J2,rank) &
-                       * ((-1)**((jj + jk)/2)* LCC%herm * WCCX(k,j,l,i,J3,J4,Wx,RCC,jbas) &
-                       - (-1)**((ji+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(j,k,i,l,J3,J4,Wx,RCC,jbas) ) 
-                  
-                  IF ( J3 .ne. J4 ) THEN
-                     
-                     sm = sm + (-1)**((ji+jj+J2+J3+J4)/2) *ninej(ji,jl,J4,jj,jk,J3,J1,J2,rank) &
-                          * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
-                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(j,k,l,i,J3,J4,Wy,RCC,jbas) &
-                          - (-1)**((J3+J4)/2)*RCC%herm *WCCX(k,j,i,l,J3,J4,Wy,RCC,jbas) )
+               end if
+
+               if ( Tz == abs(tj-tk)/2 )  then 
+                  if ( PAR == mod(lj+lk,2)  ) then              
+
+
+                     if (triangle(jj,jk,J3)) then
+                        if (triangle(ji,jl,J4)) then
+                           if (mod(li+ll+RCC%dpar/2,2) == PAR) then 
+                              if (abs(ti - tl) == Tz*2)  then 
+                                 ASS = .true.
+                                 nj1 = ninej(jj,jk,J3,ji,jl,J4,J1,J2,rank) 
+                                 sm = sm - (-1) **(J1/2) * nj1 & 
+                                      * ((-1)**((jj-jl+J3+J4)/2)* LCC%herm * WCCX(k,j,l,i,J3,J4,Wx,RCC,jbas) &
+                                      - (-1)**((ji-jk+rank)/2) *  RCC%herm *WCCX(j,k,i,l,J3,J4,Wx,RCC,jbas) ) 
+
+                                 IF ( J3 .ne. J4 ) THEN
+
+                                    sm = sm + (-1)**((J1)/2) * nj1 &
+                                         *((-1)**((ji+jj)/2) *LCC%herm * WCCX(j,k,l,i,J3,J4,Wy,RCC,jbas) &
+                                         - (-1)**((J3+J4+jk+jl+rank)/2)*RCC%herm *WCCX(k,j,i,l,J3,J4,Wy,RCC,jbas) )
+                                 end if
+
+                              end if
+                           end if
+                        end if
+                     end if
+
+
                   end if
-            
-               end if 
-            end if 
-            end if 
-            end if 
-            
-            
-            end if 
-            end if 
+               end if
 
-                        
-            if (Tz  ==  abs(tj-tl)/2 ) then 
-            if (PAR ==  mod(lj+ll,2) ) then  
 
-            if (triangle(jj,jl,J3)) then
-            if (triangle(ji,jk,J4)) then
-            if (mod(li+lk+RCC%dpar/2,2) == PAR) then 
-               if (abs(ti-tk) == Tz*2)  then 
-                                      
-                  sm = sm + (-1) **((J1+J2+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
-                       * (J3+1.d0) * (J4+1.d0) ) * ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) &
-                       * ((-1)**((jj + jl)/2)* LCC%herm * WCCX(l,j,k,i,J3,J4,Wx,RCC,jbas) &
-                       - (-1)**((ji+jk+J3+J4+rank)/2) *  RCC%herm *WCCX(j,l,i,k,J3,J4,Wx,RCC,jbas) ) 
-                  
-                  IF ( J3 .ne. J4 ) THEN
-                     
-                     sm = sm - (-1)**((ji+jj+jk+jl+J3+J4)/2) *ninej(ji,jk,J4,jj,jl,J3,J1,J2,rank) &
-                          * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
-                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(j,l,k,i,J3,J4,Wy,RCC,jbas) &
-                          - (-1)**((J3+J4)/2)*RCC%herm *WCCX(l,j,i,k,J3,J4,Wy,RCC,jbas) )
-                     
+               if (Tz  ==  abs(tj-tl)/2 ) then 
+                  if (PAR ==  mod(lj+ll,2) ) then  
+
+                     if (triangle(jj,jl,J3)) then
+                        if (triangle(ji,jk,J4)) then
+                           if (mod(li+lk+RCC%dpar/2,2) == PAR) then 
+                              if (abs(ti-tk) == Tz*2)  then 
+                                 ASS = .true.
+                                 nj1 = ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) 
+
+                                 sm = sm + (-1) **((J1+J2+J3+J4)/2) * nj1 &
+                                      * ((-1)**((jj + jl)/2)* LCC%herm * WCCX(l,j,k,i,J3,J4,Wx,RCC,jbas) &
+                                      - (-1)**((ji+jk+J3+J4+rank)/2) *  RCC%herm *WCCX(j,l,i,k,J3,J4,Wx,RCC,jbas) ) 
+
+                                 IF ( J3 .ne. J4 ) THEN
+
+                                    sm = sm - (-1)**((rank+J1+J2)/2) * nj1 &
+                                         *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(j,l,k,i,J3,J4,Wy,RCC,jbas) &
+                                         - (-1)**((J3+J4)/2)*RCC%herm *WCCX(l,j,i,k,J3,J4,Wy,RCC,jbas) )
+
+                                 end if
+
+                              end if
+                           end if
+                        end if
+                     end if
                   end if
+               end if
 
-               end if 
-            end if 
-            end if
-            end if 
-            end if 
-            end if
-            
-            if (Tz  ==  abs(ti-tk)/2 ) then 
-            if (PAR ==  mod(li+lk,2) ) then  
-            
-            if (triangle(jj,jl,J4)) then
-            if (triangle(ji,jk,J3)) then
-            if (mod(lj+ll+RCC%dpar/2,2) == PAR) then 
-               if (abs(tj-tl) == Tz*2)  then 
-                  
-                  PAR2 = mod(PAR + RCC%dpar/2,2) 
-                         
-                  sm = sm + (-1) **((ji+jj+jk+jl+J3+J4)/2) * sqrt( (J1+1.d0) * (J2+1.d0) &
-                       * (J3+1.d0) * (J4+1.d0) ) * ninej(ji,jk,J3,jj,jl,J4,J1,J2,rank) &
-                       * ((-1)**((ji + jk)/2)* LCC%herm * WCCX(k,i,l,j,J3,J4,Wx,RCC,jbas) &
-                       - (-1)**((jj+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(i,k,j,l,J3,J4,Wx,RCC,jbas) ) 
-                  
-                  IF ( J3 .ne. J4 ) THEN
-                     
-                     sm = sm - (-1)**((J1+J2+J3+J4)/2) *ninej(jj,jl,J4,ji,jk,J3,J1,J2,rank) &
-                          * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) &
-                          *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(i,k,l,j,J3,J4,Wy,RCC,jbas) &
-                          - (-1)**((J3+J4)/2)*RCC%herm *WCCX(k,i,j,l,J3,J4,Wy,RCC,jbas) )
+               if (Tz  ==  abs(ti-tk)/2 ) then 
+                  if (PAR ==  mod(li+lk,2) ) then  
+
+                     if (triangle(jj,jl,J4)) then
+                        if (triangle(ji,jk,J3)) then
+                           if (mod(lj+ll+RCC%dpar/2,2) == PAR) then 
+                              if (abs(tj-tl) == Tz*2)  then 
+                                 ASS = .true.
+                                 PAR2 = mod(PAR + RCC%dpar/2,2) 
+                                 nj1 =  ninej(ji,jk,J3,jj,jl,J4,J1,J2,rank) 
+                                 sm = sm + (-1) **((ji+jj+jk+jl+J3+J4)/2) * nj1 &
+                                      * ((-1)**((ji + jk)/2)* LCC%herm * WCCX(k,i,l,j,J3,J4,Wx,RCC,jbas) &
+                                      - (-1)**((jj+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(i,k,j,l,J3,J4,Wx,RCC,jbas) ) 
+
+                                 IF ( J3 .ne. J4 ) THEN
+
+                                    sm = sm - phase1 *(-1)**(rank/2) * nj1 &
+                                         *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(i,k,l,j,J3,J4,Wy,RCC,jbas) &
+                                         - (-1)**((J3+J4)/2)*RCC%herm *WCCX(k,i,j,l,J3,J4,Wy,RCC,jbas) )
+                                 end if
+
+                              end if
+                           end if
+                        end if
+                     end if
+
                   end if
+               end if
 
-               end if 
-            end if 
-            end if 
-            end if 
+               RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX)+sm*pre*pre2 &
+                                         * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) 
 
-            end if
-            end if 
-   
-            RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX)+sm*pre*pre2 
-            
-         end do 
-      end do
+            end do 
+         end do
       end do 
-      end do
-
-      deallocate(Wx,Wy)
+ 
    end do
+
+
+
+end do
 !$OMP END PARALLEL DO 
+deallocate(Wx,Wy)
+
+end do 
  end subroutine TS_commutator_222_ph
 !=================================================================
 !=================================================================
