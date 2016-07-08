@@ -1472,7 +1472,7 @@ end subroutine TS_commutator_222_pp_hh
    integer :: phase_J3J4,phase_abcd,phase_ac,phase_bc
    integer :: phase_bd,phase_ad,nj_perm,full_int_phase  
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex, nj1,nj2  
-   logical :: square,ASS
+   logical :: square
    
    rank = RES%rank
    Ntot = RES%Nsp
@@ -1516,10 +1516,10 @@ end subroutine TS_commutator_222_pp_hh
              LCC%CCX(q2)%X,r2,bet,Wy,r1) 
       end if
 
-!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,Wx,Wy)            
+!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,Wx,Wy), REDUCTION(+:global_counter1)
   do thread = 1, total_threads
     do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
-
+       
   ! do q = 1,RES%nblocks      
       if (Tz == 1) then 
          if ( RES%tblck(q)%lam(3) .ne. 0 ) cycle 
@@ -1527,7 +1527,7 @@ end subroutine TS_commutator_222_pp_hh
 
       J1 = RES%tblck(q)%jpair(1)
       J2 = RES%tblck(q)%jpair(2)
-      ASS = .false.
+
       do g_ix = 1,9 
    
          ! figure out how big the array is
@@ -1582,7 +1582,7 @@ end subroutine TS_commutator_222_pp_hh
 
                            if (mod(lk+lj+RCC%dpar/2,2) == PAR) then 
                               if (abs(tk - tj) == Tz*2)  then 
-                                 ASS = .true.
+
                                  nj1 = ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank) 
                                  
                                  sm = sm - (-1) **(J2/2) * nj1  &
@@ -1610,7 +1610,7 @@ end subroutine TS_commutator_222_pp_hh
                         if (triangle(ji,jl,J4)) then
                            if (mod(li+ll+RCC%dpar/2,2) == PAR) then 
                               if (abs(ti - tl) == Tz*2)  then 
-                                 ASS = .true.
+
                                  nj1 = ninej(jj,jk,J3,ji,jl,J4,J1,J2,rank) 
                                  sm = sm - (-1) **(J1/2) * nj1 & 
                                       * ((-1)**((jj-jl+J3+J4)/2)* LCC%herm * WCCX(k,j,l,i,J3,J4,Wx,RCC,jbas) &
@@ -1640,7 +1640,7 @@ end subroutine TS_commutator_222_pp_hh
                         if (triangle(ji,jk,J4)) then
                            if (mod(li+lk+RCC%dpar/2,2) == PAR) then 
                               if (abs(ti-tk) == Tz*2)  then 
-                                 ASS = .true.
+
                                  nj1 = ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) 
 
                                  sm = sm + (-1) **((J1+J2+J3+J4)/2) * nj1 &
@@ -1669,9 +1669,10 @@ end subroutine TS_commutator_222_pp_hh
                         if (triangle(ji,jk,J3)) then
                            if (mod(lj+ll+RCC%dpar/2,2) == PAR) then 
                               if (abs(tj-tl) == Tz*2)  then 
-                                 ASS = .true.
+
                                  PAR2 = mod(PAR + RCC%dpar/2,2) 
                                  nj1 =  ninej(ji,jk,J3,jj,jl,J4,J1,J2,rank) 
+                                
                                  sm = sm + (-1) **((ji+jj+jk+jl+J3+J4)/2) * nj1 &
                                       * ((-1)**((ji + jk)/2)* LCC%herm * WCCX(k,i,l,j,J3,J4,Wx,RCC,jbas) &
                                       - (-1)**((jj+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(i,k,j,l,J3,J4,Wx,RCC,jbas) ) 
@@ -1699,14 +1700,12 @@ end subroutine TS_commutator_222_pp_hh
       end do 
  
    end do
-
-
-
+   
 end do
-!$OMP END PARALLEL DO 
+!!$OMP END PARALLEL DO 
 deallocate(Wx,Wy)
-
 end do 
+
  end subroutine TS_commutator_222_ph
 !=================================================================
 !=================================================================
