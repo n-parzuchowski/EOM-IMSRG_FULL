@@ -367,7 +367,7 @@ subroutine test
 !   call test_EOM_scalar_tensor_commutator(jbas,1,1,6,2)  
 !   deallocate(jbas%xmap,jbas%xmap_tensor,phase_hh,phase_pp)
 !   deallocate(half6j%tp_mat)
-  call test_scalar_tensor_commutator(jbas,-1,1,4,0) 
+  call test_scalar_tensor_commutator(jbas,-1,1,6,2) 
 
 end subroutine test
 end program main_IMSRG
