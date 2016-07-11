@@ -811,7 +811,7 @@ do a =  1, jbas%total_orbits
  !do a = 12, jbas%total_orbits
      
   iii = 0 
-  do while (iii < 25)  
+  do while (iii < 55)  
      call random_number(vv)
      call random_number(xx)
      call random_number(yy)

@@ -1555,7 +1555,7 @@ end subroutine TS_commutator_222_pp_hh
 
             phase_abcd= (-1)**((ja+jb+jc+jd)/2)
             
-            if (abs(Xelem) > 1e-10) then 
+            if (abs(Xelem) > 1e-6) then 
                if (b .ge. a) then 
                   if (d .ge. c) then 
                      
@@ -1706,7 +1706,7 @@ end subroutine TS_commutator_222_pp_hh
             J2min = abs(jc-ja) 
             J2max = jc+ja 
             
-            if ( abs(Yelem) > 1e-10) then 
+            if ( abs(Yelem) > 1e-6) then 
                if (b .ge. d ) then                
                   if ( a .ge. c ) then 
 
