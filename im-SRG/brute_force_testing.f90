@@ -770,52 +770,58 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
 !  t2 = OMP_get_wtime()
   call calculate_cross_coupled(AA,AACC,jbas) 
   
-  call TS_commutator_111(AA,BB,OUT,jbas) 
-  call TS_commutator_121(AA,BB,OUT,jbas)
-  call TS_commutator_211(AACC,BB,OUT,jbas) 
-  call TS_commutator_122(AA,BB,OUT,jbas)
-  call TS_commutator_212(AA,BB,OUT,jbas)
+!   call TS_commutator_111(AA,BB,OUT,jbas) 
+!   call TS_commutator_121(AA,BB,OUT,jbas)
+!   call TS_commutator_211(AACC,BB,OUT,jbas) 
+!   call TS_commutator_122(AA,BB,OUT,jbas)
+!   call TS_commutator_212(AA,BB,OUT,jbas)
   
-   call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)
+!    call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)
   
-   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
-!  t4 = OMP_get_wtime()
+!    call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
+! ! 
+   t4 = OMP_get_wtime()
   call TS_commutator_222_ph(AACC,BBCC,OUT,jbas)
 !  t3 = OMP_get_wtime()
   
   print*, 'time:', t3-t1,t2-t1,t3-t4
 !  'porkchop'
 !goto 12
- do a = 1, jbas%total_orbits
-    do b = 1, jbas%total_orbits
-    !   do iii = 1, 50   
-     !     call random_number(vv)
-      !    call random_number(yy)
+! do a =  1, jbas%total_orbits
+!     do b = 1, jbas%total_orbits
+!     !   do iii = 1, 50   
+!      !     call random_number(vv)
+!       !    call random_number(yy)
           
-!          a = ceiling(vv*(AA%Nsp))
- !         b = ceiling(yy*(AA%Nsp))
+! !          a = ceiling(vv*(AA%Nsp))
+!  !         b = ceiling(yy*(AA%Nsp))
           
-          val = scalar_tensor_1body_comm(AA,BB,a,b,jbas) 
+!           val = scalar_tensor_1body_comm(AA,BB,a,b,jbas) 
         
-          if (abs(val-f_tensor_elem(a,b,OUT,jbas)) > 1e-10) then
-             print*, 'at: ',a,b
-             print*, val, f_tensor_elem(a,b,OUT,jbas)
-             STOP 'ONE BODY FAILURE'  
-          end if
+!           if (abs(val-f_tensor_elem(a,b,OUT,jbas)) > 1e-10) then
+!              print*, 'at: ',a,b
+!              print*, val, f_tensor_elem(a,b,OUT,jbas)
+!              STOP 'ONE BODY FAILURE'  
+!           end if
           
-          print*, 'success:', a,b
-       end do
-    end do
+!           print*, 'success:', a,b
+!        end do
+!     end do
        
  !do a = 12, jbas%total_orbits
      
   iii = 0 
-  do while (iii < 25)  
+  do while (iii < 55)  
      call random_number(vv)
      call random_number(xx)
      call random_number(yy)
      call random_number(zz)
    
+     ! a = 16!ceiling(vv*AA%Nsp)
+     ! b = 17!ceiling(xx*AA%Nsp)
+     ! c = 19!ceiling(yy*AA%Nsp)
+     ! d = 20!ceiling(zz*AA%Nsp)
+     
      a = ceiling(vv*AA%Nsp)
      b = ceiling(xx*AA%Nsp)
      c = ceiling(yy*AA%Nsp)
@@ -849,10 +855,10 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
                     val = scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
                   
                   
-       
+                    print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)                       
                     if (abs(val-tensor_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
-                       print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)                       
-                       stop'TWO BODY FAILURE'  
+!                       print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)                       
+                       STOP 'TWO BODY FAILURE'  
                     end if
                  end do 
               end do
@@ -862,10 +868,10 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
     !    end do
      !end do
   end do
-  
+  !cock
   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
   
-end subroutine
+end subroutine test_scalar_tensor_commutator
 !============================================================
 !============================================================
 subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar) 
@@ -1614,7 +1620,7 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   integer :: ja,jb,jc,jd,Jtot,JTM,totorb,rank
   type(spd) :: jbas
   type(sq_op) :: AA,BB 
-  real(8) :: sm,coef9,d6ji,pre,ass,smcock
+  real(8) :: sm,coef9,d6ji,pre,ass,smcock,smx,sm1,sm2,sm3,sm4
 
   rank = BB%rank  
   sm = 0.d0 
@@ -1626,44 +1632,44 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   jc = jbas%jj(c)
   jd = jbas%jj(d)
 
-   do i = 1, totorb
-      ji = jbas%jj(i)
+  !  do i = 1, totorb
+  !     ji = jbas%jj(i)
 
-     sm = sm + f_elem(a,i,AA,jbas) * tensor_elem( i,b,c,d,J1,J2,BB,jbas) &
-          + f_elem(b,i,AA,jbas) * tensor_elem( a,i,c,d,J1,J2,BB,jbas) &
-          - f_elem(i,c,AA,jbas) * tensor_elem( a,b,i,d,J1,J2,BB,jbas) &
-          - f_elem(i,d,AA,jbas) * tensor_elem( a,b,c,i,J1,J2,BB,jbas) 
+  !    sm = sm + f_elem(a,i,AA,jbas) * tensor_elem( i,b,c,d,J1,J2,BB,jbas) &
+  !         + f_elem(b,i,AA,jbas) * tensor_elem( a,i,c,d,J1,J2,BB,jbas) &
+  !         - f_elem(i,c,AA,jbas) * tensor_elem( a,b,i,d,J1,J2,BB,jbas) &
+  !         - f_elem(i,d,AA,jbas) * tensor_elem( a,b,c,i,J1,J2,BB,jbas) 
      
           
-     sm = sm - f_tensor_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
-          * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
-          sqrt( (J1+1.d0) * (J2+1.d0) ) &
+  !    sm = sm - f_tensor_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
+  !         * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
+  !         sqrt( (J1+1.d0) * (J2+1.d0) ) &
      
-          + f_tensor_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
-          * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
-          sqrt( (J1+1.d0) * (J2+1.d0) ) &
+  !         + f_tensor_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
+  !         * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
+  !         sqrt( (J1+1.d0) * (J2+1.d0) ) &
 
-          - f_tensor_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
-          *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
-          sqrt( (J1+1.d0) * (J2+1.d0) ) &
+  !         - f_tensor_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
+  !         *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
+  !         sqrt( (J1+1.d0) * (J2+1.d0) ) &
          
           
-          + f_tensor_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
-          *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
-          sqrt( (J1+1.d0) * (J2+1.d0) )
+  !         + f_tensor_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
+  !         *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
+  !         sqrt( (J1+1.d0) * (J2+1.d0) )
      
-   end do
+  !  end do
   
 
-  do i = 1, totorb
-     do j = 1, totorb
+  ! do i = 1, totorb
+  !    do j = 1, totorb
         
 
-        sm = sm + 0.5*(1- jbas%con(i) - jbas%con(j)) *&
-             (v_elem(a,b,i,j,J1,AA,jbas)*tensor_elem(i,j,c,d,J1,J2,BB,jbas)   &
-             - tensor_elem(a,b,i,j,J1,J2,BB,jbas)*v_elem(i,j,c,d,J2,AA,jbas)) 
-     end do
-  end do
+  !       sm = sm + 0.5*(1- jbas%con(i) - jbas%con(j)) *&
+  !            (v_elem(a,b,i,j,J1,AA,jbas)*tensor_elem(i,j,c,d,J1,J2,BB,jbas)   &
+  !            - tensor_elem(a,b,i,j,J1,J2,BB,jbas)*v_elem(i,j,c,d,J2,AA,jbas)) 
+  !    end do
+  ! end do
  
 
 !!$OMP PARALLEL DO PRIVATE( ji,jj,i,j,J3,J4,J5,jx) SHARED(AA,BB) REDUCTION(+:sm)
@@ -1714,15 +1720,25 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
 !   end do
 ! !!$OMP END PARALLEL DO
 
+  smx = 0.d0 
   do J3 = 0,JTM,2
      do J4 = 0,JTM,2 
+        smx = 0.d0 
+        sm1=0.d0;sm2=0.d0
+        sm3=0.d0;sm4=0.d0
         do i = 1, jbas%total_orbits
            ji = jbas%jj(i)
            do j = 1, jbas%total_orbits
               jj = jbas%jj(j) 
               if (jbas%con(i)-jbas%con(j) == 0) cycle
-               
-              sm = sm + (jbas%con(i)-jbas%con(j))*&
+              
+              ! smx = smx- (jbas%con(i)-jbas%con(j))*&
+              !      (-1)**((J1+J2+J3+J4)/2) * &
+              !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+              !      coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
+              !      vcc(b,d,j,i,J3,AA,jbas) * Vgenpandya(i,j,c,a,J3,J4,BB,jbas)
+              
+              sm1= sm1 +(jbas%con(i)-jbas%con(j))*&
                    (-1)**((ja+jb+J2+J3+J4)/2) * &
                    sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
                    coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
@@ -1735,19 +1751,19 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
               !      coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
               !      Vpandya(a,d,i,j,J3,AA,jbas) * Vgenpandya(i,j,c,b,J3,J4,BB,jbas)
 
-              sm = sm - (jbas%con(i)-jbas%con(j))*&
+              sm2 =  sm2- (jbas%con(i)-jbas%con(j))*&
                    (-1)**((J1+J2+J3+J4)/2) * &
                    sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
                    coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
                    vcc(b,d,j,i,J3,AA,jbas) * Vgenpandya(i,j,c,a,J3,J4,BB,jbas)
 
-              sm = sm + (jbas%con(i)-jbas%con(j))*&
+              sm3 = sm3 + (jbas%con(i)-jbas%con(j))*&
                    (-1)**((jc+jd+J1+J3+J4)/2) * &
                    sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
                    coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank)* &
                    vcc(b,c,j,i,J3,AA,jbas) * Vgenpandya(i,j,d,a,J3,J4,BB,jbas)
 
-              sm = sm - (jbas%con(i)-jbas%con(j))*&
+              sm4 = sm4 - (jbas%con(i)-jbas%con(j))*&
                    (-1)**((ja+jb+jc+jd+J3+J4)/2) * &
                    sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
                    coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* &
@@ -1756,6 +1772,10 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
              
            end do
         end do
+        smx = sm1+sm2+sm3+sm4
+        sm = sm + smx
+
+        smx = 0.d0 
      end do
   end do
 

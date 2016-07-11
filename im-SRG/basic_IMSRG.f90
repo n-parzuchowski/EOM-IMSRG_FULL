@@ -1757,7 +1757,7 @@ subroutine add_elem_to_tensor(V,ax,bx,cx,dx,J1x,J2x,op,jbas)
   ! in the rank zero qn storage
   If (C1>C2) qx = qx + tensor_adjust(qx)       
 
-  op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V  
+  op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V  *pre
     
  end subroutine add_elem_to_tensor
 !==============================================================

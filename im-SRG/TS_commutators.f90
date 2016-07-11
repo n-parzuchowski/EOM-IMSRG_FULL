@@ -1469,9 +1469,10 @@ end subroutine TS_commutator_222_pp_hh
    integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max,ja,jb,jc,jd
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
    integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,J1min,J2min,J1max,J2max
-   integer :: phase_J3J4,phase_abcd,phase_ac,phase_bc
+   integer :: phase_34,phase_abcd,phase_ac,phase_bc
    integer :: phase_bd,phase_ad,nj_perm,full_int_phase  
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex, nj1,nj2  
+   real(8) :: prefac_34,prefac_134,prefac_1234,Xelem,Yelem,V
    logical :: square
    
    rank = RES%rank
@@ -1516,196 +1517,330 @@ end subroutine TS_commutator_222_pp_hh
              LCC%CCX(q2)%X,r2,bet,Wy,r1) 
       end if
 
-!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RES,Wx,Wy), REDUCTION(+:global_counter1)
-  do thread = 1, total_threads
-    do q = 1+RES%direct_omp(thread),RES%direct_omp(thread+1) 
-       
-  ! do q = 1,RES%nblocks      
-      if (Tz == 1) then 
-         if ( RES%tblck(q)%lam(3) .ne. 0 ) cycle 
-      end if
+      
+      prefac_34 = sqrt((J3+1.d0)*(J4+1.d0))
+      phase_34 = (-1)**((J3+J4)/2) 
 
-      J1 = RES%tblck(q)%jpair(1)
-      J2 = RES%tblck(q)%jpair(2)
-
-      do g_ix = 1,9 
-   
-         ! figure out how big the array is
-         n1 = size(RES%tblck(q)%tgam(g_ix)%X(:,1))
-         n2 = size(RES%tblck(q)%tgam(g_ix)%X(1,:))
-         if ((n1*n2) == 0) cycle 
-        
-         ! read in information about which 
-         ! array we are using from public arrays
-         c1 = sea1(g_ix) 
-         c2 = sea2(g_ix) 
-         square = sqs(g_ix) 
-         jxstart = jst(g_ix) 
+      do IX = 1,r1
          
-         do  IX =  1, n1 
-            pre = 1.d0 
+         ! GET BRA
+         d = RCC%qn1(qx)%Y(IX,1)
+         a = RCC%qn1(qx)%Y(IX,2)
+
+         ja = jbas%jj(a)
+         jd = jbas%jj(d)
+
+         do JX = 1, r2 
+                       
+            ! GET KET 
+            c = RCC%qn2(qx)%Y(JX,1) 
+            b = RCC%qn2(qx)%Y(JX,2)            
+
+
+            jc = jbas%jj(c)
+            jb = jbas%jj(b)
             
-            i = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,1)
-            j = RES%tblck(q)%tensor_qn(c1,1)%Y(IX,2)
- 
-            if (i == j )  pre  = .70710678118d0
+            ! CALCULATE X CONTRIBUTIONS
             
-            ji = jbas%jj(i) 
-            jj = jbas%jj(j) 
-            li = jbas%ll(i) 
-            lj = jbas%ll(j)
-            ti = jbas%itzp(i) 
-            tj = jbas%itzp(j)
-         
-            do JX =1,n2
-               pre2 = 1.d0 
-               k = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,1)
-               l = RES%tblck(q)%tensor_qn(c2,2)%Y(JX,2)
+            J1min = abs(ja-jb)
+            J1max = ja+jb
+            
+            J2min = abs(jc-jd) 
+            J2max = jc+jd 
+            
+            ! these are the results of the Matmuls 
+            Xelem = Wx(IX,JX)
+            Yelem = Wy(IX,JX)
+
+            phase_abcd= (-1)**((ja+jb+jc+jd)/2)
+            
+            if (b .ge. a) then 
+               if (d .ge. c) then 
+                  
+                  ! CALCULATE V^{J1 J2}_{abcd} and V^{J1 J2}_{cdab}
+                  
+                  do J1 = J1min,J1max,2
+                     if ((a==b).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J2min),J2max,2 
+                        if ((c==d).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+
+                        ! V^{J1 J2}_{abcd} 
+                        V = prefac_1234* ninej(ja,jd,J3,jb,jc,J4,J1,J2,rank) &
+                             * (-1)**((jb+jd+J2)/2) * phase_34 * LCC%herm &
+                             * Xelem
+                        
+                        call add_elem_to_tensor(V,a,b,c,d,J1,J2,RES,jbas) 
+                     end do 
+                  end do                        
+
+                  do J1 = J2min,J2max,2
+                     if ((c==d).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J1min),J1max,2 
+                        if ((a==b).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+
+                        ! V^{J1 J2}_{cdab}
+                        V = -1*prefac_1234* ninej(jd,ja,J3,jc,jb,J4,J1,J2,rank) &
+                             * (-1)**((jc+ja+J1+rank)/2) * RCC%herm &
+                             * Xelem
+                        call add_elem_to_tensor(V,c,d,a,b,J1,J2,RES,jbas) 
+
+                     end do 
+                  end do
+                  
+               else 
+
+                  ! CALCULATE V^{J1 J2}_{abdc} and V^{J1 J2}_{dcab}
+                  
+                  do J1 = J1min,J1max,2
+                     if ((a==b).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = J2min,J2max,2 
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                                                
+                        !V^{J1 J2}_{abdc}
+                        V = prefac_1234 * ninej(ja,jd,J3,jb,jc,j4,J1,J2,rank)&
+                             *(-1)**((jb+jc)/2)*phase_34*LCC%herm*Xelem
+                        
+                        call add_elem_to_tensor(V,a,b,d,c,J1,J2,RES,jbas)                        
+                     end do 
+                  end do                        
+
+                  do J1 = J2min,J2max,2
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J1min),J1max,2 
+                        if ((a==b).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        
+                        !V^{J1 J2}_{dcab}
+                        V = prefac_1234 * ninej(jd,ja,J3,jc,jb,J4,J1,J2,rank) &
+                             * (-1)**((ja-jd+rank)/2) * RCC%herm *Xelem
+                        ! the mapping here inverts the indeces to {cdba} so you need 
+                        ! an additional factor of phase(a+b+c+d+J1+J2) 
+                        call add_elem_to_tensor(V,d,c,a,b,J1,J2,RES,jbas)
+
+                     end do
+                  end do
+               end if
                
-               if (k == l )  pre2 = .70710678118d0
-               jk = jbas%jj(k) 
-               jl = jbas%jj(l) 
-               lk = jbas%ll(k) 
-               ll = jbas%ll(l)
-               tk = jbas%itzp(k) 
-               tl = jbas%itzp(l)
-               
-               
-               sm = 0.d0
-               phase1 = (-1) ** (( ji + jj + jk + jl )/2) 
-                     
-               if ( Tz == abs(ti-tl)/2 )  then 
-                  if ( PAR == mod(li+ll,2)  ) then              
+            else 
+               if (d .ge. c) then 
+                  
+                  ! CALCULATE V^{J1 J2}_{bacd} and V^{J1 J2}_{cdba}
+                  do J1 = J1min,J1max,2
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = J2min,J2max,2 
+                        if ((c==d).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                                                
+                        !V^{J1 J2}_{bacd}
+                        
+                        V = prefac_1234 * ninej(ja,jd,J3,jb,jc,J4,J1,J2,rank) &
+                             *(-1)** ((ja+jd+J1+J2)/2) * phase_34 * LCC%herm * Xelem
+                        
+                        call add_elem_to_tensor(V,b,a,c,d,J1,J2,RES,jbas)                        
+                    
+                     end do 
+                  end do                        
 
-                     if (triangle(jj,jk,J4)) then
-                        if (triangle(ji,jl,J3)) then
+                  do J1 = J2min,J2max,2
+                     if ((c==d).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J1min),J1max,2 
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                  
+                        !V^{J1 J2}_{cdba}
+                        
+                        V = prefac_1234 * ninej(jd,ja,J3,jc,jb,J4,J1,J2,rank) &
+                             *(-1)**((jc-jb+J1+J2+rank)/2) * RCC%herm * Xelem
+                        ! the mapping here inverts the indeces to {dcab} so you need 
+                        ! an additional factor of phase(a+b+c+d+J1+J2)
+                        call add_elem_to_tensor(V,c,d,b,a,J1,J2,RES,jbas)               
+                    
+                     end do
+                  end do
+                  
+               else
+                  
+                  ! CALCULATE V^{J1 J2}_{badc} and V^{J1 J2}_{dcba}
+                  do J1 = J1min,J1max,2
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = J2min,J2max,2 
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        
+                        !V^{J1 J2}_{badc}
+                        V = prefac_1234 * ninej(ja,jd,J3,jb,jc,J4,J1,J2,Rank) &
+                             * (-1) ** ((ja+jc+J1)/2) *phase_34 * LCC%herm * Xelem 
+                        
+                        call add_elem_to_tensor(V,b,a,d,c,J1,J2,RES,jbas)               
+                    
+                     end do 
+                  end do                        
 
-                           if (mod(lk+lj+RCC%dpar/2,2) == PAR) then 
-                              if (abs(tk - tj) == Tz*2)  then 
-
-                                 nj1 = ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank) 
-                                 
-                                 sm = sm - (-1) **(J2/2) * nj1  &
-                                      * ((-1)**((jj-jl+J3+J4)/2)* LCC%herm * WCCX(l,i,k,j,J3,J4,Wx,RCC,jbas) &
-                                      - (-1)**((ji-jk+rank)/2) *  RCC%herm *WCCX(i,l,j,k,J3,J4,Wx,RCC,jbas) ) 
-
-                                 IF ( J3 .ne. J4 ) THEN
-
-                                    sm = sm + (-1)**(J2/2) * nj1  &
-                                         *((-1)**((jk+jl)/2) *LCC%herm * WCCX(i,l,k,j,J3,J4,Wy,RCC,jbas) &
-                                         - (-1)**((ji+jj+J3+J4+rank)/2)*RCC%herm *WCCX(l,i,j,k,J3,J4,Wy,RCC,jbas) )
-                                 end if
-                              end if
-                           end if
-                        end if
-                     end if
-                  end if
+                  do J1 = J2min,J2max,2
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J1min),J1max,2 
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        
+                        !V^{J1 J2}_{dcba}
+                        V = prefac_1234 * ninej(jd,ja,J3,jc,jb,J4,J1,J2,Rank) &
+                             * (-1)**((jb-jd+J2 + rank )/2) *RCC%herm * Xelem 
+                        
+                        call add_elem_to_tensor(V,d,c,b,a,J1,J2,RES,jbas)               
+                         
+                     end do
+                  end do
                end if
+            end if
+            
+            J1min = abs(jd-jb)
+            J1max = jd+jb
+            
+            J2min = abs(jc-ja) 
+            J2max = jc+ja 
+            
+            sm = 0.d0 
+            if (b .ge. d ) then                
+               if ( a .ge. c ) then 
 
-               if ( Tz == abs(tj-tk)/2 )  then 
-                  if ( PAR == mod(lj+lk,2)  ) then              
+                  do J1 = J1min,J1max,2
+                     if ((d==b).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J2min),J2max,2 
+                        if ((c==a).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        
+                        !V^{J1 J2}_{dbca}
+                        V = prefac_1234* ninej(jd,ja,J3,jb,jc,J4,J1,J2,rank)&
+                             * (-1) ** ((jc+ja+J2)/2) *LCC%herm * Yelem 
+                        call add_elem_to_tensor(V,d,b,c,a,J1,J2,RES,jbas)               
+                        
+                     end do
+                  end do
+                  
+                  !V^{J1 J2}_{cadb}
+                  do J1 = J2min,J2max,2
+                     if ((c==a).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J1min),J1max,2 
+                        if ((b==d).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                  
+                        V = prefac_1234* ninej(ja,jd,J3,jc,jb,J4,J1,J2,rank)&
+                             * (-1)** ((jd-jb+J1+rank)/2) * phase_34 *RCC%herm * Yelem
+                        call add_elem_to_tensor(V,c,a,d,b,J1,J2,RES,jbas)
+                     end do
+                  end do
+                  
+               else
+                  do J1 = J1min,J1max,2
+                     if ((d==b).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J2min),J2max,2 
+                        if ((c==a).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        
+                        !V^{J1 J2}_{dbca}
+                        V = -1*prefac_1234* ninej(jd,ja,J3,jb,jc,J4,J1,J2,rank)&
+                             * LCC%herm * Yelem 
+                        call add_elem_to_tensor(V,d,b,a,c,J1,J2,RES,jbas)               
+                        
+                     end do
+                  end do
 
-
-                     if (triangle(jj,jk,J3)) then
-                        if (triangle(ji,jl,J4)) then
-                           if (mod(li+ll+RCC%dpar/2,2) == PAR) then 
-                              if (abs(ti - tl) == Tz*2)  then 
-
-                                 nj1 = ninej(jj,jk,J3,ji,jl,J4,J1,J2,rank) 
-                                 sm = sm - (-1) **(J1/2) * nj1 & 
-                                      * ((-1)**((jj-jl+J3+J4)/2)* LCC%herm * WCCX(k,j,l,i,J3,J4,Wx,RCC,jbas) &
-                                      - (-1)**((ji-jk+rank)/2) *  RCC%herm *WCCX(j,k,i,l,J3,J4,Wx,RCC,jbas) ) 
-
-                                 IF ( J3 .ne. J4 ) THEN
-
-                                    sm = sm + (-1)**((J1)/2) * nj1 &
-                                         *((-1)**((ji+jj)/2) *LCC%herm * WCCX(j,k,l,i,J3,J4,Wy,RCC,jbas) &
-                                         - (-1)**((J3+J4+jk+jl+rank)/2)*RCC%herm *WCCX(k,j,i,l,J3,J4,Wy,RCC,jbas) )
-                                 end if
-
-                              end if
-                           end if
-                        end if
-                     end if
-
-
-                  end if
+                  do J1 = J2min,J2max,2
+                     if ((a==c).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J1min),J1max,2 
+                        if ((b==d).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        
+                        !V^{J1 J2}_{dbca}
+                        V = prefac_1234* ninej(ja,jd,J3,jc,jb,J4,J1,J2,rank)&
+                             *phase_abcd*phase_34*(-1)**(rank/2)* RCC%herm * Yelem
+                        call add_elem_to_tensor(V,a,c,d,b,J1,J2,RES,jbas)               
+                        
+                     end do
+                  end do
+                  !do nothing
                end if
+            else 
+               if ( a .ge. c ) then 
+
+                  do J1 = J1min,J1max,2
+                     if ((b==d).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J2min),J2max,2 
+                        if ((a==c).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                  
+                        V = -1*prefac_1234  * ninej(jd,ja,J3,jb,jc,J4,J1,J2,rank) &
+                             * phase_abcd*(-1)**((J1+J2)/2) * LCC%herm * Yelem 
+                        
+                        call add_elem_to_tensor(V,b,d,c,a,J1,J2,RES,jbas)               
+                     end do
+                  end do
+                  
+                  do J1 = J2min,J2max,2
+                     if ((c==a).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J1min),J1max,2 
+                        if ((b==d).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                  
+                        V = prefac_1234  * ninej(ja,jd,J3,jc,jb,J4,J1,J2,rank) &
+                             * (-1)**((J1+J2+rank)/2) * phase_34 * RCC%herm * Yelem
+
+                        call add_elem_to_tensor(V,c,a,b,d,J1,J2,RES,jbas)               
+                     end do
+                  end do
+
+               else
+                  do J1 = J1min,J1max,2
+                     if ((b==d).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J2min),J2max,2 
+                        if ((a==c).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        
+                        !V^{J1 J2}_{bdac}
+                        V = prefac_1234 * ninej(jd,ja,J3,jb,jc,J4,J1,J2,rank) &
+                             * (-1)**((jb+jd+J1)/2) * LCC%herm *Yelem
+                        call add_elem_to_tensor(V,b,d,a,c,J1,J2,RES,jbas)               
+                     end do
+                  end do
+                  
+                  do J1 = J2min,J2max,2
+                     if ((a==c).and.(mod(J1/2,2)==1)) cycle
+                     prefac_134 = prefac_34 * sqrt((J1+1.d0))
+                     do J2 = max(J1,J1min),J1max,2 
+                        if ((d==b).and.(mod(J2/2,2)==1)) cycle
+                        prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        
+                        !V^{J1 J2}_{acbd}
+                        V = prefac_1234 * ninej(ja,jd,J3,jc,jb,J4,J1,J2,rank) &
+                             * (-1)**((ja-jc+J2+rank)/2) * phase_34 * RCC%herm *Yelem
+
+                        call add_elem_to_tensor(V,a,c,b,d,J1,J2,RES,jbas)               
+                     end do
+                  end do
 
 
-               if (Tz  ==  abs(tj-tl)/2 ) then 
-                  if (PAR ==  mod(lj+ll,2) ) then  
-
-                     if (triangle(jj,jl,J3)) then
-                        if (triangle(ji,jk,J4)) then
-                           if (mod(li+lk+RCC%dpar/2,2) == PAR) then 
-                              if (abs(ti-tk) == Tz*2)  then 
-
-                                 nj1 = ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) 
-
-                                 sm = sm + (-1) **((J1+J2+J3+J4)/2) * nj1 &
-                                      * ((-1)**((jj + jl)/2)* LCC%herm * WCCX(l,j,k,i,J3,J4,Wx,RCC,jbas) &
-                                      - (-1)**((ji+jk+J3+J4+rank)/2) *  RCC%herm *WCCX(j,l,i,k,J3,J4,Wx,RCC,jbas) ) 
-
-                                 IF ( J3 .ne. J4 ) THEN
-
-                                    sm = sm - (-1)**((rank+J1+J2)/2) * nj1 &
-                                         *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(j,l,k,i,J3,J4,Wy,RCC,jbas) &
-                                         - (-1)**((J3+J4)/2)*RCC%herm *WCCX(l,j,i,k,J3,J4,Wy,RCC,jbas) )
-
-                                 end if
-
-                              end if
-                           end if
-                        end if
-                     end if
-                  end if
-               end if
-
-               if (Tz  ==  abs(ti-tk)/2 ) then 
-                  if (PAR ==  mod(li+lk,2) ) then  
-
-                     if (triangle(jj,jl,J4)) then
-                        if (triangle(ji,jk,J3)) then
-                           if (mod(lj+ll+RCC%dpar/2,2) == PAR) then 
-                              if (abs(tj-tl) == Tz*2)  then 
-
-                                 PAR2 = mod(PAR + RCC%dpar/2,2) 
-                                 nj1 =  ninej(ji,jk,J3,jj,jl,J4,J1,J2,rank) 
-                                
-                                 sm = sm + (-1) **((ji+jj+jk+jl+J3+J4)/2) * nj1 &
-                                      * ((-1)**((ji + jk)/2)* LCC%herm * WCCX(k,i,l,j,J3,J4,Wx,RCC,jbas) &
-                                      - (-1)**((jj+jl+J3+J4+rank)/2) *  RCC%herm *WCCX(i,k,j,l,J3,J4,Wx,RCC,jbas) ) 
-
-                                 IF ( J3 .ne. J4 ) THEN
-
-                                    sm = sm - phase1 *(-1)**(rank/2) * nj1 &
-                                         *((-1)**((ji+jj+jk+jl+rank)/2) *LCC%herm * WCCX(i,k,l,j,J3,J4,Wy,RCC,jbas) &
-                                         - (-1)**((J3+J4)/2)*RCC%herm *WCCX(k,i,j,l,J3,J4,Wy,RCC,jbas) )
-                                 end if
-
-                              end if
-                           end if
-                        end if
-                     end if
-
-                  end if
-               end if
-
-               RES%tblck(q)%tgam(g_ix)%X(IX,JX) = RES%tblck(q)%tgam(g_ix)%X(IX,JX)+sm*pre*pre2 &
-                                         * sqrt( (J1+1.d0) * (J2+1.d0) * (J3+1.d0) * (J4+1.d0) ) 
-
-            end do 
+               end if 
+           end if
+                       
          end do
-      end do 
- 
+      end do
+      deallocate(Wx,Wy)
    end do
-   
-end do
-!!$OMP END PARALLEL DO 
-deallocate(Wx,Wy)
-end do 
 
+   !if ( (d == 11).and.(c==18).and.(b==12).and.(a==17).and.(J1==0).and.(J2==4)) then 
+   !   !if (abs(V)>1e-6) print*, J3,J4,V, '8'  
+   !end if
+                    
  end subroutine TS_commutator_222_ph
 !=================================================================
 !=================================================================
