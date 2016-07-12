@@ -3237,7 +3237,7 @@ subroutine write_omega_checkpoint(H,s)
   close(77) 
 
   if (H%eMax==14) then 
-     sx = s - 0.5d0 
+     sx = s - 2.d0 
   else
      sx = s - 2.d0
   end if 
