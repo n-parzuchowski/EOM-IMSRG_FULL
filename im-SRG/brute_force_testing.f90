@@ -585,8 +585,9 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
   call duplicate_sq_op(BBY,w1s) !workspace
   call duplicate_sq_op(BBY,w2s) !workspace
   call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
-  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
-  call init_ph_mat(BB,BBYC,jbas)
+  CALL allocate_small_tensor_CCMAT(BB,BBCC,jbas) 
+  ! call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
+  call init_ph_mat(BBy,BBYC,jbas)
   call init_ph_wkspc(BBYC,WCCs)  
   
   OUT%herm = -1* AA%herm * BB%herm 
@@ -594,7 +595,7 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
  
   print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
 
-  call calculate_generalized_pandya(BB,BBCC,jbas) 
+!  call calculate_generalized_pandya(BB,BBCC,jbas) 
   call calculate_cross_coupled(AA,AACC,jbas) 
   
   call TS_commutator_111(AA,BB,OUT,jbas) 
@@ -605,7 +606,7 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
   
   call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)  
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
-  call TS_commutator_222_ph(AACC,BBCC,OUT,jbas)
+  call TS_commutator_222_ph(AACC,BBCC,BB,OUT,jbas)
 q=1 
 
 
@@ -732,7 +733,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
   integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max
   integer :: j2min,j2max,PAR,TZ,J1,J2,dpar,iii
   integer,intent(in) :: h1,h2,rank
-  real(8) :: val,t1,t2,t3,t4,omp_get_wtime
+  real(8) :: val,t1,t2,t3,t4,t5,t6,t7,omp_get_wtime
   real(8) :: vv,xx,yy,zz
   
   
@@ -759,32 +760,33 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
   call duplicate_sq_op(BB,w1) !workspace
   call duplicate_sq_op(BB,w2) !workspace
   call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
-  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
-  
+!  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
+  CALL allocate_small_tensor_CCMAT(BB,BBCC,jbas) 
 
   OUT%herm = -1* AA%herm * BB%herm 
   
   print*, 'TESTING SCALAR-TENSOR COMMUTATORS rank:' ,BB%rank,'parity:',BB%dpar
 !  t1 = OMP_get_wtime()
-  call calculate_generalized_pandya(BB,BBCC,jbas)
+ ! call calculate_generalized_pandya(BB,BBCC,jbas)
 !  t2 = OMP_get_wtime()
   call calculate_cross_coupled(AA,AACC,jbas) 
-  
+!  t3 = OMP_get_wtime() 
   call TS_commutator_111(AA,BB,OUT,jbas) 
   call TS_commutator_121(AA,BB,OUT,jbas)
   call TS_commutator_211(AACC,BB,OUT,jbas) 
+!  t4 = OMP_get_wtime()
   call TS_commutator_122(AA,BB,OUT,jbas)
   call TS_commutator_212(AA,BB,OUT,jbas)
-  
-  call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)
-   
+!  t5 = OMP_get_wtime()
+  call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)   
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
-! ! 
-   t4 = OMP_get_wtime()
-  call TS_commutator_222_ph(AACC,BBCC,OUT,jbas)
-!  t3 = OMP_get_wtime()
+!  t6= OMP_get_wtime() 
+
+  call TS_commutator_222_ph(AACC,BBCC,BB,OUT,jbas)
+!  t7 = OMP_get_wtime()
   
-  print*, 'time:', t3-t1,t2-t1,t3-t4
+  print*, 'TIMES:'
+  write(*,'(6(f14.7))') t2-t1,t3-t1,t4-t1,t5-t1,t6-t1,t7-t1
 !  'porkchop'
 !goto 12
 do a =  1, jbas%total_orbits

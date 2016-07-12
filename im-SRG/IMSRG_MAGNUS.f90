@@ -354,7 +354,7 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
      call copy_sq_op( HS , INT1) 
      call copy_sq_op( INT2 , AD ) 
      ! so to start, AD is equal to H
-     call clear_sq_op(INT2)    
+     call clear_sq_op(INT2)
      !now: INT2 = [ G , AD ]  
         
 ! zero body commutator 
@@ -460,9 +460,9 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   implicit none 
   
   real(8), parameter :: conv = 1e-4
-  integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw
+  integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw,omp_get_num_threads
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
-  integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
+  integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT,threads
   type(spd) :: jbas
   type(sq_op) :: G, ETA, INT2, INT3,HS, AD,w1,w2
   type(pandya_mat) :: WCC,ADCC
@@ -474,10 +474,11 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
   call duplicate_sq_op(HS,INT2) !workspace
+  call duplicate_sq_op(HS,INT3) !workspace
   call duplicate_sq_op(HS,AD) !workspace
   INT2%herm = 1
   AD%herm = 1
-  call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
+  call allocate_small_tensor_CCMAT(AD,ADCC,jbas)
   call init_ph_mat(G,GCC,jbas) !cross coupled ME
   
   advals = 0.d0 
@@ -490,7 +491,6 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   call copy_sq_op( HS , INT2 )
  
   advals(1) = abs(HS%E0)   
-  
   do iw = 2 ,30
      
      coef = coef/(iw-1.d0)
@@ -499,30 +499,38 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
      call copy_sq_op( INT2 , AD ) 
      ! so to start, AD is equal to H
      call clear_sq_op(INT2)    
+     call clear_sq_op(INT3)    
      !now: INT2 = [ G , AD ]  
         
-! zero body commutator 
-     call calculate_generalized_pandya(AD,ADCC,jbas)
-     call calculate_cross_coupled(G,GCC,jbas) 
-       
-     call TS_commutator_111(G,AD,INT2,jbas) 
-     call TS_commutator_121(G,AD,INT2,jbas)
-     call TS_commutator_211(GCC,AD,INT2,jbas)      
-     call TS_commutator_122(G,AD,INT2,jbas)   
-     call TS_commutator_212(G,AD,INT2,jbas)
-   
-     call TS_commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)
+     call calculate_cross_coupled(G,GCC,jbas)      
+!$OMP PARALLEL
+!$OMP SECTIONS
+!$OMP SECTION 
 
+     call TS_commutator_111(G,AD,INT2,jbas) 
+     call TS_commutator_121(G,AD,INT2,jbas)      
+
+     call TS_commutator_122(G,AD,INT2,jbas)   
+     call TS_commutator_212(G,AD,INT2,jbas)  
+     call TS_commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)
      call TS_commutator_221(w1,w2,G%herm*AD%herm,INT2,jbas)
-     call TS_commutator_222_ph(GCC,ADCC,INT2,jbas)
+
+!$OMP SECTION
+
+     call TS_commutator_211(GCC,AD,INT3,jbas)
+     call TS_commutator_222_ph(GCC,ADCC,AD,INT3,jbas)       
+!$OMP END SECTIONS
+!$OMP END PARALLEL 
      
      ! so now just add HS + c_n * INT2 to get current value of HS
+     call append_operator( INT3 , 1.d0 , INT2 )   !basic_IMSRG
      call append_operator( INT2 , coef , HS )   !basic_IMSRG
+     
          
      advals(iw) = mat_frob_norm(INT2)*coef
     if (advals(iw) < conv) exit
      
-  end do 
+  end do
  
 end subroutine BCH_TENSOR
 !=========================================================================

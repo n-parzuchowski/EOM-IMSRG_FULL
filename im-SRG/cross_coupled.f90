@@ -18,7 +18,7 @@ module cross_coupled
      type(int_vec),allocatable,dimension(:) :: rmap
      type(real_mat),allocatable,dimension(:) :: CCR
      type(int_mat), allocatable,dimension(:) :: qn1,qn2
-     integer,allocatable,dimension(:) :: Jval2
+     integer,allocatable,dimension(:) :: Jval2,nb1,nb2
      integer :: rank,dpar
   end type pandya_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
@@ -490,6 +490,211 @@ subroutine allocate_tensor_CCMAT(OP,CCME,jbas)
   end do
   
 end subroutine allocate_tensor_CCMAT        
+!=======================================================  
+!=======================================================
+subroutine allocate_small_tensor_CCMAT(OP,CCME,jbas) 
+  ! allocates a cross-coupled ME storage structure
+  ! currently the only CCME of interest are phab terms    |--->--| 
+  ! coupling in the 3-1 channel                        <(pa)J|V|(bh)J>
+  !                                                      |---<----|
+  implicit none 
+  
+  
+  type(spd) :: jbas
+  type(sq_op) :: OP
+  type(pandya_mat) :: CCME
+  integer :: Jtot1,Jtot2,ji,jp,jj,jh,JC,q1,q2,g,li,lj,ti,tj,q
+  integer :: a,b,p,h,i,j,Jmin,Jmax,NX,TZ,PAR,x,JTM,RANK,Jold
+  integer :: int1,int2,IX,JX,i1,i2,nb1,nb2,r1,r2,nh,np,numJ
+  real(8) :: sm,sm2
+  
+  NX = OP%Nsp
+  RANK = OP%rank
+  CCME%rank = OP%rank
+  CCME%dpar = OP%dpar
+  CCME%Nsp = NX
+  CCME%herm = OP%herm  
+  JTM = jbas%Jtotal_max
+  Jold = 1
+! quantum numbers of the last block 
+
+  Tz = 1 
+  Par = 1
+  Jtot1 = jbas%Jtotal_max*2 
+  Jtot2 = Jtot1+ RANK 
+  CCME%nblocks  =  tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par)/3*2 
+  ! 2 dof for parity, 2 for Tz (i'm only worried about abs(Tz) ) 
+
+  allocate(CCME%CCX(CCME%nblocks)) ! h(p)b(a)
+  allocate(CCME%CCR(CCME%nblocks)) ! p(h)a(b)
+  allocate(CCME%nb1(CCME%nblocks),CCME%nb2(CCME%nblocks))
+  allocate(CCME%Jval(CCME%nblocks)) ! J value for block
+  allocate(CCME%Jval2(CCME%nblocks)) ! J2 value for the block
+  allocate(CCME%rmap(NX*NX))  ! map of pair index to r indeces
+  allocate(CCME%qmap(NX*NX))  ! map of pair index to q indeces
+  allocate(CCME%nbmap(NX*NX)) 
+  allocate(CCME%qn1(NX*NX),CCME%qn2(NX*NX))
+
+  do i = 1, NX
+     do j = 1,NX
+        
+        ji = jbas%jj(i) 
+        jj = jbas%jj(j) 
+        
+        numJ = (ji + jj - abs(ji-jj))/2 + 1
+        
+        x = CCindex(i,j,NX) 
+        allocate(CCME%rmap(x)%Z(numJ)) 
+        allocate(CCME%qmap(x)%Z(numJ))
+        allocate(CCME%nbmap(x)%Z(numJ))
+        CCME%qmap(x)%Z = 0
+        CCME%nbmap(x)%Z = 0
+     end do 
+  end do 
+  
+  q1 = 0
+  do Jtot1 = 0,2*jbas%jtotal_max,2 
+     do Jtot2 = max(abs(Jtot1 - rank),Jtot1),Jtot1+rank,2
+        do Tz = 0, 1    
+           do PAR = 0,1 
+              
+              q1 = q1 + 1
+              CCME%Jval(q1) = Jtot1
+              CCME%Jval2(q1) = Jtot2
+              
+              if (jtot2 > 2*jbas%jtotal_max) cycle 
+
+              ! fastest changing quantity : JC
+              ! slowest: PAR 
+
+              nb1 = 0 
+              r1 = 0 
+              nb2 = 0 
+              r2 = 0
+
+              do i = 1, NX
+                 do j = 1,NX 
+
+                    ji = jbas%jj(i) 
+                    jj = jbas%jj(j) 
+
+                    if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
+
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == PAR ) then
+                       if (triangle(ji,jj,Jtot1)) then 
+
+                          if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
+                             nb1 = nb1 + 1 
+                          end if
+                          r1 = r1+1                       
+                          
+                       end if
+                    end if
+                    
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == mod(PAR+op%dpar/2,2) ) then
+                       if (triangle(ji,jj,Jtot2)) then 
+                          if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then 
+                             nb2 = nb2 + 1 
+                          end if
+                          
+                          r2 = r2+1
+                       end if
+                    end if
+                 end do
+              end do
+
+!              allocate( CCME%CCX(q1)%X(r1,nb2) ) 
+ !             allocate( CCME%CCR(q1)%X(nb1,r2) ) 
+              CCME%nb1(q1) = nb1
+              CCME%nb2(q1) = nb2 
+              allocate( CCME%qn1(q1)%Y(r1,2),CCME%qn2(q1)%Y(r2,2)) 
+              
+              nb1 = 0 
+              r1 = 0 
+              nb2 = 0 
+              r2 = 0
+
+              ! I only need one of these arrays per J, so I use the same shape as before. 
+              do i = 1, NX
+                 do j = 1,NX 
+                   
+                    ji = jbas%jj(i) 
+                    jj = jbas%jj(j) 
+                                        
+                    if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
+
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == PAR ) then
+                       if (triangle(ji,jj,Jtot1)) then 
+
+                          r1 = r1+1                       
+                          
+                          CCME%qn1(q1)%Y(r1,1) = i 
+                          CCME%qn1(q1)%Y(r1,2) = j
+
+                       end if
+                    end if
+                    
+
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) == mod(PAR+op%dpar/2,2) ) then
+                       if (triangle(ji,jj,Jtot2)) then 
+                          
+                          r2 = r2+1
+                          CCME%qn2(q1)%Y(r2,1) = i 
+                          CCME%qn2(q1)%Y(r2,2) = j 
+ 
+                       end if
+                    end if
+                   
+                    
+                 end do
+              end do
+              
+              if (max(abs(Jtot1 - rank),Jtot1) .ne. Jtot2) cycle
+
+              nb1 = 0 
+              r1 = 0 
+              nb2 = 0 
+              r2 = 0
+
+              
+              ! I only need one of these arrays per J, so I use the same shape as before. 
+              do i = 1, NX
+                 do j = 1,NX 
+                   
+
+                    ji = jbas%jj(i) 
+                    jj = jbas%jj(j) 
+
+                    if (.not. (triangle(ji,jj,Jtot1))) cycle 
+                    if ( mod(jbas%ll(i) + jbas%ll(j),2) .ne. PAR ) cycle
+                    if (abs(jbas%itzp(i) - jbas%itzp(j))/2 .ne. Tz ) cycle 
+
+                    x = CCindex(i,j,NX) 
+                    
+                    g = 1
+                    do while (CCME%qmap(x)%Z(g) .ne. 0) 
+                       g = g + 1
+                    end do
+
+                    if ( (jbas%con(i) == 0 ).and. (jbas%con(j) == 1)) then
+                       nb1 = nb1 + 1
+                       CCME%nbmap(x)%Z(g) = nb1 
+                    end if
+
+                    r1 = r1+1
+                    q = block_index(Jtot1,Tz,Par)          
+                    CCME%qmap(x)%Z(g) = q
+                    CCME%rmap(x)%Z(g) = r1
+                                        
+                 end do
+              end do
+              
+           end do
+        end do
+     end do
+  end do
+  
+end subroutine allocate_small_tensor_CCMAT
 !=======================================================  
 !=======================================================
 subroutine allocate_ex_tensor_CCMAT(OP,CCME,jbas) 
@@ -1201,6 +1406,227 @@ subroutine calculate_cross_coupled_pphh(HS,CCME,jbas)
 end subroutine calculate_cross_coupled_pphh
 !=======================================================  
 !=======================================================          
+subroutine calculate_single_pandya(OP,CCME,jbas,q1,term) 
+  ! currently the only CCME of interest are phab terms    |---<--|  J1 
+  ! coupling in the 3-1 channel                        <(pa)|V|(hb)> rank
+  !                                                      |---<--| J2 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: OP 
+  type(pandya_mat) :: CCME
+  integer :: Jtot1,Jtot2,ja,jp,jb,jh,JC,q2,q,TZ,PAR,la,lb,Ntot,th,tp,lh,lp
+  integer :: a,b,p,h,i,j,Jmin1,Jmax1,Rindx,Gindx,g,ta,tb,Atot,hg,pg,J3,J4,NBindx2,qONE,qTWO
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,gnb,NBindx1,x,JTM,rank,Jmin2,Jmax2
+  integer,intent(in) :: q1,term
+  real(8) :: sm,sm2,pre,horse
+  logical :: parflip
+
+  Atot = OP%belowEF
+  Ntot = OP%Nsp
+  JTM = jbas%Jtotal_max 
+  pre = 1.d0 
+  rank = OP%rank
+
+  parflip = .false. 
+  if ( mod(op%dpar/2,2) == 1) parflip = .true. 
+
+  CCME%herm = OP%Herm
+!!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
+      
+  Jtot1 = CCME%Jval(q1)
+  Jtot2 = CCME%Jval2(q1)
+!  if (Jtot2 > 2*JTM) cycle
+
+  PAR = mod(q1-1,2)
+  Tz = mod((q1-1)/2,2) 
+
+  if ( term == 1) then 
+     CCME%CCX(q1)%X = 0.d0
+  else
+     CCME%CCR(q1)%X = 0.d0
+  end if 
+
+  qONE = block_index(Jtot1,Tz,Par)
+  qTWO = block_index(Jtot2,Tz,mod(Par+op%dpar/2,2))
+
+  ! ab = ph 
+  do hg = 1, Atot
+     do pg = 1, Ntot - Atot 
+
+        h = jbas%holes(hg) 
+        p = jbas%parts(pg) 
+
+        jp = jbas%jj(p) 
+        jh = jbas%jj(h)
+        lp = jbas%ll(p) 
+        lh = jbas%ll(h)
+        tp = jbas%itzp(p) 
+        th = jbas%itzp(h)
+
+        if (.not. (parflip)) then 
+           if ( mod(lp + lh,2) .ne. PAR ) cycle
+        end if
+
+        if (abs(tp - th)/2 .ne. Tz ) cycle 
+
+        NBindx1 = 0
+        NBindx2 = 0 
+        if ( triangle(jp,jh,Jtot1) )  then 
+
+
+           if ( mod(lp + lh,2) ==  PAR ) then   
+              x = CCindex(p,h,OP%Nsp)
+              gnb = 1
+
+              do while (CCME%qmap(x)%Z(gnb) .ne. qONE )
+                 gnb = gnb + 1 
+              end do
+
+              NBindx1 = CCME%nbmap(x)%Z(gnb) 
+
+           end if
+
+           if  ( triangle(jp,jh,Jtot2) )  then 
+
+              if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
+
+                 x = CCindex(p,h,OP%Nsp)
+                 gnb = 1
+
+                 do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+                    gnb = gnb + 1 
+                 end do
+
+                 NBindx2 = CCME%nbmap(x)%Z(gnb)
+              end if
+           end if
+
+        else if  ( triangle(jp,jh,Jtot2) )  then 
+
+           if ( mod(lp+lh+op%dpar/2,2) == PAR) then 
+
+              x = CCindex(p,h,OP%Nsp)
+              gnb = 1
+
+              do while (CCME%qmap(x)%Z(gnb) .ne. qTWO )
+                 gnb = gnb + 1 
+              end do
+
+              NBindx2 = CCME%nbmap(x)%Z(gnb)
+           end if
+        else 
+           cycle
+        end if
+
+
+        ! for the ph  channel 2body derivative 
+
+        do a = 1, OP%nsp
+           do b = 1, OP%nsp
+
+              ja = jbas%jj(a) 
+              jb = jbas%jj(b)
+              la = jbas%ll(a) 
+              lb = jbas%ll(b)
+              ta = jbas%itzp(a) 
+              tb = jbas%itzp(b)
+
+
+              if (.not. (parflip)) then 
+                 if ( mod(la + lb,2) .ne. PAR ) cycle
+              end if
+
+              if (abs(ta - tb)/2 .ne. Tz ) cycle 
+              
+              IF (term ==1 ) then 
+                 if ( (triangle(ja,jb,Jtot1)) .and. (NBindx2 .ne. 0) ) then 
+                    
+                    if ( mod(la+lb,2) == PAR ) then 
+                       x = CCindex(a,b,OP%Nsp) 
+
+                       g = 1
+                       do while (CCME%qmap(x)%Z(g) .ne. qONE )
+                          g = g + 1
+                       end do
+
+                       Rindx = CCME%rmap(x)%Z(g)
+
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
+                            ( (ta + th) == (tb + tp) ) ) then  
+
+                          ! hapb 
+                          Jmin1 = abs(ja - jh) 
+                          Jmax1 = ja+jh 
+                          Jmin2 = abs(jp - jb)
+                          Jmax2 = jp+jb 
+
+                          sm = 0.d0 
+                          do J3 = Jmin1,Jmax1,2
+                             do J4 = Jmin2,Jmax2,2
+                                sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
+                                     ninej(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
+                                     tensor_elem(a,h,p,b,J3,J4,OP,jbas) 
+
+                             end do
+                          end do
+
+                          CCME%CCX(q1)%X(Rindx,NBindx2) = sm * & 
+                               (-1) **( (jh+jb+Jtot2) / 2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))
+                          ! NOTE THAT the ph belongs to the LARGER J
+                       end if
+                    end if
+                 end if
+              else
+                 
+                 if ((triangle(ja,jb,Jtot2)) .and. (NBindx1 .ne. 0) ) then 
+
+                    if ( mod(la+lb+op%dpar/2,2) == PAR ) then 
+                       x = CCindex(b,a,OP%Nsp) 
+                       g = 1
+                       do while (CCME%qmap(x)%Z(g) .ne. qTWO )
+                          g = g + 1
+                       end do
+
+                       Gindx = CCME%rmap(x)%Z(g)
+
+
+                       if ( (mod(la + lh,2) == mod(lb + lp + op%dpar/2,2)) .and. &
+                            ( (ta + th) == (tb + tp) ) ) then  
+
+                          ! hapb 
+                          Jmin1 = abs(ja - jh) 
+                          Jmax1 = ja+jh 
+                          Jmin2 = abs(jp - jb)
+                          Jmax2 = jp+jb 
+
+                          sm = 0.d0 
+                          do J3 = Jmin1,Jmax1,2
+                             do J4 = Jmin2,Jmax2,2
+                                sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
+                                     ninej(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
+                                     tensor_elem(h,a,b,p,J3,J4,OP,jbas) 
+
+                             end do
+                          end do
+
+                          ! store  ( V )_h(p)b(a)
+                          ! NOTE THAT the ph belongs to the SMALLER J
+                          CCME%CCR(q1)%X(NBindx1,Gindx) = sm * &
+                               (-1) **( (jp+ja+Jtot2)/2) * pre * sqrt((Jtot1 + 1.d0)*(Jtot2 + 1.d0))&
+                               * (-1)**((jp+jh)/2) 
+                       end if
+                    end if
+                 end if
+              end if
+           end do
+        end do
+     end do
+  end do
+
+end subroutine calculate_single_pandya
+!=======================================================  
+!=======================================================          
 subroutine calculate_generalized_pandya(OP,CCME,jbas) 
   ! currently the only CCME of interest are phab terms    |---<--|  J1 
   ! coupling in the 3-1 channel                        <(pa)|V|(hb)> rank
@@ -1226,7 +1652,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas)
   if ( mod(op%dpar/2,2) == 1) parflip = .true. 
 
   CCME%herm = OP%Herm
-!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
+!!$omp parallel do default(firstprivate),shared(CCME,OP,jbas) 
   do q1 = 1, CCME%nblocks
       
      Jtot1 = CCME%Jval(q1)
@@ -1416,7 +1842,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas)
      end do
 
   end do 
-!$omp end parallel do
+!!$omp end parallel do
 
 end subroutine calculate_generalized_pandya
 !=======================================================  
