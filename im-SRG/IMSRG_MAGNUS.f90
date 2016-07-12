@@ -460,9 +460,9 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   implicit none 
   
   real(8), parameter :: conv = 1e-4
-  integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw,omp_get_thread_num
+  integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw,omp_get_num_threads
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
-  integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
+  integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT,threads
   type(spd) :: jbas
   type(sq_op) :: G, ETA, INT2, INT3,HS, AD,w1,w2
   type(pandya_mat) :: WCC,ADCC
@@ -478,7 +478,7 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   call duplicate_sq_op(HS,AD) !workspace
   INT2%herm = 1
   AD%herm = 1
-  call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
+  call allocate_small_tensor_CCMAT(AD,ADCC,jbas)
   call init_ph_mat(G,GCC,jbas) !cross coupled ME
   
   advals = 0.d0 
@@ -503,7 +503,8 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
      !now: INT2 = [ G , AD ]  
         
      call calculate_cross_coupled(G,GCC,jbas)      
-!$OMP PARALLEL SECTIONS
+!$OMP PARALLEL
+!$OMP SECTIONS
 !$OMP SECTION 
 
      call TS_commutator_111(G,AD,INT2,jbas) 
@@ -516,13 +517,10 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
 
 !$OMP SECTION
 
-
-     call calculate_generalized_pandya(AD,ADCC,jbas)
-
      call TS_commutator_211(GCC,AD,INT3,jbas)
-     call TS_commutator_222_ph(GCC,ADCC,INT3,jbas)       
-!$OMP END PARALLEL SECTIONS
-
+     call TS_commutator_222_ph(GCC,ADCC,AD,INT3,jbas)       
+!$OMP END SECTIONS
+!$OMP END PARALLEL 
      
      ! so now just add HS + c_n * INT2 to get current value of HS
      call append_operator( INT3 , 1.d0 , INT2 )   !basic_IMSRG

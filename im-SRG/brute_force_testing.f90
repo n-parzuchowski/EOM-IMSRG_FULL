@@ -585,8 +585,9 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
   call duplicate_sq_op(BBY,w1s) !workspace
   call duplicate_sq_op(BBY,w2s) !workspace
   call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
-  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
-  call init_ph_mat(BB,BBYC,jbas)
+  CALL allocate_small_tensor_CCMAT(BB,BBCC,jbas) 
+  ! call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
+  call init_ph_mat(BBy,BBYC,jbas)
   call init_ph_wkspc(BBYC,WCCs)  
   
   OUT%herm = -1* AA%herm * BB%herm 
@@ -594,7 +595,7 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
  
   print*, 'TESTING SCALAR-TENSOR COMMUTATORS' 
 
-  call calculate_generalized_pandya(BB,BBCC,jbas) 
+!  call calculate_generalized_pandya(BB,BBCC,jbas) 
   call calculate_cross_coupled(AA,AACC,jbas) 
   
   call TS_commutator_111(AA,BB,OUT,jbas) 
@@ -605,7 +606,7 @@ subroutine compare_tensor_scalar_commutator(jbas,h1,h2)
   
   call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)  
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
-  call TS_commutator_222_ph(AACC,BBCC,OUT,jbas)
+  call TS_commutator_222_ph(AACC,BBCC,BB,OUT,jbas)
 q=1 
 
 
@@ -759,14 +760,14 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
   call duplicate_sq_op(BB,w1) !workspace
   call duplicate_sq_op(BB,w2) !workspace
   call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
-  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
-  
+!  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
+  CALL allocate_small_tensor_CCMAT(BB,BBCC,jbas) 
 
   OUT%herm = -1* AA%herm * BB%herm 
   
   print*, 'TESTING SCALAR-TENSOR COMMUTATORS rank:' ,BB%rank,'parity:',BB%dpar
 !  t1 = OMP_get_wtime()
-  call calculate_generalized_pandya(BB,BBCC,jbas)
+ ! call calculate_generalized_pandya(BB,BBCC,jbas)
 !  t2 = OMP_get_wtime()
   call calculate_cross_coupled(AA,AACC,jbas) 
 !  t3 = OMP_get_wtime() 
@@ -781,7 +782,7 @@ subroutine test_scalar_tensor_commutator(jbas,h1,h2,rank,dpar,AAX,BBX)
   call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
 !  t6= OMP_get_wtime() 
 
-  call TS_commutator_222_ph(AACC,BBCC,OUT,jbas)
+  call TS_commutator_222_ph(AACC,BBCC,BB,OUT,jbas)
 !  t7 = OMP_get_wtime()
   
   print*, 'TIMES:'

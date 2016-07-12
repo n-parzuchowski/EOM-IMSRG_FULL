@@ -1456,12 +1456,12 @@ subroutine TS_commutator_222_pp_hh(L,R,RES,w1,w2,jbas)
 end subroutine TS_commutator_222_pp_hh
 !=================================================================
 !=================================================================
- subroutine TS_commutator_222_ph(LCC,RCC,RES,jbas) 
+ subroutine TS_commutator_222_ph(LCC,RCC,R,RES,jbas) 
    ! VERIFIED ph channel 2body TS_commutator. DFWT! 
    implicit none 
   
    type(spd) :: jbas
-   type(sq_op) :: RES
+   type(sq_op) :: RES,R
    type(pandya_mat) :: RCC
    real(8),allocatable,dimension(:,:) :: Wx,Wy 
    type(cc_mat) :: LCC
@@ -1484,10 +1484,10 @@ end subroutine TS_commutator_222_pp_hh
    do qx = 1,RCC%nblocks
       if (RCC%jval2(qx) > jbas%jtotal_max*2) cycle
       
-      nb2 = size(RCC%CCX(qx)%X(1,:))
-      nb1 = size(RCC%CCR(qx)%X(:,1))
-      r1 = size(RCC%CCX(qx)%X(:,1))
-      r2 = size(RCC%CCR(qx)%X(1,:))      
+      nb2 = RCC%nb2(qx)
+      nb1 = RCC%nb1(qx)
+      r1 = size(RCC%qn1(qx)%Y(:,1))
+      r2 = size(RCC%qn2(qx)%Y(:,1))      
       
       if (r1 * r2 == 0) cycle
       
@@ -1501,20 +1501,25 @@ end subroutine TS_commutator_222_pp_hh
       
       if (nb1 .ne. 0 ) then 
 
+         allocate(RCC%CCR(qx)%X(nb1,r2))
+         call calculate_single_pandya(R,RCC,jbas,qx,2)  
          factor = 1.0/sqrt(J3+1.d0)*LCC%herm
          q1 = J3/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1) 
          call dgemm('N','N',r1,r2,nb1,factor,LCC%CCX(q1)%X,r1,&
               RCC%CCR(qx)%X,nb1,bet,Wx,r1)       
+         deallocate(RCC%CCR(qx)%X)
       end if
          
       if ((nb2 .ne. 0) .and. (J3 .ne. J4)) then 
-        
+         allocate(RCC%CCX(qx)%X(r1,nb2))
+         call calculate_single_pandya(R,RCC,jbas,qx,1)
          PAR2 = mod(PAR+RCC%dpar/2,2) 
          q2 = J4/2+1 + Tz*(JTM+1) + 2*PAR2*(JTM+1)
          factor = 1.d0/sqrt(J4+1.d0)
          
         call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(qx)%X,r1,&
              LCC%CCX(q2)%X,r2,bet,Wy,r1) 
+        deallocate(RCC%CCX(qx)%X)
       end if
 
       
