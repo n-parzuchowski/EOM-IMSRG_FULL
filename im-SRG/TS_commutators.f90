@@ -1521,7 +1521,7 @@ end subroutine TS_commutator_222_pp_hh
       prefac_34 = sqrt((J3+1.d0)*(J4+1.d0))
       phase_34 = (-1)**((J3+J4)/2) 
 
-      !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(Wx,Wy,RES)
+!      !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(Wx,Wy,RES)
       do IX = 1,r1
          
          ! GET BRA
@@ -1564,7 +1564,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J1min,J1max,2
                         if ((a==b).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min),J2max,2 
+                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
                            if ((c==d).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1574,13 +1574,14 @@ end subroutine TS_commutator_222_pp_hh
                                 * Xelem
 
                            call add_elem_to_tensor(V,a,b,c,d,J1,J2,RES,jbas) 
+
                         end do
                      end do
 
                      do J1 = J2min,J2max,2
                         if ((c==d).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min),J1max,2 
+                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
                            if ((a==b).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1600,7 +1601,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J1min,J1max,2
                         if ((a==b).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = J2min,J2max,2 
+                        do J2 = max(J1,J2min,abs(J1-rank)),min(J2max,J1+rank),2 
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{abdc}
@@ -1613,7 +1614,7 @@ end subroutine TS_commutator_222_pp_hh
 
                      do J1 = J2min,J2max,2
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min),J1max,2 
+                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
                            if ((a==b).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1634,7 +1635,7 @@ end subroutine TS_commutator_222_pp_hh
                      ! CALCULATE V^{J1 J2}_{bacd} and V^{J1 J2}_{cdba}
                      do J1 = J1min,J1max,2
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = J2min,J2max,2 
+                        do J2 = max(J1,J2min,abs(J1-rank)),min(J2max,J1+rank),2 
                            if ((c==d).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1651,7 +1652,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J2min,J2max,2
                         if ((c==d).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min),J1max,2 
+                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{cdba}
@@ -1670,7 +1671,7 @@ end subroutine TS_commutator_222_pp_hh
                      ! CALCULATE V^{J1 J2}_{badc} and V^{J1 J2}_{dcba}
                      do J1 = J1min,J1max,2
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = J2min,J2max,2 
+                        do J2 = max(J1,J2min,abs(J1-rank)),min(J2max,J1+rank),2 
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{badc}
@@ -1684,7 +1685,7 @@ end subroutine TS_commutator_222_pp_hh
 
                      do J1 = J2min,J2max,2
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min),J1max,2 
+                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{dcba}
@@ -1713,7 +1714,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J1min,J1max,2
                         if ((d==b).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min),J2max,2 
+                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
                            if ((c==a).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1729,7 +1730,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J2min,J2max,2
                         if ((c==a).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min),J1max,2 
+                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
                            if ((b==d).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1743,7 +1744,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J1min,J1max,2
                         if ((d==b).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min),J2max,2 
+                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
                            if ((c==a).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1758,7 +1759,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J2min,J2max,2
                         if ((a==c).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min),J1max,2 
+                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
                            if ((b==d).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1777,7 +1778,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J1min,J1max,2
                         if ((b==d).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min),J2max,2 
+                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
                            if ((a==c).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1791,7 +1792,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J2min,J2max,2
                         if ((c==a).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min),J1max,2 
+                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
                            if ((b==d).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1806,7 +1807,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J1min,J1max,2
                         if ((b==d).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min),J2max,2 
+                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
                            if ((a==c).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1820,7 +1821,7 @@ end subroutine TS_commutator_222_pp_hh
                      do J1 = J2min,J2max,2
                         if ((a==c).and.(mod(J1/2,2)==1)) cycle
                         prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min),J1max,2 
+                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
                            if ((d==b).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
@@ -1838,7 +1839,7 @@ end subroutine TS_commutator_222_pp_hh
             end if
          end do
       end do
-      !$OMP END PARALLEL DO
+!      !$OMP END PARALLEL DO
       deallocate(Wx,Wy)
    end do
 
