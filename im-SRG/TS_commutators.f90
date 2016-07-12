@@ -1521,7 +1521,6 @@ end subroutine TS_commutator_222_pp_hh
       prefac_34 = sqrt((J3+1.d0)*(J4+1.d0))
       phase_34 = (-1)**((J3+J4)/2) 
 
-!      !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(Wx,Wy,RES)
       do IX = 1,r1
          
          ! GET BRA
@@ -1839,7 +1838,7 @@ end subroutine TS_commutator_222_pp_hh
             end if
          end do
       end do
-!      !$OMP END PARALLEL DO
+
       deallocate(Wx,Wy)
    end do
 
