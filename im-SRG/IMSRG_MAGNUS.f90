@@ -49,9 +49,9 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   steps = 0
   
   if (HS%eMax==14) then 
-     chk = 1
+     chk = 8
   else
-     chk = 4
+     chk = 8
   end if 
   
   if (checkpointing) then 

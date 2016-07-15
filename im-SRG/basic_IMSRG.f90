@@ -3186,9 +3186,9 @@ subroutine write_omega_checkpoint(H,s)
   close(77) 
 
   if (H%eMax==14) then 
-     sx = s - 0.5d0 
+     sx = s - 4.d0 
   else
-     sx = s - 2.d0
+     sx = s - 4.d0
   end if 
   
   write(s_position,'(f6.3)') sx
