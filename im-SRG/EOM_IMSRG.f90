@@ -14,7 +14,7 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   real(8) :: BE,Mfi ,SD_shell_content,dEtrips
   real(8) :: t1,t2,t0,omp_get_wtime,XX,QQ,sm,sm2 
   type(spd) :: jbas
-  type(sq_op) :: HS 
+  type(sq_op) :: HS ,newladder
   type(sq_op),optional :: O1
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   real(8),allocatable,dimension(:) :: trips
@@ -160,6 +160,14 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
 
   close(72)
 
+
+  
+  call duplicate_sq_op(O1,newladder,'y')
+  t1= omp_get_wtime()
+  call tensor_product(O1,ladder_ops(1),newladder,jbas)
+  t2= omp_get_wtime()
+  print*, t2-t1
+  call print_matrix(newladder%fph(1:7,1:7))
   ! open(unit=72,file=trim(OUTPUT_DIR)//&
   !      trim(adjustl(prefix))//&
   !      '_EOM_trips_law'//trim(betalabel)//'.dat')    
