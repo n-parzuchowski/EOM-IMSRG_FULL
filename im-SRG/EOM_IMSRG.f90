@@ -11,7 +11,7 @@ contains
 subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1) 
   implicit none
   
-  real(8) :: BE,Mfi ,SD_shell_content,dEtrips
+  real(8) :: BE,Mfi ,SD_shell_content,dEtrips,dcgi,dcgi00
   real(8) :: t1,t2,t0,omp_get_wtime,XX,QQ,sm,sm2 
   type(spd) :: jbas
   type(sq_op) :: HS ,newladder
@@ -21,8 +21,9 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist,prots,neuts
   character(2) :: Jlabel,Plabel,betalabel  
   character(2) :: statelabel
-  REAL(8),dimension(Numstates) :: Es,BEs 
-  
+  REAL(8),dimension(Numstates) :: Es,BEs ,moments 
+
+  sm = dcgi00()
   allocate(ladder_ops(numstates)) 
   allocate(trips(numstates))
   ladder_ops%herm = 1
@@ -99,10 +100,14 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
         
         Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
         BE = Mfi**2/(J+1.d0) 
-        
+
+        Mfi = transition_ME(ladder_ops(i),O1,ladder_ops(i),jbas)
+        print*, i,Mfi 
+        moments(i) = Mfi /sqrt(J+1.d0)*dcgi(J,J,O1%rank,0,J,J)
         Es(i) = ladder_ops(i)%E0
         BEs(i) = BE
-        write(*,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
+        
+        write(*,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,BE*(J+1.d0),sum(ladder_ops(i)%fph**2) 
  !       write(51,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
         
      end do
@@ -111,7 +116,11 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
           '_energies_strengths'//O1%trans_label//'.dat',position='append')
      write(31,'(2(I10),11(d25.14))') nint(HS%hospace),HS%eMax,HS%E0,Es,BEs 
      close(31)  
-     
+
+     open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+          '_energies_moments'//O1%trans_label//'.dat',position='append')
+     write(31,'(2(I10),11(d25.14))') nint(HS%hospace),HS%eMax,HS%E0,Es,moments 
+     close(31)  
   else
      
      print*
@@ -160,14 +169,6 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
 
   close(72)
 
-
-  
-  call duplicate_sq_op(O1,newladder,'y')
-  t1= omp_get_wtime()
-  call tensor_product(O1,ladder_ops(1),newladder,jbas)
-  t2= omp_get_wtime()
-  print*, t2-t1
-  call print_matrix(newladder%fph(1:7,1:7))
   ! open(unit=72,file=trim(OUTPUT_DIR)//&
   !      trim(adjustl(prefix))//&
   !      '_EOM_trips_law'//trim(betalabel)//'.dat')    

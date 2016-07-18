@@ -923,7 +923,92 @@ subroutine calculate_MX(op,jbas)
   end do     
         
 end subroutine calculate_MX
+!====================================================================
+!====================================================================
+real(8) function transition_ME( Xout,Trans_op ,Xin,jbas ) 
+  implicit none
   
+  type(spd) :: jbas
+  type(sq_op) :: Trans_op,Xout,Xin,product
+  integer :: ja,jb,ji,jj,rank_out,rank_in,rank_op,Nsp,Abody
+  integer :: a,b,i,j,ax,ix,jx,bx,J1,J2,dpar_in,dpar_out,dpar_op
+  real(8) :: sm , phase,dcgi
+  
+  sm = 0.d0 
+  
+  Nsp = jbas%total_orbits 
+  Abody = sum(jbas%con) 
+   
+  rank_op = Trans_op%rank 
+  rank_in = Xin%rank 
+  rank_out = Xout%rank
+  
+  if (.not. triangle(rank_in,rank_op,rank_out))  then 
+     transition_ME = 0.d0 
+     return
+  end if 
+
+  dpar_in = Xin%dpar/2
+  dpar_out = Xout%dpar/2
+  dpar_op = Trans_op%dpar/2
+  
+  if (mod(dpar_in+dpar_op+dpar_out,2).ne.0) then
+     transition_ME = 0.d0
+  end if
+
+  call duplicate_sq_op(Xout,product)
+  call tensor_product(Trans_op,Xin,product,jbas)
+  
+  do ax = 1,Nsp-Abody
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     do ix = 1,Abody 
+        i = jbas%holes(ix)
+        ji = jbas%jj(i) 
+        
+        sm = sm + f_tensor_elem(a,i,Xout,jbas)*&
+             f_tensor_elem(a,i,product,jbas)
+     end do 
+  end do 
+
+  do ax = 1,Nsp-Abody
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     do bx = 1,Nsp-Abody
+        b = jbas%parts(bx)
+        jb = jbas%jj(b) 
+        
+        do ix = 1,Abody 
+           i = jbas%holes(ix)
+           ji = jbas%jj(i) 
+           
+           do jx = 1,Abody 
+              j = jbas%holes(jx)
+              jj = jbas%jj(j) 
+  
+              do J1 = abs(ji-jj),ji+jj,2
+                 do J2 = abs(ja-jb),ja+jb,2
+                    
+                    sm = sm + 0.25d0*&
+                         tensor_elem(a,b,i,j,J2,J1,product,jbas)*&
+                         tensor_elem(a,b,i,j,J2,J1,Xout,jbas) 
+                    
+                 end do 
+              end do 
+           end do
+        end do
+     end do
+  end do
+        
+  transition_ME = sm * sqrt((rank_out+1.d0)/(rank_op+1.d0)) / dcgi(rank_in,0,rank_op,0,rank_out,0)  
+  !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
+  !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
+  
+end function transition_ME
+!====================================================================
+!====================================================================
 real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas ) 
   implicit none
   

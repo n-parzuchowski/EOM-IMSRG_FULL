@@ -868,6 +868,143 @@ do a =  1, jbas%total_orbits
   
 end subroutine test_scalar_tensor_commutator
 !============================================================
+! subroutine test_tensor_product(jbas,h1,h2,rank_a,_rank_b,rank_c,dpar_a,dpar_b,dpar_c) 
+!   implicit none 
+  
+!   type(spd) :: jbas
+!   type(sq_op) :: AA,BB,OUT,w1,w2,HS
+!   type(pandya_mat) :: BBCC,WCC
+!   type(cc_mat) :: AACC
+!   integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max
+!   integer :: j2min,j2max,PAR,TZ,J1,J2,dpar_A,dpar_B,dpar_c,iii
+!   integer,intent(in) :: h1,h2,rank_a,rank_b,rank_c,dpar_A,dpar_B,dpar_c,
+!   real(8) :: val,t1,t2,t3,t4,t5,t6,t7,omp_get_wtime
+!   real(8) :: vv,xx,yy,zz
+  
+  
+!   call seed_random_number
+  
+!   BB%rank = rank_b 
+!   BB%dpar = dpar_b
+!   AA%rank = rank_a
+!   AA%dpar = dpar_a
+!   BB%pphh_ph = .true.
+!   AA%pphh_ph = .true. 
+
+!   HS%rank = 0.0
+!   HS%herm = 1
+  
+!   call allocate_blocks(jbas,HS)
+!   call allocate_tensor(jbas,AA,HS)
+!   call duplicate_sq_op(AA,BB)
+!   call construct_random_rankX(AA,h1,jbas) 
+!   call construct_random_rankX(BB,h2,jbas)   
+!   call duplicate_sq_op(BB,OUT)
+
+!   BB%fpp = 0.d0
+!   BB%fhh = 0.d0
+  
+!   do q = 1, BB%nblocks
+!      BB%tblck(q)%lam(1) = 1
+!      OUT%tblck(q)%lam(1) = 1
+!      do g = 1, 9
+!         if ( g == 3) cycle
+!         if ( g == 7) cycle
+!         BB%tblck(q)%tgam(g)%X = 0.d0 
+!      end do 
+!   end do
+  
+
+!   OUT%herm = 1 
+  
+!   print*, 'TESTING TENSOR PRODUCT' 
+
+!   t1 = omp_get_wtime()
+!   call tensor_product(AA,BB,OUT,jbas) 
+!   t2 = omp_get_wtime()  
+!   print*, 'TIME:',t2-t1
+
+
+! do a =  1, jbas%total_orbits
+!     do b = 1, jbas%total_orbits
+!     !   do iii = 1, 50   
+!      !     call random_number(vv)
+!       !    call random_number(yy)
+          
+! !          a = ceiling(vv*(AA%Nsp))
+!  !         b = ceiling(yy*(AA%Nsp))
+          
+!           val = scalar_tensor_1body_comm(AA,BB,a,b,jbas) 
+        
+!           if (abs(val-f_tensor_elem(a,b,OUT,jbas)) > 1e-10) then
+!              print*, 'at: ',a,b
+!              print*, val, f_tensor_elem(a,b,OUT,jbas)
+!              STOP 'ONE BODY FAILURE'  
+!           end if
+          
+!           print*, 'success:', a,b
+!        end do
+!     end do
+       
+!  !do a = 12, jbas%total_orbits
+     
+!   iii = 0 
+!   do while (iii < 55)  
+!      call random_number(vv)
+!      call random_number(xx)
+!      call random_number(yy)
+!      call random_number(zz)
+        
+!      a = ceiling(vv*AA%Nsp)
+!      b = ceiling(xx*AA%Nsp)
+!      c = ceiling(yy*AA%Nsp)
+!      d = ceiling(zz*AA%Nsp)
+     
+!      ja = jbas%jj(a) 
+! !     do b = 7, jbas%total_orbits
+!         jb = jbas%jj(b)
+        
+!         PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
+!         TZ = jbas%itzp(a) + jbas%itzp(b) 
+        
+!  !       do c = 1, jbas%total_orbits
+!            jc = jbas%jj(c)
+!   !         do d = 1, jbas%total_orbits
+!               jd = jbas%jj(d) 
+              
+!               if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
+!               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
+!               iii = iii+1 
+!               j1min = abs(ja-jb) 
+!               j1max = ja+jb 
+!               j2min = abs(jc-jd) 
+!               j2max = jc+jd
+              
+!               do J1 = j1min,j1max,2
+!                  do J2 = j2min,j2max,2
+                    
+!                     if (.not. (triangle(J1,J2,rank))) cycle
+                    
+!                     val = scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
+                                  
+!                     if (abs(val-tensor_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
+!                        print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)                       
+!                        STOP 'TWO BODY FAILURE'  
+!                     end if
+!                  end do 
+!               end do
+              
+!               print*, 'success:', a,b,c,d
+!    !        end do
+!     !    end do
+!      !end do
+!   end do
+
+!   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
+  
+! end subroutine test_tensor_product
+!
+!============================================================
 !============================================================
 subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar) 
   implicit none 
@@ -1603,9 +1740,9 @@ real(8) function EOM_scalar_tensor_1body_comm(AA,BB,a,b,jbas)
   
   EOM_scalar_tensor_1body_comm = sm 
   
-end function 
-!============================================================
-!============================================================
+end function EOM_scalar_tensor_1body_comm
+!==================================================================
+!==================================================================
 real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas) 
   !returns  [AA^0, BB^0]_{0}
   ! uses brute force method. 
