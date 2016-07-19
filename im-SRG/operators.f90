@@ -136,7 +136,10 @@ subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
          Op%trans_label = trs_type//ranklab         
          if (rank==0) then 
             print*, 'not implemented'
-         else
+         else            
+            if (allocated(phase_pp)) then
+               deallocate(phase_hh,phase_pp,half6j%tp_mat)
+            end if
             call allocate_tensor(jbas,Op,zr)
             Op%hospace=zr%hospace
             call calculate_EX(Op,jbas)
@@ -150,6 +153,9 @@ subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
         if (rank==0) then 
            print*, 'not implemented'
         else
+            if (allocated(phase_pp)) then
+               deallocate(phase_hh,phase_pp,half6j%tp_mat)
+            end if
            call allocate_tensor(jbas,Op,zr)
            Op%hospace=zr%hospace
            call calculate_MX(Op,jbas)
@@ -930,9 +936,9 @@ real(8) function transition_ME( Xout,Trans_op ,Xin,jbas )
   
   type(spd) :: jbas
   type(sq_op) :: Trans_op,Xout,Xin,product
-  integer :: ja,jb,ji,jj,rank_out,rank_in,rank_op,Nsp,Abody
+  integer :: ja,jb,ji,jj,rank_out,rank_in,rank_op,Nsp,Abody,M
   integer :: a,b,i,j,ax,ix,jx,bx,J1,J2,dpar_in,dpar_out,dpar_op
-  real(8) :: sm , phase,dcgi
+  real(8) :: sm , phase,dcgi,mult
   
   sm = 0.d0 
   
@@ -1001,8 +1007,11 @@ real(8) function transition_ME( Xout,Trans_op ,Xin,jbas )
         end do
      end do
   end do
-        
-  transition_ME = sm * sqrt((rank_out+1.d0)/(rank_op+1.d0)) / dcgi(rank_in,0,rank_op,0,rank_out,0)  
+  mult = 0.d0
+  do M = -1*min(rank_in,rank_op),min(rank_in,rank_op)
+     mult = mult+dcgi(rank_in,M,rank_op,-1*M,rank_out,0)
+  end do 
+  transition_ME = sm * sqrt((rank_out+1.d0)/(rank_op+1.d0))* mult  
   !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
   !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
   
@@ -1029,6 +1038,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
      transition_to_ground_ME = 0.d0 
      return
   end if 
+
   
   do ax = 1,Nsp-Abody
      a = jbas%parts(ax)
@@ -1041,7 +1051,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
         phase = (-1) ** ((ja-ji)/2)
         sm = sm + f_tensor_elem(i,a,Trans_op,jbas)*&
              f_tensor_elem(a,i,Qdag,jbas)*phase
-     end do 
+     end do
   end do 
 
   do ax = 1,Nsp-Abody
@@ -1074,7 +1084,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
         end do
      end do
   end do
-        
+
   transition_to_ground_ME = sm * (-1.d0)**(rank/2)
   !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
   !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
@@ -1789,10 +1799,139 @@ subroutine tensor_product(AA,BB,CC,jbas)
   ! do nothing
 end subroutine tensor_product
   
-  
+subroutine EOM_observables( ladder_ops, O1, trans, mom, eom_states , jbas)
+  implicit none
+
+  type(sq_op),dimension(:) :: ladder_ops
+  type(sq_op) :: O1
+  type(spd) :: jbas
+  type(eom_mgr) :: eom_states
+  type(obsv_mgr) :: trans,mom
+  integer :: q,Jin,Jout,Pin,Pout,in,out
+  logical :: to_ground
+  real(8) :: Mfi,strength_down,strength_up,moment,dcgi,dcgi00
+  real(8) :: E_in, E_out 
+  Mfi = dcgi00()
+  ! CALCULATE TRANSITIONS 
+  do q = 1, trans%num
+     to_ground = .false. 
+     read(trans%Jpi1(q)(1:1),'(I1)') Jin
+     
+     if (trans%Jpi1(q)(2:2) == '+' ) then
+        Pin = 0
+     else
+        Pin = 2
+     end if
+     IF ( trans%Jpi2(q) == 'GS' ) then
+        to_ground = .true.
+     else
+        read(trans%Jpi2(q)(1:1),'(I1)') Jout  
+        if (trans%Jpi2(q)(2:2) == '+' ) then
+           Pout = 0
+        else
+           Pout = 2
+        end if
+     end if
+     print*
+     print*, '============================================================================='
+     print*, '        E_in                E_out         B('&
+          //trans%oper//';'//trans%Jpi1(q)//' -> '//trans%Jpi2(q)//&
+          ')      B('//trans%oper//';'//trans%Jpi1(q)//' -> '//trans%Jpi2(q)//')' 
+     print*, '============================================================================='
+
+     If (to_Ground) then
+        Jin = 2* Jin 
+        do in = 1, size(ladder_ops)
+
+           IF ( ladder_ops(in)%rank .ne. Jin) cycle
+           IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+
+           Mfi = transition_to_ground_ME(O1,ladder_ops(in),jbas)
+           
+           strength_down = Mfi * Mfi /(ladder_ops(in)%rank+1.d0)
+           strength_up = Mfi * Mfi
+
+           E_in = ladder_ops(in)%E0
+           E_out = 0.d0
+           write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+           
+        end do
+       
+     else
+        
+        Jin = 2* Jin
+        Jout = 2* Jout
+        do In = 1, size(ladder_ops)
+
+           IF ( ladder_ops(in)%rank .ne. Jin) cycle
+           IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+
+           do out = 1, size(ladder_ops)
+
+              if (out==in) cycle ! not a transition
+              IF ( ladder_ops(out)%rank .ne. Jout) cycle
+              IF ( ladder_ops(out)%dpar .ne. Pout) cycle
+
+              Mfi = transition_ME(ladder_ops(out),O1,ladder_ops(in),jbas) 
+
+              if (ladder_ops(out)%E0 > ladder_ops(in)%E0) then 
+                 strength_down = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
+                 strength_up = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
+                 E_in = ladder_ops(out)%E0
+                 E_out = ladder_ops(in)%E0
+                 write(*,'(4(f19.12))') E_in,E_out,Strength_up,Strength_down           
+              else
+                 strength_down = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
+                 strength_up = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
+                 E_in = ladder_ops(in)%E0
+                 E_out = ladder_ops(out)%E0
+                 write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+              end if
 
 
-end module
+           end do
+        end do
+     end if
+     print*         
+  end do
+
+! CALCULATE MOMENTS 
+  do q = 1, mom%num
+
+     read(mom%Jpi1(q)(1:1),'(I1)') Jin
+     
+     if (trans%Jpi1(q)(2:2) == '+' ) then
+        Pin = 0
+     else
+        Pin = 2
+     end if
+     Jin = 2*Jin 
+     print*
+     print*, '======================================='
+     print*, '           E              <'//trans%oper//'>('//trans%Jpi1(q)//')'  
+     print*, '======================================='
+
+
+     do In = 1, size(ladder_ops) 
+
+        IF ( ladder_ops(in)%rank .ne. Jin) cycle
+        IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+
+        Mfi = transition_ME(ladder_ops(in),O1,ladder_ops(in),jbas)  
+        moment = Mfi * sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
+        E_in = ladder_ops(in)%E0
+        write(*,'(2(f19.12))') E_in,moment
+     end do
+     print* 
+  end do
+
+end subroutine EOM_observables
+   
+
+
+
+
+ end module
   
   
   
