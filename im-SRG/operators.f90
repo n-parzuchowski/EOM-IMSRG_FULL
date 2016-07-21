@@ -1245,33 +1245,36 @@ subroutine tensor_product(AA,BB,CC,jbas)
 
         sm1 = 0.d0 
 
-        do ax = 1, parts
-           a = jbas%parts(ax)
-           ja = jbas%jj(a)
+        ! do ax = 1, parts
+        !    a = jbas%parts(ax)
+        !    ja = jbas%jj(a)
+        !    if ( mod(jbas%ll(a)+jbas%ll(p1),2) .ne. 0) cycle
+        !    if ( jbas%itzp(a).ne.jbas%itzp(p1)) cycle           
 
-           sm1 = sm1 + f_tensor_elem(p1,a,AA,jbas) * f_tensor_elem(a,h1,BB,jbas) &
-                * (-1) ** ((rank_c + jp1 + jh1)/2) * d6ji(rank_a,rank_b,rank_c,jh1,jp1,ja)
+        !    sm1 = sm1 + f_tensor_elem(p1,a,AA,jbas) * f_tensor_elem(a,h1,BB,jbas) &
+        !         * (-1) ** ((rank_c + jp1 + jh1)/2) * d6ji(rank_a,rank_b,rank_c,jh1,jp1,ja)
 
-        end do
+        ! end do
 
-        sm2 = 0.d0 
+        ! sm2 = 0.d0 
 
-        do ix = 1, holes
-           i = jbas%holes(ix)
-           ji = jbas%jj(i)
+        ! do ix = 1, holes
+        !    i = jbas%holes(ix)
+        !    ji = jbas%jj(i)
+        !    if ( mod(jbas%ll(i)+jbas%ll(p1),2) .ne. 0) cycle
+        !    if ( jbas%itzp(i).ne.jbas%itzp(p1)) cycle           
+        !    sm2 = sm2 - f_tensor_elem(p1,i,BB,jbas) * f_tensor_elem(i,h1,AA,jbas) &
+        !         * (-1) ** ((rank_a + rank_b + jp1 + jh1)/2) * d6ji(rank_a,rank_b,rank_c,jp1,jh1,ji)
 
-           sm2 = sm2 - f_tensor_elem(p1,i,BB,jbas) * f_tensor_elem(i,h1,AA,jbas) &
-                * (-1) ** ((rank_a + rank_b + jp1 + jh1)/2) * d6ji(rank_a,rank_b,rank_c,jp1,jh1,ji)
+        ! end do
 
-        end do
-
-        sm = sm + sqrt(rank_c+1.d0) * (sm1+sm2) 
+        ! sm = sm + sqrt(rank_c+1.d0) * (sm1+sm2) 
         ! ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         ! !   1 + 2 -> 1
         ! ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        ! sm1 = 0.d0
-        ! sm2 = 0.d0 
+        sm1 = 0.d0
+        sm2 = 0.d0 
         ! do ix = 1,holes
         !    i = jbas%holes(ix)
         !    do ax = 1,parts
@@ -1288,41 +1291,43 @@ subroutine tensor_product(AA,BB,CC,jbas)
         ! !   2 + 2 -> 1
         ! ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         
-        ! do ix = 1, holes
-        !    i = jbas%holes(ix)
-        !    ji = jbas%jj(i)
+        do ix = 1, holes
+           i = jbas%holes(ix)
+           ji = jbas%jj(i)
 
-        !    J1min = abs(jp1-ji)
-        !    J1max = jp1+ji
+           J1min = abs(jp1-ji)
+           J1max = jp1+ji
 
-        !    J3min = abs(jh1-ji)
-        !    J3max = jh1+ji
+           J3min = abs(jh1-ji)
+           J3max = jh1+ji
 
-        !    do ax = 1, parts
-        !       a = jbas%parts(ax)
-        !       ja = jbas%jj(a)
+           do ax = 1, parts
+              a = jbas%parts(ax)
+              ja = jbas%jj(a)
 
-        !       do bx = ax,parts
-        !          b = jbas%parts(bx)
-        !          jb = jbas%jj(b)
+              do bx = ax,parts
+                 b = jbas%parts(bx)
+                 jb = jbas%jj(b)
 
-        !          J2min = max(abs(ja-jb),abs(J1-rank_a),abs(J3-rank_b))
-        !          J2max = max(ja+jb,J1+rank_a,J3+rank_b)
+                 J2min = max(abs(ja-jb),abs(J1-rank_a),abs(J3-rank_b))
+                 J2max = max(ja+jb,J1+rank_a,J3+rank_b)
 
-        !          do J1 = J1min,J1max,2
-        !             do J2 = J2min,J2max,2
-        !                do J3=J3min,J3max,2
+                 do J1 = J1min,J1max,2
+                    do J2 = J2min,J2max,2
+                       do J3=J3min,J3max,2
 
-        !                   sm = sm - d6ji(J3,J1,rank_c,jp1,jh1,ji) &
-        !                        * d6ji(rank_a,rank_b,rank_c,J3,J1,J2) &
-        !                        * tensor_elem(i,p1,a,b,J1,J2,AA,jbas) &
-        !                        * tensor_elem(a,b,h1,i,J2,J3,BB,jbas)
-        !                end do
-        !             end do
-        !          end do
-        !       end do
-        !    end do
-        ! end do
+                          sm = sm - d6ji(J3,J1,rank_c,jp1,jh1,ji) &
+                               * d6ji(rank_a,rank_b,rank_c,J3,J1,J2) &
+                               * tensor_elem(i,p1,a,b,J1,J2,AA,jbas) &
+                               * tensor_elem(a,b,h1,i,J2,J3,BB,jbas) &
+                               * sqrt((J1+1.0)*(J3+1.d0)*(rank_c+1.d0))
+                          
+                       end do
+                    end do
+                 end do
+              end do
+           end do
+        end do
 
         ! sm1 = 0.d0 
         ! do ax = 1, parts
@@ -1353,7 +1358,8 @@ subroutine tensor_product(AA,BB,CC,jbas)
         !                   sm1 = sm1 + d6ji(J3,J1,rank_c,jp1,jh1,ja) &
         !                        * d6ji(rank_b,rank_a,rank_c,J3,J1,J2) &
         !                        * tensor_elem(p1,a,i,j,J1,J2,BB,jbas) &
-        !                        * tensor_elem(i,j,h1,a,J2,J3,AA,jbas)
+        !                        * tensor_elem(i,j,h1,a,J2,J3,AA,jbas) &
+        !                        * sqrt((J1+1.0)*(J3+1.d0)*(rank_c+1.d0))
         !                end do
         !             end do
         !          end do
@@ -1363,7 +1369,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
         ! end do
                  
 
-        ! sm = sm + sm1*(-1)**((rank_a+rank_b+rank_c)/2) 
+        sm = sm + sm1*(-1)**((rank_a+rank_b+rank_c)/2) 
 
         CC%fph(p1x,h1x) = sm
         

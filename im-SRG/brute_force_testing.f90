@@ -259,6 +259,47 @@ subroutine construct_random_rankX(OP,HERM,jbas)
      
   end do
 
+end subroutine construct_random_rankX
+!============================================================
+!============================================================
+subroutine construct_delta_rankX(OP,HERM,jbas) 
+  implicit none 
+  
+  integer,intent(in) :: HERM
+  type(sq_op) :: OP 
+  type(spd) :: jbas
+  integer :: i,j,k,l,ji,jj,jk,jl,ig,jg
+  integer :: J1,J2,IX,JX,q,qx,rank,m
+  real(8) :: x,sm,dcgi
+
+  rank = OP%rank
+  OP%herm = HERM 
+
+  do ig = 1, OP%belowEF
+     i = jbas%holes(ig)
+     ji = jbas%jj(i)
+     sm = 0.d0
+     do m = -1*ji,ji,2
+        sm = sm + dcgi(ji,m,rank,0,ji,m)
+     end do
+     IF (ig == 1) then
+        print*,i, sm , sqrt(ji+1.d0)
+     end if 
+     OP%fhh(ig,ig) = sm/sqrt(ji+1.d0)
+!     OP%fhh(ig,ig) = (OP%herm+1)*OP%fhh(ig,ig)/2.d0      
+  end do
+
+  do ig = 1, OP%nsp- OP%belowEF
+     i = jbas%parts(ig)
+     ji = jbas%jj(i)
+     sm = 0.d0
+     do m = -1*ji,ji,2
+        sm = sm + dcgi(ji,m,rank,0,ji,m)
+     end do 
+     OP%fpp(ig,ig) = sm/sqrt(ji+1.d0)
+ !    OP%fpp(ig,ig) = (OP%herm+1)*OP%fpp(ig,ig)/2.d0 
+  end do 
+
 end subroutine
 !============================================================
 !============================================================
@@ -918,6 +959,7 @@ subroutine test_tensor_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpa
   
   BB%fpp = 0.d0
   BB%fhh = 0.d0
+
   
   do q = 1, BB%nblocks
      BB%tblck(q)%lam(1) = 1
@@ -928,33 +970,31 @@ subroutine test_tensor_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpa
      end do 
   end do
        
-
   do q = 1, OUT%nblocks
      OUT%tblck(q)%lam(1) = 1
   end do
   OUT%herm = 1 
   
   print*, 'TESTING TENSOR PRODUCT' 
-
   t1 = omp_get_wtime()
   call tensor_product(AA,BB,OUT,jbas) 
   t2 = omp_get_wtime()  
   print*, 'TIME:',t2-t1
 
   
-  do a =  1, jbas%total_orbits
+  do a =  7, jbas%total_orbits
      if (jbas%con(a) == 1) cycle
      do b = 1, jbas%total_orbits
         if (jbas%con(b) == 0) cycle
 
-        val = EOM_tensor_prod_1body(AA,BB,a,b,rank_c,jbas) 
+        val = EOM_tensor_prod_1body(AA,BB,a,b,rank_c,jbas)
         if (abs(val-f_tensor_elem(a,b,OUT,jbas)) > 1e-10) then
            print*, 'at: ',a,b
-           print*, val, f_tensor_elem(a,b,OUT,jbas)
+           print*, val, f_tensor_elem(a,b,OUT,jbas),f_tensor_elem(a,b,OUT,jbas)/val  
            STOP 'ONE BODY FAILURE'  
         end if
 
-        print*, 'success:', a,b
+        print*, 'success:', a,b , val 
      end do
   end do
        
@@ -1762,11 +1802,13 @@ real(8) function EOM_tensor_prod_1body(AA,BB,p,h,rank_c,jbas)
   
   integer :: a,b,i,j,k,rank,J1,J2,ax,ix,p,h,mp,ma,mh,mi,rank_c
   integer :: ja,jb,jj,ji,jk,Jtot,JTM,totorb,jp,jh,jm,holes,parts
+  integer :: rank_a,rank_b,mu_a,mu_b,mu_c,bx,jx,mb,mj
   type(spd) :: jbas
   type(sq_op) :: AA,BB 
   real(8) :: sm ,d6ji,sx,sm1,sm2 ,dcgi
-  !ANUS  
-  rank = BB%rank
+
+  rank_b = BB%rank
+  rank_a = AA%rank
   sm = 0.d0 
   JTM = jbas%jtotal_max*2
   totorb = jbas%total_orbits
@@ -1775,35 +1817,124 @@ real(8) function EOM_tensor_prod_1body(AA,BB,p,h,rank_c,jbas)
 
   jp = jbas%jj(p) 
   jh = jbas%jj(h) 
-  jm = min(jp,jh) 
 
-  do mh = -1*jm,jm,2
-     mp = mh 
-     sm1 = 0.d0 
-     do ax = 1, parts
-        a = jbas%parts(ax)
-        ja = jbas%jj(a) 
-        do ma = -1*ja,ja,2
-           
-           sm1 = sm1 + f_tensor_mscheme(p,mp,a,ma,AA,jbas) * &
-                f_tensor_mscheme(a,ma,h,mh,BB,jbas)
-           print*, sm1,f_tensor_mscheme(p,mp,a,ma,AA,jbas),f_tensor_mscheme(a,ma,h,mh,BB,jbas),p,mp,a,ma,h,mh
+  do mh = -1*jh,jh,2
+     do mp = -1*jp,jp,2
+        do mu_c = -1*rank_c,rank_c 
+
+           do mu_a = -1*rank_a,rank_a,2
+              do mu_b = -1*rank_b,rank_b,2
+                 sm1 = 0.d0
+
+                 ! do ax = 1, parts
+                 !    a = jbas%parts(ax)
+                 !    ja = jbas%jj(a) 
+                 !    do ma = -1*ja,ja,2
+                       
+                 !       sm1 = sm1 + f_tensor_mscheme(p,mp,a,ma,mu_a,AA,jbas) * &
+                 !            f_tensor_mscheme(a,ma,h,mh,mu_b,BB,jbas)
+                 !    end do
+                    
+                 ! end do
+                 
+                 ! do ix = 1, holes
+                 !    i = jbas%holes(ix)
+                 !    ji = jbas%jj(i)
+                    
+                 !    do mi = -1*ji,ji,2
+                 !       sm1 = sm1 - f_tensor_mscheme(p,mp,i,mi,mu_b,BB,jbas) * &
+                 !            f_tensor_mscheme(i,mi,h,mh,mu_a,AA,jbas)  
+                
+                 !    end do
+                 ! end do
+
+                 ! do ax = 1, parts
+                 !    a = jbas%parts(ax)
+                 !    ja = jbas%jj(a) 
+                 !    do ma = -1*ja,ja,2
+
+                 !       do ix = 1, holes
+                 !          i = jbas%holes(ix)
+                 !          ji = jbas%jj(i)
+                          
+                 !          do mi = -1*ji,ji,2
+
+                 !             sm1 = sm1 + f_Tensor_mscheme(a,ma,i,mi,mu_b,BB,jbas)*&
+                 !                  tensor_mscheme(p,mp,i,mi,h,mh,a,ma,mu_a,AA,jbas)
+
+                 !             sm1 = sm1 + f_Tensor_mscheme(i,mi,a,ma,mu_a,AA,jbas)*&
+                 !                  tensor_mscheme(p,mp,a,ma,h,mh,i,mi,mu_b,BB,jbas)
+                 !          end do
+                 !       end do
+                 !    end do
+                 ! end do
+
+
+                 !cock bagel 
+
+                 do ax = 1, parts
+                    a = jbas%parts(ax)
+                    ja = jbas%jj(a) 
+                    do ma = -1*ja,ja,2
+
+                       do bx = 1, parts
+                          b = jbas%parts(bx)
+                          jb = jbas%jj(b) 
+                          do mb = -1*jb,jb,2
+
+                             do ix = 1, holes
+                                i = jbas%holes(ix)
+                                ji = jbas%jj(i)
+                          
+                                do mi = -1*ji,ji,2
+
+                                   sm1 = sm1 + tensor_mscheme(i,mi,p,mp,a,ma,b,mb,mu_a,AA,jbas)*&
+                                        tensor_mscheme(a,ma,b,mb,i,mi,h,mh,mu_b,BB,jbas) *0.5
+
+                                end do
+                             end do
+                          end do
+                       end do
+                    end do
+                 end do
+                             
+                 ! do ix = 1, holes
+                 !    i = jbas%holes(ix)
+                 !    ji = jbas%jj(i)
+
+                 !    do mi = -1*ji,ji,2
+
+                 !       do jx = 1, holes
+                 !          j = jbas%holes(jx)
+                 !          jj = jbas%jj(j)
+
+                 !          do mj = -1*jj,jj,2
+
+                 !             do ax = 1, parts
+                 !                a = jbas%parts(ax)
+                 !                ja = jbas%jj(a) 
+                 !                do ma = -1*ja,ja,2
+
+                 !                   sm1 = sm1 - tensor_mscheme(a,ma,p,mp,i,mi,j,mj,mu_b,BB,jbas)*&
+                 !                        tensor_mscheme(i,mi,j,mj,a,ma,h,mh,mu_a,AA,jbas) *0.5
+
+                 !                end do
+                 !             end do
+                 !          end do
+                 !       end do
+                 !    end do
+                 ! end do
+                             
+                                   
+                 sm = sm + sm1 * dcgi(jh,mh,rank_c,mu_c,jp,mp) &
+                            *dcgi(rank_a,mu_a,rank_b,mu_b,rank_c,mu_c)/sqrt(jp+1.d0)  
+              end do
+           end do
         end do
-     end do 
-
-     do ix = 1, holes
-        i = jbas%holes(ix)
-        ji = jbas%jj(i)
-
-        do mi = -1*ji,ji,2
-           sm1 = sm1 - f_tensor_mscheme(p,mp,i,mi,BB,jbas) * &
-                f_tensor_mscheme(i,mi,h,mh,AA,jbas)
-        end do
-     end do 
-
-     sm = sm + sm1*sqrt(rank_c+1.d0)*(-1)**((jh-mh)/2) * dcgi(jh,mh,jp,-1*mp,rank_c,0) 
-     
+     end do
   end do
+     
+     
   
   EOM_tensor_prod_1body = sm 
   

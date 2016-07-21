@@ -4684,7 +4684,7 @@ real(8) function V_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas)
 end function V_mscheme
 !==================================================================
 !==================================================================
-real(8) function f_tensor_mscheme(a,ma,b,mb,Op,jbas)
+real(8) function f_tensor_mscheme(a,ma,b,mb,mu,Op,jbas)
   implicit none
 
   integer :: a,ma,b,mb,ja,jb,rank,mu
@@ -4695,13 +4695,16 @@ real(8) function f_tensor_mscheme(a,ma,b,mb,Op,jbas)
   ja = jbas%jj(a)
   jb = jbas%jj(b)
   rank = op%rank
-  mu = ma - mb 
-  f_tensor_mscheme = dcgi(jb,rank,ja,mb,mu,ma)&
-       /sqrt(jbas%jj(a)+1.d0)*f_tensor_elem(a,b,Op,jbas)
+  if (mu+mb.ne.ma) then
+     f_tensor_mscheme= 0.d0 
+  else
+     f_tensor_mscheme = dcgi(jb,mb,rank,mu,ja,ma)&
+          /sqrt(ja+1.d0)*f_tensor_elem(a,b,Op,jbas)
+  end if
 end function f_tensor_mscheme
 !==================================================================
 !==================================================================
-real(8) function Tensor_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas) 
+real(8) function Tensor_mscheme(a,ma,b,mb,c,mc,d,md,MU,Op,jbas) 
   implicit none
   
   integer :: a,ma,b,mb,c,mc,d,md,J1min,J1max,mu,rank
@@ -4713,7 +4716,10 @@ real(8) function Tensor_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas)
   M1 = ma+mb 
   M2 = mc+md 
   rank = Op%rank
-  MU = M1-M2
+  if (MU .ne. M1-M2) then
+     Tensor_mscheme = 0.d0
+     return
+  end if
   
   sm = 0.d0 
   
