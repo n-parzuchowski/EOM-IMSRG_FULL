@@ -1448,86 +1448,87 @@ subroutine tensor_product(AA,BB,CC,jbas)
               if (p1==p2) pre = sqrt(0.5d0)
               if (h1==h2) pre = pre*sqrt(0.5d0)
               sm = 0.d0 
+
               do ax = 1, parts
                  a = jbas%parts(ax)
                  ja = jbas%jj(a)
 
-                 ! sm1 = 0.d0
-                 ! if (jbas%itzp(a)== tp1 ) then
-                 !    if (mod(jbas%ll(a)+par_a+lp1,2)==0) then 
-                 !       if (triangle(ja,jp1,rank_a) )then
+                 sm1 = 0.d0
+                 if (jbas%itzp(a)== tp1 ) then
+                    if (mod(jbas%ll(a)+par_a+lp1,2)==0) then 
+                       if (triangle(ja,jp1,rank_a) )then
                           
-                 !          J3min = max(abs(ja - jp2),abs(rank_a-J1),abs(rank_b-J2))
-                 !          J3max =  min(ja + jp2,rank_a+J1,rank_b+J2)
+                          J3min = max(abs(ja - jp2),abs(rank_a-J1),abs(rank_b-J2))
+                          J3max =  min(ja + jp2,rank_a+J1,rank_b+J2)
 
-                 !          do J3 = J3min,J3max,2 
+                          do J3 = J3min,J3max,2 
 
-                 !             sm1 = sm1 + (-1) ** (J3/2) * d6ji(J3,J1,rank_a,jp1,ja,jp2) &
-                 !                  * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(p1,a,AA,jbas) &
-                 !                  * tensor_elem(a,p2,h1,h2,J3,J2,BB,jbas)* sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
-                 !           end do
+                             sm1 = sm1 + (-1) ** (J3/2) * d6ji(J3,J1,rank_a,jp1,ja,jp2) &
+                                  * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(p1,a,AA,jbas) &
+                                  * tensor_elem(a,p2,h1,h2,J3,J2,BB,jbas)* sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+                           end do
                           
-                 !          sm = sm + (-1) ** ((jp1+jp2+J1+J2+rank_a+rank_c)/2) * sm1 
+                          sm = sm + (-1) ** ((jp1+jp2+J1+J2+rank_a+rank_c)/2) * sm1 
                          
-                 !       end if
-                 !    end if
-                 ! end if
+                       end if
+                    end if
+                 end if
 
-                 ! sm1 = 0.d0
-                 ! if (jbas%itzp(a)== tp2 ) then
-                 !    if (mod(jbas%ll(a)+par_a+lp2,2)==0) then 
-                 !       if (triangle(ja,jp2,rank_a) )then
+                 sm1 = 0.d0
+                 if (jbas%itzp(a)== tp2 ) then
+                    if (mod(jbas%ll(a)+par_a+lp2,2)==0) then 
+                       if (triangle(ja,jp2,rank_a) )then
                           
-                 !          J3min = max(abs(ja - jp1),abs(rank_a-J1),abs(rank_b-J2))
-                 !          J3max = min(ja + jp1,rank_a+J1,rank_b+J2)
+                          J3min = max(abs(ja - jp1),abs(rank_a-J1),abs(rank_b-J2))
+                          J3max = min(ja + jp1,rank_a+J1,rank_b+J2)
 
-                 !          do J3 = J3min,J3max,2 
+                          do J3 = J3min,J3max,2 
 
-                 !             sm1 = sm1 - (-1) ** (J3/2) * d6ji(J3,J1,rank_a,jp2,ja,jp1) &
-                 !                  * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(p2,a,AA,jbas) &
-                 !                  * tensor_elem(a,p1,h1,h2,J3,J2,BB,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
+                             sm1 = sm1 - (-1) ** (J3/2) * d6ji(J3,J1,rank_a,jp2,ja,jp1) &
+                                  * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(p2,a,AA,jbas) &
+                                  * tensor_elem(a,p1,h1,h2,J3,J2,BB,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
 
-                 !          end do
-                 !          sm = sm + (-1) ** ((J2+rank_a+rank_c)/2) * sm1 
-                 !       end if
-                 !    end if
-                 ! end if
+                          end do
+                          sm = sm + (-1) ** ((J2+rank_a+rank_c)/2) * sm1 
+                       end if
+                    end if
+                 end if
 
-                 ! sm1 = 0.d0 
-                 ! if (jbas%itzp(a)== th1 ) then
-                 !    if (mod(jbas%ll(a)+par_b+lh1,2)==0) then 
-                 !       if (triangle(ja,jh1,rank_b) )then
+                 sm1 = 0.d0 
+                 if (jbas%itzp(a)== th1 ) then
+                    if (mod(jbas%ll(a)+par_b+lh1,2)==0) then 
+                       if (triangle(ja,jh1,rank_b) )then
                           
-                 !          J3min = max(abs(ja - jh2),abs(rank_a-J1),abs(rank_b-J2))
-                 !          J3max = min(ja + jh2,rank_a+J1,rank_b+J2)
+                          J3min = max(abs(ja - jh2),abs(rank_a-J1),abs(rank_b-J2))
+                          J3max = min(ja + jh2,rank_a+J1,rank_b+J2)
 
-                 !          do J3 = J3min,J3max,2
-                 !             sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh1,ja,jh2)&
-                 !                  * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(a,h1,BB,jbas)&
-                 !                  * tensor_elem(p1,p2,h2,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
-                 !          end do
-                 !          sm = sm + sm1 * (-1)**((J1+rank_a)/2) 
-                 !       end if
-                 !    end if
-                 ! end if
+                          do J3 = J3min,J3max,2
+                             sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh1,ja,jh2)&
+                                  * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(a,h1,BB,jbas)&
+                                  * tensor_elem(p1,p2,h2,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+                          end do
+                          sm = sm + sm1 * (-1)**((J1+rank_a)/2) 
+                       end if
+                    end if
+                 end if
                  
-                 ! sm1 = 0.d0 
-                 ! if (jbas%itzp(a)== th2 ) then
-                 !    if (mod(jbas%ll(a)+par_b+lh2,2)==0) then 
-                 !       if (triangle(ja,jh2,rank_b) )then
+                 sm1 = 0.d0 
+                 if (jbas%itzp(a)== th2 ) then
+                    if (mod(jbas%ll(a)+par_b+lh2,2)==0) then 
+                       if (triangle(ja,jh2,rank_b) )then
                           
-                 !          J3min = max(abs(ja - jh1),abs(rank_a-J1),abs(rank_b-J2))
-                 !          J3max = min(ja + jh1,rank_a+J1,rank_b+J2)
+                          J3min = max(abs(ja - jh1),abs(rank_a-J1),abs(rank_b-J2))
+                          J3max = min(ja + jh1,rank_a+J1,rank_b+J2)
 
-                 !          do J3 = J3min,J3max,2
-                 !             sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh2,ja,jh1)&
-                 !                  * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(a,h2,BB,jbas)&
-                 !                  * tensor_elem(p1,p2,h1,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
-                 !          end do
-                 !          sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_a)/2) 
-                 !       end if
-                 !    end if
-                 ! end if
+                          do J3 = J3min,J3max,2
+                             sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh2,ja,jh1)&
+                                  * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(a,h2,BB,jbas)&
+                                  * tensor_elem(p1,p2,h1,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
+                          end do
+                          sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_a)/2) 
+                       end if
+                    end if
+                 end if
 
                  sm1 = 0.d0 
                  do bx = ax, parts 
@@ -1552,81 +1553,81 @@ subroutine tensor_product(AA,BB,CC,jbas)
                  i = jbas%holes(ix)
                  ji = jbas%jj(i)
 
-              !    sm1 = 0.d0
-              !    if (jbas%itzp(i)== th1 ) then
-              !       if (mod(jbas%ll(i)+par_a+lh1,2)==0) then 
-              !          if (triangle(ji,jh1,rank_a) )then
+                 sm1 = 0.d0
+                 if (jbas%itzp(i)== th1 ) then
+                    if (mod(jbas%ll(i)+par_a+lh1,2)==0) then 
+                       if (triangle(ji,jh1,rank_a) )then
                           
-              !             J3min = max(abs(ji - jh2),abs(rank_a-J2),abs(rank_b-J1))
-              !             J3max = min(ji + jh2,rank_a+J2,rank_b+J1)
+                          J3min = max(abs(ji - jh2),abs(rank_a-J2),abs(rank_b-J1))
+                          J3max = min(ji + jh2,rank_a+J2,rank_b+J1)
 
-              !             do J3 = J3min,J3max,2 
+                          do J3 = J3min,J3max,2 
 
-              !                sm1 = sm1 + (-1) ** (J3/2) * d6ji(J3,J2,rank_a,jh1,ji,jh2) &
-              !                     * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(i,h1,AA,jbas) &
-              !                     * tensor_elem(p1,p2,h2,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+                             sm1 = sm1 + (-1) ** (J3/2) * d6ji(J3,J2,rank_a,jh1,ji,jh2) &
+                                  * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(i,h1,AA,jbas) &
+                                  * tensor_elem(p1,p2,h2,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
 
-              !             end do
-              !             sm = sm + (-1) ** ((J1+rank_b)/2) * sm1 
-              !          end if
-              !       end if
-              !    end if
+                          end do
+                          sm = sm + (-1) ** ((J1+rank_b)/2) * sm1 
+                       end if
+                    end if
+                 end if
 
-              !    sm1 = 0.d0
-              !    if (jbas%itzp(i)== th2 ) then
-              !       if (mod(jbas%ll(i)+par_a+lh2,2)==0) then 
-              !          if (triangle(ji,jh2,rank_a) )then
+                 sm1 = 0.d0
+                 if (jbas%itzp(i)== th2 ) then
+                    if (mod(jbas%ll(i)+par_a+lh2,2)==0) then 
+                       if (triangle(ji,jh2,rank_a) )then
                           
-              !             J3min = max(abs(ji - jh1),abs(rank_a-J2),abs(rank_b-J1))
-              !             J3max = min(ji + jh1,rank_a+J2,rank_b+J1)
+                          J3min = max(abs(ji - jh1),abs(rank_a-J2),abs(rank_b-J1))
+                          J3max = min(ji + jh1,rank_a+J2,rank_b+J1)
 
-              !             do J3 = J3min,J3max,2 
+                          do J3 = J3min,J3max,2 
 
-              !                sm1 = sm1 - (-1) ** (J3/2) * d6ji(J3,J2,rank_a,jh2,ji,jh1) &
-              !                     * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(i,h2,AA,jbas) &
-              !                     * tensor_elem(p1,p2,h1,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+                             sm1 = sm1 - (-1) ** (J3/2) * d6ji(J3,J2,rank_a,jh2,ji,jh1) &
+                                  * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(i,h2,AA,jbas) &
+                                  * tensor_elem(p1,p2,h1,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
 
-              !             end do
-              !             sm = sm + (-1) ** ((jh1+jh2+J1+J2+rank_b)/2) * sm1 
-              !          end if
-              !       end if
-              !    end if
+                          end do
+                          sm = sm + (-1) ** ((jh1+jh2+J1+J2+rank_b)/2) * sm1 
+                       end if
+                    end if
+                 end if
                
-              !    sm1 = 0.d0 
-              !    if (jbas%itzp(i)== tp1 ) then
-              !       if (mod(jbas%ll(i)+par_b+lp1,2)==0) then 
-              !          if (triangle(ji,jp1,rank_b) )then
+                 sm1 = 0.d0 
+                 if (jbas%itzp(i)== tp1 ) then
+                    if (mod(jbas%ll(i)+par_b+lp1,2)==0) then 
+                       if (triangle(ji,jp1,rank_b) )then
                           
-              !             J3min = max(abs(ji - jp2),abs(rank_a-J2),abs(rank_b-J1))
-              !             J3max = min(ji + jp2,rank_a+J2,rank_b+J1)
+                          J3min = max(abs(ji - jp2),abs(rank_a-J2),abs(rank_b-J1))
+                          J3max = min(ji + jp2,rank_a+J2,rank_b+J1)
 
-              !             do J3 = J3min,J3max,2
-              !                sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp1,ji,jp2)&
-              !                     * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(p1,i,BB,jbas)&
-              !                     * tensor_elem(i,p2,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
-              !             end do
-              !             sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_b+rank_c)/2) 
-              !          end if
-              !       end if
-              !    end if
+                          do J3 = J3min,J3max,2
+                             sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp1,ji,jp2)&
+                                  * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(p1,i,BB,jbas)&
+                                  * tensor_elem(i,p2,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+                          end do
+                          sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_b+rank_c)/2) 
+                       end if
+                    end if
+                 end if
                  
-              !    sm1 = 0.d0 
-              !    if (jbas%itzp(i)== tp2 ) then
-              !       if (mod(jbas%ll(i)+par_b+lp2,2)==0) then 
-              !          if (triangle(ji,jp2,rank_b) )then
+                 sm1 = 0.d0 
+                 if (jbas%itzp(i)== tp2 ) then
+                    if (mod(jbas%ll(i)+par_b+lp2,2)==0) then 
+                       if (triangle(ji,jp2,rank_b) )then
                           
-              !             J3min = max(abs(ji - jp1),abs(rank_a-J2),abs(rank_b-J1))
-              !             J3max = min(ji + jp1,rank_a+J2,rank_b+J1)
+                          J3min = max(abs(ji - jp1),abs(rank_a-J2),abs(rank_b-J1))
+                          J3max = min(ji + jp1,rank_a+J2,rank_b+J1)
 
-              !             do J3 = J3min,J3max,2
-              !                sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp2,ji,jp1)&
-              !                     * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(p2,i,BB,jbas)&
-              !                     * tensor_elem(i,p1,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
-              !             end do
-              !             sm = sm + sm1 * (-1)**((J2+rank_b+rank_c)/2) 
-              !          end if
-              !       end if
-              !    end if
+                          do J3 = J3min,J3max,2
+                             sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp2,ji,jp1)&
+                                  * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(p2,i,BB,jbas)&
+                                  * tensor_elem(i,p1,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
+                          end do
+                          sm = sm + sm1 * (-1)**((J2+rank_b+rank_c)/2) 
+                       end if
+                    end if
+                 end if
                  
                  sm1 = 0.d0 
                  do jx = ix, holes
@@ -1648,171 +1649,182 @@ subroutine tensor_product(AA,BB,CC,jbas)
               end do
 
 
-              ! J3min = abs(jp1-jh1)
-              ! J3max = jp1 + jh1
-              ! sm2 = 0.d0 
-              ! do J3 = J3min,J3max
-              !    J5min = max(abs(jp2-jh2),abs(rank_c-J3))
-              !    J5max = min(jp2+jh2,rank_c+J3)
+              J3min = abs(jp1-jh1)
+              J3max = jp1 + jh1
+              sm2 = 0.d0 
+              do J3 = J3min,J3max,2
+                 J5min = max(abs(jp2-jh2),abs(rank_c-J3))
+                 J5max = min(jp2+jh2,rank_c+J3)
 
-              !    do J5 = J5min,J5max,2
+                 do J5 = J5min,J5max,2
 
-              !       J4min = max(abs(ja-ji),abs(J3-rank_a),abs(J5-rank_b))
-              !       J4min = min(ja+ji,J3+rank_a,J5+rank_b)
-              !       do J4 = J4min,J4max,2
-              !          sm1 = 0.d0 
-              !          do ax = 1, parts
-              !             a= jbas%parts(ax)
-              !             ja = jbas%jj(a)
+                    sm1 = 0.d0 
+                    do ax = 1, parts
+                       a= jbas%parts(ax)
+                       ja = jbas%jj(a)
 
-              !             do ix = 1, holes
-              !                i= jbas%holes(ix)
-              !                ji = jbas%jj(i)
+                       do ix = 1, holes
+                          i= jbas%holes(ix)
+                          ji = jbas%jj(i)
 
-              !                sm1 = sm1 + Vgenpandya(p1,h1,a,i,J3,J4,AA,jbas) &
-              !                     * Vgenpandya(a,i,h2,p2,J4,J5,BB,jbas)
+                          J4min = max(abs(ja-ji),abs(J3-rank_a),abs(J5-rank_b))
+                          J4max = min(ja+ji,J3+rank_a,J5+rank_b)
+                          
+                          do J4 = J4min,J4max,2
 
-              !             end do
-              !          end do
-                       
-              !          sm2 = sm2 + sqrt((J3+1.d0)/(J5+1.d0)) *(-1)**((J3+J5)/2) &
-              !               * coef9(jp2,jh2,J5,jp1,jh1,J3,J1,J2,rank_c) &
-              !               * d6ji(rank_a,rank_b,rank_c,J5,J3,J4) &
-              !               * sm1
-              !       end do
-              !    end do
-              ! end do
-              ! sm = sm + sm2*(-1)**((J1+J2)/2) * sqrt((rank_c+1.d0)*&
-              !      (J1+1.d0)*(J2+1.d0)) 
+                             sm1 = sm1 + Vgenpandya(p1,h1,a,i,J3,J4,AA,jbas) &
+                                  * Vgenpandya(a,i,h2,p2,J4,J5,BB,jbas) &
+                                  * d6ji(rank_a,rank_b,rank_c,J5,J3,J4)
+                          end do
+                       end do
+                    end do
+
+                    sm2 = sm2 + sqrt((J3+1.d0)*(J5+1.d0)) *(-1)**(J3/2) &
+                         * coef9(jp1,jh1,J3,jp2,jh2,J5,J1,J2,rank_c) &
+                         * sm1
+
+
+                 end do
+              end do
+              sm = sm + sm2*(-1)**((jh2-jp2+rank_c)/2) * sqrt((rank_c+1.d0)*&
+                   (J1+1.d0)*(J2+1.d0)) 
            
                     
-
-
-
-
-              ! J3min = abs(jp2-jh1)
-              ! J3max = jp2 + jh1
-              ! sm2 = 0.d0 
-              ! do J3 = J3min,J3max
-              !    J5min = max(abs(jp1-jh2),abs(rank_c-J3))
-              !    J5max = min(jp1+jh2,rank_c+J3)
-
-              !    do J5 = J5min,J5max,2
-
-              !       J4min = max(abs(ja-ji),abs(J3-rank_a),abs(J5-rank_b))
-              !       J4min = min(ja+ji,J3+rank_a,J5+rank_b)
-              !       do J4 = J4min,J4max,2
-              !          sm1 = 0.d0 
-              !          do ax = 1, parts
-              !             a= jbas%parts(ax)
-              !             ja = jbas%jj(a)
-
-              !             do ix = 1, holes
-              !                i= jbas%holes(ix)
-              !                ji = jbas%jj(i)
-
-              !                sm1 = sm1 + Vgenpandya(p2,h1,a,i,J3,J4,AA,jbas) &
-              !                     * Vgenpandya(a,i,h2,p1,J4,J5,BB,jbas)
-
-              !             end do
-              !          end do
-                       
-              !          sm2 = sm2 + sqrt((J3+1.d0)/(J5+1.d0)) *(-1)**((J3+J5)/2) &
-              !               * coef9(jp1,jh2,J5,jp2,jh1,J3,J1,J2,rank_c) &
-              !               * d6ji(rank_a,rank_b,rank_c,J5,J3,J4) &
-              !               * sm1
-              !       end do
-              !    end do
-              ! end do
-              ! sm = sm - sm2*(-1)**((jp1+jp2+J2)/2) * sqrt((rank_c+1.d0)*&
-              !      (J1+1.d0)*(J2+1.d0)) 
-           
-                    
-
-
-              ! J3min = abs(jp2-jh2)
-              ! J3max = jp2 + jh2
-              ! sm2 = 0.d0 
-              ! do J3 = J3min,J3max
-              !    J5min = max(abs(jp1-jh1),abs(rank_c-J3))
-              !    J5max = min(jp1+jh1,rank_c+J3)
-
-              !    do J5 = J5min,J5max,2
-
-              !       J4min = max(abs(ja-ji),abs(J3-rank_a),abs(J5-rank_b))
-              !       J4min = min(ja+ji,J3+rank_a,J5+rank_b)
-              !       do J4 = J4min,J4max,2
-              !          sm1 = 0.d0 
-              !          do ax = 1, parts
-              !             a= jbas%parts(ax)
-              !             ja = jbas%jj(a)
-
-              !             do ix = 1, holes
-              !                i= jbas%holes(ix)
-              !                ji = jbas%jj(i)
-
-              !                sm1 = sm1 + Vgenpandya(p2,h2,a,i,J3,J4,AA,jbas) &
-              !                     * Vgenpandya(a,i,h1,p1,J4,J5,BB,jbas)
-
-              !             end do
-              !          end do
-                       
-              !          sm2 = sm2 + sqrt((J3+1.d0)/(J5+1.d0)) *(-1)**((J3+J5)/2) &
-              !               * coef9(jp1,jh1,J5,jp2,jh2,J3,J1,J2,rank_c) &
-              !               * d6ji(rank_a,rank_b,rank_c,J5,J3,J4) &
-              !               * sm1
-              !       end do
-              !    end do
-              ! end do
-              ! sm = sm + sm2*(-1)**((jp1+jp2+jh1+jh2)/2) * sqrt((rank_c+1.d0)*&
-              !      (J1+1.d0)*(J2+1.d0)) 
-
-              ! J3min = abs(jp1-jh2)
-              ! J3max = jp1 + jh2
-              ! sm2 = 0.d0 
-              ! do J3 = J3min,J3max
-              !    J5min = max(abs(jp2-jh1),abs(rank_c-J3))
-              !    J5max = min(jp2+jh1,rank_c+J3)
-
-              !    do J5 = J5min,J5max,2
-
-              !       J4min = max(abs(ja-ji),abs(J3-rank_a),abs(J5-rank_b))
-              !       J4min = min(ja+ji,J3+rank_a,J5+rank_b)
-              !       do J4 = J4min,J4max,2
-              !          sm1 = 0.d0 
-              !          do ax = 1, parts
-              !             a= jbas%parts(ax)
-              !             ja = jbas%jj(a)
-
-              !             do ix = 1, holes
-              !                i= jbas%holes(ix)
-              !                ji = jbas%jj(i)
-
-              !                sm1 = sm1 + Vgenpandya(p1,h2,a,i,J3,J4,AA,jbas) &
-              !                     * Vgenpandya(a,i,h1,p2,J4,J5,BB,jbas)
-
-              !             end do
-              !          end do
-                       
-              !          sm2 = sm2 + sqrt((J3+1.d0)/(J5+1.d0)) *(-1)**((J3+J5)/2) &
-              !               * coef9(jp2,jh1,J5,jp1,jh2,J3,J1,J2,rank_c) &
-              !               * d6ji(rank_a,rank_b,rank_c,J5,J3,J4) &
-              !               * sm1
-              !       end do
-              !    end do
-              ! end do
-              ! sm = sm - sm2*(-1)**((J1+jh1+jh2)/2) * sqrt((rank_c+1.d0)*&
-              !      (J1+1.d0)*(J2+1.d0)) 
-           
 
 
               
+              
+              J3min = abs(jp2-jh1)
+              J3max = jp2 + jh1
+              sm2 = 0.d0 
+              do J3 = J3min,J3max,2
+                 J5min = max(abs(jp1-jh2),abs(rank_c-J3))
+                 J5max = min(jp1+jh2,rank_c+J3)
+
+                 do J5 = J5min,J5max,2
+                    sm1 = 0.d0 
+                    do ax = 1, parts
+                       a= jbas%parts(ax)
+                       ja = jbas%jj(a)
+
+                       do ix = 1, holes
+                          i= jbas%holes(ix)
+                          ji = jbas%jj(i)
+
+                          J4min = max(abs(ja-ji),abs(J3-rank_a),abs(J5-rank_b))
+                          J4max = min(ja+ji,J3+rank_a,J5+rank_b)
+                          do J4 = J4min,J4max,2
+
+
+                             sm1 = sm1 + Vgenpandya(p2,h1,a,i,J3,J4,AA,jbas) &
+                                  * Vgenpandya(a,i,h2,p1,J4,J5,BB,jbas) &
+                                  * d6ji(rank_a,rank_b,rank_c,J5,J3,J4)
+
+                          end do
+                       end do
+                    end do
+                    sm2 = sm2 + sqrt((J3+1.d0)*(J5+1.d0)) *(-1)**(J3/2) &
+                         * coef9(jp2,jh1,J3,jp1,jh2,J5,J1,J2,rank_c) &
+                         * sm1
+
+                 end do
+              end do
+              
+              sm = sm - sm2*(-1)**((jh2+jp2+J1+rank_c)/2) * sqrt((rank_c+1.d0)*&
+                   (J1+1.d0)*(J2+1.d0)) 
+
+
+
+
+              J3min = abs(jp2-jh2)
+              J3max = jp2 + jh2
+              sm2 = 0.d0 
+              do J3 = J3min,J3max,2
+                 J5min = max(abs(jp1-jh1),abs(rank_c-J3))
+                 J5max = min(jp1+jh1,rank_c+J3)
+
+                 do J5 = J5min,J5max,2
+
+                    sm1 = 0.d0
+                    do ax = 1, parts
+                       a= jbas%parts(ax)
+                       ja = jbas%jj(a)
+
+                       do ix = 1, holes
+                          i= jbas%holes(ix)
+                          ji = jbas%jj(i)
+
+                          J4min = max(abs(ja-ji),abs(J3-rank_a),abs(J5-rank_b))
+                          J4max = min(ja+ji,J3+rank_a,J5+rank_b)
+
+                          do J4 = J4min,J4max,2
+                             sm1 = sm1 + Vgenpandya(p2,h2,a,i,J3,J4,AA,jbas) &
+                                  * Vgenpandya(a,i,h1,p1,J4,J5,BB,jbas) &
+                                  * d6ji(rank_a,rank_b,rank_c,J5,J3,J4) 
+
+                          end do
+                       end do
+                    end do
+
+                    sm2 = sm2 + sqrt((J3+1.d0)*(J5+1.d0)) *(-1)**(J3/2) &
+                         * coef9(jp2,jh2,J3,jp1,jh1,J5,J1,J2,rank_c)&
+                         * sm1
+
+
+                 end do
+              end do
+              sm = sm + sm2*(-1)**((jh2-jp2+J1+J2+rank_c)/2) * sqrt((rank_c+1.d0)*&
+                   (J1+1.d0)*(J2+1.d0)) 
+
+
+
+              J3min = abs(jp1-jh2)
+              J3max = jp1 + jh2
+              sm2 = 0.d0 
+              do J3 = J3min,J3max,2
+                 J5min = max(abs(jp2-jh1),abs(rank_c-J3))
+                 J5max = min(jp2+jh1,rank_c+J3)
+
+                 do J5 = J5min,J5max,2
+
+                    sm1 = 0.d0 
+                    do ax = 1, parts
+                       a= jbas%parts(ax)
+                       ja = jbas%jj(a)
+
+                       do ix = 1, holes
+                          i= jbas%holes(ix)
+                          ji = jbas%jj(i)
+
+                          J4min = max(abs(ja-ji),abs(J3-rank_a),abs(J5-rank_b))
+                          J4max = min(ja+ji,J3+rank_a,J5+rank_b)
+                          do J4 = J4min,J4max,2
+
+                             sm1 = sm1 + Vgenpandya(p1,h2,a,i,J3,J4,AA,jbas) &
+                                  * Vgenpandya(a,i,h1,p2,J4,J5,BB,jbas) &
+                                  * d6ji(rank_a,rank_b,rank_c,J5,J3,J4) 
+
+                          end do
+                       end do
+                    end do
+
+                    sm2 = sm2 + sqrt((J3+1.d0)*(J5+1.d0)) *(-1)**(J3/2) &
+                         * coef9(jp1,jh2,J3,jp2,jh1,J5,J1,J2,rank_c)&
+                         * sm1
+
+
+                 end do
+              end do
+              sm = sm - sm2*(-1)**((jh2+jp2+J2+rank_c)/2) * sqrt((rank_c+1.d0)*&
+                   (J1+1.d0)*(J2+1.d0)) 
+
+
               CC%tblck(q)%tgam(g)%X(I_BIG,J_BIG) = sm*pre
            end do
         end do
      end do
   end do
-                            
+  
   ! do nothing
 end subroutine tensor_product
   
