@@ -1503,11 +1503,11 @@ subroutine tensor_product(AA,BB,CC,jbas)
                           J3max = min(ja + jh2,rank_a+J1,rank_b+J2)
 
                           do J3 = J3min,J3max,2
-                             sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh1,ja,jh2)&
+                             sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh1,ja,jh2)&
                                   * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(a,h1,BB,jbas)&
                                   * tensor_elem(p1,p2,h2,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
                           end do
-                          sm = sm + sm1 * (-1)**((J1+rank_a)/2) 
+                          sm = sm + sm1 * (-1)**((J1+rank_b+rank_c)/2) 
                        end if
                     end if
                  end if
@@ -1521,11 +1521,11 @@ subroutine tensor_product(AA,BB,CC,jbas)
                           J3max = min(ja + jh1,rank_a+J1,rank_b+J2)
 
                           do J3 = J3min,J3max,2
-                             sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh2,ja,jh1)&
+                             sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh2,ja,jh1)&
                                   * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(a,h2,BB,jbas)&
                                   * tensor_elem(p1,p2,h1,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
                           end do
-                          sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_a)/2) 
+                          sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_b+rank_c)/2) 
                        end if
                     end if
                  end if
@@ -1602,11 +1602,11 @@ subroutine tensor_product(AA,BB,CC,jbas)
                           J3max = min(ji + jp2,rank_a+J2,rank_b+J1)
 
                           do J3 = J3min,J3max,2
-                             sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp1,ji,jp2)&
+                             sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp1,ji,jp2)&
                                   * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(p1,i,BB,jbas)&
                                   * tensor_elem(i,p2,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
                           end do
-                          sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_b+rank_c)/2) 
+                          sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_a)/2) 
                        end if
                     end if
                  end if
@@ -1620,11 +1620,11 @@ subroutine tensor_product(AA,BB,CC,jbas)
                           J3max = min(ji + jp1,rank_a+J2,rank_b+J1)
 
                           do J3 = J3min,J3max,2
-                             sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp2,ji,jp1)&
+                             sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp2,ji,jp1)&
                                   * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(p2,i,BB,jbas)&
                                   * tensor_elem(i,p1,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
                           end do
-                          sm = sm + sm1 * (-1)**((J2+rank_b+rank_c)/2) 
+                          sm = sm + sm1 * (-1)**((J2+rank_a)/2) 
                        end if
                     end if
                  end if

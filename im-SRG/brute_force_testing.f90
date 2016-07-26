@@ -951,7 +951,6 @@ subroutine test_tensor_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpa
   OUT%xindx = 3
   deallocate(phase_hh,phase_pp,half6j%tp_mat)
   call allocate_tensor(jbas,OUT,HS)
-  !DICK
   
   call construct_random_rankX(AA,h1,jbas) 
   call construct_random_rankX(BB,h2,jbas)   
@@ -1023,7 +1022,7 @@ subroutine test_tensor_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpa
   !         do d = 1, jbas%total_orbits
               jd = jbas%jj(d) 
               
-              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
+              if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+OUT%dpar/2,2)) cycle 
               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
               iii = iii+1 
               j1min = abs(ja-jb) 
@@ -1962,9 +1961,6 @@ real(8) function EOM_tensor_prod_2body(AA,BB,p1,p2,h1,h2,J1,J2,rank_c,jbas)
   jp2 = jbas%jj(p2) 
   jh1 = jbas%jj(h1) 
   jh2 = jbas%jj(h2)
-
-  ! cock staple
-
                                 
   do M1 = -1*J1,J1,2
      do M2 = -1*J2,J2,2
@@ -1984,7 +1980,7 @@ real(8) function EOM_tensor_prod_2body(AA,BB,p1,p2,h1,h2,J1,J2,rank_c,jbas)
                                 a = jbas%parts(ax)
                                 ja = jbas%jj(a) 
                                 do ma = -1*ja,ja,2
-                                   
+
                                    sm1 = sm1 + f_tensor_mscheme(p1,mp1,a,ma,mu_a,AA,jbas) * &
                                         tensor_mscheme(a,ma,p2,mp2,h1,mh1,h2,mh2,mu_b,BB,jbas)
 
@@ -1992,13 +1988,13 @@ real(8) function EOM_tensor_prod_2body(AA,BB,p1,p2,h1,h2,J1,J2,rank_c,jbas)
                                         tensor_mscheme(a,ma,p1,mp1,h1,mh1,h2,mh2,mu_b,BB,jbas)
 
                                 end do
-                              end do 
+                             end do
 
-                              do ix = 1, holes
+                             do ix = 1, holes
                                 i = jbas%holes(ix)
                                 ji = jbas%jj(i) 
                                 do mi = -1*ji,ji,2
-                                   
+
                                    sm1 = sm1 - f_tensor_mscheme(p1,mp1,i,mi,mu_b,BB,jbas) * &
                                         tensor_mscheme(i,mi,p2,mp2,h1,mh1,h2,mh2,mu_a,AA,jbas)
 
@@ -2006,7 +2002,7 @@ real(8) function EOM_tensor_prod_2body(AA,BB,p1,p2,h1,h2,J1,J2,rank_c,jbas)
                                         tensor_mscheme(i,mi,p1,mp1,h1,mh1,h2,mh2,mu_a,AA,jbas)
 
                                 end do
-                              end do 
+                             end do
 
                              do ix = 1, holes
                                 i = jbas%holes(ix)
@@ -2137,7 +2133,7 @@ real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   integer :: ja,jb,jc,jd,Jtot,JTM,totorb,rank
   type(spd) :: jbas
   type(sq_op) :: AA,BB 
-  real(8) :: sm,coef9,d6ji,pre,ass,smcock,smx,sm1,sm2,sm3,sm4
+  real(8) :: sm,coef9,d6ji,pre,ass,smx,sm1,sm2,sm3,sm4
 
   rank = BB%rank  
   sm = 0.d0 
