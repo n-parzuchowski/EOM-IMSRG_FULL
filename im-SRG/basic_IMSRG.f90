@@ -1634,7 +1634,10 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   
   
    If (C1>C2) qx = qx + tensor_adjust(qx)       
-   
+
+     ! if ((J1x == 4 ).and.(J2x == 2).and.(ax==3).and.(bx==6).and.(cx==1).and.(dx==2)) then
+     !    print*, q, qx,i1,i2
+     ! end if 
    tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
     
 end function tensor_elem

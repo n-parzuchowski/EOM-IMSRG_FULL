@@ -42,7 +42,7 @@ program main_IMSRG
      test_commutators = .true.
      inputs_from_command = ''
   else
-     test_commutators = .false.
+     test_commutators = .true.
   end if
 
 
@@ -389,7 +389,7 @@ subroutine test
 !   deallocate(jbas%xmap,jbas%xmap_tensor,phase_hh,phase_pp)
 !   deallocate(half6j%tp_mat)
 !  call test_scalar_tensor_commutator(jbas,-1,1,6,2) 
-  call test_tensor_product(jbas,1,1,2,2,2,0,0,0) 
+  call test_tensor_product(jbas,1,1,2,4,2,2,0,2) 
 end subroutine test
 end program main_IMSRG
 !=========================================================================
