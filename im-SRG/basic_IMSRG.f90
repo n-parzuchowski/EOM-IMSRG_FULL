@@ -133,6 +133,7 @@ module basic_IMSRG
 
 
   integer,public :: global_counter1=0,global_counter2=0,global_counter3=0
+  real(8),public :: global_sm=0.d0
   character(500) :: TBME_DIR,SP_DIR,INI_DIR,OUTPUT_DIR
    
   ! CHANGE THESE AS NEEDED. ==========================================================

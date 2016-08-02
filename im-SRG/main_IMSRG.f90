@@ -42,7 +42,7 @@ program main_IMSRG
      test_commutators = .true.
      inputs_from_command = ''
   else
-     test_commutators = .true.
+     test_commutators = .false.
   end if
 
 
