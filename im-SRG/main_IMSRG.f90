@@ -311,7 +311,7 @@ print*, 'BASIS SETUP COMPLETE'
         call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
 
 
-        call EOM_observables( ladder_ops, Otrans, trans, moments, eom_states , jbas)
+        call EOM_observables( ladder_ops, Otrans, HS, trans, moments, eom_states , jbas)
 
      end if
      
