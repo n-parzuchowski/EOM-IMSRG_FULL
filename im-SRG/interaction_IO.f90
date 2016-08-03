@@ -493,6 +493,7 @@ do ax = nlj1,nlj1+1
      g2 = r1_r2( a, b, c, d, JT ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      g3 = p1_p2( a, b, c, d, JT ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
      g1 = (g3 + H%com_hw**2 /hw**2 *g2)*H%lawson_beta 
+
      ! center of mass subtraction
      V = V*pre2 +(g1-g3*COM)*hw/(H%Aneut+H%Aprot)
      
@@ -501,7 +502,7 @@ do ax = nlj1,nlj1+1
     
      qx = C1*C2
      qx = qx + adjust_index(qx)   !Vpppp nature  
-
+     
      ! get the indeces in the correct order
      pre = 1
      if ( a > b )  then 
@@ -560,7 +561,7 @@ do ax = nlj1,nlj1+1
         end do 
      end do 
   end do   
- 
+ close(7)
 end subroutine
 !==========================================================
 subroutine export_to_nushellX(H,jbas) 

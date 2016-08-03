@@ -51,7 +51,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   if (HS%eMax==14) then 
      chk = 8
   else
-     chk = 8
+     chk = 24
   end if 
   
   if (checkpointing) then 
@@ -474,7 +474,7 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   call duplicate_sq_op(HS,w1) !workspace
   call duplicate_sq_op(HS,w2) !workspace
   call duplicate_sq_op(HS,INT2) !workspace
-  call duplicate_sq_op(HS,INT3) !workspace
+ ! call duplicate_sq_op(HS,INT3) !workspace
   call duplicate_sq_op(HS,AD) !workspace
   INT2%herm = 1
   AD%herm = 1
@@ -499,13 +499,13 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
      call copy_sq_op( INT2 , AD ) 
      ! so to start, AD is equal to H
      call clear_sq_op(INT2)    
-     call clear_sq_op(INT3)    
+!     call clear_sq_op(INT3)    
      !now: INT2 = [ G , AD ]  
         
      call calculate_cross_coupled(G,GCC,jbas)      
-!$OMP PARALLEL
-!$OMP SECTIONS
-!$OMP SECTION 
+!!$OMP PARALLEL
+!!$OMP SECTIONS
+!!$OMP SECTION 
 
      call TS_commutator_111(G,AD,INT2,jbas) 
      call TS_commutator_121(G,AD,INT2,jbas)      
@@ -515,15 +515,15 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
      call TS_commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)
      call TS_commutator_221(w1,w2,G%herm*AD%herm,INT2,jbas)
 
-!$OMP SECTION
+!!$OMP SECTION
 
-     call TS_commutator_211(GCC,AD,INT3,jbas)
-     call TS_commutator_222_ph(GCC,ADCC,AD,INT3,jbas)       
-!$OMP END SECTIONS
-!$OMP END PARALLEL 
+     call TS_commutator_211(GCC,AD,INT2,jbas)
+     call TS_commutator_222_ph(GCC,ADCC,AD,INT2,jbas)       
+!!$OMP END SECTIONS
+!!$OMP END PARALLEL 
      
      ! so now just add HS + c_n * INT2 to get current value of HS
-     call append_operator( INT3 , 1.d0 , INT2 )   !basic_IMSRG
+  !   call append_operator( INT3 , 1.d0 , INT2 )   !basic_IMSRG
      call append_operator( INT2 , coef , HS )   !basic_IMSRG
      
          
