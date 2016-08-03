@@ -28,7 +28,8 @@ module basic_IMSRG
      INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
      INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holes,parts 
      type(int_vec), allocatable,dimension(:) :: states
-     type(int_vec),allocatable,dimension(:) :: xmap,xmap_tensor
+     type(int_vec),allocatable,dimension(:) :: xmap
+     type(int_vec),allocatable,dimension(:,:) :: xmap_tensor
      ! for clarity:  nn, ll, nshell are all the true value
      ! jj is j+1/2 (so it's an integer) 
      ! likewise itzp is 2*tz  
@@ -68,7 +69,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:,:) :: exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
-     integer :: Jtarg,Ptarg,valcut,Rank,dpar,eMax,lmax
+     integer :: Jtarg,Ptarg,valcut,Rank,dpar,eMax,lmax,xindx
      real(8) :: E0,hospace,lawson_beta,com_hw 
      logical :: pphh_ph
      character(2) :: trans_label
@@ -88,6 +89,18 @@ module basic_IMSRG
      integer :: blocks
   end type full_sp_block_mat
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  type obsv_mgr
+     integer :: num
+     character(2) :: oper 
+     character(2),allocatable,dimension(:) :: Jpi1,Jpi2
+  end type obsv_mgr
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  type eom_mgr
+     integer :: num
+     character(2),allocatable,dimension(:) :: name
+     integer,allocatable,dimension(:) :: ang_mom,par,number_requested
+  end type eom_mgr
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   ! to swap two variables. 
   ! works for real,real(8),integer
@@ -120,13 +133,14 @@ module basic_IMSRG
 
 
   integer,public :: global_counter1=0,global_counter2=0,global_counter3=0
+  real(8),public :: global_sm=0.d0
   character(500) :: TBME_DIR,SP_DIR,INI_DIR,OUTPUT_DIR
    
   ! CHANGE THESE AS NEEDED. ==========================================================
   real(8),public,parameter :: hbarc = 197.326968d0, m_nuc = 938.918725 !2006 values 
   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
   real(8),public,parameter :: Pi_const = acos(-1.d0) 
-  character(200),public :: spfile,intfile,prefix,threebody_file
+  character(200),public :: spfile,intfile,prefix,threebody_file,eomfile
   character(500),public :: playplace = '/mnt/research/imsrg/nsuite/me/playplace/'
   character(500),public :: scratch = '/mnt/scratch/parzuch6/'
   character(200),public :: resubmitter 
@@ -660,9 +674,9 @@ subroutine allocate_tensor(jbas,op,zerorank)
   op%Aneut = zerorank%Aneut
   ! allocate the map array, which is used by 
   ! v_elem to find matrix elements
-  if (.not. allocated(jbas%xmap_tensor) ) then 
-     allocate(jbas%xmap_tensor(N*(N+1)/2)) 
-  end if
+!  if (.not. allocated(jbas%xmap_tensor) ) then 
+ !    allocate(jbas%xmap_tensor(N*(N+1)/2)) 
+ ! end if
   do i = 1,N
      do j = i,N
         
@@ -672,11 +686,12 @@ subroutine allocate_tensor(jbas,op,zerorank)
         numJ = (j_max - j_min)/2 + 2
   
         x = bosonic_tp_index(i,j,N) 
-        if (.not. allocated(jbas%xmap_tensor(x)%Z)) then 
-           allocate(jbas%xmap_tensor(x)%Z(numJ)) 
+
+        if (.not. allocated(jbas%xmap_tensor(op%xindx,x)%Z)) then 
+           allocate(jbas%xmap_tensor(op%xindx,x)%Z(numJ)) 
         end if 
-        jbas%xmap_tensor(x)%Z = 0
-        jbas%xmap_tensor(x)%Z(1) = j_min
+        jbas%xmap_tensor(op%xindx,x)%Z = 0
+        jbas%xmap_tensor(op%xindx,x)%Z(1) = j_min
         
      end do 
   end do 
@@ -835,19 +850,19 @@ subroutine allocate_tensor(jbas,op,zerorank)
          cX = jbas%con(i) + jbas%con(j)
          
          x = bosonic_tp_index(i,j,N) 
-         j_min = jbas%xmap_tensor(x)%Z(1) 
+         j_min = jbas%xmap_tensor(op%xindx,x)%Z(1) 
        
       
          select case (CX)
          case (0) 
             npp1 = npp1 + 1
-            jbas%xmap_tensor(x)%Z((Jtot-j_min)/2+2) = npp1 
+            jbas%xmap_tensor(op%xindx,x)%Z((Jtot-j_min)/2+2) = npp1 
          case (1)                      
             nph1 = nph1 + 1
-            jbas%xmap_tensor(x)%Z((Jtot-j_min)/2+2) = nph1
+            jbas%xmap_tensor(op%xindx,x)%Z((Jtot-j_min)/2+2) = nph1
          case (2) 
             nhh1 = nhh1 + 1
-            jbas%xmap_tensor(x)%Z((Jtot-j_min)/2+2) = nhh1
+            jbas%xmap_tensor(op%xindx,x)%Z((Jtot-j_min)/2+2) = nhh1
          end select
         
       end do
@@ -1590,26 +1605,26 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   ! get the indeces in the correct order
   if ( a > b )  then 
      x = bosonic_tp_index(b,a,N) 
-     j_min = jbas%xmap_tensor(x)%Z(1)  
-     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+     i1 = jbas%xmap_tensor(op%xindx,x)%Z( (J1-j_min)/2 + 2) 
      pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J1)/2 ) 
   else
      if (a == b) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(a,b,N)
-     j_min = jbas%xmap_tensor(x)%Z(1)  
-     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+     i1 = jbas%xmap_tensor(op%xindx,x)%Z( (J1-j_min)/2 + 2) 
   end if 
   
   if (c > d)  then     
      x = bosonic_tp_index(d,c,N) 
-     j_min = jbas%xmap_tensor(x)%Z(1)  
-     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+     i2 = jbas%xmap_tensor(op%xindx,x)%Z( (J2-j_min)/2 + 2) 
      pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J2)/2 ) 
   else 
      if (c == d) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(c,d,N) 
-     j_min = jbas%xmap_tensor(x)%Z(1)  
-     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2)  
+     j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+     i2 = jbas%xmap_tensor(op%xindx,x)%Z( (J2-j_min)/2 + 2)  
   end if 
  
   ! grab the matrix element
@@ -1620,7 +1635,10 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   
   
    If (C1>C2) qx = qx + tensor_adjust(qx)       
-   
+
+     ! if ((J1x == 4 ).and.(J2x == 2).and.(ax==3).and.(bx==6).and.(cx==1).and.(dx==2)) then
+     !    print*, q, qx,i1,i2
+     ! end if 
    tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
     
 end function tensor_elem
@@ -1691,13 +1709,13 @@ subroutine add_elem_to_tensor(V,a,b,c,d,J1,J2,op,jbas)
   ! get the indeces in the correct order
   if (a == b) pre = pre * sqrt( 2.d0 )
   x = bosonic_tp_index(a,b,N)
-  j_min = jbas%xmap_tensor(x)%Z(1)  
-  i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
+  j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+  i1 = jbas%xmap_tensor(op%xindx,x)%Z( (J1-j_min)/2 + 2) 
 
   if (c == d) pre = pre * sqrt( 2.d0 )
   x = bosonic_tp_index(c,d,N) 
-  j_min = jbas%xmap_tensor(x)%Z(1)  
-  i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2)  
+  j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+  i2 = jbas%xmap_tensor(op%xindx,x)%Z( (J2-j_min)/2 + 2)  
   
  
   ! grab the matrix element
@@ -1826,26 +1844,26 @@ real(8) function pphh_tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   ! get the indeces in the correct order
   if ( a > b )  then 
      x = bosonic_tp_index(b,a,N) 
-     j_min = jbas%xmap_tensor(x)%Z(1)  
-     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+     i1 = jbas%xmap_tensor(op%xindx,x)%Z( (J1-j_min)/2 + 2) 
      pre = (-1)**( 1 + (jbas%jj(a) + jbas%jj(b) -J1)/2 ) 
   else
      if (a == b) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(a,b,N)
-     j_min = jbas%xmap_tensor(x)%Z(1)  
-     i1 = jbas%xmap_tensor(x)%Z( (J1-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+     i1 = jbas%xmap_tensor(op%xindx,x)%Z( (J1-j_min)/2 + 2) 
   end if 
   
   if (c > d)  then     
      x = bosonic_tp_index(d,c,N) 
-     j_min = jbas%xmap_tensor(x)%Z(1)  
-     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2) 
+     j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+     i2 = jbas%xmap_tensor(op%xindx,x)%Z( (J2-j_min)/2 + 2) 
      pre = pre * (-1)**( 1 + (jbas%jj(c) + jbas%jj(d) -J2)/2 ) 
   else 
      if (c == d) pre = pre * sqrt( 2.d0 )
      x = bosonic_tp_index(c,d,N) 
-     j_min = jbas%xmap_tensor(x)%Z(1)  
-     i2 = jbas%xmap_tensor(x)%Z( (J2-j_min)/2 + 2)  
+     j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+     i2 = jbas%xmap_tensor(op%xindx,x)%Z( (J2-j_min)/2 + 2)  
   end if 
  
   ! grab the matrix element
@@ -2894,7 +2912,7 @@ subroutine duplicate_sq_op(H,op,dont)
              op%tblck(q)%tgam(i)%X = 0.0
           end do
         end if
-        
+        op%xindx = H%xindx
         
      end do
 
@@ -3621,16 +3639,16 @@ subroutine print_matrix(matrix)
 end subroutine print_matrix
 !===============================================  
 subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
-     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips,trans_type,trans_rank,e3max)
+     ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips,e3max)
   !read inputs from file
   implicit none 
   
   character(200) :: input
   character(50) :: valence
-  character(1) :: quads,trips,trans_type
+  character(1) :: quads,trips
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
-  integer :: method,Exint,ISTAT ,i,trans_rank,e3max
+  integer :: method,Exint,ISTAT ,i,e3max
   logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN, found
   real(8) :: hw
 
@@ -3698,7 +3716,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*)
   read(22,*) rrms_int 
   read(22,*)
-  read(22,*) trans_type,trans_rank 
+  read(22,*) eomfile
   read(22,*)
   read(22,*) H%lawson_beta,H%com_hw
   read(22,*) 
@@ -4665,22 +4683,45 @@ real(8) function V_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas)
   
   V_mscheme = sm 
 end function V_mscheme
-  
-real(8) function Tensor_mscheme(a,ma,b,mb,c,mc,d,md,Op,jbas) 
+!==================================================================
+!==================================================================
+real(8) function f_tensor_mscheme(a,ma,b,mb,mu,Op,jbas)
+  implicit none
+
+  integer :: a,ma,b,mb,ja,jb,rank,mu
+  type(spd) :: jbas
+  type(sq_op) :: Op
+  real(8) :: dcgi,sm 
+
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  rank = op%rank
+  if (mu+mb.ne.ma) then
+     f_tensor_mscheme= 0.d0 
+  else
+     f_tensor_mscheme = dcgi(jb,mb,rank,mu,ja,ma)&
+          /sqrt(ja+1.d0)*f_tensor_elem(a,b,Op,jbas)
+  end if
+end function f_tensor_mscheme
+!==================================================================
+!==================================================================
+real(8) function Tensor_mscheme(a,ma,b,mb,c,mc,d,md,MU,Op,jbas) 
   implicit none
   
   integer :: a,ma,b,mb,c,mc,d,md,J1min,J1max,mu,rank
   integer :: ja,jb,jc,jd,J1,M1,J2,M2,J2min,J2max
   type(spd) :: jbas
   type(sq_op) :: Op
-  real(8) :: dcgi,dcgi00,sm
+  real(8) :: dcgi,sm
   
   M1 = ma+mb 
   M2 = mc+md 
   rank = Op%rank
-  MU = M1-M2
+  if (MU .ne. M1-M2) then
+     Tensor_mscheme = 0.d0
+     return
+  end if
   
-  sm = dcgi00() 
   sm = 0.d0 
   
   ja = jbas%jj(a) 

@@ -442,7 +442,7 @@ subroutine allocate_three_body_storage(jbas,jbx,store_3b,eMax,lMax)
   integer :: twoJCMaxupket,twoJCMaxupbra,la,lb,lc,ld,le,lf,E3Max_file
   integer :: ja,jb,jc,jd,je,jf,iblock,Jab,JJab,Tab,TTab,elems,elems_file
   integer :: ea,eb,ec,ed,ef,ee,e1max,E3max,JabMax,JabMin,JJabMax,JJabMin
-  real(8) :: mem ,ass
+  real(8) :: mem 
 
   jtot_max = 3*(jbas%jtotal_max)
   Nsp = jbx%total_orbits

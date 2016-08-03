@@ -4,33 +4,29 @@ module EOM_IMSRG
   use EOM_TS_commutators
   use operators
   implicit none
-
+  
 contains 
 
 
-subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1) 
+subroutine calculate_excited_states(J,PAR,Numstates,HS,jbas,ladder_ops) 
   implicit none
   
-  real(8) :: BE,Mfi ,SD_shell_content,dEtrips
+  real(8) :: BE,Mfi ,SD_shell_content,dEtrips,dcgi,dcgi00
   real(8) :: t1,t2,t0,omp_get_wtime,XX,QQ,sm,sm2 
+  type(obsv_mgr) :: transitions, moments 
   type(spd) :: jbas
-  type(sq_op) :: HS 
-  type(sq_op),optional :: O1
-  type(sq_op),allocatable,dimension(:) :: ladder_ops 
-  real(8),allocatable,dimension(:) :: trips
+  type(sq_op) :: HS ,newladder
+  type(sq_op),dimension(Numstates) :: ladder_ops
   integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist,prots,neuts
   character(2) :: Jlabel,Plabel,betalabel  
   character(2) :: statelabel
-  REAL(8),dimension(Numstates) :: Es,BEs 
-  
-  allocate(ladder_ops(numstates)) 
-  allocate(trips(numstates))
-  ladder_ops%herm = 1
+  REAL(8),dimension(Numstates) :: Es,BEs ,moms ,trips
 
+  ladder_ops%herm = 1
   ladder_ops%rank = J 
   ladder_ops%dpar = 2*PAR
   ladder_ops%pphh_ph = .true. 
-
+  
   prots = 0 
   neuts = 0 
   do i = 1, jbas%total_orbits,2 
@@ -41,13 +37,11 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   end do   
   
   if ( ladder_ops(1)%rank .ne. 0 ) then 
+     if ( allocated(phase_hh) ) then
+        deallocate(phase_hh,phase_pp,half6j%tp_mat)
+     end if
 
-     if (allocated(O1%tblck)) then 
-        call duplicate_sq_op(O1,ladder_ops(1),'y')
-     else
-        call allocate_tensor(jbas,ladder_ops(1),HS)   
-     end if 
-     
+     call allocate_tensor(jbas,ladder_ops(1),HS)   
      do q = 1,ladder_ops(1)%nblocks
         ladder_ops(1)%tblck(q)%lam(1) = 1 
      end do
@@ -65,84 +59,32 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   print*
 
 !  if (read_ladder_operators(ladder_ops,jbas)) then 
-     call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
- !    call write_ladder_operators(ladder_ops,jbas)
+  call lanczos_diagonalize(jbas,HS,ladder_ops,Numstates)  
+
+  !    call write_ladder_operators(ladder_ops,jbas)
  ! end if
-  
-   if ( allocated(O1%tblck)  ) then 
 
-      
-     write(statelabel(1:1),'(I1)') O1%rank/2
-     if (O1%dpar == 0 ) then 
-        statelabel(2:2) = '+'
-     else
-        statelabel(2:2) = '-'
-     end if
      
-     print*
-     write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
-     print*
-     print*, 'EXCITED STATE ENERGIES:'
-     print*, '==========================================================================================='
-     print*, '      dE             E_0 + dE       B('//O1%trans_label//';'//statelabel//'->0+)'// &
-          '    B('//O1%trans_label//';0+->'//statelabel//')     n(1p1h)'
-     print*, '============================================================================================'
- 
-!     open(unit = 51, file = 'excited_states_for_FCI.dat', position='append') 
-
-     ! if((ladder_ops(1)%rank == 2) .and. (ladder_ops(1)%dpar==2) ) then 
-     !    write(51,'(5(I5),5(d25.14))') prots,neuts,HS%eMax,0,0,0.d0 &
-     !         ,HS%E0,0.d0,0.d0,0.d0
-     ! end if
-
-     do i = 1, Numstates
-        
-        Mfi = transition_to_ground_ME( O1 , ladder_ops(i),jbas )
-        BE = Mfi**2/(J+1.d0) 
-        
-        Es(i) = ladder_ops(i)%E0
-        BEs(i) = BE
-        write(*,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
- !       write(51,'(5(f16.9))') ladder_ops(i)%E0 ,ladder_ops(i)%E0+HS%E0,BE,Mfi**2,sum(ladder_ops(i)%fph**2) 
-        
-     end do
-     
-     open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
-          '_energies_strengths'//O1%trans_label//'.dat',position='append')
-     write(31,'(2(I10),11(d25.14))') nint(HS%hospace),HS%eMax,HS%E0,Es,BEs 
-     close(31)  
-     
-  else
-     
-     print*
-     write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
-     print*
-     print*, 'EXCITED STATE ENERGIES:'
-     print*, '================================================================'!==========='
-     print*, '      dE                dE(T)       dE_0 + dE         n(1p1h)  ' !  n(1v1h) ' 
-     print*, '================================================================'!==========='
-     do i = 1, Numstates!          x       x       xxxxxxx   
-        SD_Shell_content = 0.d0 
-        Es(i) = ladder_ops(i)%E0
-        BEs(i) = 0.d0 
-        write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
-             sum(ladder_ops(i)%fph**2),t2-t1
-        
-     end do
-     open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
-          '_energies_strengths'//O1%trans_label//'.dat',position='append')
-     write(31,'(2(I10),11(d25.14))') nint(HS%hospace),HS%eMax,HS%E0,Es,BEs 
-     close(31) 
-
-
-     print*
-     print*
-  end if 
+  print*
+  write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
+  print*
+  print*, 'EXCITED STATE ENERGIES:'
+  print*, '================================================================'!==========='
+  print*, '      dE                dE(T)       dE_0 + dE         n(1p1h)  ' !  n(1v1h) ' 
+  print*, '================================================================'!==========='
+  do i = 1, Numstates!          x       x       xxxxxxx   
+     SD_Shell_content = 0.d0 
+     Es(i) = ladder_ops(i)%E0     
+     dEtrips = 0.d0 
+     write(*,'(6(f16.9))') ladder_ops(i)%E0 , ladder_ops(i)%E0 + dEtrips , ladder_ops(i)%E0+HS%E0+dEtrips,&
+          sum(ladder_ops(i)%fph**2)
+       
+  end do
   
   ! WRITE STUFF TO FILES. 
-  write( Jlabel ,'(I2)') HS%Jtarg
+  write( Jlabel ,'(I2)') J
   write( betalabel ,'(I2)') nint(HS%lawson_beta)
-  if (HS%Ptarg == 0 ) then 
+  if (PAR == 0 ) then 
      Plabel ='+'
   else 
      Plabel ='-'
@@ -195,11 +137,11 @@ subroutine calculate_excited_states( J, PAR, Numstates, HS , jbas,O1)
   ! close(72)
   
   
-  open(unit=75,file=trim(OUTPUT_DIR)//&
-       trim(adjustl(prefix))//'_lawson_check.dat'&
-       ,position='append')
-  write(75,'(5(e17.7))') HS%lawson_beta, HS%E0,ladder_ops(1:3)%E0+HS%E0
-  close(75)
+  ! open(unit=75,file=trim(OUTPUT_DIR)//&
+  !      trim(adjustl(prefix))//'_lawson_check.dat'&
+  !      ,position='append')
+  ! write(75,'(5(e17.7))') HS%lawson_beta, HS%E0,ladder_ops(1:3)%E0+HS%E0
+  ! close(75)
   
 end subroutine calculate_excited_states
 
@@ -1258,7 +1200,7 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: AA,BB
-  integer :: p,mp,q,mq,r,mr,s,ms,t,mt,u,mu
+  integer :: p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,mu_B
   integer :: ia,a,ma,j1,m1,j2,m2,Jpq,Mpq,Jst,Mst
   integer :: ja,jp,jq,jr,js,jt,ju
   real(8) :: sm 
@@ -1268,10 +1210,10 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
   jr = jbas%jj(r)
   js = jbas%jj(s)
   jt = jbas%jj(t)
-  ju = jbas%jj(u)
-
+  ju = jbas%jj(u) 
   sm = 0.d0 
 
+  mu_B = 0 ! THIS NEEDS TO BE FIXED. 
   do ia = 1,AA%belowEF
      a = jbas%holes(ia) 
      ja = jbas%jj(a) 
@@ -1279,31 +1221,31 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
      do ma = -1*ja,ja,2 
         
         sm = sm - v_mscheme(p,mp,a,ma,s,ms,t,mt,AA,jbas)* &
-             tensor_mscheme(q,mq,r,mr,a,ma,u,mu,BB,jbas)
+             tensor_mscheme(q,mq,r,mr,a,ma,u,mu,mu_B,BB,jbas)
 
         sm = sm - v_mscheme(p,mp,a,ma,t,mt,u,mu,AA,jbas)* &
-             tensor_mscheme(q,mq,r,mr,a,ma,s,ms,BB,jbas)
+             tensor_mscheme(q,mq,r,mr,a,ma,s,ms,mu_B,BB,jbas)
 
         sm = sm - v_mscheme(p,mp,a,ma,u,mu,s,ms,AA,jbas)* &
-             tensor_mscheme(q,mq,r,mr,a,ma,t,mt,BB,jbas)
+             tensor_mscheme(q,mq,r,mr,a,ma,t,mt,mu_B,BB,jbas)
 
         sm = sm - v_mscheme(q,mq,a,ma,s,ms,t,mt,AA,jbas)* &
-             tensor_mscheme(r,mr,p,mp,a,ma,u,mu,BB,jbas)
+             tensor_mscheme(r,mr,p,mp,a,ma,u,mu,mu_B,BB,jbas)
 
         sm = sm - v_mscheme(q,mq,a,ma,t,mt,u,mu,AA,jbas)* &
-             tensor_mscheme(r,mr,p,mp,a,ma,s,ms,BB,jbas)
+             tensor_mscheme(r,mr,p,mp,a,ma,s,ms,mu_B,BB,jbas)
 
         sm = sm - v_mscheme(q,mq,a,ma,u,mu,s,ms,AA,jbas)* &
-             tensor_mscheme(r,mr,p,mp,a,ma,t,mt,BB,jbas)
+             tensor_mscheme(r,mr,p,mp,a,ma,t,mt,mu_B,BB,jbas)
 
         sm = sm - v_mscheme(r,mr,a,ma,s,ms,t,mt,AA,jbas)* &
-             tensor_mscheme(p,mp,q,mq,a,ma,u,mu,BB,jbas)
+             tensor_mscheme(p,mp,q,mq,a,ma,u,mu,mu_B,BB,jbas)
 
         sm = sm - v_mscheme(r,mr,a,ma,t,mt,u,mu,AA,jbas)* &
-             tensor_mscheme(p,mp,q,mq,a,ma,s,ms,BB,jbas)
+             tensor_mscheme(p,mp,q,mq,a,ma,s,ms,mu_B,BB,jbas)
 
         sm = sm - v_mscheme(r,mr,a,ma,u,mu,s,ms,AA,jbas)* &
-             tensor_mscheme(p,mp,q,mq,a,ma,t,mt,BB,jbas)
+             tensor_mscheme(p,mp,q,mq,a,ma,t,mt,mu_B,BB,jbas)
      end do
   end do
 
@@ -1314,31 +1256,31 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
      
      do ma = -1*ja,ja,2 
 
-        sm = sm + tensor_mscheme(p,mp,a,ma,s,ms,t,mt,BB,jbas)* &
+        sm = sm + tensor_mscheme(p,mp,a,ma,s,ms,t,mt,mu_B,BB,jbas)* &
              v_mscheme(q,mq,r,mr,a,ma,u,mu,AA,jbas)
 
-        sm = sm + tensor_mscheme(p,mp,a,ma,t,mt,u,mu,BB,jbas)* &
+        sm = sm + tensor_mscheme(p,mp,a,ma,t,mt,u,mu,mu_B,BB,jbas)* &
              v_mscheme(q,mq,r,mr,a,ma,s,ms,AA,jbas)
 
-        sm = sm + tensor_mscheme(p,mp,a,ma,u,mu,s,ms,BB,jbas)* &
+        sm = sm + tensor_mscheme(p,mp,a,ma,u,mu,s,ms,mu_B,BB,jbas)* &
              v_mscheme(q,mq,r,mr,a,ma,t,mt,AA,jbas)
 
-        sm = sm + tensor_mscheme(q,mq,a,ma,s,ms,t,mt,BB,jbas)* &
+        sm = sm + tensor_mscheme(q,mq,a,ma,s,ms,t,mt,mu_B,BB,jbas)* &
              v_mscheme(r,mr,p,mp,a,ma,u,mu,AA,jbas)
 
-        sm = sm + tensor_mscheme(q,mq,a,ma,t,mt,u,mu,BB,jbas)* &
+        sm = sm + tensor_mscheme(q,mq,a,ma,t,mt,u,mu,mu_B,BB,jbas)* &
              v_mscheme(r,mr,p,mp,a,ma,s,ms,AA,jbas)
 
-        sm = sm + tensor_mscheme(q,mq,a,ma,u,mu,s,ms,BB,jbas)* &
+        sm = sm + tensor_mscheme(q,mq,a,ma,u,mu,s,ms,mu_B,BB,jbas)* &
              v_mscheme(r,mr,p,mp,a,ma,t,mt,AA,jbas)
 
-        sm = sm + tensor_mscheme(r,mr,a,ma,s,ms,t,mt,BB,jbas)* &
+        sm = sm + tensor_mscheme(r,mr,a,ma,s,ms,t,mt,mu_B,BB,jbas)* &
              v_mscheme(p,mp,q,mq,a,ma,u,mu,AA,jbas)
 
-        sm = sm + tensor_mscheme(r,mr,a,ma,t,mt,u,mu,BB,jbas)* &
+        sm = sm + tensor_mscheme(r,mr,a,ma,t,mt,u,mu,mu_B,BB,jbas)* &
              v_mscheme(p,mp,q,mq,a,ma,s,ms,AA,jbas)
 
-        sm = sm + tensor_mscheme(r,mr,a,ma,u,mu,s,ms,BB,jbas)* &
+        sm = sm + tensor_mscheme(r,mr,a,ma,u,mu,s,ms,mu_B,BB,jbas)* &
              v_mscheme(p,mp,q,mq,a,ma,t,mt,AA,jbas)
         
      end do
@@ -1394,11 +1336,88 @@ real(8)  function W_via_mscheme(p,q,r,s,t,u,j1,j2,Jpq,Jst,AA,BB,jbas)
               end do
            end do
         end do
-     end do
-  end do
+     end do 
+ end do
   W_via_mscheme = sm
   
 end function W_via_mscheme
+!================================================
+!================================================
+integer function read_eom_file(trs,mom,eom_states,jbas)
+  implicit none
 
+  type(spd) :: jbas
+  type(eom_mgr) :: eom_states
+  type(obsv_mgr) :: trs,mom
+  character(2) :: op,init,fin
+  integer :: ist,num_trans,num_mom,i,num_jpi,N ,uniq
+  integer :: totstates
+  
+  N =jbas%total_orbits
+  if (trim(INI_DIR) == './' ) then
+     open(unit=44,file='../../inifiles/'//trim(eomfile))
+  else
+     open(unit=44,file=trim(INI_DIR)//trim(eomfile))
+  end if 
+  read(44,*);read(44,*);read(44,*)
+  ! read transition types
+  read(44,*) num_jpi
 
+  eom_states%num = num_jpi
+  allocate(eom_states%name(num_jpi))
+  allocate(eom_states%ang_mom(num_jpi))
+  allocate(eom_states%par(num_jpi))
+  allocate(eom_states%number_requested(num_jpi))
+  totstates = 0 
+  read(44,*)
+  do i = 1, num_jpi
+     read(44,*) eom_states%name(i),eom_states%number_requested(i)
+     read(eom_states%name(i)(1:1),'(I1)') eom_states%ang_mom(i)
+     eom_states%ang_mom(i) =  eom_states%ang_mom(i) *2
+     if (eom_states%name(i)(2:2) == '+') then
+        eom_states%par = 0
+     else
+        eom_states%par = 2
+     end if
+     totstates =totstates + eom_states%number_requested(i) 
+  end do 
+
+  uniq = num_jpi + 1 ! plus one for operator
+  ! too lazy to check if the operator has the same structure as other stuff
+  read(44,*)
+  read(44,*) op
+  print*, op
+  trs%oper= op
+  mom%oper= op
+  read(44,*)
+
+  read(44,*) num_trans
+  trs%num = num_trans
+
+  allocate(trs%Jpi1(num_trans)) 
+  allocate(trs%Jpi2(num_trans))
+
+  read(44,*)
+  do i=1,num_trans
+     read(44,*) trs%Jpi1(i),trs%Jpi2(i)
+  end do 
+
+  read(44,*)
+  read(44,*) num_mom
+  mom%num = num_mom
+
+  allocate(mom%Jpi1(num_mom)) 
+  read(44,*)
+  do i=1,num_mom
+     read(44,*) mom%Jpi1(i)
+  end do 
+
+  allocate(jbas%xmap_tensor(uniq,N*(N+1)/2)) 
+  read_eom_file = totstates
+
+  print*, trs%oper,mom%oper
+end function read_eom_file
+
+  
+  
 end module
