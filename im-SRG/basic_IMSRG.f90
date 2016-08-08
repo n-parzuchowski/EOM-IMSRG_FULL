@@ -2385,7 +2385,7 @@ subroutine normal_order(H,jbas)
   integer :: ax,bx,ix
   real(8) :: sm
   
-  
+  if (.not. allocated(H%mat) ) return
   call duplicate_sq_op(H,TEMP) 
   call copy_sq_op(H,TEMP) 
   
