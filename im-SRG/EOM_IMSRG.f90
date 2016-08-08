@@ -1386,7 +1386,6 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
   ! too lazy to check if the operator has the same structure as other stuff
   read(44,*)
   read(44,*) op
-  print*, op
   trs%oper= op
   mom%oper= op
   read(44,*)
@@ -1415,7 +1414,6 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
   allocate(jbas%xmap_tensor(uniq,N*(N+1)/2)) 
   read_eom_file = totstates
 
-  print*, trs%oper,mom%oper
 end function read_eom_file
 
   

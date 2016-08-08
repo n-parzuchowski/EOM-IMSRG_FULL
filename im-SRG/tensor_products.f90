@@ -493,7 +493,7 @@ end subroutine tensor_product_222_pp_hh
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
    integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,J1min,J2min,J1max,J2max,n_J3,n_J4,n_J5
    integer :: phase_34,phase_abcd,phase_ac,phase_bc,j5,PAR_J4,PAR_J5,rank_b,rank_c
-   integer :: phase_bd,phase_ad,nj_perm,full_int_phase,J5min,J5max
+   integer :: phase_bd,phase_ad,nj_perm,full_int_phase,J5min,J5max,tp1,tp2,lp1,lp2
    integer,allocatable,dimension(:,:) :: qn_J3,qn_J4,qn_J5
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex,nj1,nj2  
    real(8) :: prefac_12,prefac_1,nj,Xelem,Yelem,V,al_off,d6ji
@@ -564,7 +564,11 @@ end subroutine tensor_product_222_pp_hh
                      p2 = qn_J5(JX,2)
                      
                      jp2 = jbas%jj(p2)
+                     lp2 = jbas%ll(p2)
+                     tp2 = jbas%itzp(p2)
                      jh2 = jbas%jj(h2)
+                     lh2 = jbas%ll(h2)
+                     th2 = jbas%itzp(h2)
 
                      do IX = 1, n_J3 
 
@@ -574,6 +578,13 @@ end subroutine tensor_product_222_pp_hh
 
                         jp1 = jbas%jj(p1)
                         jh1 = jbas%jj(h1)
+                        lp1 = jbas%ll(p1)
+                        tp1 = jbas%itzp(p1)
+                        lh1 = jbas%ll(h1)
+                        th1 = jbas%itzp(h1)
+
+                        if ( (tp1 +tp2) .ne. (th1+th2) ) cycle
+                        if ( mod(lp1 +lp2,2) .ne. mod(lh1+lh2+CC%dpar/2,2) ) cycle
                         
                         ! CALCULATE X CONTRIBUTIONS
 
@@ -594,12 +605,12 @@ end subroutine tensor_product_222_pp_hh
                               nj = coef9(jp1,jh1,J3,jp2,jh2,J5,J1,J2,rank_c)
                               prefac_12 = prefac_1 *sqrt(J2+1.d0)
 
-
                               V = prefac_12*nj*(-1)**((jp2-jh2)/2)*Xelem
-
+                              
                               if ( h2 .ge. h1 ) then
                                  if ( p2 .ge. p1 ) then
 
+                                    
                                     if (J1.le.J2) then
                                        call add_elem_to_tensor(V,p1,p2,h1,h2,J1,J2,CC,jbas)                                         
                                     end if
