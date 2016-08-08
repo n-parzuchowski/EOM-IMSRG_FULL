@@ -3206,7 +3206,7 @@ subroutine write_omega_checkpoint(H,s)
   if (H%eMax==14) then 
      sx = s - 4.d0 
   else
-     sx = s - 4.d0
+     sx = s - 12.d0
   end if 
   
   write(s_position,'(f6.3)') sx
@@ -3253,11 +3253,7 @@ logical function read_omega_checkpoint(H,s)
      if (prefix(i:i+1) == 'hw') exit
   end do
 
-  if ( H%eMax==14) then 
-     ds = 0.5d0
-  else
-     ds = 2.d0 
-  end if 
+  ds = 0.5d0
   
   s = 95.5d0 
   do while (s >1.0)
@@ -3317,6 +3313,7 @@ logical function read_omega_checkpoint(H,s)
 
   
   call repackage(H,outvec) 
+  print*, 'read successful'
   read_omega_checkpoint = .false. 
 end function read_omega_checkpoint
 !======================================================
