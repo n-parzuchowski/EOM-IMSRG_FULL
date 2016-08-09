@@ -40,7 +40,7 @@ subroutine calculate_excited_states(J,PAR,Numstates,HS,jbas,ladder_ops)
      if ( allocated(phase_hh) ) then
         deallocate(phase_hh,phase_pp,half6j%tp_mat)
      end if
-
+     print*, ladder_ops(1)%xindx,ladder_ops(1)%rank,ladder_ops(1)%dpar
      call allocate_tensor(jbas,ladder_ops(1),HS)   
      do q = 1,ladder_ops(1)%nblocks
         ladder_ops(1)%tblck(q)%lam(1) = 1 
@@ -1375,14 +1375,14 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
      read(eom_states%name(i)(1:1),'(I1)') eom_states%ang_mom(i)
      eom_states%ang_mom(i) =  eom_states%ang_mom(i) *2
      if (eom_states%name(i)(2:2) == '+') then
-        eom_states%par = 0
+        eom_states%par(i) = 0
      else
-        eom_states%par = 2
+        eom_states%par(i) = 2
      end if
      totstates =totstates + eom_states%number_requested(i) 
   end do 
 
-  uniq = num_jpi + 1 ! plus one for operator
+  uniq = num_jpi + 2 ! plus one for operator
   ! too lazy to check if the operator has the same structure as other stuff
   read(44,*)
   read(44,*) op

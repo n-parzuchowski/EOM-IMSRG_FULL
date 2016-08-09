@@ -13,7 +13,7 @@ program main_IMSRG
   implicit none
   
   type(spd) :: jbas,jbx
-  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0
+  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0,Hcm
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cc_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
@@ -283,13 +283,13 @@ print*, 'BASIS SETUP COMPLETE'
   if (ex_calc_int==1) then
 
      totstates=read_eom_file(trans,moments,eom_states,jbas)! total number of states
-
      allocate(ladder_ops(totstates))
-     numstates = 0 
+     numstates = 0
+     oldnum = 0
      do q = 1,eom_states%num
-        oldnum = Numstates
+        oldnum = oldnum + Numstates
         Numstates = eom_states%number_requested(q)        
-        ladder_ops(1+oldnum:Numstates+oldnum)%xindx = q 
+        ladder_ops(1+oldnum:Numstates+oldnum)%xindx = q
         call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
              jbas,ladder_ops(1+oldnum:Numstates+oldnum))
      end do
@@ -302,7 +302,8 @@ print*, 'BASIS SETUP COMPLETE'
 
      read(trans%oper(2:2),'(I1)') trans_rank
 
-     call initialize_transition_operator(trans_type,trans_rank,Otrans,HS,jbas,trans_calc)  
+     call initialize_transition_operator(trans_type,trans_rank,Otrans,HS,jbas,trans_calc)
+     
      if (trans_calc) then 
         if (hartree_fock) then 
            call observable_to_HF(Otrans,coefs,jbas)
@@ -310,10 +311,16 @@ print*, 'BASIS SETUP COMPLETE'
         print*, 'Transforming transition operator...' 
         call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
 
-
-        call EOM_observables( ladder_ops, Otrans, HS, trans, moments, eom_states , jbas)
-
+        if (com_calc) then 
+           Hcm%rank = 0
+           Hcm%dpar = 0
+           Hcm%xindx = Otrans%xindx + 1 
+           call build_Hcm(pipj,rirj,Hcm,jbas)
+        end if
+        
+        call EOM_observables( ladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
      end if
+
      
   end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

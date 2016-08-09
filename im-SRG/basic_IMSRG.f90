@@ -2759,7 +2759,8 @@ subroutine duplicate_sq_op(H,op,dont)
   op%rank = H%rank 
   op%dpar = H%dpar
   op%eMax = H%eMax
-  op%lmax = H%lmax 
+  op%lmax = H%lmax
+  op%com_hw = H%com_hw
   
   if (.not. present(dont)) op%pphh_ph = .false. 
 

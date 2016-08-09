@@ -592,7 +592,29 @@ subroutine initialize_CM_radius_onebody(rms,rr,jbas)
  
   
 
-end subroutine
+end subroutine initialize_CM_radius_onebody
+!==================================================================== 
+subroutine build_Hcm(pp,rr,Hcm,jbas)
+  implicit none 
+
+  type(spd) :: jbas
+  type(sq_op) :: pp,rr,Htemp,Hcm
+  real(8) :: hw_tilde,hw
+  integer :: i
+
+  hw = pp%hospace
+  hw_tilde = pp%com_hw 
+  if (allocated(phase_pp)) then
+     deallocate(phase_hh,phase_pp,half6j%tp_mat)
+  end if
+  call allocate_tensor(jbas,Hcm,pp)
+  Hcm%hospace=pp%hospace
+            
+  call duplicate_sq_op(pp,Htemp)
+  call add_sq_op(pp,1.d0,rr,hw_tilde**2/hw**2,Htemp)  
+  Hcm%E0 = Htemp%E0
+  call copy_rank0_to_tensor_format(Htemp,Hcm,jbas) 
+end subroutine build_Hcm
 !==================================================================== 
 subroutine calculate_CM_energy(pp,rr,hw) 
   implicit none 
@@ -1625,11 +1647,11 @@ subroutine tensor_product(AA,BB,CC,jbas)
   ! do nothing
 end subroutine tensor_product
   
-subroutine EOM_observables( ladder_ops, O1, HS, trans, mom, eom_states , jbas)
+subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jbas)
   implicit none
 
   type(sq_op),dimension(:) :: ladder_ops
-  type(sq_op) :: O1,HS
+  type(sq_op) :: O1,HS,Hcm
   type(spd) :: jbas
   type(eom_mgr) :: eom_states
   type(obsv_mgr) :: trans,mom
@@ -1799,6 +1821,24 @@ subroutine EOM_observables( ladder_ops, O1, HS, trans, mom, eom_states , jbas)
      deallocate(Energies,moments)  
      print* 
   end do
+
+
+  if (allocated(Hcm%tblck)) then 
+     
+     ! CALCULATE Hcm 
+     print*
+     print*, '======================================='
+     print*, '           E              <Hcm>'  
+     print*, '======================================='
+
+     do In = 1, size(ladder_ops) 
+        Mfi = transition_ME(ladder_ops(in),Hcm,ladder_ops(in),jbas)  
+        moment = Mfi+ Hcm%E0 - 1.5d0* HS%com_hw
+        E_in = ladder_ops(in)%E0
+        write(*,'(2(f19.12))') E_in,moment
+        states = states + 1
+     end do
+  end if
 
 end subroutine EOM_observables
    
