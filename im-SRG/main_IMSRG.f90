@@ -319,6 +319,10 @@ print*, 'BASIS SETUP COMPLETE'
         end if
         
         call EOM_observables( ladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
+
+        ! do q = 1, totstates
+        !    print*, ladder_ops(q)%E0,ladder_ops(q)%E0 + EOM_triples(HS,ladder_ops(q),jbas)  
+        ! end do
      end if
 
      
