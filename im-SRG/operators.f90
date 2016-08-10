@@ -1841,7 +1841,7 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
         energies(states)=E_in
      end do
      open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
-          '_energies_moments_'//trans%oper//'_'//trans%Jpi1(q)//'.dat',position='append')
+          '_energies_moments_'//mom%oper//'_'//mom%Jpi1(q)//'.dat',position='append')
      write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,moments
      close(31)
      deallocate(Energies,moments)  
