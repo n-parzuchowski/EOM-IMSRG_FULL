@@ -1655,13 +1655,13 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
   type(spd) :: jbas
   type(eom_mgr) :: eom_states
   type(obsv_mgr) :: trans,mom
-  integer :: q,Jin,Jout,Pin,Pout,in,out,states
+  integer :: q,Jin,Jout,Pin,Pout,in,out,states,instate
   logical :: to_ground
   real(8) :: Mfi,strength_down,strength_up,moment,dcgi,dcgi00
   real(8) :: E_in, E_out
   real(8),allocatable,dimension(:) :: STRENGTHS,MOMENTS,ENERGIES
   character(2) :: flts 
-  
+  character(1) :: statlab
   Mfi = dcgi00()
   ! CALCULATE TRANSITIONS 
   do q = 1, trans%num
@@ -1736,18 +1736,32 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
         deallocate(Energies,strengths)  
             
      else
-        
+        instate = 0
         do In = 1, size(ladder_ops)
 
            IF ( ladder_ops(in)%rank .ne. Jin) cycle
            IF ( ladder_ops(in)%dpar .ne. Pin) cycle
 
+           states = 0.d0 
+           do out = 1,size(ladder_ops)
+              IF ( out == in) cycle
+              IF ( ladder_ops(out)%rank .ne. Jout) cycle
+              IF ( ladder_ops(out)%dpar .ne. Pout) cycle
+              states = states + 1 
+           end do
+           
+           allocate(Strengths(states),Energies(states))
+           states = 2*states + 1 ! energies, observs, and gs
+           write(flts,'(I2)') states       
+           states = 0
+           
            do out = 1, size(ladder_ops)
+              
 
               if (out==in) cycle ! not a transition
               IF ( ladder_ops(out)%rank .ne. Jout) cycle
               IF ( ladder_ops(out)%dpar .ne. Pout) cycle
-
+              states = states + 1
               Mfi = transition_ME(ladder_ops(out),O1,ladder_ops(in),jbas) 
 
               if (ladder_ops(out)%E0 > ladder_ops(in)%E0) then 
@@ -1755,36 +1769,48 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
                  strength_up = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
                  E_in = ladder_ops(out)%E0
                  E_out = ladder_ops(in)%E0
+                 strengths(states) = strength_up
+                 Energies(states) = E_in 
                  write(*,'(4(f19.12))') E_in,E_out,Strength_up,Strength_down           
               else
                  strength_down = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
                  strength_up = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
                  E_in = ladder_ops(in)%E0
                  E_out = ladder_ops(out)%E0
+                 strengths(states) = strength_down
+                 Energies(states) = E_out 
                  write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
               end if
 
-
+              
            end do
+           instate = instate+1
+           write(statlab,'(I1)') instate
+           open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+                '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//statlab//'_'//trans%Jpi2(q)//'.dat',position='append')
+           write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,ladder_ops(in)%E0,Energies,strengths
+           close(31)
+           deallocate(Energies,strengths)  
+              
         end do
      end if
      print*         
   end do
 
-! CALCULATE MOMENTS 
+  ! CALCULATE MOMENTS 
   do q = 1, mom%num
 
      read(mom%Jpi1(q)(1:1),'(I1)') Jin
      
-     if (trans%Jpi1(q)(2:2) == '+' ) then
+     if (mom%Jpi1(q)(2:2) == '+' ) then
         Pin = 0
      else
         Pin = 2
      end if
-     Jin = 2*Jin 
+     Jin = 2*Jin
      print*
      print*, '======================================='
-     print*, '           E              <'//trans%oper//'>('//trans%Jpi1(q)//')'  
+     print*, '           E              <'//mom%oper//'>('//mom%Jpi1(q)//')'  
      print*, '======================================='
 
      ! count number of states
