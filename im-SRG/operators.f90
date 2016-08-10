@@ -1029,11 +1029,8 @@ real(8) function transition_ME( Xout,Trans_op ,Xin,jbas )
         end do
      end do
   end do
-  mult = 0.d0
-  do M = -1*min(rank_in,rank_op),min(rank_in,rank_op)
-     mult = mult+dcgi(rank_in,M,rank_op,-1*M,rank_out,0)
-  end do 
-  transition_ME = sm * sqrt((rank_out+1.d0)/(rank_op+1.d0))* mult  
+
+  transition_ME = sm * sqrt((rank_in+1.d0))/(rank_out+1.d0)  * ( -1 ) ** ((rank_in+rank_out+rank_op)/2)  
   !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
   !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
   
