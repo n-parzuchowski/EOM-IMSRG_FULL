@@ -1030,7 +1030,7 @@ real(8) function transition_ME( Xout,Trans_op ,Xin,jbas )
      end do
   end do
 
-  transition_ME = sm * sqrt((rank_in+1.d0))/(rank_out+1.d0)  * ( -1 ) ** ((rank_in+rank_out+rank_op)/2)  
+  transition_ME = sm * sqrt(rank_in+1.d0)  * ( -1 ) ** ((rank_in+rank_out+rank_op)/2)  
   !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
   !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
   
