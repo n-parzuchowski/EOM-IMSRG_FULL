@@ -40,7 +40,7 @@ subroutine calculate_excited_states(J,PAR,Numstates,HS,jbas,ladder_ops)
      if ( allocated(phase_hh) ) then
         deallocate(phase_hh,phase_pp,half6j%tp_mat)
      end if
-     print*, ladder_ops(1)%xindx,ladder_ops(1)%rank,ladder_ops(1)%dpar
+
      call allocate_tensor(jbas,ladder_ops(1),HS)   
      do q = 1,ladder_ops(1)%nblocks
         ladder_ops(1)%tblck(q)%lam(1) = 1 

@@ -604,11 +604,17 @@ subroutine build_Hcm(pp,rr,Hcm,jbas)
 
   hw = pp%hospace
   hw_tilde = pp%com_hw 
+  if (allocated(phase_pp)) then
+     deallocate(phase_hh,phase_pp,half6j%tp_mat)
+  end if
+  call allocate_tensor(jbas,Hcm,pp)
+  Hcm%hospace=pp%hospace
             
-  call duplicate_sq_op(pp,Hcm)
-  call add_sq_op(pp,1.d0,rr,hw_tilde**2/hw**2,Hcm)  
-  Hcm%E0 = Hcm%E0 - 1.5d0 * hw_tilde 
-
+  call duplicate_sq_op(pp,Htemp)
+  call add_sq_op(pp,1.d0,rr,hw_tilde**2/hw**2,Htemp)  
+  Hcm%E0 = Htemp%E0 - 1.5d0 * hw_tilde
+  
+  call copy_rank0_to_tensor_format(Htemp,Hcm,jbas) 
 end subroutine build_Hcm
 !==================================================================== 
 subroutine calculate_CM_energy(pp,rr,hw) 
@@ -1639,11 +1645,11 @@ subroutine tensor_product(AA,BB,CC,jbas)
   ! do nothing
 end subroutine tensor_product
   
-subroutine EOM_observables( ladder_ops, O1,HS,trans, mom, eom_states , jbas)
+subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jbas)
   implicit none
 
   type(sq_op),dimension(:) :: ladder_ops
-  type(sq_op) :: O1,HS
+  type(sq_op) :: O1,HS,Hcm
   type(spd) :: jbas
   type(eom_mgr) :: eom_states
   type(obsv_mgr) :: trans,mom
@@ -1841,50 +1847,28 @@ subroutine EOM_observables( ladder_ops, O1,HS,trans, mom, eom_states , jbas)
   end do
 
 
-  ! if (allocated(Hcm%tblck)) then 
+  if (allocated(Hcm%tblck)) then 
      
-  !    ! CALCULATE Hcm 
-  !    print*
-  !    print*, '======================================='
-  !    print*, '           E              <Hcm>'  
-  !    print*, '======================================='
+     ! CALCULATE Hcm 
+     print*
+     print*, '======================================='
+     print*, '           E              <Hcm>'  
+     print*, '======================================='
 
-  !    do In = 1, size(ladder_ops) 
-  !       Mfi = transition_ME(ladder_ops(in),Hcm,ladder_ops(in),jbas)  
-  !       moment = (Mfi)/sqrt(ladder_ops(in)%rank+1.d0)!+ Hcm%E0 !- 1.5d0* HS%com_hw
-  !       E_in = ladder_ops(in)%E0
-  !       write(*,'(2(f19.12))') E_in,moment
-  !       states = states + 1
-  !    end do
-  ! end if
+     do In = 1, size(ladder_ops) 
+        Mfi = transition_ME(ladder_ops(in),Hcm,ladder_ops(in),jbas)  
+        moment = Mfi/sqrt(ladder_ops(In)%rank+1.d0) + Hcm%E0
+        E_in = ladder_ops(in)%E0
+        write(*,'(2(f19.12))') E_in,moment
+        states = states + 1
+     end do
+  end if
 
 end subroutine EOM_observables
+   
 
-real(8) function EOM_scalar_observable(ladder,O,jbas) 
-  ! calculates an observable's value
-  implicit none
 
-  type(spd) :: jbas
-  type(sq_op) :: ladder,O,OT
-  real(8) :: Mfi
 
-  OT%rank = 0
-  OT%dpar = 0
-  OT%xindx = size(jbas%xmap_Tensor(:,1))
-  
-  if (allocated(phase_pp)) then
-     deallocate(phase_hh,phase_pp,half6j%tp_mat)
-  end if
-  call allocate_tensor(jbas,OT,O)
-  OT%hospace=O%hospace
-
-  call copy_rank0_to_tensor_format(O,OT,jbas) 
-  Mfi = transition_ME(ladder,OT,ladder,jbas)
-  
-  ! transform to non reduced matrix element
-  EOM_scalar_observable = MFi/sqrt(ladder%rank+1.d0) + O%E0
-  
-end function EOM_scalar_observable
 
  end module
   

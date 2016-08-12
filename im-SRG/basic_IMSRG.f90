@@ -2979,13 +2979,11 @@ subroutine copy_rank0_to_tensor_format(A,B,jbas)
   type(sq_op) :: A, B
   integer :: p1,h1,aa,i,ji,ja,q,qT,Tz,PAR,J1,J2
   
-  PRINT*, 'fuck'
   do h1=1,A%belowEF
      i = jbas%holes(h1) 
      ji= jbas%jj(i)     
      B%fhh(h1,:) = A%fhh(h1,:)*sqrt(ji+1.d0) 
   end do       
-  PRINT*, 'EVERYTHING'
   
   do p1=1,A%Nsp-A%belowEF
      aa = jbas%parts(p1) 
@@ -2994,9 +2992,7 @@ subroutine copy_rank0_to_tensor_format(A,B,jbas)
      B%fph(p1,:) = A%fph(p1,:)*sqrt(ja+1.d0) 
   end do
   
-  PRINT*, 'FUCK'
   do q = 1, A%nblocks 
-     PRINT*, Q
      J1 = A%mat(q)%lam(1) 
      J2 = J1 
      PAR = A%mat(q)%lam(2) 

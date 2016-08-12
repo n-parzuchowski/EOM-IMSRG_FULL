@@ -25,7 +25,7 @@ program main_IMSRG
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
   integer :: na,la,lb,totstates,numstates,oldnum
-  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr,val
+  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
   external :: build_gs_white,build_specific_space,build_gs_atan,build_gs_w2
@@ -314,17 +314,11 @@ print*, 'BASIS SETUP COMPLETE'
         if (com_calc) then 
            Hcm%rank = 0
            Hcm%dpar = 0
-!           Hcm%xindx = Otrans%xindx + 1 
+           Hcm%xindx = Otrans%xindx + 1 
            call build_Hcm(pipj,rirj,Hcm,jbas)
-           do q = 1, totstates              
-              val = EOM_scalar_observable(ladder_ops(q),HS,jbas) 
-              print*, val
-              write(*, '(A2,2(f20.14))') eom_states%name(q),ladder_ops(q)%E0,val
-           end do 
-           
         end if
         
-        call EOM_observables( ladder_ops, Otrans, HS, trans, moments,eom_states,jbas)
+        call EOM_observables( ladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
 
         ! do q = 1, totstates
         !    print*, ladder_ops(q)%E0,ladder_ops(q)%E0 + EOM_triples(HS,ladder_ops(q),jbas)  
