@@ -24,7 +24,7 @@ program main_IMSRG
   character(1) :: quads,trips,trans_type
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
-  integer :: na,la,lb,totstates,numstates,oldnum
+  integer :: na,la,lb,totstates,numstates,oldnum,qx
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr,de_trips
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
@@ -292,6 +292,18 @@ print*, 'BASIS SETUP COMPLETE'
         ladder_ops(1+oldnum:Numstates+oldnum)%xindx = q
         call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
              jbas,ladder_ops(1+oldnum:Numstates+oldnum))
+        print*
+        print*, '================================================'
+        print*, '  J^Pi          E            E+dE       time    '
+        print*, '================================================'
+        do qx = 1+oldnum,Numstates+oldnum
+           t1= omp_get_wtime()
+           dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  
+           t2= omp_get_wtime()
+           write(*,'(A2,3(f20.10))') eom_states%name(q),&
+                ladder_ops(qx)%E0,ladder_ops(qx)%E0 + dE_trips,t2-t1
+        end do
+        
      end do
 
      t2 = omp_get_wtime() 
@@ -319,17 +331,7 @@ print*, 'BASIS SETUP COMPLETE'
         end if
         
         call EOM_observables( ladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
-
-        print*, '================================================'
-        print*, '  J     Pi          E            E+dE   '
-        print*, '================================================'
-        do q = 1, totstates
-           t1= omp_get_wtime()
-           dE_trips=EOM_triples(HS,ladder_ops(q),jbas)  
-           t2= omp_get_wtime()
-           write(*,'(2(I5),3(f20.10))') ladder_ops(q)%rank/2,ladder_ops(q)%dpar/2,&
-                ladder_ops(q)%E0,ladder_ops(q)%E0 + dE_trips,t2-t1
-        end do
+        
      end if
 
      
