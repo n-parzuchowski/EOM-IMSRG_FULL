@@ -25,7 +25,7 @@ program main_IMSRG
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
   integer :: na,la,lb,totstates,numstates,oldnum
-  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr
+  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr,de_trips
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
   external :: build_gs_white,build_specific_space,build_gs_atan,build_gs_w2
@@ -320,9 +320,16 @@ print*, 'BASIS SETUP COMPLETE'
         
         call EOM_observables( ladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
 
-        ! do q = 1, totstates
-        !    print*, ladder_ops(q)%E0,ladder_ops(q)%E0 + EOM_triples(HS,ladder_ops(q),jbas)  
-        ! end do
+        print*, '================================================'
+        print*, '  J     Pi          E            E+dE   '
+        print*, '================================================'
+        do q = 1, totstates
+           t1= omp_get_wtime()
+           dE_trips=EOM_triples(HS,ladder_ops(q),jbas)  
+           t2= omp_get_wtime()
+           write(*,'(2(I5),3(f20.10))') ladder_ops(q)%rank/2,ladder_ops(q)%dpar/2,&
+                ladder_ops(q)%E0,ladder_ops(q)%E0 + dE_trips,t2-t1
+        end do
      end if
 
      

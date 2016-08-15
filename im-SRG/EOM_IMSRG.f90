@@ -600,7 +600,7 @@ real(8) function tensor_triples(H,Xdag,jbas)
   rank = Xdag%rank
   fails = 0
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,Xdag) & 
-!$OMP& REDUCTION(+:sm)  reduction(+:global_counter1) reduction(+:global_counter2)
+!$OMP& REDUCTION(+:sm) REDUCTION(+:global_counter1) REDUCTION(+:global_counter2)
   
   do thread = 1, total_threads
   do q = 1+threebas(1)%direct_omp(thread),&
@@ -716,8 +716,9 @@ real(8) function tensor_triples(H,Xdag,jbas)
                     
                     if ( .not. (triangle(jtot2,jk,Jij))) cycle
                     if ((i==j).and.(mod(Jij/2,2)==1)) cycle
-                    
+                    global_counter1 = global_counter1 + 1
                     w = EOM_TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)
+                    if (abs(W) > 1e-10) global_counter2 = global_counter2 + 1                    
                     sm = sm + w*w/denom*(jtot1+1.d0)/(rank+1.d0)
 
                  end do
@@ -730,7 +731,7 @@ real(8) function tensor_triples(H,Xdag,jbas)
   end do
  !$OMP END PARALLEL DO 
   tensor_triples = sm
-
+  print*, global_counter1,global_counter2,'tits'
 end function tensor_triples
 !=====================================================
 !=====================================================
@@ -1194,7 +1195,7 @@ logical function read_ladder_operators(AX,jbas)
 
 end function read_ladder_operators
  
-real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas) 
+real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,MU_B,AA,BB,jbas) 
   implicit none 
   
   type(spd) :: jbas
@@ -1212,7 +1213,6 @@ real(8) function W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)
   ju = jbas%jj(u) 
   sm = 0.d0 
 
-  mu_B = 0 ! THIS NEEDS TO BE FIXED. 
   do ia = 1,AA%belowEF
      a = jbas%holes(ia) 
      ja = jbas%jj(a) 
@@ -1312,25 +1312,24 @@ real(8)  function W_via_mscheme(p,q,r,s,t,u,j1,j2,Jpq,Jst,AA,BB,jbas)
 
   do mp = -1*jp,jp,2
      do mq = -1*jq,jq,2
+        Mpq = mp+mq
         do mr = -1*jr,jr,2
            do ms = -1*js,js,2
               do mt = -1*jt,jt,2
+                 Mst = ms+mt
                  do mu = -1*ju,ju,2
-
-                    Mpq = mp + mq
-                    Mst = ms + mt
-                    
-                    m1 = Mpq+mr
-                    m2 = Mst+mu
-                    
-                          
-                    Mew = m1 - m2 
-
-                    sm = sm + W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,AA,BB,jbas)&
-                         * dcgi(jp,mp,jq,mq,Jpq,Mpq) * dcgi(Jpq,Mpq,jr,mr,j1,m1) &
-                         * dcgi(js,ms,jt,mt,Jst,Mst) * dcgi(Jst,Mst,ju,mu,j2,m2) &
-                         * dcgi(j2,m2,RANK,Mew,j1,m1)/sqrt(j1+1.d0) 
-  
+                    do m1 = -1*j1,j1,2
+                       do m2 = -1*j2,j2,2
+                          do Mew = -1*Rank,Rank,2 
+                             
+                             sm = sm + W_mscheme(p,mp,q,mq,r,mr,s,ms,t,mt,u,mu,Mew,AA,BB,jbas)&
+                                  * dcgi(jp,mp,jq,mq,Jpq,Mpq) * dcgi(Jpq,Mpq,jr,mr,j1,m1) &
+                                  * dcgi(js,ms,jt,mt,Jst,Mst) * dcgi(Jst,Mst,ju,mu,j2,m2) &
+                                  * dcgi(j2,m2,RANK,Mew,j1,m1)/sqrt(j1+1.d0) 
+                             
+                          end do
+                       end do
+                    end do
                  end do
               end do
            end do
