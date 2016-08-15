@@ -612,7 +612,7 @@ subroutine build_Hcm(pp,rr,Hcm,jbas)
             
   call duplicate_sq_op(pp,Htemp)
   call add_sq_op(pp,1.d0,rr,hw_tilde**2/hw**2,Htemp)  
-  Hcm%E0 = Htemp%E0
+  Hcm%E0 = Htemp%E0 - 1.5d0 * hw_tilde
   call copy_rank0_to_tensor_format(Htemp,Hcm,jbas) 
 end subroutine build_Hcm
 !==================================================================== 
@@ -1806,6 +1806,7 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
      end if
      Jin = 2*Jin
      print*
+
      print*, '======================================='
      print*, '           E              <'//mom%oper//'>('//mom%Jpi1(q)//')'  
      print*, '======================================='
@@ -1856,7 +1857,7 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
 
      do In = 1, size(ladder_ops) 
         Mfi = transition_ME(ladder_ops(in),Hcm,ladder_ops(in),jbas)  
-        moment = Mfi+ Hcm%E0 - 1.5d0* HS%com_hw
+        moment = Mfi/sqrt(ladder_ops(in)%rank+1.d0) + Hcm%E0
         E_in = ladder_ops(in)%E0
         write(*,'(2(f19.12))') E_in,moment
         states = states + 1
