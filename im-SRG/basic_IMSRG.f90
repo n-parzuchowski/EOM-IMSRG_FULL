@@ -130,8 +130,6 @@ module basic_IMSRG
   integer,public,dimension(9) :: jst = (/10000000,1,1,10000000,10000000,1,1,1,1/)
   integer,allocatable,dimension(:),public :: hb4,pb4
 
-
-
   integer,public :: global_counter1=0,global_counter2=0,global_counter3=0
   real(8),public :: global_sm=0.d0
   character(500) :: TBME_DIR,SP_DIR,INI_DIR,OUTPUT_DIR
@@ -141,34 +139,9 @@ module basic_IMSRG
   real(8),public,parameter :: hbarc2_over_mc2 = hbarc*hbarc/m_nuc
   real(8),public,parameter :: Pi_const = acos(-1.d0) 
   character(200),public :: spfile,intfile,prefix,threebody_file,eomfile
-  character(500),public :: playplace = '/mnt/research/imsrg/nsuite/me/playplace/'
-  character(500),public :: scratch = '/mnt/scratch/parzuch6/'
+  character(500),public :: playplace 
+  character(500),public :: scratch
   character(200),public :: resubmitter 
-  ! If you have multiple places where you might want to write/read from, list them here. 
-  ! You can have as many as you want, just make sure to increase the dimension accordingly. 
-  ! Fortran is stupid about strings so make sure the strings are the same length, or it will get pissed.    
-  ! The code will search through the possibilities and use the first one that works. 
-  character(500),dimension(4) :: OUTPUT_DIRECTORY_LIST=& 
-       (/               '/home/nathan/nuclear_IMSRG/output/                 '              , &
-                        '/mnt/home/parzuch6/nuclear_IMSRG/output/           '              , &
-                        '/user/parzucho/nuclear_IMSRG/output/               '              , &
-                        './                                                 '                /)
-  character(500),dimension(5) :: TBME_DIRECTORY_LIST=&
-       (/               '/mnt/home/parzuch6/nuclear_IMSRG/TBME_input/       '              , &
-                        '/home/nathan/nuclear_IMSRG/TBME_input/             '              , &
-                        '/user/parzucho/nuclear_IMSRG/TBME_input/           '              , &
-                        '/mnt/research/imsrg/nsuite/me/                     '              , &
-                        './                                                 '                /)
-  character(500),dimension(4) :: SP_DIRECTORY_LIST=&
-       (/               '/mnt/home/parzuch6/nuclear_IMSRG/sp_inputs/        '              , &
-                        '/home/nathan/nuclear_IMSRG/sp_inputs/              '              , & 
-                        '/user/parzucho/nuclear_IMSRG/sp_inputs/            '              , & 
-                        './                                                 '                /)
-  character(500),dimension(4) :: INI_DIRECTORY_LIST=&
-       (/               '/mnt/home/parzuch6/nuclear_IMSRG/inifiles/         '              , &
-                        '/home/nathan/nuclear_IMSRG/inifiles/               '              , &
-                        '/user/parzucho/nuclear_IMSRG/inifiles/             '              , &
-                        './                                                 '                /)
   !======================================================================================
 contains
 !====================================================
@@ -3653,24 +3626,10 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   input = adjustl(input) 
   if (trim(input) == '') then 
      print*, 'RUNNING TEST CASE: testcase.ini'
-     i = 1 
-     found = .false. 
-     do while (.not. (found))   
-        if (i>size(INI_DIRECTORY_LIST)) STOP 'INIT-FILE NOT FOUND'
-        INI_DIR = INI_DIRECTORY_LIST(i) 
-        inquire(file=trim(INI_DIR)//'testcase.ini',exist=found) 
-        i = i + 1
-     end do
+     INI_DIR = find_file("IMSRG_INIFILES",'testcase.ini')
      open(unit=22,file=trim(INI_DIR)//'testcase.ini')
   else       
-     i = 1 
-     found = .false. 
-     do while (.not. (found))   
-        if (i>size(INI_DIRECTORY_LIST)) STOP 'INIT-FILE NOT FOUND'
-        INI_DIR = INI_DIRECTORY_LIST(i) 
-        inquire(file=trim(INI_DIR)//trim(input),exist=found)      
-        i = i + 1
-     end do
+     INI_DIR = find_file("IMSRG_INIFILES",trim(input))
      open(unit=22,file=trim(INI_DIR)//trim(input)) 
   end if 
   
@@ -3797,60 +3756,16 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   end if
 
   ! figure out where the TBME and SP files are....
-  i = 1 
-  found = .false. 
-  do while (.not. (found))  
-     if (i>size(TBME_DIRECTORY_LIST)) STOP 'TBME FILE NOT FOUND'
-     TBME_DIR = TBME_DIRECTORY_LIST(i) 
-     inquire(file=trim(TBME_DIR)//trim(intfile),exist=found)      
-     i = i + 1
-  end do
 
-  i = 1 
-  found = .false. 
-  do while (.not. (found))   
-     if (i>size(SP_DIRECTORY_LIST)) STOP 'SP FILE NOT FOUND'
-     SP_DIR = SP_DIRECTORY_LIST(i) 
-     inquire(file=trim(SP_DIR)//trim(spfile),exist=found)      
-     i = i + 1
-  end do
+  TBME_DIR = find_file('IMSRG_ME_FILES',trim(intfile)) 
+  SP_DIR = find_file('IMSRG_SP_FILES',trim(spfile)) 
 
-  i = 1 
-  found = .false. 
-  do while (.not. (found))  
-     if (i>size(OUTPUT_DIRECTORY_LIST)) STOP 'OUTPUT DIRECTORY NOT FOUND'
-     OUTPUT_DIR = OUTPUT_DIRECTORY_LIST(i) 
-     !!! NOTE: IFORT IS TOO STUPID TO EXECUTE THIS NEXT INQUIRE 
-     !!! IN A PORTABLE WAY... 
-     
-     open(unit=78,file=trim(OUTPUT_DIR)//'ifort_sucks.fail',status='replace',err=1234)
-     close(78)
-     exit
-!     inquire(file=trim(OUTPUT_DIR),exist=found)      
-1234 i = i + 1     
-  end do
-
-  do while (.not. (found))  
-     !!! NOTE: IFORT IS TOO STUPID TO EXECUTE THIS NEXT INQUIRE 
-     !!! IN A PORTABLE WAY ...  
-     
-     open(unit=78,file=trim(scratch)//'ifort_sucks.fail',status='replace',err=1235)
-     close(78)
-     exit
-1235 scratch = adjustl(TBME_DIR) ! default 
-     exit
-  end do
-  
-  do while (.not. (found))  
-     !!! NOTE: IFORT IS TOO STUPID TO EXECUTE THIS NEXT INQUIRE 
-     !!! IN A PORTABLE WAY... 
-     
-     open(unit=78,file=trim(playplace)//'ifort_sucks.fail',status='replace',err=1236)
-     close(78)
-     exit
-1236 playplace = adjustl(TBME_DIR) ! default 
-     exit
-  end do
+  call getenv("IMSRG_OUTPUT",OUTPUT_DIR)
+  OUTPUT_DIR = trim(adjustl(OUTPUT_DIR))//'/'
+  call getenv("IMSRG_SCRATCH",scratch)
+  scratch = trim(adjustl(scratch))//'/'
+  call getenv("IMSRG_OPERATOR_DUMP",playplace)
+  playplace = trim(adjustl(playplace))//'/'
   
 end subroutine read_main_input_file
 !=======================================================  
@@ -4809,6 +4724,51 @@ real(8) function Vgenpandya(a,d,c,b,J1,J2,Op,jbas)
   
   Vgenpandya = sm 
 end function Vgenpandya
+!=========================================================
+!=========================================================
+character(500) function find_file( directory_name,file_name) 
+  ! returns directory name from found from environment variable
+  character(*) :: file_name,directory_name
+  character(1000) :: path
+  integer :: istart,iend,i
+  logical :: isthere,last_chance
+  
+  ! file_name = file_name)
+  ! directory_name = adjustl(directory_name)
+  
+  call GETENV(trim(directory_name),path)
+  path=adjustl(path)
+  
+  istart = 1
+  do while (.true.)
+     i = istart
+     do while (path(i:i).ne.':')
+        iend = i
+        i = i+ 1
+        if (path(i:i) == ' ') then
+           i = 0
+           exit 
+        end if
+     end do
+     
+     inquire(file=path(istart:iend)//'/'//trim(file_name),exist=isthere) 
+     if (isthere) then
+        find_file = path(istart:iend)//'/'        
+        return
+     else if (i == 0) then
+        inquire(file='./'//file_name,exist=last_chance) 
+        if (last_chance) then 
+           find_file = './'
+           return
+        else
+           PRINT*, 'FILE NOT FOUND: ',trim(adjustl(file_name))
+           print*, 'CHECK ENVIRONMENT VARIABLE: ',trim(adjustl(directory_name))
+           STOP
+        end if
+     end if
+     istart = iend+2
+  end do
+end function find_file
 
 end module       
 
