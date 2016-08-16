@@ -1200,7 +1200,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
   type(sq_op) :: L,R
   type(spd) :: jbas
   real(8) :: sm,sm_sub,multfact,smtot,d6ji,out,otherfact,dsum
-  real(8) :: Vs1,Vs2,sj1,sj2,sj3,sj4
+  real(8) :: Vs1,Vs2,sj1,sj2,sj3,sj4,stemp
   
   smtot = 0.d0 
   rank = R%rank 
@@ -1257,20 +1257,21 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      if (abs(sj1) < 1e-8) cycle
      
      do J2 = j2min, j2max , 2
-        
-        sj2 = sj1*d6ji(jp,jq,Jpq,jr,jtot1,J2)*sqrt(J2+1.d0) 
+        if ((iq == ir) .and. (mod(J2/2,2)==1)) cycle
+        sj2 = sj1*sixj(jp,jq,Jpq,jr,jtot1,J2)*sqrt(J2+1.d0) 
         if (abs(sj2) < 1e-8) cycle        
         
-        j3min = min(abs(ja - ju),abs(jp-jtot2),abs(J2-rank))
-        j3max = max(ja+ju,jp+jtot2,J2+rank) 
+        j3min = max(abs(ja - ju),abs(jp-jtot2),abs(J2-rank))
+        j3max = min(ja+ju,jp+jtot2,J2+rank) 
      
         do J3 = j3min,j3max,2
-
+           if ((a == iu) .and. (mod(J3/2,2)==1)) cycle
+            
            sm = sm - (-1)**(J3/2) * sqrt(J3 + 1.d0) &            
-            * sj2 * d6ji(jp,ja,Jst,ju,jtot2,J3) *  &
-             d6ji(J2,J3,rank,jtot2,jtot1,jp) * &
+            * sj2 * sixj(jp,ja,Jst,ju,jtot2,J3) *  &
+             xxxsixj(J2,J3,rank,jtot2,jtot1,jp) * &
              tensor_elem(iq,ir,a,iu,J2,J3,R,jbas)
-           
+              
         end do
      end do
   end do
@@ -1278,44 +1279,46 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
   smtot = smtot + sm*multfact
   
   !Right-left  
+  if (.not.((is == it) .and. (mod(Jst/2,2)==1))) then 
+     multfact = (-1)**((jq+jr+jp-jtot2+rank)/2) *sqrt((Jpq+1.d0) &
+          *(jtot1+1.d0)*(jtot2+1.d0) ) 
+     sm = 0.d0 
+     do ia=1,L%Nsp-L%belowEF 
+        a = jbas%parts(ia)
 
-  multfact = (-1)**((jq+jr+jp-jtot2+rank)/2) *sqrt((Jpq+1.d0) &
-       *(jtot1+1.d0)*(jtot2+1.d0) ) 
-  sm = 0.d0 
-  do ia=1,L%Nsp-L%belowEF 
-     a = jbas%parts(ia)
-     
-     if ( (tu+jbas%itzp(a)) .ne. (tq+tr) ) cycle
-     if ( mod(lu+jbas%ll(a),2) .ne. mod(lq+lr,2) ) cycle 
-     
-     ja = jbas%jj(a) 
-          
-     j1min = min(abs(jp - ja),abs(Jst-rank))
-     j1max = max(jp + ja,Jst+rank) 
-     
-     j3min = max( abs(jq - jr) , abs(ja - ju) , abs(jp-jtot1)) 
-     j3max = min( jq+jr , ja+ju , jp+jtot1) 
-     
-     phase = (-1)**((ja - jp)/2)
-             
-     do J1 = j1min, j1max , 2      
+        if ( (tu+jbas%itzp(a)) .ne. (tq+tr) ) cycle
+        if ( mod(lu+jbas%ll(a),2) .ne. mod(lq+lr,2) ) cycle 
 
-        Vs1 = tensor_elem(ip,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2) 
-        sj1 = sqrt(J1+1.d0)*d6ji(J1,Jst,rank,jtot2,jtot1,ju) 
-        if (abs(sj1) < 1e-8) cycle
-        do J3 = j3min,j3max,2
+        ja = jbas%jj(a) 
 
-           sm = sm +  phase *sj1*(J3 + 1.d0) &
-                * d6ji(jp,jq,Jpq,jr,jtot1,J3) * d6ji(jp,ja,J1,ju,jtot1,J3) &
-                * Vs1 * v_elem(iq,ir,a,iu,J3,L,jbas)
+        j1min = max(abs(jp - ja),abs(Jst-rank))
+        j1max = min(jp + ja,Jst+rank) 
 
+        j3min = max( abs(jq - jr) , abs(ja - ju) , abs(jp-jtot1)) 
+        j3max = min( jq+jr , ja+ju , jp+jtot1) 
+
+        phase = (-1)**((ja - jp)/2)
+
+        do J1 = j1min, j1max , 2      
+           if ((ip == a) .and. (mod(J1/2,2)==1)) cycle     
+
+           Vs1 = tensor_elem(ip,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2) 
+           sj1 = sqrt(J1+1.d0)*xxxsixj(J1,Jst,rank,jtot2,jtot1,ju) 
+           if (abs(sj1) < 1e-8) cycle
+           do J3 = j3min,j3max,2
+              if ((iq == ir) .and. (mod(J3/2,2)==1)) cycle
+              if ((a == iu) .and. (mod(J3/2,2)==1)) cycle
+              sm = sm +  phase *sj1*(J3 + 1.d0) &
+                   * sixj(jp,jq,Jpq,jr,jtot1,J3) * sixj(jp,ja,J1,ju,jtot1,J3) &
+                   * Vs1 * v_elem(iq,ir,a,iu,J3,L,jbas)
+
+           end do
         end do
      end do
-  end do 
-  
-  
-  smtot = smtot + sm*multfact 
-  
+
+
+     smtot = smtot + sm*multfact 
+  end if
   !SECOND TERM
   !Left-Right
   sm = 0.d0 
@@ -1341,21 +1344,23 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja - js)/2) 
      
      do J1 = j1min,j1max,2
-        
+        if ((a == is) .and. (mod(J1/2,2)==1)) cycle
         sj1 = sqrt(J1+1.d0)*phase  
         
         do J2 = j2min,j2max,2
-           
-           sj2 = sj1 * (J2+1.d0) * (-1)**(J2/2) * d6ji(js,jt,Jst,ju,jtot2,J2) * &
-                d6ji(jp,ja,J2,js,jtot2,J1) * v_elem(ip,a,it,iu,J2,L,jbas) 
+           if ((ip == a) .and. (mod(J2/2,2)==1)) cycle
+           if ((it == iu) .and. (mod(J2/2,2)==1)) cycle
+
+           sj2 = sj1 * (J2+1.d0) * (-1)**(J2/2) * sixj(js,jt,Jst,ju,jtot2,J2) * &
+                sixj(jp,ja,J2,js,jtot2,J1) * v_elem(ip,a,it,iu,J2,L,jbas) 
            if (abs(sj2) < 1e-8) cycle
-           j3min = min(abs(jq - jr),abs(J1-rank)) 
-           j3max = max(jq+jr,J1+rank) 
+           j3min = max(abs(jq - jr),abs(J1-rank)) 
+           j3max = min(jq+jr,J1+rank) 
      
            do J3 = j3min,j3max,2
-           
-              sm = sm - sqrt(J3+1.d0) * sj2 * d6ji(jp,jq,Jpq,jr,jtot1,J3) &
-                   * d6ji(J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J1/2) * &
+              if ((iq == ir) .and. (mod(J3/2,2)==1)) cycle
+              sm = sm - sqrt(J3+1.d0) * sj2 * sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * xxxsixj(J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J1/2) * &
                      tensor_elem(iq,ir,a,is,J3,J1,R,jbas)
            end do
         end do         
@@ -1373,8 +1378,8 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      
      ja = jbas%jj(a)
      
-     j1min = min(abs(jp - ja),abs(js-jtot1))
-     j1max = max(jp+ja ,js+jtot1) 
+     j1min = max(abs(jp - ja),abs(js-jtot1))
+     j1max = min(jp+ja ,js+jtot1) 
      
      j3min = max( abs(jq - jr) , abs(ja - js) ,abs(jp-jtot1)) 
      j3max = min( jq+jr,ja+js,jp+jtot1)
@@ -1382,21 +1387,22 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja - jp)/2) 
      
      do J1 = j1min,j1max,2
-        
+        if ((ip == a ) .and. (mod(J1/2,2)==1)) cycle
         sj1 = sqrt(J1+1.d0) * phase *(-1)**(J1/2)
         
-        j2min = min(abs(jt - ju),abs(J1-rank)) 
-        j2max = max(jt+ju ,J1+rank) 
+        j2min = max(abs(jt - ju),abs(J1-rank)) 
+        j2max = min(jt+ju ,J1+rank) 
         
         do J2 = j2min,j2max,2 
-           
-           sj2 = sj1 * sqrt(J2+1.d0) * d6ji(js,jt,Jst,ju,jtot2,J2) * (-1)**(J2/2) *&
-                d6ji(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
+           if ((it == iu) .and. (mod(J2/2,2)==1)) cycle
+           sj2 = sj1 * sqrt(J2+1.d0) * sixj(js,jt,Jst,ju,jtot2,J2) * (-1)**(J2/2) *&
+                xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
            if (abs(sj2) < 1e-8) cycle
            do J3 = j3min,j3max,2
-              
-              sm = sm + sj2 * (J3+1.d0) * d6ji(jp,jq,Jpq,jr,jtot1,J3) &
-                   * d6ji(jp,ja,J1,js,jtot1,J3) * v_elem(iq,ir,a,is,J3,L,jbas)
+              if ((iq == ir) .and. (mod(J3/2,2)==1)) cycle
+              if ((a == is) .and. (mod(J3/2,2)==1)) cycle
+              sm = sm + sj2 * (J3+1.d0) * sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * sixj(jp,ja,J1,js,jtot1,J3) * v_elem(iq,ir,a,is,J3,L,jbas)
            end do 
         end do 
      end do
@@ -1430,20 +1436,22 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja + jp)/2) ! changed to ja+js rather than ja-js 
      
      do J3 = j3min,j3max,2
-        
-        sj1 = phase*d6ji(jp,jq,Jpq,jr,jtot1,J3)*sqrt(J3+1.d0)  
+        if ((iq == ir) .and. (mod(J3/2,2)==1)) cycle
+        sj1 = phase*sixj(jp,jq,Jpq,jr,jtot1,J3)*sqrt(J3+1.d0)  
 
         j1min = max(abs(ja - jt),abs(rank-J3))
         j1max = min(ja+jt,rank+J3) 
              
         do J1 = j1min,j1max,2 
-           
+           if ((a == it) .and. (mod(J1/2,2)==1)) cycle
            sj2 =  sj1*(-1)**(J1/2)*tensor_elem(iq,ir,a,it,J3,J1,R,jbas)*&
-                d6ji(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
+                xxxsixj(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
            if (abs(sj2) < 1e-8) cycle
            do J2 = j2min,j2max,2
-              sm = sm - (J2+1.d0) *sj2* d6ji(js,jt,Jst,jtot2,ju,J2) &
-                   * d6ji(jp,ja,J2,jt,jtot2,J1) * v_elem(ip,a,iu,is,J2,L,jbas)
+              if ((ip == a) .and. (mod(J2/2,2)==1)) cycle
+              if ((iu == is) .and. (mod(J2/2,2)==1)) cycle
+              sm = sm - (J2+1.d0) *sj2* sixj(js,jt,Jst,jtot2,ju,J2) &
+                   * sixj(jp,ja,J2,jt,jtot2,J1) * v_elem(ip,a,iu,is,J2,L,jbas)
            end do
         end do
      end do
@@ -1469,19 +1477,23 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
      
      do J2 = j2min,j2max,2
-        
-        sj1 = phase* d6ji(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0) 
+        if ((iu == is) .and. (mod(J2/2,2)==1)) cycle        
+        sj1 = phase* sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0) 
         
         j1min = max(abs(jp - ja),abs(rank-J2))
         j1max = min(jp+ja ,rank+J2)
     
-        do J1 = j1min,j1max,2 
-           sj2 = sj1*(-1)**(J1/2)*d6ji(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
+        do J1 = j1min,j1max,2
+           if ((ip == a) .and. (mod(J1/2,2)==1)) cycle
+
+           sj2 = sj1*(-1)**(J1/2)*xxxsixj(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
                 tensor_elem(ip,a,iu,is,J1,J2,R,jbas)      
            if (abs(sj2) < 1e-8) cycle
            do J3 = j3min,j3max,2
-              sm = sm + (J3+1.d0) *sj2* d6ji(jp,jq,Jpq,jr,jtot1,J3) &
-                   * d6ji(jp,ja,J1,jt,jtot1,J3) * v_elem(iq,ir,a,it,J3,L,jbas)
+              if ((iq == ir) .and. (mod(J3/2,2)==1)) cycle
+              if ((a == it) .and. (mod(J3/2,2)==1)) cycle
+              sm = sm + (J3+1.d0) *sj2* sixj(jp,jq,Jpq,jr,jtot1,J3) &
+                   * sixj(jp,ja,J1,jt,jtot1,J3) * v_elem(iq,ir,a,it,J3,L,jbas)
            end do
         
         end do
@@ -1501,81 +1513,84 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
   multfact = (-1)**((jp+jtot2+Jpq+rank)/2) *sqrt((Jpq+1.d0)*(Jst+1.d0)*&
        (jtot1+1.d0)*(jtot2+1.d0)) 
 
-  do ia=1,L%belowEF
-     a = jbas%holes(ia)
-     
-     if ( (tq+jbas%itzp(a)) .ne. (ts+tt) ) cycle
-     if ( mod(lq+jbas%ll(a),2) .ne. mod(ls+lt,2) ) cycle 
+  if (.not.((is==it).and.(mod(Jst/2,2)==1))) then 
+     do ia=1,L%belowEF
+        a = jbas%holes(ia)
+        if ((a == iq) .and. (mod(Jst/2,2)==1)) cycle
+        if ( (tq+jbas%itzp(a)) .ne. (ts+tt) ) cycle
+        if ( mod(lq+jbas%ll(a),2) .ne. mod(ls+lt,2) ) cycle 
 
-     ja = jbas%jj(a)     
-     
-     
-     j1min = max(abs(jp - jr),abs(jtot1-jq))
-     j1max = min(jp+jr ,jtot1+jq) 
-        
-     phase = (-1) ** ((ja - ju)/2) ! changed to ja+js rather than ja-js 
-     
-     sj1 = v_elem(iq,a,is,it,Jst,L,jbas)*phase
-     if (abs(sj1) < 1e-8) cycle
-     do J1 = j1min,j1max,2
-        
-        sj2 = sj1*d6ji(jp,jq,Jpq,jtot1,jr,J1)*sqrt(J1+1.d0)*(-1)**(J1/2)
-        if (abs(sj2) < 1e-8) cycle
-        j2min = max(abs(ja - ju),abs(rank-J1),abs(jq-jtot2))
-        j2max = min(ja+ju,rank+J1,jq+jtot2)
-        
-        do J2 = j2min,j2max,2 
-           
-           sm = sm -  sj2*sqrt(J2+1.d0)*(-1)**(J2/2)*tensor_elem(ir,ip,a,iu,J1,J2,R,jbas)*&
-                d6ji(J1,J2,rank,jtot2,jtot1,jq)*d6ji(ja,jq,Jst,jtot2,ju,J2)
+        ja = jbas%jj(a)     
 
+
+        j1min = max(abs(jp - jr),abs(jtot1-jq))
+        j1max = min(jp+jr ,jtot1+jq) 
+
+        phase = (-1) ** ((ja - ju)/2) ! changed to ja+js rather than ja-js 
+
+        sj1 = v_elem(iq,a,is,it,Jst,L,jbas)*phase
+        if (abs(sj1) < 1e-8) cycle
+        do J1 = j1min,j1max,2
+           if ((ip == ir) .and. (mod(J1/2,2)==1)) cycle          
+           sj2 = sj1*sixj(jp,jq,Jpq,jtot1,jr,J1)*sqrt(J1+1.d0)*(-1)**(J1/2)
+           if (abs(sj2) < 1e-8) cycle
+           j2min = max(abs(ja - ju),abs(rank-J1),abs(jq-jtot2))
+           j2max = min(ja+ju,rank+J1,jq+jtot2)
+
+           do J2 = j2min,j2max,2 
+              if ((a == iu) .and. (mod(J2/2,2)==1)) cycle
+
+              sm = sm -  sj2*sqrt(J2+1.d0)*(-1)**(J2/2)*tensor_elem(ir,ip,a,iu,J1,J2,R,jbas)*&
+                   xxxsixj(J1,J2,rank,jtot2,jtot1,jq)*sixj(ja,jq,Jst,jtot2,ju,J2)
+
+           end do
         end do
+
      end do
 
-  end do
-
-  smtot = smtot + sm*multfact
-
+     smtot = smtot + sm*multfact
+  end if
   ! right-left
       
   sm = 0.d0 
   
   multfact = (-1)**((jp-jtot2+Jpq+rank)/2) *sqrt((Jpq+1.d0)*&
        (jtot1+1.d0)*(jtot2+1.d0)) 
+  if (.not.((is==it).and.(mod(Jst/2,2)==1))) then 
+     do ia=1,L%Nsp-L%belowEF
+        a = jbas%parts(ia)
 
-  do ia=1,L%Nsp-L%belowEF
-     a = jbas%parts(ia)
+        if ( (tu+jbas%itzp(a)) .ne. (tr+tp) ) cycle
+        if ( mod(lu+jbas%ll(a),2) .ne. mod(lr+lp,2) ) cycle 
 
-     if ( (tu+jbas%itzp(a)) .ne. (tr+tp) ) cycle
-     if ( mod(lu+jbas%ll(a),2) .ne. mod(lr+lp,2) ) cycle 
+        ja = jbas%jj(a)     
 
-     ja = jbas%jj(a)     
-          
-     j1min = max(abs(jq - ja),abs(rank-Jst))
-     j1max = min(jq+ja,rank+Jst) 
-   
-     j2min = max(abs(ja - ju),abs(jr-jp),abs(jq-jtot1)) 
-     j2max = min(ja+ju,jr+jp,jq+jtot1) 
-     
-     phase = (-1) ** ((ja + jq)/2) ! changed to ja+js rather than ja-js 
-          
-     do J1 = j1min,j1max,2
-        
-        sj1 = phase*sqrt(J1+1.d0)* &
-             tensor_elem(iq,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2)
-        if (abs(sj1) < 1e-8) cycle
-        do J2 = j2min,j2max,2 
-           
-           sm = sm +  sj1*(J2+1.d0)*(-1)**(J2/2)*v_elem(ir,ip,a,iu,J2,L,jbas) *&
-                d6ji(J1,Jst,rank,jtot2,jtot1,ju)*d6ji(ja,jq,J1,jtot1,ju,J2) &
-                *d6ji(jp,jq,Jpq,jtot1,jr,J2)
+        j1min = max(abs(jq - ja),abs(rank-Jst))
+        j1max = min(jq+ja,rank+Jst) 
+
+        j2min = max(abs(ja - ju),abs(jr-jp),abs(jq-jtot1)) 
+        j2max = min(ja+ju,jr+jp,jq+jtot1) 
+
+        phase = (-1) ** ((ja + jq)/2) ! changed to ja+js rather than ja-js 
+
+        do J1 = j1min,j1max,2
+           if ((a == iq) .and. (mod(J1/2,2)==1)) cycle
+           sj1 = phase*sqrt(J1+1.d0)* &
+                tensor_elem(iq,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2)
+           if (abs(sj1) < 1e-8) cycle
+           do J2 = j2min,j2max,2 
+              if ((a == iu) .and. (mod(J2/2,2)==1)) cycle
+              if ((ir == ip) .and. (mod(J2/2,2)==1)) cycle 
+              sm = sm +  sj1*(J2+1.d0)*(-1)**(J2/2)*v_elem(ir,ip,a,iu,J2,L,jbas) *&
+                   xxxsixj(J1,Jst,rank,jtot2,jtot1,ju)*sixj(ja,jq,J1,jtot1,ju,J2) &
+                   *sixj(jp,jq,Jpq,jtot1,jr,J2)
+           end do
         end do
+
      end do
 
-  end do
-
-  smtot = smtot + sm*multfact
- 
+     smtot = smtot + sm*multfact
+  end if
   ! FIFTH TERM    
   !Left-Right
   sm = 0.d0 
@@ -1601,22 +1616,24 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja + jp)/2) ! changed to ja+js rather than ja-js 
      
      do J1 = j1min,j1max,2
-        
-        sj1 = phase*d6ji(js,jt,Jst,ju,jtot2,J1)*(J1+1.d0)*(-1)**(J1/2)&
+        if ((iq == a) .and. (mod(J1/2,2)==1)) cycle 
+        if ((it == iu) .and. (mod(J1/2,2)==1)) cycle 
+        sj1 = phase*sixj(js,jt,Jst,ju,jtot2,J1)*(J1+1.d0)*(-1)**(J1/2)&
              *v_elem(iq,a,it,iu,J1,L,jbas) 
         if (abs(sj1) < 1e-8) cycle
         
         do J3 = j3min,j3max,2 
-           
+           if ((a == is) .and. (mod(J3/2,2)==1)) cycle 
            sj2 =  sj1*(-1)**(J3/2)*&
-                d6ji(jq,ja,J1,js,jtot2,J3)*sqrt(J3+1.d0)
+                sixj(jq,ja,J1,js,jtot2,J3)*sqrt(J3+1.d0)
            
            j2min = max(abs(jp - jr),abs(rank-J3),abs(jq-jtot1))
            j2max = min(jp+jr,rank+J3,jq+jtot1) 
    
            do J2 = j2min,j2max,2
-              sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*sj2* d6ji(jp,jq,Jpq,jtot1,jr,J2) &
-                   * d6ji(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
+              if ((ir == ip) .and. (mod(J2/2,2)==1)) cycle 
+              sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*sj2* sixj(jp,jq,Jpq,jtot1,jr,J2) &
+                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
            end do
         end do
      end do
@@ -1638,7 +1655,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
     
      
      j2min =  max(abs(jt - ju),abs(js-jtot2))
-     j2max =  max(jt+ju,js+jtot2)
+     j2max =  min(jt+ju,js+jtot2)
      
      j3min = max( abs(jp - jr) , abs(ja - js) ) 
      j3max = min( jp+jr , ja+js)
@@ -1646,19 +1663,22 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
      
      do J3 = j3min,j3max,2
-        
-        sj1 = phase*(-1)**(J3/2)* d6ji(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
+        if ((ir == ip) .and. (mod(J3/2,2)==1)) cycle
+        if ((a == is) .and. (mod(J3/2,2)==1)) cycle 
+        sj1 = phase*(-1)**(J3/2)* sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
              v_elem(ir,ip,a,is,J3,L,jbas) 
         if (abs(sj1) < 1e-8) cycle
-        do J2 = j2min,j2max,2 
-           sj2 = sj1*(-1)**(J2/2)*d6ji(js,jt,Jst,ju,jtot2,J2)*sqrt(J2+1.d0)
+        do J2 = j2min,j2max,2
+           if ((it == iu) .and. (mod(J2/2,2)==1)) cycle 
+           sj2 = sj1*(-1)**(J2/2)*sixj(js,jt,Jst,ju,jtot2,J2)*sqrt(J2+1.d0)
 
            j1min = max(abs(jq - ja),abs(rank-J2),abs(js-jtot1)) 
            j1max = min(jq+ja,rank+J2,js+jtot1)
                     
            do J1 = j1min,j1max,2
-              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* d6ji(jq,ja,J1,js,jtot1,J3) &
-                   * d6ji(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
+              if ((a == iq) .and. (mod(J1/2,2)==1)) cycle 
+              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,js,jtot1,J3) &
+                   * xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
            end do
         
         end do
@@ -1694,21 +1714,23 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja - jp)/2) ! changed to ja+js rather than ja-js 
      
      do J1 = j1min,j1max,2
-        
-        sj1 = phase*d6ji(js,jt,Jst,jtot2,ju,J1)*(J1+1.d0) &
+        if ((iq == a) .and. (mod(J1/2,2)==1)) cycle
+        if ((iu == is) .and. (mod(J1/2,2)==1)) cycle 
+        sj1 = phase*sixj(js,jt,Jst,jtot2,ju,J1)*(J1+1.d0) &
              *v_elem(iq,a,iu,is,J1,L,jbas) 
         if (abs(sj1) < 1e-8) cycle
         do J2 = j2min,j2max,2 
-           
+           if ((ir == ip) .and. (mod(J2/2,2)==1)) cycle 
            sj2 =  sj1*(-1)**(J2/2)*&
-                d6ji(jp,jq,Jpq,jtot1,jr,J2)*sqrt(J2+1.d0)
+                sixj(jp,jq,Jpq,jtot1,jr,J2)*sqrt(J2+1.d0)
            
            j3min = max(abs(ja - jt),abs(rank-J2)) 
            j3max = min(ja+jt,rank+J2)
      
            do J3 = j3min,j3max,2
-              sm = sm - sqrt(J3+1.d0)*(-1)**(J3/2)*sj2* d6ji(jq,ja,J1,jt,jtot2,J3) &
-                   * d6ji(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
+              if ((it == a) .and. (mod(J3/2,2)==1)) cycle 
+              sm = sm - sqrt(J3+1.d0)*(-1)**(J3/2)*sj2* sixj(jq,ja,J1,jt,jtot2,J3) &
+                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
            end do
         end do
      end do
@@ -1738,20 +1760,22 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
      phase = (-1) ** ((ja + jt)/2) ! changed to ja+js rather than ja-js 
      
      do J3 = j3min,j3max,2
-        
-        sj1 = phase*(-1)**(J3/2) * d6ji(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
+        if ((ir == ip) .and. (mod(J3/2,2)==1)) cycle
+        if ((it == a) .and. (mod(J3/2,2)==1)) cycle 
+        sj1 = phase*(-1)**(J3/2) * sixj(jp,jq,Jpq,jtot1,jr,J3)*(J3+1.d0)*&
              v_elem(ir,ip,a,it,J3,L,jbas) 
         if (abs(sj1) < 1e-8) cycle
         do J2 = j2min,j2max,2 
-
-           sj2 = sj1*d6ji(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0)
+           if ((iu == is) .and. (mod(J2/2,2)==1)) cycle 
+           sj2 = sj1*sixj(js,jt,Jst,jtot2,ju,J2)*sqrt(J2+1.d0)
                     
            j1min = max(abs(jq - ja),abs(rank-J2),abs(jt-jtot1))
            j1max = min(jq+ja,rank+J2,jt+jtot1)
            
            do J1 = j1min,j1max,2
-              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* d6ji(jq,ja,J1,jt,jtot1,J3) &
-                   * d6ji(J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
+              if ((iq == a) .and. (mod(J1/2,2)==1)) cycle 
+              sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,jt,jtot1,J3) &
+                   * xxxsixj(J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
            end do
         
         end do
@@ -1766,64 +1790,74 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
   
   ! Left-right
   sm = 0.d0
-  multfact = (-1)**((Jpq+rank+jr-jtot2)/2) *sqrt((Jst+1.d0)*(jtot1+1.d0)*&
-       (jtot2+1.d0)) 
+  if (.not.((is==it).and.(mod(Jst/2,2)==1))) then
+     if (.not.((ip==iq).and.(mod(Jpq/2,2)==1))) then 
+        multfact = (-1)**((Jpq+rank+jr-jtot2)/2) *sqrt((Jst+1.d0)*(jtot1+1.d0)*&
+             (jtot2+1.d0)) 
 
-  do ia=1,L%belowEF
+        do ia=1,L%belowEF
+           if ((ir == a) .and. (mod(Jst/2,2)==1)) cycle 
+           a = jbas%holes(ia)
 
-     a = jbas%holes(ia)
-     
-     if ( (tr+jbas%itzp(a)) .ne. (ts+tt) ) cycle
-     if ( mod(lr+jbas%ll(a),2) .ne. mod(ls+lt,2) ) cycle 
-     
-     ja = jbas%jj(a)
+           if ( (tr+jbas%itzp(a)) .ne. (ts+tt) ) cycle
+           if ( mod(lr+jbas%ll(a),2) .ne. mod(ls+lt,2) ) cycle 
 
-     if (.not. triangle(jr,ja,jst) ) cycle
-     
-     j3min = max(abs(ja-ju),abs(Jpq-rank),abs(jr-jtot2))
-     j3max = min(ja+ju,Jpq+rank,jr+jtot2)  
-     
-     sj1 = v_elem(ir,a,is,it,Jst,L,jbas) * (-1)**((ja+ju)/2) 
-     if (abs(sj1) < 1e-8) cycle
-     do J3=j3min,j3max,2 
-        sm = sm - sj1* d6ji(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
-             * d6ji(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
-     end do 
+           ja = jbas%jj(a)
 
-  end do 
-  
-  smtot = smtot + sm*multfact
+           if (.not. triangle(jr,ja,jst) ) cycle
 
+           j3min = max(abs(ja-ju),abs(Jpq-rank),abs(jr-jtot2))
+           j3max = min(ja+ju,Jpq+rank,jr+jtot2)  
+
+           sj1 = v_elem(ir,a,is,it,Jst,L,jbas) * (-1)**((ja+ju)/2) 
+           if (abs(sj1) < 1e-8) cycle
+           do J3=j3min,j3max,2 
+              if ((iu == a) .and. (mod(J3/2,2)==1)) cycle 
+              sm = sm - sj1* sixj(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
+                   * xxxsixj(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
+           end do
+
+        end do
+
+        smtot = smtot + sm*multfact
+     end if
+  end if
   ! right-left
   sm = 0.d0
-  multfact = (-1)**((Jpq+rank)/2) *sqrt((Jpq+1.d0)*(jtot1+1.d0)*&
-       (jtot2+1.d0)) 
+  if (.not.((is==it).and.(mod(Jst/2,2)==1))) then
+     if (.not.((ip==iq).and.(mod(Jpq/2,2)==1))) then 
+        
+        multfact = (-1)**((Jpq+rank)/2) *sqrt((Jpq+1.d0)*(jtot1+1.d0)*&
+             (jtot2+1.d0)) 
 
-  do ia=1,L%Nsp-L%belowEF
-     a = jbas%parts(ia)
-     if ( (tu+jbas%itzp(a)) .ne. (tp+tq) ) cycle
-     if ( mod(lu+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+        do ia=1,L%Nsp-L%belowEF
+           a = jbas%parts(ia)
 
-     ja = jbas%jj(a)
+           if ( (tu+jbas%itzp(a)) .ne. (tp+tq) ) cycle
+           if ( mod(lu+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+           if ((iu == a) .and. (mod(Jpq/2,2)==1)) cycle
+           
+           ja = jbas%jj(a)
 
-     if (.not. triangle(ju,ja,Jpq) ) cycle
-     
-     j3min = max(abs(ja-jr),abs(rank-Jst),abs(ju-jtot1))
-     j3max = min(ja+jr,rank+Jst,ju+jtot1)  
-     
-     sj1 = v_elem(ip,iq,a,iu,Jpq,L,jbas) * (-1)**((ja+jtot2)/2) 
-     if (abs(sj1) < 1e-8) cycle
-     do J3=j3min,j3max,2 
+           if (.not. triangle(ju,ja,Jpq) ) cycle
 
-        sm = sm + sj1* d6ji(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) *(-1)**(J3/2) &
-             * d6ji(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
+           j3min = max(abs(ja-jr),abs(rank-Jst),abs(ju-jtot1))
+           j3max = min(ja+jr,rank+Jst,ju+jtot1)  
 
-     end do 
+           sj1 = v_elem(ip,iq,a,iu,Jpq,L,jbas) * (-1)**((ja+jtot2)/2) 
+           if (abs(sj1) < 1e-8) cycle
+           do J3=j3min,j3max,2 
+              if ((ir == a) .and. (mod(J3/2,2)==1)) cycle 
+              sm = sm + sj1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) *(-1)**(J3/2) &
+                   * xxxsixj(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
 
-  end do 
-  
-  smtot = smtot + sm*multfact
+           end do
 
+        end do
+
+        smtot = smtot + sm*multfact
+     end if
+  end if
 
   ! EIGHTH TERM 
   !changed to q-r instead of q+r
@@ -1834,82 +1868,85 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
 
   ! Left-Right 
   sm = 0.d0   
-  
-  do ia=1,L%belowEF 
+  if (.not.((ip==iq).and.(mod(Jpq/2,2)==1))) then 
+     do ia=1,L%belowEF 
 
-     a = jbas%holes(ia)
-          
-     if ( (tr+jbas%itzp(a)) .ne. (tt+tu) ) cycle
-     if ( mod(lr+jbas%ll(a),2) .ne. mod(lt+lu,2) ) cycle 
+        a = jbas%holes(ia)
 
-     ja = jbas%jj(a) 
-     
-     j2min = max(abs(ja - js),abs(rank-Jpq),abs(jtot2-jr))
-     j2max = min(ja+js ,rank+Jpq,jtot2+jr)
-          
-     j1min = max(abs(ja - jr),abs(jt-ju)) 
-     j1max = min(ja+jr,jt+ju)  
-          
-     phase = (-1)**((ja+ju)/2) 
-     
-     do J1 = j1min, j1max , 2
-        sj1 = phase*(-1)**(J1/2)*(J1+1.d0) * d6ji(js,jt,Jst,ju,jtot2,J1)&
-             * v_elem(ir,a,it,iu,J1,L,jbas) 
-        if (abs(sj1) < 1e-8) cycle
-        do J2 = j2min,j2max,2
-        
-           sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
-            * sj1 * d6ji(ja,js,J2,jtot2,jr,J1) *  &
-             d6ji(Jpq,J2,rank,jtot2,jtot1,jr) * &
-             tensor_elem(ip,iq,a,is,Jpq,J2,R,jbas)
+        if ( (tr+jbas%itzp(a)) .ne. (tt+tu) ) cycle
+        if ( mod(lr+jbas%ll(a),2) .ne. mod(lt+lu,2) ) cycle 
+
+        ja = jbas%jj(a) 
+
+        j2min = max(abs(ja - js),abs(rank-Jpq),abs(jtot2-jr))
+        j2max = min(ja+js ,rank+Jpq,jtot2+jr)
+
+        j1min = max(abs(ja - jr),abs(jt-ju)) 
+        j1max = min(ja+jr,jt+ju)  
+
+        phase = (-1)**((ja+ju)/2) 
+
+        do J1 = j1min, j1max , 2
+           if ((ir == a) .and. (mod(J1/2,2)==1)) cycle 
+           if ((it == iu) .and. (mod(J1/2,2)==1)) cycle 
+           sj1 = phase*(-1)**(J1/2)*(J1+1.d0) * sixj(js,jt,Jst,ju,jtot2,J1)&
+                * v_elem(ir,a,it,iu,J1,L,jbas) 
+           if (abs(sj1) < 1e-8) cycle
+           do J2 = j2min,j2max,2
+              if ((is == a) .and. (mod(J2/2,2)==1)) cycle 
+              sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
+                   * sj1 * sixj(ja,js,J2,jtot2,jr,J1) *  &
+                   xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
+                   tensor_elem(ip,iq,a,is,Jpq,J2,R,jbas)
+           end do
         end do
      end do
-  end do
- 
-  smtot = smtot + sm*multfact
-  
+
+     smtot = smtot + sm*multfact
+  end if
   ! !Right-left  
-  sm = 0.d0 
-  multfact = (-1)**((jt+jtot2+Jpq+rank)/2) *sqrt((Jst+1.d0)*(Jpq+1.d0) &
-       *(jtot1+1.d0)*(jtot2+1.d0) )  
-  
-  do ia=1,L%Nsp-L%belowEF 
-     a = jbas%parts(ia)
-     if ( (ts+jbas%itzp(a)) .ne. (tp+tq) ) cycle
-     if ( mod(ls+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+  sm = 0.d0
+  if (.not.((ip==iq).and.(mod(Jpq/2,2)==1))) then 
+     multfact = (-1)**((jt+jtot2+Jpq+rank)/2) *sqrt((Jst+1.d0)*(Jpq+1.d0) &
+          *(jtot1+1.d0)*(jtot2+1.d0) )  
 
-     ja = jbas%jj(a) 
-          
-     if (.not. triangle(ja,js,Jpq)) cycle 
-     
-     j1min = max(abs(jr - ja),abs(js-jtot1))
-     j1max = min(jr + ja  ,js+jtot1) 
-     
-     
-     phase = (-1)**((ja - ju)/2)
-           
-     sj1 = phase * v_elem(ip,iq,a,is,Jpq,L,jbas)
-     if (abs(sj1) < 1e-8) cycle
-     do J1 = j1min, j1max , 2      
+     do ia=1,L%Nsp-L%belowEF 
+        a = jbas%parts(ia)
+        if ( (ts+jbas%itzp(a)) .ne. (tp+tq) ) cycle
+        if ( mod(ls+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+        if ((a==is).and.(mod(Jpq/2,2)==1)) cycle 
+        ja = jbas%jj(a) 
 
-        sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*d6ji(jr,ja,J1,js,jtot1,Jpq) * sj1
+        if (.not. triangle(ja,js,Jpq)) cycle 
 
-        j2min = max(abs(jt - ju),abs(J1-rank),abs(js-jtot2))
-        j2max = min(jt+ju,J1+rank,js+jtot2)
-     
-        do J2 = j2min,j2max,2
+        j1min = max(abs(jr - ja),abs(js-jtot1))
+        j1max = min(jr + ja  ,js+jtot1) 
 
-           sm = sm + sj2* sqrt(J2 + 1.d0) * (-1)**(J2/2) &
-                * d6ji(js,jt,Jst,ju,jtot2,J2) * d6ji(J1,J2,rank,jtot2,jtot1,js) &
-                * tensor_elem(ir,a,it,iu,J1,J2,R,jbas)
 
+        phase = (-1)**((ja - ju)/2)
+
+        sj1 = phase * v_elem(ip,iq,a,is,Jpq,L,jbas)
+        if (abs(sj1) < 1e-8) cycle
+        do J1 = j1min, j1max , 2      
+           if ((ir==a).and.(mod(J1/2,2)==1)) cycle
+           sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,js,jtot1,Jpq) * sj1
+
+           j2min = max(abs(jt - ju),abs(J1-rank),abs(js-jtot2))
+           j2max = min(jt+ju,J1+rank,js+jtot2)
+
+           do J2 = j2min,j2max,2
+              if ((it==iu).and.(mod(J2/2,2)==1)) cycle
+              sm = sm + sj2* sqrt(J2 + 1.d0) * (-1)**(J2/2) &
+                   * sixj(js,jt,Jst,ju,jtot2,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,js) &
+                   * tensor_elem(ir,a,it,iu,J1,J2,R,jbas)
+
+           end do
         end do
      end do
-  end do 
-  
-  
-  smtot = smtot + sm*multfact
-  
+
+
+     smtot = smtot + sm*multfact
+  end if
 ! NINTH TERM 
   !changed to q-r instead of q+r
   multfact = (-1)**((jr+jtot2+Jpq+Jst+rank)/2) *sqrt((Jst+1.d0) &
@@ -1917,84 +1954,89 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
   ! ju isn't in here because I need it to make add with ja
   ! so I get an integer later 
 
-  ! Left-Right 
+  ! Left-Right
+  
   sm = 0.d0   
-  
-  do ia=1,L%belowEF 
-     a = jbas%holes(ia)
-     
-     if ( (tr+jbas%itzp(a)) .ne. (tu+ts) ) cycle
-     if ( mod(lr+jbas%ll(a),2) .ne. mod(lu+ls,2) ) cycle 
+  if (.not.((ip==iq).and.(mod(Jpq/2,2)==1))) then 
+     do ia=1,L%belowEF 
+        a = jbas%holes(ia)
 
-     ja = jbas%jj(a) 
-     
-     j2min = max(abs(ja - jt),abs(rank-Jpq))
-     j2max = min(ja+jt,rank+Jpq) 
-          
-     j1min = max(abs(ja - jr),abs(js-ju),abs(jt-jtot2)) 
-     j1max = min(ja+jr,js+ju,jt+jtot2)  
-          
-     phase = (-1)**((ja-js)/2) 
-     
-     do J1 = j1min, j1max , 2
-        sj1 = phase*(J1+1.d0) * d6ji(js,jt,Jst,jtot2,ju,J1)&
-             * v_elem(ir,a,iu,is,J1,L,jbas) 
-        if (abs(sj1) < 1e-8) cycle
-        do J2 = j2min,j2max,2
-        
-           sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
-            * sj1 * d6ji(ja,jr,J1,jtot2,jt,J2) *  &
-             d6ji(Jpq,J2,rank,jtot2,jtot1,jr) * &
-             tensor_elem(ip,iq,a,it,Jpq,J2,R,jbas)
+        if ( (tr+jbas%itzp(a)) .ne. (tu+ts) ) cycle
+        if ( mod(lr+jbas%ll(a),2) .ne. mod(lu+ls,2) ) cycle 
+
+        ja = jbas%jj(a) 
+
+        j2min = max(abs(ja - jt),abs(rank-Jpq))
+        j2max = min(ja+jt,rank+Jpq) 
+
+        j1min = max(abs(ja - jr),abs(js-ju),abs(jt-jtot2)) 
+        j1max = min(ja+jr,js+ju,jt+jtot2)  
+
+        phase = (-1)**((ja-js)/2) 
+
+        do J1 = j1min, j1max , 2
+           if ((ir==a).and.(mod(J1/2,2)==1)) cycle
+           if ((iu==is).and.(mod(J1/2,2)==1)) cycle
+           sj1 = phase*(J1+1.d0) * sixj(js,jt,Jst,jtot2,ju,J1)&
+                * v_elem(ir,a,iu,is,J1,L,jbas) 
+           if (abs(sj1) < 1e-8) cycle
+           do J2 = j2min,j2max,2
+              if ((it==a).and.(mod(J2/2,2)==1)) cycle
+              sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
+                   * sj1 * sixj(ja,jr,J1,jtot2,jt,J2) *  &
+                   xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
+                   tensor_elem(ip,iq,a,it,Jpq,J2,R,jbas)
+           end do
+
         end do
-        
      end do
-  end do
- 
-  smtot = smtot + sm*multfact
-  
+
+     smtot = smtot + sm*multfact
+  end if
+
+  if (.not.((ip==iq).and.(mod(Jpq/2,2)==1))) then   
   ! !Right-left  
-  sm = 0.d0 
-  multfact = (-1)**((jt-jtot2+Jpq+Jst+rank)/2) *sqrt((Jst+1.d0)*(Jpq+1.d0) &
-       *(jtot1+1.d0)*(jtot2+1.d0) )  
-  
-  do ia=1,L%Nsp-L%belowEF 
-     a = jbas%parts(ia)
-     if ( (tt+jbas%itzp(a)) .ne. (tp+tq) ) cycle
-     if ( mod(lt+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+     sm = 0.d0 
+     multfact = (-1)**((jt-jtot2+Jpq+Jst+rank)/2) *sqrt((Jst+1.d0)*(Jpq+1.d0) &
+          *(jtot1+1.d0)*(jtot2+1.d0) )  
 
-     ja = jbas%jj(a) 
-          
-     if (.not. triangle(ja,jt,Jpq)) cycle 
-     
-     j1min = max(abs(jr - ja),abs(jt-jtot1))
-     j1max = max(jr + ja,jt+jtot1) 
-     
-     
-     phase = (-1)**((ja + js)/2)
-           
-     sj1 = phase * v_elem(ip,iq,a,it,Jpq,L,jbas)
-     if (abs(sj1) < 1e-8) cycle
-     do J1 = j1min, j1max , 2      
+     do ia=1,L%Nsp-L%belowEF 
+        a = jbas%parts(ia)
+        if ( (tt+jbas%itzp(a)) .ne. (tp+tq) ) cycle
+        if ( mod(lt+jbas%ll(a),2) .ne. mod(lp+lq,2) ) cycle 
+        if ((it==a).and.(mod(Jpq/2,2)==1)) cycle
+        ja = jbas%jj(a) 
+        
+        if (.not. triangle(ja,jt,Jpq)) cycle 
 
-        sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*d6ji(jr,ja,J1,jt,jtot1,Jpq) * sj1
+        j1min = max(abs(jr - ja),abs(jt-jtot1))
+        j1max = min(jr + ja,jt+jtot1) 
 
-        j2min = max(abs(js - ju),abs(rank-J1),abs(jt-jtot2))
-        j2max = min(js+ju,rank+J1,jt+jtot2)
-     
-        do J2 = j2min,j2max,2
 
-           sm = sm + sj2* sqrt(J2 + 1.d0) &
-                * d6ji(js,jt,Jst,jtot2,ju,J2) * d6ji(J1,J2,rank,jtot2,jtot1,jt) &
-                * tensor_elem(ir,a,iu,is,J1,J2,R,jbas)
+        phase = (-1)**((ja + js)/2)
 
+        sj1 = phase * v_elem(ip,iq,a,it,Jpq,L,jbas)
+        if (abs(sj1) < 1e-8) cycle
+        do J1 = j1min, j1max , 2      
+           if ((ir==a).and.(mod(J1/2,2)==1)) cycle
+           sj2 = sqrt(J1+1.d0)*(-1)**(J1/2)*sixj(jr,ja,J1,jt,jtot1,Jpq) * sj1
+
+           j2min = max(abs(js - ju),abs(rank-J1),abs(jt-jtot2))
+           j2max = min(js+ju,rank+J1,jt+jtot2)
+
+           do J2 = j2min,j2max,2
+              if ((iu==is).and.(mod(J2/2,2)==1)) cycle
+              sm = sm + sj2* sqrt(J2 + 1.d0) &
+                   * sixj(js,jt,Jst,jtot2,ju,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,jt) &
+                   * tensor_elem(ir,a,iu,is,J1,J2,R,jbas)
+
+           end do
         end do
      end do
-  end do 
-  
-  
-  smtot = smtot + sm*multfact
-    
+
+
+     smtot = smtot + sm*multfact
+  end if
 
      
   EOM_TS_commutator_223_single = smtot

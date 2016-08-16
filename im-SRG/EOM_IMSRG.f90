@@ -716,9 +716,7 @@ real(8) function tensor_triples(H,Xdag,jbas)
                     
                     if ( .not. (triangle(jtot2,jk,Jij))) cycle
                     if ((i==j).and.(mod(Jij/2,2)==1)) cycle
-                    global_counter1 = global_counter1 + 1
                     w = EOM_TS_commutator_223_single(H,Xdag,a,b,c,i,j,k,jtot1,jtot2,jab,jij,jbas)
-                    if (abs(W) > 1e-10) global_counter2 = global_counter2 + 1                    
                     sm = sm + w*w/denom*(jtot1+1.d0)/(rank+1.d0)
 
                  end do
@@ -731,7 +729,7 @@ real(8) function tensor_triples(H,Xdag,jbas)
   end do
  !$OMP END PARALLEL DO 
   tensor_triples = sm
-  print*, global_counter1,global_counter2,'tits'
+  
 end function tensor_triples
 !=====================================================
 !=====================================================
