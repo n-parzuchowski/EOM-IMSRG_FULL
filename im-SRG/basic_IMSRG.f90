@@ -58,10 +58,8 @@ module basic_IMSRG
      integer :: lam(3) ! specifices J,Par,Tz of the block
      integer :: Jpair(2) ! for tensor operators that have rank > 0  
      type(real_mat),dimension(9) :: tgam
-     type(real_mat),dimension(6) :: aux_gam
      integer :: npp1, nph1 , nhh1 ,npp2,nph2,nhh2,ntot! dimensions
      type(int_mat),dimension(3,2) :: tensor_qn
-     type(int_mat),dimension(3) :: aux_qn
   END TYPE tensor_block
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: sq_op !second quantized operator 
@@ -71,7 +69,7 @@ module basic_IMSRG
      integer,allocatable,dimension(:,:) :: exlabels
      integer,allocatable,dimension(:) :: direct_omp 
      integer :: nblocks,Aprot,Aneut,Nsp,herm,belowEF,neq
-     integer :: Jtarg,Ptarg,valcut,Rank,dpar,dTz,eMax,lmax,xindx
+     integer :: Jtarg,Ptarg,valcut,Rank,dpar,eMax,lmax,xindx
      real(8) :: E0,hospace,lawson_beta,com_hw 
      logical :: pphh_ph
      character(2) :: trans_label
@@ -471,8 +469,7 @@ subroutine allocate_blocks(jbas,op)
   op%belowEF = AX
   op%Nsp = jbas%total_orbits
   op%rank = 0 !scalar operator
-  op%dPar = 0
-  op%dTz = 0 
+  op%dPar = 0 
   op%pphh_ph = .false. 
   N = op%Nsp  !number of sp shells
   mem = 0.d0 
@@ -631,9 +628,9 @@ subroutine allocate_tensor(jbas,op,zerorank)
   
   type(spd) :: jbas
   type(sq_op) :: op,zerorank 
-  integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x,rank,dTz,q3,tz3 
+  integer :: N,AX,q,i,j,j1,j2,tz1,tz2,l1,l2,x,rank
   integer :: Jtot1,Jtot2,Jtot,Tz,Par1,Par2,nph1,npp1,nhh1,nph2,npp2,nhh2
-  integer :: CX,j_min,j_max,numJ,q1,q2,nph3,nhh3,npp3
+  integer :: CX,j_min,j_max,numJ,q1,q2
   real(8) :: d6ji,lwake,size,mem
 
   ! rank is multiplied by 2 as well
@@ -648,9 +645,11 @@ subroutine allocate_tensor(jbas,op,zerorank)
   N = op%Nsp  !number of sp shells
   op%Aprot = zerorank%Aprot
   op%Aneut = zerorank%Aneut
-  op%dTz = 0
-  dTz = op%dTz 
-
+  ! allocate the map array, which is used by 
+  ! v_elem to find matrix elements
+!  if (.not. allocated(jbas%xmap_tensor) ) then 
+ !    allocate(jbas%xmap_tensor(N*(N+1)/2)) 
+ ! end if
   do i = 1,N
      do j = i,N
         
@@ -671,12 +670,12 @@ subroutine allocate_tensor(jbas,op,zerorank)
   end do 
   
   ! quantum numbers of the last block 
-  Tz1 = 1 
+  Tz = 1 
   Par1 = 1
   Jtot1 = jbas%Jtotal_max*2 
   Jtot2 = Jtot1+ RANK 
 
-  op%nblocks =  tensor_block_index(Jtot1,Jtot2,RANK,Tz1,Par1)               
+  op%nblocks =  tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par1)               
  
   allocate(op%tblck(op%nblocks)) 
  
@@ -695,11 +694,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
   do Jtot1 = 0,2*jbas%Jtotal_max,2 
      do Jtot2 = max(abs(Jtot1 - rank),Jtot1), Jtot1+rank, 2   
        
-        do Tz1 = -1,1
-
-           Tz2 = Tz1 - dTz
-           Tz3 = Tz1 + dTz
-           
+        do Tz = -1,1
            do Par1 = 0,1
                     
               if (mod(op%dpar/2,2) == 1) then ! this only works for EX transitions
@@ -713,21 +708,12 @@ subroutine allocate_tensor(jbas,op,zerorank)
         
               op%tblck(q)%lam(1) = (-1)**((Jtot1-Jtot2)/2) ! phase instead of J 
               op%tblck(q)%lam(2) = Par1 !just remember that they change if the operator has odd parity.
-              op%tblck(q)%lam(3) = Tz1
+              op%tblck(q)%lam(3) = Tz
               
        !       q = tensor_block_index(Jtot1,Jtot2,RANK,Tz,Par1)              
-              q1 = block_index(Jtot1,Tz1,Par1) 
-              if (abs(Tz2)>1) then
-                 q2 = 0
-              else
-                 q2 = block_index(Jtot2,Tz2,Par2)
-              end if
-
-              if (abs(Tz3)>1) then
-                 q3 = 0
-              else
-                 q3 = block_index(Jtot2,Tz3,Par2)
-              end if
+              q1 = block_index(Jtot1,Tz,Par1) 
+              q2 = block_index(Jtot2,Tz,Par2) 
+              
               ! we already figured this stuff out for 
               ! the rank 0 case, so lets re-use it
               
@@ -738,27 +724,10 @@ subroutine allocate_tensor(jbas,op,zerorank)
                  npp1 = zerorank%mat(q1)%npp
                  nph1 = zerorank%mat(q1)%nph
                  nhh1 = zerorank%mat(q1)%nhh
-                 if (q2 .ne. 0) then 
-                    npp2 = zerorank%mat(q2)%npp
-                    nph2 = zerorank%mat(q2)%nph
-                    nhh2 = zerorank%mat(q2)%nhh
-                 else
-                    npp2 = 0
-                    nph2 = 0
-                    nhh2 = 0
-                 end if
-
-                 if (q3 .ne. 0) then 
-                    npp3 = zerorank%mat(q2)%npp
-                    nph3 = zerorank%mat(q2)%nph
-                    nhh3 = zerorank%mat(q2)%nhh
-                 else
-                    npp3 = 0
-                    nph3 = 0
-                    nhh3 = 0
-                 end if
-                 
-              end if
+                 npp2 = zerorank%mat(q2)%npp
+                 nph2 = zerorank%mat(q2)%nph
+                 nhh2 = zerorank%mat(q2)%nhh
+              end if 
               
               op%tblck(q)%npp1 = npp1
               op%tblck(q)%nph1 = nph1
@@ -775,21 +744,15 @@ subroutine allocate_tensor(jbas,op,zerorank)
               allocate(op%tblck(q)%tensor_qn(2,2)%Y(nph2,2)) !qnph2
               allocate(op%tblck(q)%tensor_qn(3,2)%Y(nhh2,2)) !qnhh2
 
-              if ( dTZ .ne. 0 ) then  
-                 allocate(op%tblck(q)%aux_qn(1)%Y(npp3,2)) !qnpp2
-                 allocate(op%tblck(q)%aux_qn(2)%Y(nph3,2)) !qnph2
-                 allocate(op%tblck(q)%aux_qn(3)%Y(nhh3,2)) !qnhh2
-              end if 
               
               if ( Jtot2 .le. Jbas%Jtotal_max*2 ) then 
 
-                 ! yeah this is a mess but it really facilitates the 
-                 ! commutators
-                 
-                 ! blocks such as pphh ALWAYS have pp first then hh
-                 ! looks scary but i'm just copying everything from the
-                 ! rank zero operators we already have
+              ! yeah this is a mess but it really facilitates the 
+              ! commutators
 
+              ! blocks such as pphh ALWAYS have pp first then hh
+              ! looks scary but i'm just copying everything from the
+              ! rank zero operators we already have
                  op%tblck(q)%tensor_qn(1,1)%Y = zerorank%mat(q1)%qn(1)%Y
                  op%tblck(q)%tensor_qn(2,1)%Y = zerorank%mat(q1)%qn(2)%Y
                  op%tblck(q)%tensor_qn(3,1)%Y = zerorank%mat(q1)%qn(3)%Y
@@ -797,31 +760,12 @@ subroutine allocate_tensor(jbas,op,zerorank)
                  op%tblck(q)%tensor_qn(1,2)%Y = zerorank%mat(q2)%qn(1)%Y
                  op%tblck(q)%tensor_qn(2,2)%Y = zerorank%mat(q2)%qn(2)%Y
                  op%tblck(q)%tensor_qn(3,2)%Y = zerorank%mat(q2)%qn(3)%Y
-
-                 if ( dTZ .ne. 0 ) then  
-                    op%tblck(q)%aux_qn(1)%Y = zerorank%mat(q3)%qn(1)%Y
-                    op%tblck(q)%aux_qn(2)%Y = zerorank%mat(q3)%qn(2)%Y
-                    op%tblck(q)%aux_qn(3)%Y = zerorank%mat(q3)%qn(3)%Y                   
-                 end if
-              
-              end if
-
-              allocate(op%tblck(q)%tgam(3)%X(npp1,nhh2)) !Vpphh
-              allocate(op%tblck(q)%tgam(7)%X(nhh1,npp2)) !Vhhpp
-
-              if ( dTZ .ne. 0 ) then
-
-                 allocate(op%tblck(q)%aux_gam(1)%X(npp1,nhh3)) !Vpphh(Tz+dTz) 
-                 allocate(op%tblck(q)%aux_gam(2)%X(nhh1,npp3)) !Vhhpp(Tz+dTz) 
-
-                 mem = mem + sizeof(op%tblck(q)%aux_gam(1)%X) 
-                 mem = mem + sizeof(op%tblck(q)%aux_gam(2)%X)
               
               end if 
-              
+              allocate(op%tblck(q)%tgam(3)%X(npp1,nhh2)) !Vpphh
+              allocate(op%tblck(q)%tgam(7)%X(nhh1,npp2)) !Vhhpp
               mem = mem + sizeof(op%tblck(q)%tgam(3)%X) 
               mem = mem + sizeof(op%tblck(q)%tgam(7)%X)
-
               if (.not. op%pphh_ph ) then 
                  allocate(op%tblck(q)%tgam(1)%X(npp1,npp2)) !Vpppp
                  allocate(op%tblck(q)%tgam(5)%X(nhh1,nhh2)) !Vhhhh              
@@ -830,19 +774,6 @@ subroutine allocate_tensor(jbas,op,zerorank)
                  allocate(op%tblck(q)%tgam(6)%X(nph1,nhh2)) !Vphhh
                  allocate(op%tblck(q)%tgam(8)%X(nph1,npp2)) !Vphpp
                  allocate(op%tblck(q)%tgam(9)%X(nhh1,nph2)) !Vhhph
-
-                 if ( dTZ .ne. 0 ) then
-                    allocate(op%tblck(q)%aux_gam(3)%X(npp1,nph3)) !Vppph(Tz+dTz) 
-                    allocate(op%tblck(q)%aux_gam(4)%X(nph1,nhh3)) !Vphhh(Tz+dTz) 
-                    allocate(op%tblck(q)%aux_gam(5)%X(nph1,npp3)) !Vphpp(Tz+dTz) 
-                    allocate(op%tblck(q)%aux_gam(6)%X(nhh1,nph3)) !Vhhph(Tz+dTz) 
-
-                    mem = mem + sizeof(op%tblck(q)%aux_gam(3)%X)
-                    mem = mem + sizeof(op%tblck(q)%aux_gam(4)%X)
-                    mem = mem + sizeof(op%tblck(q)%aux_gam(5)%X)
-                    mem = mem + sizeof(op%tblck(q)%aux_gam(6)%X)                 
-                 end if
-
                  mem = mem + sizeof(op%tblck(q)%tgam(1)%X)
                  mem = mem + sizeof(op%tblck(q)%tgam(2)%X)
                  mem = mem + sizeof(op%tblck(q)%tgam(4)%X)
@@ -857,12 +788,6 @@ subroutine allocate_tensor(jbas,op,zerorank)
                  op%tblck(q)%tgam(i)%X = 0.d0
               end do
               
-              if ( dTZ .ne. 0 ) then
-                 do i = 1,6
-                    if (op%pphh_ph.and.(i>2)) cycle 
-                    op%tblck(q)%aux_gam(i)%X = 0.d0
-                 end do
-              end if
               q = q + 1
             
             end do
@@ -2806,7 +2731,6 @@ subroutine duplicate_sq_op(H,op,dont)
   op%valcut = H%valcut 
   op%rank = H%rank 
   op%dpar = H%dpar
-  op%dTz = H%dTz
   op%eMax = H%eMax
   op%lmax = H%lmax
   op%com_hw = H%com_hw
