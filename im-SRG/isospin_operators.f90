@@ -60,6 +60,8 @@ subroutine duplicate_isospin_ladder(A,B)
      allocate(B%tblck(q)%qn(2)%Y(B%tblck(q)%nhh2,2))
      allocate(B%tblck(q)%Xpphh(B%tblck(q)%npp1,B%tblck(q)%nhh2))
      B%tblck(q)%Xpphh = 0.d0 
+     B%tblck(q)%qn(1)%Y = A%tblck(q)%qn(1)%Y
+     B%tblck(q)%qn(2)%Y = A%tblck(q)%qn(2)%Y  
   end do
 
 end subroutine duplicate_isospin_ladder
@@ -144,7 +146,7 @@ subroutine allocate_isospin_ladder(jbas,op,zerorank)
               op%tblck(q)%lam(2) = Par1 !just remember that they change if the operator has odd parity.
               op%tblck(q)%lam(3) = Tz1
               op%tblck(q)%lam(4) = Tz2
-              
+
               ! we already figured this stuff out for 
               ! the rank 0 case, so lets re-use it
 
@@ -166,16 +168,15 @@ subroutine allocate_isospin_ladder(jbas,op,zerorank)
               allocate(op%tblck(q)%qn(2)%Y(nhh2,2)) !qnhh2
               
               if ( (abs(Tz2) .le. 1) .and. (Jtot2 .le. Jbas%Jtotal_max*2) ) then 
-
+                 
               ! yeah this is a mess but it really facilitates the 
               ! commutators
 
               ! blocks such as pphh ALWAYS have pp first then hh
               ! looks scary but i'm just copying everything from the
-              ! rank zero operators we already have
+                 ! rank zero operators we already have
                  op%tblck(q)%qn(1)%Y = zerorank%mat(q1)%qn(1)%Y
                  op%tblck(q)%qn(2)%Y = zerorank%mat(q2)%qn(3)%Y
-              
               end if 
 
               allocate(op%tblck(q)%Xpphh(npp1,nhh2)) !Xpphh

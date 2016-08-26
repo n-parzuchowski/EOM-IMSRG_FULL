@@ -15,8 +15,8 @@ program main_IMSRG
   type(spd) :: jbas,jbx
   type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0,Hcm
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
+  type(iso_tensor),allocatable,dimension(:) :: isoladder_ops
   type(cc_mat) :: CCHS,CCETA,WCC
-  TYPE(iso_tensor) :: Xtz
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   type(three_body_force) :: threebod
   type(obsv_mgr) :: trans,moments
@@ -25,7 +25,7 @@ program main_IMSRG
   character(1) :: quads,trips,trans_type
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
-  integer :: na,la,lb,totstates,numstates,oldnum,qx
+  integer :: na,la,lb,totstates,numstates,oldnum,qx,dTZ
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr,de_trips
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
@@ -285,14 +285,22 @@ print*, 'BASIS SETUP COMPLETE'
 
      totstates=read_eom_file(trans,moments,eom_states,jbas)! total number of states
      allocate(ladder_ops(totstates))
+     allocate(isoladder_ops(totstates))
+     
      numstates = 0
      oldnum = 0
      do q = 1,eom_states%num
         oldnum = oldnum + Numstates
         Numstates = eom_states%number_requested(q)        
         ladder_ops(1+oldnum:Numstates+oldnum)%xindx = q
-        call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
-             jbas,ladder_ops(1+oldnum:Numstates+oldnum))
+        isoladder_ops(1+oldnum:Numstates+oldnum)%xindx = q
+        
+       call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
+            jbas,ladder_ops(1+oldnum:Numstates+oldnum))
+        dTz = 1 
+        call calculate_isospin_states(eom_states%ang_mom(q),eom_states%par(q),dTZ,numstates,HS,&
+             jbas,isoladder_ops(1+oldnum:Numstates+oldnum))
+        
         ! print*
         ! print*, '================================================'
         ! print*, '  J^Pi          E            E+dE       time    '
@@ -335,12 +343,6 @@ print*, 'BASIS SETUP COMPLETE'
         call EOM_observables( ladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
         
      end if
-
-     XTz%xindx = Otrans%xindx + 2
-     XTZ%rank = 2
-     XTZ%dpar = 0
-     XTZ%dTz = 1
-!     call allocate_isospin_ladder(jbas,XTZ,HS)
      
   end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -417,7 +419,7 @@ subroutine test
 !   deallocate(half6j%tp_mat)
 !  call test_scalar_tensor_commutator(jbas,-1,1,6,2) 
 !  call test_tensor_product(jbas,1,1,2,4,2,2,0,2) 
-  call test_EOM_iso_commutator(jbas,1,1,4,2,-1)  
+  call test_EOM_iso_commutator(jbas,1,1,4,0,0)  
 !butt
 end subroutine test
 end program main_IMSRG

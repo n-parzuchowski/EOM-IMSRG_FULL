@@ -2,7 +2,7 @@ module EOM_dTZ_commutators
   use isospin_operators 
   use cross_coupled
   ! tensor-scalar commutator functions 
-  
+
   ! THE TENSOR MUST BE THE SECOND ARGUMENT
   
 contains
@@ -119,7 +119,7 @@ end subroutine
 
 !====================================================================
 !====================================================================
-subroutine  EOM_dTZ_commutator_211(LCC,R,RES,jbas) 
+subroutine  EOM_dTZ_commutator_211(L,R,RES,jbas) 
   ! onebody part of  - [R1,L2] 
   ! this one is brute force. 
   ! not sure of a faster way to do this
@@ -127,7 +127,7 @@ subroutine  EOM_dTZ_commutator_211(LCC,R,RES,jbas)
   
   type(spd) :: jbas
   type(iso_tensor) :: R,RES
-  type(ex_cc_mat) :: LCC 
+  type(sq_op) :: L
   integer :: J1,J2,PAR,TZ,ji,ja,jp,jq,a,i,p,q,g,JTM
   integer :: ti,ta,tp,tq,li,la,lp,lq,ak,ik,pk,qk,rank
   integer :: rai,rpq,rqp,qx,Ntot
@@ -178,27 +178,12 @@ subroutine  EOM_dTZ_commutator_211(LCC,R,RES,jbas)
               if (ti .ne. ta-R%dTz*2) cycle 
               if (.not. (triangle(ja,ji,rank))) cycle
                
-              smx = 0.d0 
-              smy = 0.d0
-              smx2 = 0.d0 
-              smy2 = 0.d0 
-
               Tz = abs(ta -ti)/2 
               if (abs(tp - tq) .ne. Tz*2)  cycle 
               PAR = mod(la+li,2) 
               if (mod(lp+lq,2) .ne. PAR) cycle                                 
 
-              qx = rank/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1)
-                
-              rai = fetch_rval(ak,ik,R%belowEF,qx,LCC)
-              rpq = fetch_rval(pk,qk,R%belowEF,qx,LCC)
-
-              sm = sm - (-1)**(( jp + jq + rank)/2) * R%fph(a,i) &               
-              * LCC%CCX(qx)%X(rpq,rai) / sqrt(rank + 1.d0 ) 
-
-              ! the last (rank + 1) is divided out because
-              ! the CC matrix elements are scaled by that, 
-              ! which is wrong here. 
+              sm = sm + R%fph(a,i) * Vpandya(pk,qk,ak,ik,rank,L,jbas)
          
            end do 
         end do 
@@ -236,7 +221,6 @@ subroutine EOM_dTZ_commutator_122(L,R,RES,jbas)
      if ((n1*n2) == 0) cycle 
      
      ! main calculation
-    
      do IX = 1,n1
         a = R%tblck(q)%qn(1)%Y(IX,1)
         ja = jbas%jj(a)

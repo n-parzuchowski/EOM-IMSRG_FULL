@@ -1337,7 +1337,7 @@ subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
   
   call EOM_dTZ_commutator_111(AA,BB,OUT,jbas) 
   call EOM_dTZ_commutator_121(AA,BB,OUT,jbas)
-  call EOM_dTZ_commutator_211(AACC,BB,OUT,jbas) 
+  call EOM_dTZ_commutator_211(AA,BB,OUT,jbas) 
   call EOM_dTZ_commutator_122(AA,BB,OUT,jbas)
   call EOM_dTZ_commutator_212(AA,BB,OUT,jbas)
   
@@ -2863,35 +2863,6 @@ real(8) function EOM_scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
            end do
         end do
 
-
-        ! if (abs(X1) > 1e-8) then 
-        !    print*, '1', -1*(-1)**((ja+jb+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
-        !         coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank),X1, & 
-        !         - (-1)**((ja+jb+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
-        !         coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank) * X1 
-        ! end if
-
-        ! if (abs(X2) > 1e-8) then
-        !    print*, '2', (-1)**((J1+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
-        !      coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank),X2 & 
-        !      +(-1)**((J1+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
-        !      coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank) * X2 
-        ! end if
-
-        ! if (abs(X3) > 1e-8) then
-        !    print*, '3', -1* (-1)**((jc+jd+J1)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
-        !      coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank) , X3, &
-        !      - (-1)**((jc+jd+J1)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
-        !      coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank) * X3 
-             
-        ! end if
-
-        ! if (abs(X4) > 1e-8) then
-        !    print*, '4',(-1)**((ja+jb+jc+jd)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
-        !         coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank) ,X4, &
-        !         (-1)**((ja+jb+jc+jd)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
-        !         coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* X4
-        ! end if
            sm = sm +  ( &  
              
              - (-1)**((ja+jb+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
