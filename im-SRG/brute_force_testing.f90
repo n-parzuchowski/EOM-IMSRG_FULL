@@ -1,8 +1,10 @@
 module brute_force_testing
   use cross_coupled
+  use isospin_operators
   use commutators
   use TS_commutators
   use EOM_TS_commutators
+  use EOM_dTZ_commutators
   use EOM_scalar_commutators
   
   
@@ -260,6 +262,68 @@ subroutine construct_random_rankX(OP,HERM,jbas)
   end do
 
 end subroutine construct_random_rankX
+!============================================================
+!============================================================
+subroutine construct_random_isoX(OP,HERM,jbas) 
+  implicit none 
+  
+  integer,intent(in) :: HERM
+  type(iso_tensor) :: OP 
+  type(spd) :: jbas
+  integer :: i,j,k,l,ji,jj,jk,jl,ig,jg
+  integer :: J1,J2,IX,JX,q,qx,rank
+  real(8) :: x
+
+  rank = OP%rank
+  OP%herm = HERM 
+  
+  do ig = 1, OP%nsp- OP%belowEF
+     do jg = 1, OP%belowEF
+        
+        i = jbas%parts(ig)
+        j = jbas%holes(jg)
+
+        ji = jbas%jj(i) 
+        jj = jbas%jj(j)
+
+        if (.not. triangle(ji,jj,OP%rank)) cycle        
+        if (jbas%itzp(i)-OP%dTz*2 .ne. jbas%itzp(j) ) cycle
+        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+op%dpar/2,2)) cycle
+
+        call random_number(x) 
+        x = 10.*x-5.
+        OP%fph(ig,jg) = x
+     end do 
+  end do 
+
+  do q = 1, OP%nblocks
+         
+        do IX = 1, OP%tblck(q)%npp1 
+           do JX = 1, OP%tblck(q)%nhh2
+              
+              call random_number(x)
+
+              x = 10.*x-5.              
+              ! PAULI PRINCIPLE 
+              if ( OP%tblck(q)%qn(1)%Y(IX,1) == OP%tblck(q)%qn(1)%Y(IX,2) ) then 
+                 if ( mod( OP%tblck(q)%Jpair(1)/2, 2) == 1) x = 0.d0 
+              end if
+              
+              if ( OP%tblck(q)%qn(2)%Y(JX,1) == OP%tblck(q)%qn(2)%Y(JX,2) ) then 
+                 if ( mod( OP%tblck(q)%Jpair(2)/2, 2) == 1) x = 0.d0 
+              end if
+
+              OP%tblck(q)%Xpphh(IX,JX) = x
+              
+        end do
+        
+                
+     end do
+     
+     
+  end do
+
+end subroutine construct_random_isoX
 !============================================================
 !============================================================
 subroutine construct_delta_rankX(OP,HERM,jbas) 
@@ -1213,7 +1277,167 @@ subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar)
   
   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
   
-end subroutine
+end subroutine test_EOM_scalar_tensor_commutator
+!============================================================
+!============================================================
+subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: AA
+  type(iso_tensor) :: BB,OUT
+  type(ex_pandya_mat) :: BBCC,WCC
+  type(ex_cc_mat) :: AACC 
+  integer :: a,b,c,d,g,q,ja,jb,jc,jd,j1min,j1max,dpar,dTz
+  integer :: j2min,j2max,PAR,TZ,J1,J2,ax,bx,cx,dx,iii,N
+  integer,intent(in) :: h1,h2,rank
+  real(8) :: val,t1,t2,t3,t4,omp_get_wtime
+  real(8) :: vv,xx,yy,zz
+  
+  call seed_random_number
+
+  N = jbas%total_orbits
+  BB%rank = rank
+  BB%dpar = dpar
+  BB%dTz = dTz
+  BB%xindx = 1
+  BB%pphh_ph = .false.
+  AA%rank = 0
+  call allocate_blocks(jbas,AA)
+  allocate(jbas%xmap_tensor(1,N*(N+1)/2)) 
+  call allocate_isospin_ladder(jbas,BB,AA)
+  call duplicate_isospin_ladder(BB,OUT)
+  BB%herm = 1 
+  call construct_random_rank0(AA,h1,jbas) 
+  call construct_random_isoX(BB,h2,jbas) 
+ 
+
+ 
+  call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
+!  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
+!  call init_ph_wkspc(BBCC,WCC) !
+  
+
+  do q = 1, BB%nblocks
+     BB%tblck(q)%lam(1) = 1
+     OUT%tblck(q)%lam(1) = 1
+  end do 
+  
+  OUT%herm = 1
+  
+  print*, 'TESTING EOM ISOSPIN-CHANGING-TENSOR COMMUTATORS' 
+
+!  call EOM_generalized_pandya(BB,BBCC,jbas)
+
+  call calculate_cross_coupled_pphh(AA,AACC,jbas) 
+
+  ! do q = 1,BB%nblocks
+  !    print*, sum(BB%tblck(q)%Xpphh**2) , BB%tblck(q)%Jpair ,BB%tblck(q)%lam(2:4)
+  ! end do
+  
+  call EOM_dTZ_commutator_111(AA,BB,OUT,jbas) 
+  call EOM_dTZ_commutator_121(AA,BB,OUT,jbas)
+  call EOM_dTZ_commutator_211(AACC,BB,OUT,jbas) 
+  call EOM_dTZ_commutator_122(AA,BB,OUT,jbas)
+  call EOM_dTZ_commutator_212(AA,BB,OUT,jbas)
+  
+  call EOM_dTZ_commutator_222_pp_hh(AA,BB,OUT,jbas)
+  
+  call EOM_dTZ_commutator_222_ph(AA,BB,OUT,jbas)
+
+  
+
+!goto 12
+  ! do ax = 1, AA%Nsp-AA%belowEF
+   
+  do iii = 1, 50   
+    call random_number(vv)
+     call random_number(yy)
+   
+     ax = ceiling(vv*(AA%Nsp-AA%belowEF))
+     bx = ceiling(yy*(AA%belowEF))
+     
+     a = jbas%parts(ax)
+     !do bx = 1, AA%belowEF
+        b = jbas%holes(bx)
+        
+        val = EOM_scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
+        
+
+        if (abs(val-f_iso_ladder_elem(a,b,OUT,jbas)) > 1e-10) then
+           print*, 'at: ',a,b
+           print*, val, f_iso_ladder_elem(a,b,OUT,jbas)
+           print*, 'fail', f_iso_ladder_elem(a,b,OUT,jbas)/val
+           !STOP 'ONE BODY FAILURE'  
+        end if 
+        
+        print*, 'success:', a,b,val
+     !end do
+  end do 
+
+  
+  iii = 0 
+  do while (iii < 50) 
+     call random_number(vv)
+     call random_number(xx)
+     call random_number(yy)
+     call random_number(zz)
+   
+     ax = ceiling(vv*(AA%Nsp-AA%belowEF))
+     bx = ceiling(xx*(AA%Nsp-AA%belowEF))
+     cx = ceiling(yy*(AA%belowEF))
+     dx = ceiling(zz*(AA%belowEF))
+     
+  !   do ax = 1, AA%Nsp-AA%belowEF
+        a = jbas%parts(ax)
+        ja = jbas%jj(a) 
+   !     do bx = 1, AA%Nsp-AA%belowEF
+           b = jbas%parts(bx)
+           jb = jbas%jj(b)
+           
+           PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
+           TZ = jbas%itzp(a) + jbas%itzp(b) 
+           
+    !       do cx = 1,AA%belowEF
+              c = jbas%holes(cx)
+              jc = jbas%jj(c)
+     !         do dx = 1,AA%belowEF
+                 d = jbas%holes(dx)
+                 jd = jbas%jj(d) 
+                 
+                 if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
+                 if ( TZ - BB%dTz*2 .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
+                 iii = iii + 1
+                 
+                 j1min = abs(ja-jb) 
+                 j1max = ja+jb 
+                 j2min = abs(jc-jd) 
+                 j2max = jc+jd
+                 
+                 do J1 = j1min,j1max,2
+                    do J2 = j2min,j2max,2
+                       
+                       if (.not. (triangle(J1,J2,rank))) cycle
+                       
+                       val = EOM_scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
+                       !                    print*, a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)  
+                       print*, a,b,c,d,J1,J2, val
+                       if (abs(val-iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
+                          print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)                            
+                          STOP 'TWO BODY FAILURE'  
+                       end if
+                    end do
+                 end do
+                 
+                 print*, 'success:', a,b,c,d
+    !       end do
+   !     end do
+  !   end do
+  end do
+  
+  print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
+  
+end subroutine test_EOM_iso_commutator
 !============================================================
 !============================================================
 real(8) function scalar_scalar_1body_comm(AA,BB,a,b,jbas) 
@@ -1791,6 +2015,99 @@ real(8) function EOM_scalar_tensor_1body_comm(AA,BB,a,b,jbas)
   EOM_scalar_tensor_1body_comm = sm 
   
 end function EOM_scalar_tensor_1body_comm
+!==================================================================
+!==================================================================
+real(8) function EOM_scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
+  !returns [AA^0, BB^X]_{ab} 
+  ! uses brute force method. 
+  implicit none 
+  
+  integer :: a,b,i,j,k,rank,J1,J2
+  integer :: ja,jb,jj,ji,jk,Jtot,JTM,totorb
+  type(spd) :: jbas
+  type(sq_op) :: AA
+  type(iso_tensor) :: BB 
+  real(8) :: sm ,d6ji,sx
+  
+  rank = BB%rank
+  sm = 0.d0 
+  JTM = jbas%jtotal_max*2
+  totorb = jbas%total_orbits
+  
+  ja = jbas%jj(a) 
+  jb = jbas%jj(b) 
+  
+  do i = 1, totorb
+     
+     sm = sm + f_elem(a,i,AA,jbas) * f_iso_ladder_elem(i,b,BB,jbas) &
+          - f_iso_ladder_elem(a,i,BB,jbas) * f_elem(i,b,AA,jbas)
+  
+  end do 
+  
+
+  do i = 1, totorb
+     ji = jbas%jj(i)
+     do j = 1, totorb
+        jj = jbas%jj(j) 
+        
+        do J1 = 0,JTM,2
+           do J2 = 0, JTM,2 
+                 
+              sm = sm + (jbas%con(i) -jbas%con(j) )* &
+                   f_elem(i,j,AA,jbas) * iso_ladder_elem(j,a,i,b,J1,J2,BB,jbas) &
+                   * sqrt( (J1+1.d0)*(J2+1.d0) ) * (-1)**(( J1+ rank +jb +ji)/2) * &
+                   d6ji(J1,J2,rank,jb,ja,ji) 
+           
+           end do
+        end do
+     end do
+  end do
+  
+  do i = 1, totorb
+     ji = jbas%jj(i)      
+     do j = 1, totorb
+        jj = jbas%jj(j) 
+        do k = 1, totorb
+           jk =jbas%jj(k)
+           
+           do J1 = 0,JTM,2
+              do J2 = 0,JTM,2
+           
+                 sm = sm + 0.5*(jbas%con(k)*jbas%con(j)*(1-jbas%con(i)) + &
+                      (1-jbas%con(k))*(1-jbas%con(j))*jbas%con(i) )* &
+                      ( v_elem(i,a,j,k,J1,AA,jbas) * iso_ladder_elem(j,k,i,b,J1,J2,BB,jbas) &
+                      - iso_ladder_elem(i,a,j,k,J1,J2,BB,jbas) * v_elem(j,k,i,b,J2,AA,jbas) ) &
+                      * sqrt( (J1+1.d0)*(J2+1.d0) ) * (-1)**(( J1+ rank +jb +ji)/2) * &
+                      d6ji(J1,J2,rank,jb,ja,ji) 
+           
+              end do
+           end do
+        end do
+     end do
+  end do
+  
+
+  do i =  1, totorb
+     ji =jbas%jj(i)
+     do j =  1, totorb
+        jj = jbas%jj(j) 
+        
+        do Jtot = 0,JTM,2 
+
+           sm = sm - (jbas%con(i) - jbas%con(j)) * (Jtot+1.d0) * &
+                (-1) ** ((ja-ji+Jtot)/2) *d6ji(ja,jb,rank,jj,ji,Jtot) * &
+                f_iso_ladder_elem(j,i,BB,jbas) * v_elem(i,a,j,b,Jtot,AA,jbas)
+           
+
+           
+        end do
+     end do
+  end do
+
+  
+  EOM_scalar_tensor_iso1body_comm = sm 
+  
+end function EOM_scalar_tensor_iso1body_comm
 !==================================================================
 !==================================================================
 real(8) function EOM_tensor_prod_1body(AA,BB,p,h,rank_c,jbas) 
@@ -2405,6 +2722,199 @@ real(8) function EOM_scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
 
   EOM_scalar_tensor_2body_comm = sm 
   
-end function 
+end function EOM_scalar_tensor_2body_comm
+!============================================================
+!============================================================
+real(8) function EOM_scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas) 
+  !returns  [AA^0, BB^0]_{0}
+  ! uses brute force method. 
+  implicit none 
+  
+  integer :: a,b,c,d,i,j,k,l,J1,J2,ji,jj,J3,J4,J5,jx
+  integer :: ja,jb,jc,jd,Jtot,JTM,totorb,rank
+  type(spd) :: jbas
+  type(sq_op) :: AA
+  type(iso_tensor) :: BB 
+  real(8) :: sm,coef9,d6ji,X1,X2,X3,X4
+
+  rank = BB%rank  
+  sm = 0.d0 
+  JTM = jbas%jtotal_max*2
+  totorb = jbas%total_orbits
+  
+  ja = jbas%jj(a) 
+  jb = jbas%jj(b) 
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+
+    do i = 1, totorb
+       ji = jbas%jj(i)
+
+      sm = sm + f_elem(a,i,AA,jbas) * iso_ladder_elem( i,b,c,d,J1,J2,BB,jbas) &
+           + f_elem(b,i,AA,jbas) * iso_ladder_elem( a,i,c,d,J1,J2,BB,jbas) &
+           - f_elem(i,c,AA,jbas) * iso_ladder_elem( a,b,i,d,J1,J2,BB,jbas) &
+           - f_elem(i,d,AA,jbas) * iso_ladder_elem( a,b,c,i,J1,J2,BB,jbas) 
+     
+          
+     sm = sm - f_iso_ladder_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
+          * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
+     
+          + f_iso_ladder_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
+          * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
+
+          - f_iso_ladder_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
+          *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
+         
+          
+          + f_iso_ladder_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
+          *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) )
+     
+    end do
+  
+
+  do i = 1, totorb
+     do j = 1, totorb
+        
+
+        sm = sm + 0.5*(1- jbas%con(i) - jbas%con(j)) *&
+             (v_elem(a,b,i,j,J1,AA,jbas)*iso_ladder_elem(i,j,c,d,J1,J2,BB,jbas)   &
+             - iso_ladder_elem(a,b,i,j,J1,J2,BB,jbas)*v_elem(i,j,c,d,J2,AA,jbas)) 
+     end do
+  end do
+ 
+! !!$OMP PARALLEL DO PRIVATE( ji,jj,i,j,J3,J4,J5,jx) SHARED(AA,BB) REDUCTION(+:sm)
+!   do i = 1, totorb
+!      ji =jbas%jj(i)
+!      do j = 1,totorb
+!         jj = jbas%jj(j) 
+        
+!         if ((jbas%con(i)-jbas%con(j)) == 0) cycle 
+!         do J3 = 0, JTM,2
+!            do J4 = 0, JTM,2 
+!               do J5 = 0,JTM,2
+!                  do jx = 1,JTM,2
+                    
+!                     sm = sm + (jbas%con(i)-jbas%con(j)) *  ( &  
+                   
+!                     !      (-1)** ((J2+J3 + jc - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
+!                     !      * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)   &
+!                     ! * coef9(jj,J3,ja,J4,ji,jb,jx,jd,J1) * d6ji( jj,J4,jx,rank,jc,J5) * &
+!                     !      d6ji(J1,jx,jd,jc,J2,rank) * v_elem(a,j,d,i,J3,AA,jbas) *&
+!                     !      iso_ladder_elem(i,b,j,c,J4,J5,BB,jbas) &
+                         
+!                          - (-1)** ((J2+J3 + jc - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
+!                          * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
+!                     * coef9(jj,J3,jb,J4,ji,ja,jx,jd,J1) * d6ji( jj,J4,jx,rank,jc,J5) * &
+!                          d6ji(J1,jx,jd,jc,J2,rank) * v_elem(b,j,d,i,J3,AA,jbas) *&
+!                          iso_ladder_elem(i,a,j,c,J4,J5,BB,jbas) *(-1)**((ja+jb-J1)/2) &
+                   
+!                          - (-1)** ((J2+J3 + jd - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
+!                          * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
+!                     * coef9(jj,J3,ja,J4,ji,jb,jx,jc,J1) * d6ji( jj,J4,jx,rank,jd,J5) * &
+!                          d6ji(J1,jx,jc,jd,J2,rank) * v_elem(a,j,c,i,J3,AA,jbas) *&
+!                          iso_ladder_elem(i,b,j,d,J4,J5,BB,jbas) * (-1)**((jc+jd-J2)/2) &
+                   
+!                          + (-1)** ((J2+J3 + jd - ji )/2) * sqrt( (J1+1.d0) * (J2+1.d0)  &
+!                          * (J4+1.d0) * (J5+1.d0) ) * (jx+1.d0) * (J3+1.d0)  &
+!                     * coef9(jj,J3,jb,J4,ji,ja,jx,jc,J1) * d6ji( jj,J4,jx,rank,jd,J5) * &
+!                          d6ji(J1,jx,jc,jd,J2,rank) * v_elem(b,j,c,i,J3,AA,jbas) *&
+!                          iso_ladder_elem(i,a,j,d,J4,J5,BB,jbas)  *(-1)**((ja+jb+jc+jd+J1+J2)/2)  &
+!                          )
+!                  end do
+!               end do
+!            end do
+!         end do
+!      end do
+!   end do
+! !!$OMP END PARALLEL DO
+
+!!$OMP PARALLEL DO PRIVATE( ji,jj,i,j,J3,J4,J5,jx) SHARED(AA,BB) REDUCTION(+:sm)
+!  print*
+  do J3 = 0, JTM,2
+     do J4 = 0, JTM,2 
+
+        X1 = 0.d0
+        X2 = 0.d0
+        X3 = 0.d0
+        X4 = 0.d0
+        do i = 1, totorb
+           ji =jbas%jj(i)
+           do j = 1,totorb
+              jj = jbas%jj(j) 
+
+              if ((jbas%con(i)-jbas%con(j)) /= -1) cycle 
+
+              X1 = X1 + (-1)**((J3+J4)/2) * sqrt((J3+1.d0)*(J4+1.d0)) * &
+                   VCC(a,d,j,i,J3,AA,jbas) * Visopandya(i,j,c,b,J3,J4,BB,jbas)
+
+              X2 = X2 + (-1)**((J3+J4)/2) * sqrt((J3+1.d0)*(J4+1.d0)) * &
+                   VCC(b,d,j,i,J3,AA,jbas) * Visopandya(i,j,c,a,J3,J4,BB,jbas)
+
+              X3 = X3 + (-1)**((J3+J4)/2) * sqrt((J3+1.d0)*(J4+1.d0)) * &
+                   VCC(b,c,j,i,J3,AA,jbas) * Visopandya(i,j,d,a,J3,J4,BB,jbas)
+
+              X4 = X4 + (-1)**((J3+J4)/2) * sqrt((J3+1.d0)*(J4+1.d0)) * &
+                   VCC(a,c,j,i,J3,AA,jbas) * Visopandya(i,j,d,b,J3,J4,BB,jbas)
+                   
+           end do
+        end do
+
+
+        ! if (abs(X1) > 1e-8) then 
+        !    print*, '1', -1*(-1)**((ja+jb+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+        !         coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank),X1, & 
+        !         - (-1)**((ja+jb+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+        !         coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank) * X1 
+        ! end if
+
+        ! if (abs(X2) > 1e-8) then
+        !    print*, '2', (-1)**((J1+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+        !      coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank),X2 & 
+        !      +(-1)**((J1+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+        !      coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank) * X2 
+        ! end if
+
+        ! if (abs(X3) > 1e-8) then
+        !    print*, '3', -1* (-1)**((jc+jd+J1)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+        !      coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank) , X3, &
+        !      - (-1)**((jc+jd+J1)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+        !      coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank) * X3 
+             
+        ! end if
+
+        ! if (abs(X4) > 1e-8) then
+        !    print*, '4',(-1)**((ja+jb+jc+jd)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+        !         coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank) ,X4, &
+        !         (-1)**((ja+jb+jc+jd)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+        !         coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* X4
+        ! end if
+           sm = sm +  ( &  
+             
+             - (-1)**((ja+jb+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+             coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank) * X1 & 
+                   
+             +(-1)**((J1+J2)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+             coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank) * X2 & 
+             
+             - (-1)**((jc+jd+J1)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+             coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank) * X3 &
+             
+             + (-1)**((ja+jb+jc+jd)/2) * sqrt((J1+1.d0)*(J2+1.d0)) * &
+             coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* X4 &
+             
+             )
+
+     end do
+  end do
+!!$OMP END PARALLEL DO
+
+  
+  EOM_scalar_tensor_iso2body_comm = sm 
+  
+end function EOM_scalar_tensor_iso2body_comm
 
 end module 

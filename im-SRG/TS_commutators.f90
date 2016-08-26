@@ -1846,12 +1846,7 @@ end subroutine TS_commutator_222_pp_hh
 
       deallocate(Wx,Wy)
    end do
-
-   !if ( (d == 11).and.(c==18).and.(b==12).and.(a==17).and.(J1==0).and.(J2==4)) then 
-   !   !if (abs(V)>1e-6) print*, J3,J4,V, '8'  
-   !end if
-                    
- end subroutine TS_commutator_222_ph
+end subroutine TS_commutator_222_ph
 !=================================================================
 !=================================================================
 real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,Jst,jbas)

@@ -4724,8 +4724,8 @@ real(8) function Vgenpandya(a,d,c,b,J1,J2,Op,jbas)
   
   Vgenpandya = sm 
 end function Vgenpandya
-!=========================================================
-!=========================================================
+!===================================================================
+!===================================================================
 character(500) function find_file( directory_name,file_name) 
   ! returns directory name from found from environment variable
   character(*) :: file_name,directory_name

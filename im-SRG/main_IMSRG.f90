@@ -1,5 +1,5 @@
 program main_IMSRG
-  use basic_IMSRG
+  use isospin_operators
   use HF_mod
   use IMSRG_ODE
   use IMSRG_MAGNUS
@@ -16,6 +16,7 @@ program main_IMSRG
   type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0,Hcm
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(cc_mat) :: CCHS,CCETA,WCC
+  TYPE(iso_tensor) :: Xtz
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   type(three_body_force) :: threebod
   type(obsv_mgr) :: trans,moments
@@ -335,6 +336,11 @@ print*, 'BASIS SETUP COMPLETE'
         
      end if
 
+     XTz%xindx = Otrans%xindx + 2
+     XTZ%rank = 2
+     XTZ%dpar = 0
+     XTZ%dTz = 1
+!     call allocate_isospin_ladder(jbas,XTZ,HS)
      
   end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -410,7 +416,9 @@ subroutine test
 !   deallocate(jbas%xmap,jbas%xmap_tensor,phase_hh,phase_pp)
 !   deallocate(half6j%tp_mat)
 !  call test_scalar_tensor_commutator(jbas,-1,1,6,2) 
-  call test_tensor_product(jbas,1,1,2,4,2,2,0,2) 
+!  call test_tensor_product(jbas,1,1,2,4,2,2,0,2) 
+  call test_EOM_iso_commutator(jbas,1,1,4,2,-1)  
+!butt
 end subroutine test
 end program main_IMSRG
 !=========================================================================

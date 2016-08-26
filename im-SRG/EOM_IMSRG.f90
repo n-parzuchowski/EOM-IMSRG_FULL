@@ -1378,7 +1378,7 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
      totstates =totstates + eom_states%number_requested(i) 
   end do 
 
-  uniq = num_jpi + 2 ! plus one for operator
+  uniq = num_jpi + 3 ! plus one for operator, one for Hcm, one for Xtz 
   ! too lazy to check if the operator has the same structure as other stuff
   read(44,*)
   read(44,*) op
