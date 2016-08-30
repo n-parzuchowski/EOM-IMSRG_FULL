@@ -117,7 +117,8 @@ module basic_IMSRG
   real(8),allocatable,dimension(:,:) :: phase_pp,phase_hh 
   integer,public,dimension(9) :: adjust_index = (/0,0,0,0,0,0,0,0,-4/) ! for finding which of the 6 Vpppp arrays
   integer,public,dimension(6) :: tensor_adjust = (/0,6,4,0,0,3/)
-  type(six_index_store),public :: store6j , half6j  ! holds 6j-symbols
+  type(six_index_store),public :: store6j! holds 6j-symbols
+  type(six_index_store),public,allocatable,dimension(:) :: half6j  ! holds 6j-symbols
   !The following public arrays give info about the 6 different categories
   ! of matrix elements: Vpppp, Vppph , Vpphh , Vphph , Vhhhh, Vphhh 
   ! holds the c values for qn and pn arrays
@@ -874,7 +875,9 @@ subroutine allocate_tensor(jbas,op,zerorank)
    ! which the commutators need for this tensor.
    ! access with XXXsixj
 
-   call store_6j_3halfint(jbas,rank)     
+   if (.not. allocated(half6j(op%xindx)%tp_mat))then
+      call store_6j_3halfint(jbas,rank,op%xindx)
+   end if
    call divide_work_tensor(op) 
 
  end subroutine allocate_tensor
@@ -2266,7 +2269,7 @@ subroutine store_6j(jbas,trips)
 end subroutine    
 !======================================================
 !======================================================
-subroutine store_6j_3halfint(jbas,rank) 
+subroutine store_6j_3halfint(jbas,rank,xindx) 
   ! THIS CODE ASSUMES THAT SIX-J SYMBOLS WITH 3 half-INTEGER j take the form:
   ! { J1 , J2  , X }
   ! { a  ,  b  , c }    WHERE X IS THE RANK OF SOME TENSOR    
@@ -2279,7 +2282,7 @@ subroutine store_6j_3halfint(jbas,rank)
   implicit none 
   
   type(spd) :: jbas
-  integer :: j1,j2,j3,j4,j5,j6,halfmax,num_whole,r1,r2,rank,JTM
+  integer :: j1,j2,j3,j4,j5,j6,halfmax,num_whole,r1,r2,rank,JTM,Xindx
   integer :: nbos,nferm,X12,X45,j3min,j3max,j6min,j6max,TZ,PAR
   real(8) :: d6ji
   
@@ -2295,16 +2298,16 @@ subroutine store_6j_3halfint(jbas,rank)
   TZ = 1
   PAR = 1
   
-  !half6j%nhalf = num_half
+  !half6j(xindx)%nhalf = num_half
   nbos = tensor_block_index(JTM,JTM+RANK,RANK,TZ,PAR)/6 
   ! divide by six because TZ and PAR are irrelevant
   nferm = halfint_index(halfmax,halfmax+rank,rank) 
   
-  half6j%nb = nbos
-  half6j%nf = nferm 
+  half6j(xindx)%nb = nbos
+  half6j(xindx)%nf = nferm 
   
   
-  allocate(half6j%tp_mat(nbos,nferm)) 
+  allocate(half6j(xindx)%tp_mat(nbos,nferm)) 
   ! The first index refers to J1,J2 
   ! which are forcibly ordered
   
@@ -2328,14 +2331,14 @@ subroutine store_6j_3halfint(jbas,rank)
 
             
             ! allocate second part of storage array to hold them 
-              allocate(half6j%tp_mat(X12,X45)%X((j3max-j3min)/2+1,1 ) ) 
+              allocate(half6j(xindx)%tp_mat(X12,X45)%X((j3max-j3min)/2+1,1 ) ) 
               
               ! fill the array with 6j symbols
               r1 = 1 
              
               do j3 = j3min,j3max,2
                  r2 = 1
-                    half6j%tp_mat(X12,X45)%X(r1,1) =  d6ji(J1,J2,rank,j4,j5,j3)   
+                    half6j(xindx)%tp_mat(X12,X45)%X(r1,1) =  d6ji(J1,J2,rank,j4,j5,j3)   
                     ! d6ji is the anglib sixj calculator (takes 2*j as arguments) 
                  r1 = r1 + 1
               end do 
@@ -2531,7 +2534,7 @@ real(8) function sixj(j1,j2,j3,j4,j5,j6)
 end function
 !=========================================================
 !=========================================================
-real(8) function xxxsixj(J1,J2,RANK,j4,j5,j6)
+real(8) function xxxsixj(xindx,J1,J2,RANK,j4,j5,j6)
   ! twice the angular momentum
   ! J1, J2, RANK  are INTEGERS, the rest are HALF-INTEGERS
   ! you should be able to re-write the six-j symbol to look like this.
@@ -2540,7 +2543,7 @@ real(8) function xxxsixj(J1,J2,RANK,j4,j5,j6)
  
   integer :: j1,j2,j3,j4,j5,j6,RANK
   integer :: l1,l2,l3,l4,l5,l6
-  integer :: x1,x2,j3min,j6min
+  integer :: x1,x2,j3min,j6min,xindx
     
   ! check triangle inequalities
   if ( (triangle(j1,j2,RANK)) .and. (triangle(j4,j5,RANK)) &
@@ -2564,7 +2567,7 @@ real(8) function xxxsixj(J1,J2,RANK,j4,j5,j6)
      x2 = halfint_index(l4,l5,rank) 
 
      ! figure out indeces for j3,j6 based on lowest possible
-     xxxsixj = half6j%tp_mat(x1,x2)%X(l6/2 - j6min + 1 ,1) 
+     xxxsixj = half6j(xindx)%tp_mat(x1,x2)%X(l6/2 - j6min + 1 ,1) 
      
      
   else 
@@ -4280,11 +4283,11 @@ subroutine enumerate_three_body(threebas,jbas)
 end subroutine 
 !==================================================================
 !==================================================================
-real(8) function ninej(a,b,J1,c,d,J2,J3,J4,RANK) 
+real(8) function ninej(xindx,a,b,J1,c,d,J2,J3,J4,RANK) 
   ! fast ninej using stored 6j
   implicit none 
 
-  integer ::a ,b, c,d,J1,J2,J3,J4,RANK,x,xmin,xmax
+  integer ::a ,b, c,d,J1,J2,J3,J4,RANK,x,xmin,xmax,xindx
   real(8) :: sm 
 
   xmin = max(abs(J2-b),abs(a-rank),abs(J4-c))  
@@ -4292,8 +4295,8 @@ real(8) function ninej(a,b,J1,c,d,J2,J3,J4,RANK)
   
   sm = 0.d0 
   do x = xmin,xmax,2
-     sm = sm - (x+1.d0) * xxxsixj(J1,J2,rank,x,a,b) * &
-          sixj(c,d,J2,b,x,J4)* xxxsixj(J3,J4,rank,x,a,c) 
+     sm = sm - (x+1.d0) * xxxsixj(xindx,J1,J2,rank,x,a,b) * &
+          sixj(c,d,J2,b,x,J4)* xxxsixj(xindx,J3,J4,rank,x,a,c) 
   end do 
   
   ninej = sm 
@@ -4716,7 +4719,7 @@ real(8) function Vgenpandya(a,d,c,b,J1,J2,Op,jbas)
      do J4 = j4min,j4max,2 
      sm = sm - sqrt((J1+1.d0)*(J2+1.d0) &
           *(J3+1.d0)*(J4+1.d0)) * &
-          coef9(ja,jd,J1,jb,jc,J2,J3,J4,rank) * &
+          ninej(OP%xindx,ja,jd,J1,jb,jc,J2,J3,J4,rank) * &
           tensor_elem(a,b,c,d,J3,J4,Op,jbas) * &
           (-1)**((jb+jd+J2+J4)/2) 
      end do 

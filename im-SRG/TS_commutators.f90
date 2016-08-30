@@ -119,7 +119,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                     
                     smx = smx + tensor_elem(ak,pk,ik,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)*&
-                         xxxsixj(J1,J2,rank,jq,jp,ji)             
+                         xxxsixj(RES%xindx,J1,J2,rank,jq,jp,ji)             
                  
                  end do
               end do
@@ -129,7 +129,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                  
                     smy = smy + tensor_elem(ik,pk,ak,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)*&
-                         xxxsixj(J1,J2,rank,jq,jp,ji) 
+                         xxxsixj(RES%xindx,J1,J2,rank,jq,jp,ji) 
                                      
                  end do
               end do
@@ -197,7 +197,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                     
                     smx = smx + tensor_elem(ak,pk,ik,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)&
-                         * xxxsixj(J1,J2,rank,jq,jp,ji)              
+                         * xxxsixj(RES%xindx,J1,J2,rank,jq,jp,ji)              
                  
                  end do
               end do
@@ -207,7 +207,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                  
                     smy = smy + tensor_elem(ik,pk,ak,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2) &
-                         * xxxsixj(J1,J2,rank,jq,jp,ji)
+                         * xxxsixj(RES%xindx,J1,J2,rank,jq,jp,ji)
                                      
                  end do
               end do
@@ -274,7 +274,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
 
                     smx = smx + tensor_elem(ak,pk,ik,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)  &
-                          * xxxsixj(J1,J2,rank,jq,jp,ji)
+                          * xxxsixj(RES%xindx,J1,J2,rank,jq,jp,ji)
                     
                  end do
               end do
@@ -284,7 +284,7 @@ subroutine TS_commutator_121(L,R,RES,jbas)
                  
                     smy = smy + tensor_elem(ik,pk,ak,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2) & 
-                                      * xxxsixj(J1,J2,rank,jq,jp,ji)
+                                      * xxxsixj(RES%xindx,J1,J2,rank,jq,jp,ji)
                     
                  end do
               end do
@@ -735,7 +735,7 @@ subroutine TS_commutator_212(L,R,RES,jbas)
                  if (modli == modla ) then 
                     if (triangle(ji,ja,rank)) then  
                        
-                       sm1 = sm1 - xxxsixj(J1,J2,rank,ji,ja,jb)&
+                       sm1 = sm1 - xxxsixj(RES%xindx,J1,J2,rank,ji,ja,jb)&
                             *f_tensor_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
                      
                     end if
@@ -750,7 +750,7 @@ subroutine TS_commutator_212(L,R,RES,jbas)
                  if (modli == modlb ) then 
                     if (triangle(ji,jb,rank)) then  
                        
-                       sm2 = sm2 + xxxsixj(J1,J2,rank,ji,jb,ja)&
+                       sm2 = sm2 + xxxsixj(RES%xindx,J1,J2,rank,ji,jb,ja)&
                             *f_tensor_elem(b,i,R,jbas)*v_elem(i,a,c,d,J2,L,jbas)
                        
                     end if
@@ -765,7 +765,7 @@ subroutine TS_commutator_212(L,R,RES,jbas)
                  if (modli == modld ) then 
                     if (triangle(ji,jd,rank)) then  
                        
-                       sm3 = sm3 + xxxsixj(J1,J2,rank,jd,ji,jc)&
+                       sm3 = sm3 + xxxsixj(RES%xindx,J1,J2,rank,jd,ji,jc)&
                             *f_tensor_elem(i,d,R,jbas)*v_elem(a,b,c,i,J1,L,jbas)
                        
                     end if
@@ -780,7 +780,7 @@ subroutine TS_commutator_212(L,R,RES,jbas)
                  if (modli == modlc ) then 
                     if (triangle(ji,jc,rank)) then  
                        
-                       sm4 = sm4 -  xxxsixj(J1,J2,rank,jc,ji,jd)&
+                       sm4 = sm4 -  xxxsixj(RES%xindx,J1,J2,rank,jc,ji,jd)&
                             *f_tensor_elem(i,c,R,jbas)*v_elem(a,b,d,i,J1,L,jbas)
                        
                     end if
@@ -854,7 +854,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -862,7 +862,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
              
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
                 
              end do
@@ -880,7 +880,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -888,7 +888,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
            
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
                 
              end do
@@ -935,7 +935,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -943,7 +943,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
              
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
                 
              end do
@@ -961,7 +961,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -969,7 +969,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
            
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
                 
              end do
@@ -1016,7 +1016,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -1024,7 +1024,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
              
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
                 
              end do
@@ -1042,7 +1042,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 - sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J2/2) * pm 
                 
              end do              
@@ -1050,7 +1050,7 @@ subroutine TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
            
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
                 
              end do
@@ -1573,7 +1573,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            ! V^{J1 J2}_{abcd} 
-                           V = prefac_1234* ninej(ja,jd,J3,jb,jc,J4,J1,J2,rank) &
+                           V = prefac_1234* ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,rank) &
                                 * (-1)**((jb+jd+J2)/2) * phase_34 * LCC%herm &
                                 * Xelem
 
@@ -1590,7 +1590,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            ! V^{J1 J2}_{cdab}
-                           V = -1*prefac_1234* ninej(jd,ja,J3,jc,jb,J4,J1,J2,rank) &
+                           V = -1*prefac_1234* ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,rank) &
                                 * (-1)**((jc+ja+J1+rank)/2) * RCC%herm &
                                 * Xelem
                            call add_elem_to_tensor(V,c,d,a,b,J1,J2,RES,jbas) 
@@ -1609,7 +1609,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{abdc}
-                           V = prefac_1234 * ninej(ja,jd,J3,jb,jc,j4,J1,J2,rank)&
+                           V = prefac_1234 * ninej(RES%xindx,ja,jd,J3,jb,jc,j4,J1,J2,rank)&
                                 *(-1)**((jb+jc)/2)*phase_34*LCC%herm*Xelem
 
                            call add_elem_to_tensor(V,a,b,d,c,J1,J2,RES,jbas)                        
@@ -1623,7 +1623,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{dcab}
-                           V = prefac_1234 * ninej(jd,ja,J3,jc,jb,J4,J1,J2,rank) &
+                           V = prefac_1234 * ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,rank) &
                                 * (-1)**((ja-jd+rank)/2) * RCC%herm *Xelem
                            ! the mapping here inverts the indeces to {cdba} so you need 
                            ! an additional factor of phase(a+b+c+d+J1+J2) 
@@ -1645,7 +1645,7 @@ end subroutine TS_commutator_222_pp_hh
 
                            !V^{J1 J2}_{bacd}
 
-                           V = prefac_1234 * ninej(ja,jd,J3,jb,jc,J4,J1,J2,rank) &
+                           V = prefac_1234 * ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,rank) &
                                 *(-1)** ((ja+jd+J1+J2)/2) * phase_34 * LCC%herm * Xelem
 
                            call add_elem_to_tensor(V,b,a,c,d,J1,J2,RES,jbas)                        
@@ -1661,7 +1661,7 @@ end subroutine TS_commutator_222_pp_hh
 
                            !V^{J1 J2}_{cdba}
 
-                           V = prefac_1234 * ninej(jd,ja,J3,jc,jb,J4,J1,J2,rank) &
+                           V = prefac_1234 * ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,rank) &
                                 *(-1)**((jc-jb+J1+J2+rank)/2) * RCC%herm * Xelem
                            ! the mapping here inverts the indeces to {dcab} so you need 
                            ! an additional factor of phase(a+b+c+d+J1+J2)
@@ -1679,7 +1679,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{badc}
-                           V = prefac_1234 * ninej(ja,jd,J3,jb,jc,J4,J1,J2,Rank) &
+                           V = prefac_1234 * ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,Rank) &
                                 * (-1) ** ((ja+jc+J1)/2) *phase_34 * LCC%herm * Xelem 
 
                            call add_elem_to_tensor(V,b,a,d,c,J1,J2,RES,jbas)               
@@ -1693,7 +1693,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{dcba}
-                           V = prefac_1234 * ninej(jd,ja,J3,jc,jb,J4,J1,J2,Rank) &
+                           V = prefac_1234 * ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,Rank) &
                                 * (-1)**((jb-jd+J2 + rank )/2) *RCC%herm * Xelem 
 
                            call add_elem_to_tensor(V,d,c,b,a,J1,J2,RES,jbas)               
@@ -1723,7 +1723,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{dbca}
-                           V = prefac_1234* ninej(jd,ja,J3,jb,jc,J4,J1,J2,rank)&
+                           V = prefac_1234* ninej(RES%xindx,jd,ja,J3,jb,jc,J4,J1,J2,rank)&
                                 * (-1) ** ((jc+ja+J2)/2) *LCC%herm * Yelem 
                            call add_elem_to_tensor(V,d,b,c,a,J1,J2,RES,jbas)               
 
@@ -1738,7 +1738,7 @@ end subroutine TS_commutator_222_pp_hh
                            if ((b==d).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
-                           V = prefac_1234* ninej(ja,jd,J3,jc,jb,J4,J1,J2,rank)&
+                           V = prefac_1234* ninej(RES%xindx,ja,jd,J3,jc,jb,J4,J1,J2,rank)&
                                 * (-1)** ((jd-jb+J1+rank)/2) * phase_34 *RCC%herm * Yelem
                            call add_elem_to_tensor(V,c,a,d,b,J1,J2,RES,jbas)
                         end do
@@ -1753,7 +1753,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{dbca}
-                           V = -1*prefac_1234* ninej(jd,ja,J3,jb,jc,J4,J1,J2,rank)&
+                           V = -1*prefac_1234* ninej(RES%xindx,jd,ja,J3,jb,jc,J4,J1,J2,rank)&
                                 * LCC%herm * Yelem 
                            call add_elem_to_tensor(V,d,b,a,c,J1,J2,RES,jbas)               
 
@@ -1768,7 +1768,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{dbca}
-                           V = prefac_1234* ninej(ja,jd,J3,jc,jb,J4,J1,J2,rank)&
+                           V = prefac_1234* ninej(RES%xindx,ja,jd,J3,jc,jb,J4,J1,J2,rank)&
                                 *phase_abcd*phase_34*(-1)**(rank/2)* RCC%herm * Yelem
                            call add_elem_to_tensor(V,a,c,d,b,J1,J2,RES,jbas)               
 
@@ -1786,7 +1786,7 @@ end subroutine TS_commutator_222_pp_hh
                            if ((a==c).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
-                           V = -1*prefac_1234  * ninej(jd,ja,J3,jb,jc,J4,J1,J2,rank) &
+                           V = -1*prefac_1234  * ninej(RES%xindx,jd,ja,J3,jb,jc,J4,J1,J2,rank) &
                                 * phase_abcd*(-1)**((J1+J2)/2) * LCC%herm * Yelem 
 
                            call add_elem_to_tensor(V,b,d,c,a,J1,J2,RES,jbas)               
@@ -1800,7 +1800,7 @@ end subroutine TS_commutator_222_pp_hh
                            if ((b==d).and.(mod(J2/2,2)==1)) cycle
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
-                           V = prefac_1234  * ninej(ja,jd,J3,jc,jb,J4,J1,J2,rank) &
+                           V = prefac_1234  * ninej(RES%xindx,ja,jd,J3,jc,jb,J4,J1,J2,rank) &
                                 * (-1)**((J1+J2+rank)/2) * phase_34 * RCC%herm * Yelem
 
                            call add_elem_to_tensor(V,c,a,b,d,J1,J2,RES,jbas)               
@@ -1816,7 +1816,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{bdac}
-                           V = prefac_1234 * ninej(jd,ja,J3,jb,jc,J4,J1,J2,rank) &
+                           V = prefac_1234 * ninej(RES%xindx,jd,ja,J3,jb,jc,J4,J1,J2,rank) &
                                 * (-1)**((jb+jd+J1)/2) * LCC%herm *Yelem
                            call add_elem_to_tensor(V,b,d,a,c,J1,J2,RES,jbas)               
                         end do
@@ -1830,7 +1830,7 @@ end subroutine TS_commutator_222_pp_hh
                            prefac_1234 = prefac_134 * sqrt((J2+1.d0))
 
                            !V^{J1 J2}_{acbd}
-                           V = prefac_1234 * ninej(ja,jd,J3,jc,jb,J4,J1,J2,rank) &
+                           V = prefac_1234 * ninej(RES%xindx,ja,jd,J3,jc,jb,J4,J1,J2,rank) &
                                 * (-1)**((ja-jc+J2+rank)/2) * phase_34 * RCC%herm *Yelem
 
                            call add_elem_to_tensor(V,a,c,b,d,J1,J2,RES,jbas)               
@@ -1925,7 +1925,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
            sm = sm - (-1)**(J3/2) * sqrt(J3 + 1.d0) &            
             * sj2 * sixj(jp,ja,Jst,ju,jtot2,J3) *  &
-             xxxsixj(J2,J3,rank,jtot2,jtot1,jp) * &
+             xxxsixj(R%xindx,J2,J3,rank,jtot2,jtot1,jp) * &
              tensor_elem(iq,ir,a,iu,J2,J3,R,jbas)
            
         end do
@@ -1958,7 +1958,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      do J1 = j1min, j1max , 2      
 
         Vs1 = tensor_elem(ip,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2) 
-        sj1 = sqrt(J1+1.d0)*xxxsixj(J1,Jst,rank,jtot2,jtot1,ju) 
+        sj1 = sqrt(J1+1.d0)*xxxsixj(R%xindx,J1,Jst,rank,jtot2,jtot1,ju) 
 
         do J3 = j3min,j3max,2
 
@@ -2012,7 +2012,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
            do J3 = j3min,j3max,2
            
               sm = sm - sqrt(J3+1.d0) * sj2 * sixj(jp,jq,Jpq,jr,jtot1,J3) &
-                   * xxxsixj(J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J1/2) * &
+                   * xxxsixj(R%xindx,J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J1/2) * &
                      tensor_elem(iq,ir,a,is,J3,J1,R,jbas)
            end do
         end do         
@@ -2048,7 +2048,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         do J2 = j2min,j2max,2 
            
            sj2 = sj1 * sqrt(J2+1.d0) * sixj(js,jt,Jst,ju,jtot2,J2) * (-1)**(J2/2) *&
-                xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
+                xxxsixj(R%xindx,J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
            
            do J3 = j3min,j3max,2
               
@@ -2096,7 +2096,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         do J1 = j1min,j1max,2 
            
            sj2 =  sj1*(-1)**(J1/2)*tensor_elem(iq,ir,a,it,J3,J1,R,jbas)*&
-                xxxsixj(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
+                xxxsixj(R%xindx,J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
 
            do J2 = j2min,j2max,2
               sm = sm - (J2+1.d0) *sj2* sixj(js,jt,Jst,jtot2,ju,J2) &
@@ -2133,7 +2133,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         j1max = min(jp+ja ,rank+J2)
     
         do J1 = j1min,j1max,2 
-           sj2 = sj1*(-1)**(J1/2)*xxxsixj(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
+           sj2 = sj1*(-1)**(J1/2)*xxxsixj(R%xindx,J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
                 tensor_elem(ip,a,iu,is,J1,J2,R,jbas)      
 
            do J3 = j3min,j3max,2
@@ -2184,7 +2184,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         do J2 = j2min,j2max,2 
            
            sm = sm -  sj2*sqrt(J2+1.d0)*(-1)**(J2/2)*tensor_elem(ir,ip,a,iu,J1,J2,R,jbas)*&
-                xxxsixj(J1,J2,rank,jtot2,jtot1,jq)*sixj(ja,jq,Jst,jtot2,ju,J2)
+                xxxsixj(R%xindx,J1,J2,rank,jtot2,jtot1,jq)*sixj(ja,jq,Jst,jtot2,ju,J2)
 
         end do
      end do
@@ -2224,7 +2224,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         do J2 = j2min,j2max,2 
            
            sm = sm +  sj1*(J2+1.d0)*(-1)**(J2/2)*v_elem(ir,ip,a,iu,J2,L,jbas) *&
-                xxxsixj(J1,Jst,rank,jtot2,jtot1,ju)*sixj(ja,jq,J1,jtot1,ju,J2) &
+                xxxsixj(R%xindx,J1,Jst,rank,jtot2,jtot1,ju)*sixj(ja,jq,J1,jtot1,ju,J2) &
                 *sixj(jp,jq,Jpq,jtot1,jr,J2)
         end do
      end do
@@ -2272,7 +2272,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
    
            do J2 = j2min,j2max,2
               sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*sj2* sixj(jp,jq,Jpq,jtot1,jr,J2) &
-                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
+                   * xxxsixj(R%xindx,J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
            end do
         end do
      end do
@@ -2314,7 +2314,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
                     
            do J1 = j1min,j1max,2
               sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,js,jtot1,J3) &
-                   * xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
+                   * xxxsixj(R%xindx,J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
            end do
         
         end do
@@ -2364,7 +2364,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      
            do J3 = j3min,j3max,2
               sm = sm - sqrt(J3+1.d0)*(-1)**(J3/2)*sj2* sixj(jq,ja,J1,jt,jtot2,J3) &
-                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
+                   * xxxsixj(R%xindx,J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
            end do
         end do
      end do
@@ -2407,7 +2407,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
            
            do J1 = j1min,j1max,2
               sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,jt,jtot1,J3) &
-                   * xxxsixj(J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
+                   * xxxsixj(R%xindx,J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
            end do
         
         end do
@@ -2443,7 +2443,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
 
      do J3=j3min,j3max,2 
         sm = sm - sj1* sixj(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
-             * xxxsixj(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
+             * xxxsixj(R%xindx,J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
      end do 
 
   end do 
@@ -2472,7 +2472,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
      do J3=j3min,j3max,2 
 
         sm = sm + sj1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) *(-1)**(J3/2) &
-             * xxxsixj(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
+             * xxxsixj(R%xindx,J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
 
      end do 
 
@@ -2516,7 +2516,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         
            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
             * sj1 * sixj(ja,js,J2,jtot2,jr,J1) *  &
-             xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
+             xxxsixj(R%xindx,Jpq,J2,rank,jtot2,jtot1,jr) * &
              tensor_elem(ip,iq,a,is,Jpq,J2,R,jbas)
         end do
      end do
@@ -2555,7 +2555,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         do J2 = j2min,j2max,2
 
            sm = sm + sj2* sqrt(J2 + 1.d0) * (-1)**(J2/2) &
-                * sixj(js,jt,Jst,ju,jtot2,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,js) &
+                * sixj(js,jt,Jst,ju,jtot2,J2) * xxxsixj(R%xindx,J1,J2,rank,jtot2,jtot1,js) &
                 * tensor_elem(ir,a,it,iu,J1,J2,R,jbas)
 
         end do
@@ -2599,7 +2599,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         
            sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
             * sj1 * sixj(ja,jr,J1,jtot2,jt,J2) *  &
-             xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
+             xxxsixj(R%xindx,Jpq,J2,rank,jtot2,jtot1,jr) * &
              tensor_elem(ip,iq,a,it,Jpq,J2,R,jbas)
         end do
         
@@ -2639,7 +2639,7 @@ real(8) function TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,
         do J2 = j2min,j2max,2
 
            sm = sm + sj2* sqrt(J2 + 1.d0) &
-                * sixj(js,jt,Jst,jtot2,ju,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,jt) &
+                * sixj(js,jt,Jst,jtot2,ju,J2) * xxxsixj(R%xindx,J1,J2,rank,jtot2,jtot1,jt) &
                 * tensor_elem(ir,a,iu,is,J1,J2,R,jbas)
 
         end do

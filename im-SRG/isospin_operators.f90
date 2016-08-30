@@ -245,7 +245,9 @@ subroutine allocate_isospin_ladder(jbas,op,zerorank)
    ! which the commutators need for this tensor.
    ! access with XXXsixj
 
-   call store_6j_3halfint(jbas,rank)     
+      if (.not. allocated(half6j(op%xindx)%tp_mat)) then          
+         call store_6j_3halfint(jbas,rank,op%xindx)
+      end if
    !call divide_work_tensor(op) 
 
  end subroutine allocate_isospin_ladder
@@ -426,7 +428,7 @@ subroutine add_elem_to_ladder(V,a,b,c,d,J1,J2,op,jbas)
 
   ! right now i1 and i2 still refer to where the pair is located
   ! in the rank zero qn storage
-
+  !$OMP ATOMIC
   op%tblck(q)%Xpphh(i1,i2) = op%tblck(q)%Xpphh(i1,i2) + V *pre 
     
 end subroutine add_elem_to_ladder
@@ -603,7 +605,7 @@ real(8) function Visopandya(a,d,c,b,J1,J2,Op,jbas)
      do J4 = j4min,j4max,2 
      sm = sm - sqrt((J1+1.d0)*(J2+1.d0) &
           *(J3+1.d0)*(J4+1.d0)) * &
-          coef9(ja,jd,J1,jb,jc,J2,J3,J4,rank) * &
+          ninej(OP%xindx,ja,jd,J1,jb,jc,J2,J3,J4,rank) * &
           iso_ladder_elem(a,b,c,d,J3,J4,Op,jbas) * &
           (-1)**((jb+jd+J2+J4)/2) 
      end do 

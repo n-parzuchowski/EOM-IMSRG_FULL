@@ -40,7 +40,7 @@ subroutine calculate_excited_states(J,PAR,Numstates,HS,jbas,ladder_ops)
   
   if ( ladder_ops(1)%rank .ne. 0 ) then 
      if ( allocated(phase_hh) ) then
-        deallocate(phase_hh,phase_pp,half6j%tp_mat)
+        deallocate(phase_hh,phase_pp)
      end if
      call allocate_tensor(jbas,ladder_ops(1),HS)   
      do q = 1,ladder_ops(1)%nblocks
@@ -135,10 +135,6 @@ subroutine calculate_isospin_states(J,PAR,dTZ,Numstates,HS,jbas,ladder_ops)
      neuts = neuts + (jbas%jj(i)+1)*jbas%con(i) 
   end do   
   
-  if ( allocated(half6j%tp_mat) ) then
-     deallocate(half6j%tp_mat)
-  end if
-
   call allocate_isospin_ladder(jbas,ladder_ops(1),HS)   
   
   do i = 2, Numstates
@@ -1771,7 +1767,8 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
      read(44,*) mom%Jpi1(i)
   end do 
 
-  allocate(jbas%xmap_tensor(uniq,N*(N+1)/2)) 
+  allocate(jbas%xmap_tensor(uniq,N*(N+1)/2))
+  allocate(half6j(uniq)) 
   read_eom_file = totstates
 
 end function read_eom_file

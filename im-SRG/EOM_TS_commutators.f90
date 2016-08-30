@@ -96,7 +96,7 @@ subroutine EOM_TS_commutator_121(L,R,RES,jbas)
 
                     smx = smx + tensor_elem(ak,pk,ik,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)  &
-                          * xxxsixj(J1,J2,rank,jq,jp,ji)
+                          * xxxsixj(R%xindx,J1,J2,rank,jq,jp,ji)
                     
                  end do
               end do
@@ -394,7 +394,7 @@ subroutine EOM_TS_commutator_212(L,R,RES,jbas)
                     if (modli == modla ) then 
                        if (triangle(ji,ja,rank)) then  
                           
-                          sm1 = sm1 - xxxsixj(J1,J2,rank,ji,ja,jb)&
+                          sm1 = sm1 - xxxsixj(R%xindx,J1,J2,rank,ji,ja,jb)&
                                *f_tensor_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
                        end if
                     end if
@@ -406,7 +406,7 @@ subroutine EOM_TS_commutator_212(L,R,RES,jbas)
                     if (modli == modlb ) then 
                        if (triangle(ji,jb,rank)) then  
                           
-                          sm2 = sm2 + xxxsixj(J1,J2,rank,ji,jb,ja)&
+                          sm2 = sm2 + xxxsixj(R%xindx,J1,J2,rank,ji,jb,ja)&
                                *f_tensor_elem(b,i,R,jbas)*v_elem(i,a,c,d,J2,L,jbas)
                        
                        end if
@@ -424,7 +424,7 @@ subroutine EOM_TS_commutator_212(L,R,RES,jbas)
                     if (modli == modld ) then 
                        if (triangle(ji,jd,rank)) then  
                        
-                          sm3 = sm3 + xxxsixj(J1,J2,rank,jd,ji,jc)&
+                          sm3 = sm3 + xxxsixj(R%xindx,J1,J2,rank,jd,ji,jc)&
                                *f_tensor_elem(i,d,R,jbas)*v_elem(a,b,c,i,J1,L,jbas)
                        
                        end if
@@ -437,7 +437,7 @@ subroutine EOM_TS_commutator_212(L,R,RES,jbas)
                     if (modli == modlc ) then 
                        if (triangle(ji,jc,rank)) then  
                           
-                          sm4 = sm4 -  xxxsixj(J1,J2,rank,jc,ji,jd)&
+                          sm4 = sm4 -  xxxsixj(R%xindx,J1,J2,rank,jc,ji,jd)&
                                *f_tensor_elem(i,c,R,jbas)*v_elem(a,b,d,i,J1,L,jbas)
                        
                        end if
@@ -514,7 +514,7 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
               do J2 = abs(jc - jj),min(J1-2,jc+jj),2
                  
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w1,jbas)*(-1)**(J1/2)
                 
              end do              
@@ -522,7 +522,7 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
              
                 ! use w1, because it sums over the pp indices
-                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm1 = sm1 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w1,jbas)*(-1)**(J1/2)
                 
              end do
@@ -540,7 +540,7 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = abs(jc - jj),min(J1-2,jc+jj),2
 
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                  *tensor_elem(c,j,c,i,J2,J1,w2,jbas)*(-1)**(J1/2)
                 
              end do              
@@ -548,7 +548,7 @@ subroutine EOM_TS_commutator_221(w1,w2,pm,RES,jbas)
              do J2 = max(J1,abs(jc - jj)),jc+jj,2
            
                 ! use w1, because it sums over the pp indices
-                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(J1,J2,w1%rank,jj,ji,jc) &
+                sm2 = sm2 + sqrt((J1+1.d0)*(J2+1.d0))*xxxsixj(RES%xindx,J1,J2,w1%rank,jj,ji,jc) &
                      *tensor_elem(c,i,c,j,J1,J2,w2,jbas)*(-1)**(J1/2)
                 
              end do
@@ -859,7 +859,7 @@ end subroutine
               
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                              ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
+                              ninej(RES%xindx,ji,jl,J3,jj,jk,J4,J1,J2,rank)  * ( &
                               (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rli,rkj) &
                               + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rli,rkj) &
                               )
@@ -882,7 +882,7 @@ end subroutine
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                              ninej(ji,jl,J3,jj,jk,J4,J1,J2,rank)  * (  &
+                              ninej(RES%xindx,ji,jl,J3,jj,jk,J4,J1,J2,rank)  * (  &
                               (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rkj,rli) &
                               + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rkj,rli) &
                               )
@@ -934,7 +934,7 @@ end subroutine
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
 
                          sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                              ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
+                              ninej(RES%xindx,jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
                               (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rlj,rki) &
                               + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rlj,rki) &       
                               )
@@ -957,7 +957,7 @@ end subroutine
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
                          sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                              ninej(jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
+                              ninej(RES%xindx,jj,jl,J3,ji,jk,J4,J1,J2,rank) * ( &
                               (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rki,rlj) &
                               + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rki,rlj) &                  
                               ) 
@@ -1063,7 +1063,7 @@ end subroutine
               
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                              ninej(ji,jl,J3,jj,jk,J4,J2,J1,rank)  * ( &
+                              ninej(RES%xindx,ji,jl,J3,jj,jk,J4,J2,J1,rank)  * ( &
                               (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rli,rkj) &
                               + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rli,rkj) &
                               )
@@ -1086,7 +1086,7 @@ end subroutine
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
                          sm = sm + sqrt((J3+1.d0)*(J4+1.d0))* &
-                              ninej(ji,jl,J3,jj,jk,J4,J2,J1,rank)  * (  &
+                              ninej(RES%xindx,ji,jl,J3,jj,jk,J4,J2,J1,rank)  * (  &
                               (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rkj,rli) &
                               + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rkj,rli) &
                               )
@@ -1138,7 +1138,7 @@ end subroutine
                          qx = CCtensor_block_index(J3,J4,rank,Tz,PAR)
 
                          sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                              ninej(jj,jl,J3,ji,jk,J4,J2,J1,rank) * ( &
+                              ninej(RES%xindx,jj,jl,J3,ji,jk,J4,J2,J1,rank) * ( &
                               (-1)**((J3+J4+2)/2) * WCC%CCX(qx)%X(rlj,rki) &
                               + (-1)**((rank+2)/2) * WCC%CCR(qx)%X(rlj,rki) &       
                               )
@@ -1160,7 +1160,7 @@ end subroutine
                          qx = CCtensor_block_index(J4,J3,rank,Tz,PAR2)
 
                          sm_ex = sm_ex - sqrt((J3+1.d0)*(J4+1.d0))* &
-                              ninej(jj,jl,J3,ji,jk,J4,J2,J1,rank) * ( &
+                              ninej(RES%xindx,jj,jl,J3,ji,jk,J4,J2,J1,rank) * ( &
                               (-1)**((J3+J4+2)/2) * WCC%CCR(qx)%X(rki,rlj) &
                               + (-1)**((rank+2)/2) * WCC%CCX(qx)%X(rki,rlj) &                  
                               ) 
@@ -1269,7 +1269,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
             
            sm = sm - (-1)**(J3/2) * sqrt(J3 + 1.d0) &            
             * sj2 * sixj(jp,ja,Jst,ju,jtot2,J3) *  &
-             xxxsixj(J2,J3,rank,jtot2,jtot1,jp) * &
+             xxxsixj(R%xindx,J2,J3,rank,jtot2,jtot1,jp) * &
              tensor_elem(iq,ir,a,iu,J2,J3,R,jbas)
               
         end do
@@ -1303,7 +1303,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            if ((ip == a) .and. (mod(J1/2,2)==1)) cycle     
 
            Vs1 = tensor_elem(ip,a,is,it,J1,Jst,R,jbas)*(-1)**(J1/2) 
-           sj1 = sqrt(J1+1.d0)*xxxsixj(J1,Jst,rank,jtot2,jtot1,ju) 
+           sj1 = sqrt(J1+1.d0)*xxxsixj(R%xindx,J1,Jst,rank,jtot2,jtot1,ju) 
            if (abs(sj1) < 1e-8) cycle
            do J3 = j3min,j3max,2
               if ((iq == ir) .and. (mod(J3/2,2)==1)) cycle
@@ -1360,7 +1360,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J3 = j3min,j3max,2
               if ((iq == ir) .and. (mod(J3/2,2)==1)) cycle
               sm = sm - sqrt(J3+1.d0) * sj2 * sixj(jp,jq,Jpq,jr,jtot1,J3) &
-                   * xxxsixj(J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J1/2) * &
+                   * xxxsixj(R%xindx,J1,J3,rank,jtot1,jtot2,jp) * (-1)**(J1/2) * &
                      tensor_elem(iq,ir,a,is,J3,J1,R,jbas)
            end do
         end do         
@@ -1396,7 +1396,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
         do J2 = j2min,j2max,2 
            if ((it == iu) .and. (mod(J2/2,2)==1)) cycle
            sj2 = sj1 * sqrt(J2+1.d0) * sixj(js,jt,Jst,ju,jtot2,J2) * (-1)**(J2/2) *&
-                xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
+                xxxsixj(R%xindx,J2,J1,rank,jtot1,jtot2,js) * tensor_elem(ip,a,it,iu,J1,J2,R,jbas) 
            if (abs(sj2) < 1e-8) cycle
            do J3 = j3min,j3max,2
               if ((iq == ir) .and. (mod(J3/2,2)==1)) cycle
@@ -1445,7 +1445,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
         do J1 = j1min,j1max,2 
            if ((a == it) .and. (mod(J1/2,2)==1)) cycle
            sj2 =  sj1*(-1)**(J1/2)*tensor_elem(iq,ir,a,it,J3,J1,R,jbas)*&
-                xxxsixj(J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
+                xxxsixj(R%xindx,J1,J3,rank,jtot1,jtot2,jp)*sqrt(J1+1.d0)
            if (abs(sj2) < 1e-8) cycle
            do J2 = j2min,j2max,2
               if ((ip == a) .and. (mod(J2/2,2)==1)) cycle
@@ -1486,7 +1486,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
         do J1 = j1min,j1max,2
            if ((ip == a) .and. (mod(J1/2,2)==1)) cycle
 
-           sj2 = sj1*(-1)**(J1/2)*xxxsixj(J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
+           sj2 = sj1*(-1)**(J1/2)*xxxsixj(R%xindx,J1,J2,rank,jtot2,jtot1,jt) *sqrt(J1+1.d0) *&
                 tensor_elem(ip,a,iu,is,J1,J2,R,jbas)      
            if (abs(sj2) < 1e-8) cycle
            do J3 = j3min,j3max,2
@@ -1541,7 +1541,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
               if ((a == iu) .and. (mod(J2/2,2)==1)) cycle
 
               sm = sm -  sj2*sqrt(J2+1.d0)*(-1)**(J2/2)*tensor_elem(ir,ip,a,iu,J1,J2,R,jbas)*&
-                   xxxsixj(J1,J2,rank,jtot2,jtot1,jq)*sixj(ja,jq,Jst,jtot2,ju,J2)
+                   xxxsixj(R%xindx,J1,J2,rank,jtot2,jtot1,jq)*sixj(ja,jq,Jst,jtot2,ju,J2)
 
            end do
         end do
@@ -1582,7 +1582,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
               if ((a == iu) .and. (mod(J2/2,2)==1)) cycle
               if ((ir == ip) .and. (mod(J2/2,2)==1)) cycle 
               sm = sm +  sj1*(J2+1.d0)*(-1)**(J2/2)*v_elem(ir,ip,a,iu,J2,L,jbas) *&
-                   xxxsixj(J1,Jst,rank,jtot2,jtot1,ju)*sixj(ja,jq,J1,jtot1,ju,J2) &
+                   xxxsixj(R%xindx,J1,Jst,rank,jtot2,jtot1,ju)*sixj(ja,jq,J1,jtot1,ju,J2) &
                    *sixj(jp,jq,Jpq,jtot1,jr,J2)
            end do
         end do
@@ -1633,7 +1633,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J2 = j2min,j2max,2
               if ((ir == ip) .and. (mod(J2/2,2)==1)) cycle 
               sm = sm - sqrt(J2+1.d0)*(-1)**(J2/2)*sj2* sixj(jp,jq,Jpq,jtot1,jr,J2) &
-                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
+                   * xxxsixj(R%xindx,J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,is,J2,J3,R,jbas)
            end do
         end do
      end do
@@ -1678,7 +1678,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J1 = j1min,j1max,2
               if ((a == iq) .and. (mod(J1/2,2)==1)) cycle 
               sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,js,jtot1,J3) &
-                   * xxxsixj(J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
+                   * xxxsixj(R%xindx,J2,J1,rank,jtot1,jtot2,js) * tensor_elem(iq,a,it,iu,J1,J2,R,jbas)
            end do
         
         end do
@@ -1730,7 +1730,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J3 = j3min,j3max,2
               if ((it == a) .and. (mod(J3/2,2)==1)) cycle 
               sm = sm - sqrt(J3+1.d0)*(-1)**(J3/2)*sj2* sixj(jq,ja,J1,jt,jtot2,J3) &
-                   * xxxsixj(J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
+                   * xxxsixj(R%xindx,J3,J2,rank,jtot1,jtot2,jq) * tensor_elem(ir,ip,a,it,J2,J3,R,jbas)
            end do
         end do
      end do
@@ -1775,7 +1775,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J1 = j1min,j1max,2
               if ((iq == a) .and. (mod(J1/2,2)==1)) cycle 
               sm = sm + sqrt(J1+1.d0) *(-1)**(J1/2) *sj2* sixj(jq,ja,J1,jt,jtot1,J3) &
-                   * xxxsixj(J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
+                   * xxxsixj(R%xindx,J2,J1,rank,jtot1,jtot2,jt) * tensor_elem(iq,a,iu,is,J1,J2,R,jbas)
            end do
         
         end do
@@ -1814,7 +1814,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J3=j3min,j3max,2 
               if ((iu == a) .and. (mod(J3/2,2)==1)) cycle 
               sm = sm - sj1* sixj(jr,ja,Jst,ju,jtot2,J3) * (-1)**(J3/2) * sqrt(J3+1.d0) &
-                   * xxxsixj(J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
+                   * xxxsixj(R%xindx,J3,Jpq,rank,jtot1,jtot2,jr) * tensor_elem(ip,iq,a,iu,Jpq,J3,R,jbas)
            end do
 
         end do
@@ -1849,7 +1849,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J3=j3min,j3max,2 
               if ((ir == a) .and. (mod(J3/2,2)==1)) cycle 
               sm = sm + sj1* sixj(jr,ja,J3,ju,jtot1,Jpq) * sqrt(J3+1.d0) *(-1)**(J3/2) &
-                   * xxxsixj(J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
+                   * xxxsixj(R%xindx,J3,Jst,rank,jtot2,jtot1,ju) * tensor_elem(ir,a,is,it,J3,Jst,R,jbas)
 
            end do
 
@@ -1896,7 +1896,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
               if ((is == a) .and. (mod(J2/2,2)==1)) cycle 
               sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
                    * sj1 * sixj(ja,js,J2,jtot2,jr,J1) *  &
-                   xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
+                   xxxsixj(R%xindx,Jpq,J2,rank,jtot2,jtot1,jr) * &
                    tensor_elem(ip,iq,a,is,Jpq,J2,R,jbas)
            end do
         end do
@@ -1937,7 +1937,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J2 = j2min,j2max,2
               if ((it==iu).and.(mod(J2/2,2)==1)) cycle
               sm = sm + sj2* sqrt(J2 + 1.d0) * (-1)**(J2/2) &
-                   * sixj(js,jt,Jst,ju,jtot2,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,js) &
+                   * sixj(js,jt,Jst,ju,jtot2,J2) * xxxsixj(R%xindx,J1,J2,rank,jtot2,jtot1,js) &
                    * tensor_elem(ir,a,it,iu,J1,J2,R,jbas)
 
            end do
@@ -1984,7 +1984,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
               if ((it==a).and.(mod(J2/2,2)==1)) cycle
               sm = sm - (-1)**(J2/2) * sqrt(J2 + 1.d0) &            
                    * sj1 * sixj(ja,jr,J1,jtot2,jt,J2) *  &
-                   xxxsixj(Jpq,J2,rank,jtot2,jtot1,jr) * &
+                   xxxsixj(R%xindx,Jpq,J2,rank,jtot2,jtot1,jr) * &
                    tensor_elem(ip,iq,a,it,Jpq,J2,R,jbas)
            end do
 
@@ -2027,7 +2027,7 @@ real(8) function EOM_TS_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,
            do J2 = j2min,j2max,2
               if ((iu==is).and.(mod(J2/2,2)==1)) cycle
               sm = sm + sj2* sqrt(J2 + 1.d0) &
-                   * sixj(js,jt,Jst,jtot2,ju,J2) * xxxsixj(J1,J2,rank,jtot2,jtot1,jt) &
+                   * sixj(js,jt,Jst,jtot2,ju,J2) * xxxsixj(R%xindx,J1,J2,rank,jtot2,jtot1,jt) &
                    * tensor_elem(ir,a,iu,is,J1,J2,R,jbas)
 
            end do

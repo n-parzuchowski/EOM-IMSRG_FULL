@@ -1004,16 +1004,16 @@ subroutine test_tensor_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpa
 
   N = jbas%total_orbits
   allocate(jbas%xmap_tensor(3,N*(N+1)/2)) 
-
+  allocate(half6j(3))
   call allocate_blocks(jbas,HS)
  
   AA%xindx = 1
   call allocate_tensor(jbas,AA,HS)
   BB%xindx = 2
-  deallocate(phase_hh,phase_pp,half6j%tp_mat)
+  deallocate(phase_hh,phase_pp)
   call allocate_tensor(jbas,BB,HS)
   OUT%xindx = 3
-  deallocate(phase_hh,phase_pp,half6j%tp_mat)
+  deallocate(phase_hh,phase_pp)
   call allocate_tensor(jbas,OUT,HS)
   
   call construct_random_rankX(AA,h1,jbas) 
@@ -1305,6 +1305,7 @@ subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
   AA%rank = 0
   call allocate_blocks(jbas,AA)
   allocate(jbas%xmap_tensor(1,N*(N+1)/2)) 
+  allocate(half6j(1))
   call allocate_isospin_ladder(jbas,BB,AA)
   call duplicate_isospin_ladder(BB,OUT)
   BB%herm = 1 

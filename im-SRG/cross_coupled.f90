@@ -1565,7 +1565,7 @@ subroutine calculate_single_pandya(OP,CCME,jbas,q1,term)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     ninej(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
+                                     ninej(OP%xindx,ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
                                      tensor_elem(a,h,p,b,J3,J4,OP,jbas) 
 
                              end do
@@ -1604,7 +1604,7 @@ subroutine calculate_single_pandya(OP,CCME,jbas,q1,term)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     ninej(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
+                                     ninej(OP%xindx,jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
                                      tensor_elem(h,a,b,p,J3,J4,OP,jbas) 
 
                              end do
@@ -1783,7 +1783,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     ninej(ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
+                                     ninej(OP%xindx,ja,jb,Jtot1,jh,jp,Jtot2,J3,J4,rank) * &
                                      tensor_elem(a,h,p,b,J3,J4,OP,jbas) 
                                 
                              end do
@@ -1821,7 +1821,7 @@ subroutine calculate_generalized_pandya(OP,CCME,jbas)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     ninej(jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
+                                     ninej(OP%xindx,jh,jp,Jtot1,ja,jb,Jtot2,J3,J4,rank) * &
                                      tensor_elem(h,a,b,p,J3,J4,OP,jbas) 
                        
                              end do
@@ -2004,7 +2004,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     ninej(jp,jh,Jtot2,jb,ja,Jtot1,J3,J4,rank) * &
+                                     ninej(OP%xindx,jp,jh,Jtot2,jb,ja,Jtot1,J3,J4,rank) * &
                                      tensor_elem(p,b,a,h,J3,J4,OP,jbas) 
                                 
                              end do
@@ -2044,7 +2044,7 @@ subroutine EOM_generalized_pandya(OP,CCME,jbas)
                           do J3 = Jmin1,Jmax1,2
                              do J4 = Jmin2,Jmax2,2
                                 sm = sm - (-1)**(J4/2) * sqrt((J3 + 1.d0) * (J4+1.d0)) * &
-                                     ninej(jp,jh,Jtot1,jb,ja,Jtot2,J3,J4,rank) * &
+                                     ninej(OP%xindx,jp,jh,Jtot1,jb,ja,Jtot2,J3,J4,rank) * &
                                      tensor_elem(p,b,a,h,J3,J4,OP,jbas) 
                        
                              end do

@@ -99,7 +99,7 @@ subroutine EOM_dTZ_commutator_121(L,R,RES,jbas)
 
                     smx = smx + iso_ladder_elem(ak,pk,ik,qk,J1,J2,R,jbas)&
                          *sqrt((J1 + 1.d0)*(J2 + 1.d0))*(-1)**(J1/2)  &
-                          * xxxsixj(J1,J2,rank,jq,jp,ji)
+                          * xxxsixj(RES%xindx,J1,J2,rank,jq,jp,ji)
                     
                  end do
               end do
@@ -364,7 +364,7 @@ subroutine EOM_dTZ_commutator_212(L,R,RES,jbas)
                     if (modli == modla ) then 
                        if (triangle(ji,ja,rank)) then  
                           
-                          sm1 = sm1 - xxxsixj(J1,J2,rank,ji,ja,jb)&
+                          sm1 = sm1 - xxxsixj(RES%xindx,J1,J2,rank,ji,ja,jb)&
                                *f_iso_ladder_elem(a,i,R,jbas)*v_elem(i,b,c,d,J2,L,jbas)
                        end if
                     end if
@@ -376,7 +376,7 @@ subroutine EOM_dTZ_commutator_212(L,R,RES,jbas)
                     if (modli == modlb ) then 
                        if (triangle(ji,jb,rank)) then  
                           
-                          sm2 = sm2 + xxxsixj(J1,J2,rank,ji,jb,ja)&
+                          sm2 = sm2 + xxxsixj(RES%xindx,J1,J2,rank,ji,jb,ja)&
                                *f_iso_ladder_elem(b,i,R,jbas)*v_elem(i,a,c,d,J2,L,jbas)
                        
                        end if
@@ -394,7 +394,7 @@ subroutine EOM_dTZ_commutator_212(L,R,RES,jbas)
                     if (modli == modld ) then 
                        if (triangle(ji,jd,rank)) then  
                        
-                          sm3 = sm3 + xxxsixj(J1,J2,rank,jd,ji,jc)&
+                          sm3 = sm3 + xxxsixj(RES%xindx,J1,J2,rank,jd,ji,jc)&
                                *f_iso_ladder_elem(i,d,R,jbas)*v_elem(a,b,c,i,J1,L,jbas)
                        
                        end if
@@ -407,7 +407,7 @@ subroutine EOM_dTZ_commutator_212(L,R,RES,jbas)
                     if (modli == modlc ) then 
                        if (triangle(ji,jc,rank)) then  
                           
-                          sm4 = sm4 -  xxxsixj(J1,J2,rank,jc,ji,jd)&
+                          sm4 = sm4 -  xxxsixj(RES%xindx,J1,J2,rank,jc,ji,jd)&
                                *f_iso_ladder_elem(i,c,R,jbas)*v_elem(a,b,d,i,J1,L,jbas)
                        
                        end if
@@ -555,7 +555,7 @@ subroutine EOM_dTZ_commutator_222_pp_hh(L,R,RES,jbas)
               hx = h1 - sum(1-jbas%con(1:h1-1))
 
               RES%fph(px,hx) = RES%fph(px,hx) + (-1) ** ((jh+ji + rank+J1)/2) &
-                   *xxxsixj(J1,J2,rank,jh,jp,ji)*WINT(IX,JX)*pre1*pre2
+                   *xxxsixj(RES%xindx,J1,J2,rank,jh,jp,ji)*WINT(IX,JX)*pre1*pre2
 
            end do
         end do
@@ -615,7 +615,7 @@ subroutine EOM_dTZ_commutator_222_pp_hh(L,R,RES,jbas)
               hx = h1 - sum(1-jbas%con(1:h1-1))
 
               RES%fph(px,hx) = RES%fph(px,hx) + (-1) ** ((jh+ja + rank+J1)/2) &
-                   *xxxsixj(J1,J2,rank,jh,jp,ja)*WINT(IX,JX)*pre1*pre2
+                   *xxxsixj(RES%xindx,J1,J2,rank,jh,jp,ja)*WINT(IX,JX)*pre1*pre2
 
            end do
         end do
@@ -639,7 +639,7 @@ end subroutine EOM_dTZ_commutator_222_pp_hh
    integer :: ji,jh1,jh2,ti,th1,th2,lh1,lh2,li,n1,n2,c1,c2,jxstart,J4min,J4max,ja,jp1,jp2
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
    integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,J1min,J2min,J1max,J2max,n_J3,n_J4,n_J5
-   integer :: phase_34,phase_abcd,phase_ac,phase_bc,j5,PAR_J4,PAR_J5,rank
+   integer :: phase_34,phase_abcd,phase_ac,phase_bc,j5,PAR_J4,PAR_J5,rank,omp_get_num_threads
    integer :: phase_bd,phase_ad,nj_perm,full_int_phase,J5min,J5max,tp1,tp2,lp1,lp2
    integer,allocatable,dimension(:,:) :: qn_J3,qn_J4,qn_J5
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex,nj1,nj2  
@@ -648,13 +648,20 @@ end subroutine EOM_dTZ_commutator_222_pp_hh
    
    Ntot = RES%Nsp
    JTM = jbas%Jtotal_max*2
-!   total_threads = size(RES%direct_omp) - 1
+   !$OMP PARALLEL
+   total_threads = omp_get_num_threads()
+   !$OMP END PARALLEL
    rank = R%rank
 
    ! construct intermediate matrices
 
+   !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(R,L,RES)   
    ! sum over all cross coupled channels for both matrices 
-   do J3 = 0, JTM  ,2
+   do thread = 0,total_threads-1
+      
+   
+   
+   do J3 = 2*thread, JTM  ,2*total_threads      
       J4min = abs(rank -J3)
       J4max = min(rank + J3,JTM)
 
@@ -742,7 +749,7 @@ end subroutine EOM_dTZ_commutator_222_pp_hh
                         do J2 = J2min,J2max,2
 
                            if ((h1==h2).and.(mod(J2/2,2)==1)) cycle                           
-                           nj = coef9(jp1,jh2,J3,jp2,jh1,J4,J1,J2,rank)
+                           nj = ninej(RES%xindx,jp1,jh2,J3,jp2,jh1,J4,J1,J2,rank)
                            prefac_12 = prefac_1 *sqrt(J2+1.d0)
                            
                            
@@ -785,6 +792,8 @@ end subroutine EOM_dTZ_commutator_222_pp_hh
          end do
       end do
    end do
+   end do
+   !$OMP END PARALLEL DO
  end subroutine EOM_dTz_commutator_222_ph
 
 

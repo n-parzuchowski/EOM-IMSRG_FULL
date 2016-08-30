@@ -297,19 +297,20 @@ print*, 'BASIS SETUP COMPLETE'
         
        call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
             jbas,ladder_ops(1+oldnum:Numstates+oldnum))
-        dTz = 0 
-        call calculate_isospin_states(eom_states%ang_mom(q),eom_states%par(q),dTZ,numstates,HS,&
-             jbas,isoladder_ops(1+oldnum:Numstates+oldnum))
-        
-        ! print*
-        ! print*, '================================================'
-        ! print*, '  J^Pi          E            E+dE       time    '
-        ! print*, '================================================'
-        ! do qx = 1+oldnum,Numstates+oldnum
-        !    t1= omp_get_wtime()
-        !    dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  
-        !    t2= omp_get_wtime()
-        !    write(*,'(A2,3(f20.10))') eom_states%name(q),&
+       dTz = -1
+       
+       call calculate_isospin_states(eom_states%ang_mom(q),eom_states%par(q),dTZ,numstates,HS,&
+            jbas,isoladder_ops(1+oldnum:Numstates+oldnum))
+       
+       ! print*
+       ! print*, '================================================'
+       ! print*, '  J^Pi          E            E+dE       time    '
+       ! print*, '================================================'
+       ! do qx = 1+oldnum,Numstates+oldnum
+       !    t1= omp_get_wtime()
+       !    dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  
+       !    t2= omp_get_wtime()
+       !    write(*,'(A2,3(f20.10))') eom_states%name(q),&
         !         ladder_ops(qx)%E0,ladder_ops(qx)%E0 + dE_trips,t2-t1
         ! end do
         

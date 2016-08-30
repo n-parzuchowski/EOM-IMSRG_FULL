@@ -138,7 +138,7 @@ subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
             print*, 'not implemented'
          else            
             if (allocated(phase_pp)) then
-               deallocate(phase_hh,phase_pp,half6j%tp_mat)
+               deallocate(phase_hh,phase_pp)
             end if
             call allocate_tensor(jbas,Op,zr)
             Op%hospace=zr%hospace
@@ -154,7 +154,7 @@ subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
            print*, 'not implemented'
         else
             if (allocated(phase_pp)) then
-               deallocate(phase_hh,phase_pp,half6j%tp_mat)
+               deallocate(phase_hh,phase_pp)
             end if
            call allocate_tensor(jbas,Op,zr)
            Op%hospace=zr%hospace
@@ -605,7 +605,7 @@ subroutine build_Hcm(pp,rr,Hcm,jbas)
   hw = pp%hospace
   hw_tilde = pp%com_hw 
   if (allocated(phase_pp)) then
-     deallocate(phase_hh,phase_pp,half6j%tp_mat)
+     deallocate(phase_hh,phase_pp)
   end if
   call allocate_tensor(jbas,Hcm,pp)
   Hcm%hospace=pp%hospace
