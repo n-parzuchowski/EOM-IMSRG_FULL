@@ -555,7 +555,7 @@ subroutine EOM_dTZ_commutator_222_pp_hh(L,R,RES,jbas)
               hx = h1 - sum(1-jbas%con(1:h1-1))
 
               RES%fph(px,hx) = RES%fph(px,hx) + (-1) ** ((jh+ji + rank+J1)/2) &
-                   *d6ji(J1,J2,rank,jh,jp,ji)*WINT(IX,JX)*pre1*pre2
+                   *xxxsixj(J1,J2,rank,jh,jp,ji)*WINT(IX,JX)*pre1*pre2
 
            end do
         end do
@@ -615,7 +615,7 @@ subroutine EOM_dTZ_commutator_222_pp_hh(L,R,RES,jbas)
               hx = h1 - sum(1-jbas%con(1:h1-1))
 
               RES%fph(px,hx) = RES%fph(px,hx) + (-1) ** ((jh+ja + rank+J1)/2) &
-                   *d6ji(J1,J2,rank,jh,jp,ja)*WINT(IX,JX)*pre1*pre2
+                   *xxxsixj(J1,J2,rank,jh,jp,ja)*WINT(IX,JX)*pre1*pre2
 
            end do
         end do
@@ -730,6 +730,7 @@ end subroutine EOM_dTZ_commutator_222_pp_hh
                      ! these are the results of the Matmuls 
 
                      Xelem = PANDYA_AB(IX,JX)
+                     if (abs(Xelem) <1e-6) cycle
 
                      do J1 = J1min,J1max,2
 
@@ -744,39 +745,27 @@ end subroutine EOM_dTZ_commutator_222_pp_hh
                            nj = coef9(jp1,jh2,J3,jp2,jh1,J4,J1,J2,rank)
                            prefac_12 = prefac_1 *sqrt(J2+1.d0)
                            
-
+                           
                            if ( h2 .ge. h1 ) then
                               if ( p2 .ge. p1 ) then
 
                                  V = prefac_12*nj*(-1)**((jp1-jp2+J2)/2)*Xelem
-                                 if ((p1 == 24).and.(p2== 25).and.(h1==4).and.(h2==12).and.(J1==2).and.(J2==4))then
-                                  !  print*, '1',prefac_12*nj*(-1)**((jp1-jp2+J2)/2),Xelem,V
-                                 end if
 
                                  call add_elem_to_ladder(V,p1,p2,h1,h2,J1,J2,RES,jbas)                                                                             
                               else
 
                                  V = prefac_12*nj*(-1)**((J1+J2)/2)*Xelem
-                                 if ((p2 == 24).and.(p1== 25).and.(h1==4).and.(h2==12).and.(J1==2).and.(J2==4))then
-                                   ! print*, '2', prefac_12*nj*(-1)**((J1+J2)/2),Xelem,V
-                                 end if
 
                                  call add_elem_to_ladder(V,p2,p1,h1,h2,J1,J2,RES,jbas)                                                                                                                
                               end if
                            else
                               if (p1 > p2) then                                    
                                  V = prefac_12*nj*(-1)**((jh1-jh2+J1)/2)*Xelem                                    
-                                 if ((p2 == 24).and.(p1== 25).and.(h2==4).and.(h1==12).and.(J1==2).and.(J2==4))then
-                                    !print*, '3',prefac_12*nj*(-1)**((jh1-jh2+J1)/2),Xelem,V
-                                 end if
 
                                  call add_elem_to_ladder(V,p2,p1,h2,h1,J1,J2,RES,jbas)                                         
                               else
                                  
                                  V = prefac_12*nj*(-1)**((jp1+jp2+jh1+Jh2)/2)*Xelem
-                                 if ((p1 == 24).and.(p2== 25).and.(h2==4).and.(h1==12).and.(J1==2).and.(J2==4))then
-                                    !print*, '4', prefac_12*nj*(-1)**((jp1+jp2+jh1+jh2)/2),Xelem,V
-                                 end if
 
                                  call add_elem_to_ladder(V,p1,p2,h2,h1,J1,J2,RES,jbas)                                         
 

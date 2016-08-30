@@ -146,15 +146,19 @@ subroutine calculate_isospin_states(J,PAR,dTZ,Numstates,HS,jbas,ladder_ops)
   end do
   
   print* 
-  write(*,'((A55),(I1),(A3),(I1),(A3),(I1))') 'EXECUTING EOM CALCULATION'// &
+  write(*,'((A55),(I1),(A3),(I1),(A5),(I1))') 'EXECUTING EOM CALCULATION'// &
        ' FOR EXCITED STATES: J=',J/2,' P=',PAR,' dTZ=',dTZ   
   print*
 
 !  if (read_ladder_operators(ladder_ops,jbas)) then 
 
+  t1 = omp_get_wtime() 
   call lanczos_isospin_changer(jbas,HS,ladder_ops,Numstates)
+  t2 = omp_get_wtime()
+  print*, 'LANCZOS RUN TIME:', t2-t1
   !    call write_ladder_operators(ladder_ops,jbas)
- ! end if
+
+  ! end if
 
      
   print*
@@ -349,6 +353,12 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
    
   allocate(eigs(N),resid(N),work(10*N),workD(3*N)) 
 
+  ! info=1
+  ! do i = 1,N
+  !   resid(i) = float(N-i+1)
+  ! end do
+  !resid = resid/sqrt(sum(resid**2))
+  
   iparam(1) = ishift
   iparam(3) = mxiter
   iparam(7) = mode
@@ -357,14 +367,15 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   do 
      ! so V is the krylov subspace matrix that is being diagonalized
      ! it does not need to be initialized, so long as you have the other 
-     ! stuff declare right, the code should know this. 
+     ! stuff declared right, the code should know this. 
      call dsaupd ( ido, bmat, N, which, nev, tol, resid, &
           ncv, v, ldv, iparam, ipntr, workd, workl, &
           lworkl, info )
      ! The actual matrix only gets multiplied with the "guess" vector in "matvec_prod" 
      call progress_bar( i )
+
      i=i+1 
-     
+
      if ( ido /= -1 .and. ido /= 1 ) then
         exit
      end if

@@ -365,7 +365,7 @@ real(8) function iso_ladder_elem(a,b,c,d,J1,J2,op,jbas)
 !==================================================================  
 !==================================================================
 subroutine add_elem_to_ladder(V,a,b,c,d,J1,J2,op,jbas) 
-  ! grabs the matrix element you are looking for
+  ! not safe. Don't use. 
   implicit none
   
   integer :: a,b,c,d,J1,J2,rank,T,P,q,qx,c1,c2,N,J1x,J2x
@@ -378,48 +378,21 @@ subroutine add_elem_to_ladder(V,a,b,c,d,J1,J2,op,jbas)
   real(8) :: pre,pre_c,V
 
 
-  if (jbas%con(a)+jbas%con(b) .ne. 0) then
-     print*, 'cock1'
-     return
-  end if
-
-  if (jbas%con(c)+jbas%con(d) .ne. 2) then
-     print*, 'cock2'
-     return
-  end if
-  
   !make sure the matrix element exists first
  
-  rank = op%rank
-
-  if ( .not. (triangle ( J1,J2,rank ))) then 
-     print*, 'cock3'
-     return
-  end if 
- 
+  rank = op%rank 
   
   fail_c = .true. 
   ja = jbas%jj(a)
   jb = jbas%jj(b)
   jc = jbas%jj(c)
   jd = jbas%jj(d)
-  
-  if ( .not. ((triangle(ja,jb,J1)) .and. (triangle (jc,jd,J2))) ) then
-     print*, 'cock4'
-     return
-  end if
-     
   la = jbas%ll(a)
   lb = jbas%ll(b)
   lc = jbas%ll(c)
   ld = jbas%ll(d)
 
   P = mod(la + lb,2) 
-     
-  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
-     print*, 'cock5'
-    return
-  end if 
         
   ta = jbas%itzp(a)
   tb = jbas%itzp(b)
@@ -427,12 +400,7 @@ subroutine add_elem_to_ladder(V,a,b,c,d,J1,J2,op,jbas)
   td = jbas%itzp(d)
      
   T = (ta + tb)/2
-     
-  if ((tc+td) .ne. 2*(T-op%dTz)) then     
-     print*, 'cock6'
-    return
-  end if 
-
+  
   q = iso_ladder_block_index(J1,J2,rank,T,P) 
   
   ! see subroutine "allocate_blocks" for mapping from qx to each 

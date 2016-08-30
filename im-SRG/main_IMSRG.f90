@@ -297,7 +297,7 @@ print*, 'BASIS SETUP COMPLETE'
         
        call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
             jbas,ladder_ops(1+oldnum:Numstates+oldnum))
-        dTz = 1 
+        dTz = 0 
         call calculate_isospin_states(eom_states%ang_mom(q),eom_states%par(q),dTZ,numstates,HS,&
              jbas,isoladder_ops(1+oldnum:Numstates+oldnum))
         
