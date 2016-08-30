@@ -1721,13 +1721,14 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
 
   eom_states%num = num_jpi
   allocate(eom_states%name(num_jpi))
+  allocate(eom_states%dTz(num_jpi)) 
   allocate(eom_states%ang_mom(num_jpi))
   allocate(eom_states%par(num_jpi))
   allocate(eom_states%number_requested(num_jpi))
   totstates = 0 
   read(44,*)
   do i = 1, num_jpi
-     read(44,*) eom_states%name(i),eom_states%number_requested(i)
+     read(44,*) eom_states%name(i),eom_states%dTz(i),eom_states%number_requested(i)
      read(eom_states%name(i)(1:1),'(I1)') eom_states%ang_mom(i)
      eom_states%ang_mom(i) =  eom_states%ang_mom(i) *2
      if (eom_states%name(i)(2:2) == '+') then
@@ -1736,10 +1737,14 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
         eom_states%par(i) = 2
      end if
      totstates =totstates + eom_states%number_requested(i) 
-  end do 
+     if (eom_states%dTz(i).ne.0) then
+        eom_states%total_dtz = eom_states%total_dtz +  eom_states%number_requested(i) 
+     end if
+  end do
 
-  uniq = num_jpi + 3 ! plus one for operator, one for Hcm, one for Xtz 
+  uniq = num_jpi + 2 ! plus one for operator, one for Hcm.
   ! too lazy to check if the operator has the same structure as other stuff
+
   read(44,*)
   read(44,*) op
   trs%oper= op

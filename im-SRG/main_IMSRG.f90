@@ -25,7 +25,7 @@ program main_IMSRG
   character(1) :: quads,trips,trans_type
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int
-  integer :: na,la,lb,totstates,numstates,oldnum,qx,dTZ
+  integer :: na,la,lb,totstates,numstates,oldnum,qx,dTZ,oldnum_dTz,numstates_dTz
   real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr,de_trips
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
@@ -249,6 +249,8 @@ print*, 'BASIS SETUP COMPLETE'
   if (writing_decoupled) then 
      call write_twobody_operator(HS,'decoupled')
   end if
+
+
 !============TRIPLES MAGNUS=============================================
   if (trips == 'y') then 
 !     call enumerate_three_body(threebas,jbas)
@@ -275,8 +277,8 @@ print*, 'BASIS SETUP COMPLETE'
      write(39,'(2(e15.7))') HS%E0,HS%E0+corr
      close(39)
   end if
-
 !=======================================================================
+
 91 t2 = omp_get_wtime() 
   write(*,'(A5,f12.7)') 'TIME:', t2-t1
 
@@ -284,24 +286,36 @@ print*, 'BASIS SETUP COMPLETE'
   if (ex_calc_int==1) then
 
      totstates=read_eom_file(trans,moments,eom_states,jbas)! total number of states
-     allocate(ladder_ops(totstates))
-     allocate(isoladder_ops(totstates))
      
-     numstates = 0
+     allocate(ladder_ops(totstates-eom_states%total_dTz))
+     allocate(isoladder_ops(eom_states%total_dTz))
+     
+
      oldnum = 0
+     oldnum_dTz = 0
+     numstates = 0
+     numstates_dTz = 0
      do q = 1,eom_states%num
-        oldnum = oldnum + Numstates
-        Numstates = eom_states%number_requested(q)        
-        ladder_ops(1+oldnum:Numstates+oldnum)%xindx = q
-        isoladder_ops(1+oldnum:Numstates+oldnum)%xindx = q
+
+        if (eom_states%dTz(q) == 0 ) then 
+           oldnum = oldnum + Numstates
+           Numstates = eom_states%number_requested(q)        
+           ladder_ops(1+oldnum:Numstates+oldnum)%xindx = q
+
+           call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
+                jbas,ladder_ops(1+oldnum:Numstates+oldnum))
+        else
+           oldnum_dTz = oldnum_dTz + Numstates_dTz
+           Numstates_dTz = eom_states%number_requested(q)        
+           isoladder_ops(1+oldnum_dTz:Numstates_dTz+oldnum_dTz)%xindx = q
+           
+           call calculate_isospin_states(eom_states%ang_mom(q),eom_states%par(q),eom_states%dTz(q),&
+                numstates,HS,jbas,isoladder_ops(1+oldnum_dTz:Numstates_dTz+oldnum_dTz))
         
-       call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
-            jbas,ladder_ops(1+oldnum:Numstates+oldnum))
-       dTz = -1
-       
-       call calculate_isospin_states(eom_states%ang_mom(q),eom_states%par(q),dTZ,numstates,HS,&
-            jbas,isoladder_ops(1+oldnum:Numstates+oldnum))
-       
+        end if        
+        
+        
+        
        ! print*
        ! print*, '================================================'
        ! print*, '  J^Pi          E            E+dE       time    '

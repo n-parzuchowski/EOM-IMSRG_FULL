@@ -96,9 +96,9 @@ module basic_IMSRG
   end type obsv_mgr
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   type eom_mgr
-     integer :: num
+     integer :: num,total_dtz
      character(2),allocatable,dimension(:) :: name
-     integer,allocatable,dimension(:) :: ang_mom,par,number_requested
+     integer,allocatable,dimension(:) :: ang_mom,par,number_requested,dtz 
   end type eom_mgr
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
