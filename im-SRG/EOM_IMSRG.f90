@@ -114,7 +114,7 @@ subroutine calculate_isospin_states(J,PAR,dTZ,Numstates,HS,jbas,ladder_ops)
   type(obsv_mgr) :: transitions, moments 
   type(spd) :: jbas
   type(sq_op) :: HS ,newladder
-  type(iso_tensor),dimension(Numstates) :: ladder_ops
+  type(iso_ladder),dimension(Numstates) :: ladder_ops
   integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist,prots,neuts,dTZ
   character(2) :: Jlabel,Plabel,betalabel
   character(3) :: tzlab 
@@ -418,8 +418,8 @@ subroutine LANCZOS_ISOSPIN_CHANGER(jbas,OP,Vecs,nev)
   integer,intent(in) :: nev
   type(spd) :: jbas
   type(sq_op) :: op
-  type(iso_tensor) :: V1,Q1,Q2
-  type(iso_tensor),dimension(nev) :: Vecs
+  type(iso_ladder) :: V1,Q1,Q2
+  type(iso_ladder),dimension(nev) :: Vecs
   type(cc_mat) :: OpCC
   real(8),allocatable,dimension(:) :: workl,D,eigs,resid,work,workD
   real(8),allocatable,dimension(:,:) :: V,Z
@@ -644,7 +644,7 @@ subroutine matvec_ISOX_prod(N,OP,Q_op,Qout,jbas,v,w)
   integer :: N ,q,a,b,c,d,i,j,k,l,Jtot
   real(8) :: sm
   type(sq_op) :: OP
-  type(iso_tensor) :: Q_op ,Qout
+  type(iso_ladder) :: Q_op ,Qout
   type(spd) :: jbas
   real(8),dimension(N) :: v,w 
   real(8) :: coef9,dfact0
@@ -1221,7 +1221,7 @@ subroutine unwrap_iso_ladder( v, AX ,N ,jbas)
   type(spd) :: jbas
   integer :: N ,i, II,JJ, parts,holes,q,IX,JX,qx
   real(8),dimension(N) :: v
-  type(iso_tensor) :: AX 
+  type(iso_ladder) :: AX 
   
   i = 1
   
@@ -1281,7 +1281,7 @@ subroutine rewrap_iso_ladder( v, AX ,N ,jbas)
   type(spd) :: jbas
   integer :: N ,i, II,JJ, parts,holes,q,IX,JX,qx
   real(8),dimension(N) :: v
-  type(iso_tensor) :: AX 
+  type(iso_ladder) :: AX 
   
   i = 1
   

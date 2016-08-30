@@ -646,11 +646,7 @@ subroutine allocate_tensor(jbas,op,zerorank)
   N = op%Nsp  !number of sp shells
   op%Aprot = zerorank%Aprot
   op%Aneut = zerorank%Aneut
-  ! allocate the map array, which is used by 
-  ! v_elem to find matrix elements
-!  if (.not. allocated(jbas%xmap_tensor) ) then 
- !    allocate(jbas%xmap_tensor(N*(N+1)/2)) 
- ! end if
+
   do i = 1,N
      do j = i,N
         
@@ -1612,9 +1608,6 @@ real(8) function tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
   
    If (C1>C2) qx = qx + tensor_adjust(qx)       
 
-     ! if ((J1x == 4 ).and.(J2x == 2).and.(ax==3).and.(bx==6).and.(cx==1).and.(dx==2)) then
-     !    print*, q, qx,i1,i2
-     ! end if 
    tensor_elem = op%tblck(q)%tgam(qx)%X(i1,i2) * pre *phase
     
 end function tensor_elem

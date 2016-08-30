@@ -268,7 +268,7 @@ subroutine construct_random_isoX(OP,HERM,jbas)
   implicit none 
   
   integer,intent(in) :: HERM
-  type(iso_tensor) :: OP 
+  type(iso_ladder) :: OP 
   type(spd) :: jbas
   integer :: i,j,k,l,ji,jj,jk,jl,ig,jg
   integer :: J1,J2,IX,JX,q,qx,rank
@@ -1285,7 +1285,7 @@ subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
   
   type(spd) :: jbas
   type(sq_op) :: AA
-  type(iso_tensor) :: BB,OUT
+  type(iso_ladder) :: BB,OUT
   type(ex_pandya_mat) :: BBCC,WCC
   type(ex_cc_mat) :: AACC 
   integer :: a,b,c,d,g,q,ja,jb,jc,jd,j1min,j1max,dpar,dTz
@@ -2027,7 +2027,7 @@ real(8) function EOM_scalar_tensor_iso1body_comm(AA,BB,a,b,jbas)
   integer :: ja,jb,jj,ji,jk,Jtot,JTM,totorb
   type(spd) :: jbas
   type(sq_op) :: AA
-  type(iso_tensor) :: BB 
+  type(iso_ladder) :: BB 
   real(8) :: sm ,d6ji,sx
   
   rank = BB%rank
@@ -2735,7 +2735,7 @@ real(8) function EOM_scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   integer :: ja,jb,jc,jd,Jtot,JTM,totorb,rank
   type(spd) :: jbas
   type(sq_op) :: AA
-  type(iso_tensor) :: BB 
+  type(iso_ladder) :: BB 
   real(8) :: sm,coef9,d6ji,X1,X2,X3,X4
 
   rank = BB%rank  

@@ -13,7 +13,7 @@ subroutine EOM_dTZ_commutator_111(L,R,RES,jbas)
   implicit none 
   
   type(sq_op) :: L
-  type(iso_tensor) :: R,RES
+  type(iso_ladder) :: R,RES
   type(spd) :: jbas
   integer :: p,a,i,ji,hol,par
   real(8) :: sm 
@@ -43,7 +43,7 @@ subroutine EOM_dTZ_commutator_121(L,R,RES,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: L
-  type(iso_tensor) :: R,RES
+  type(iso_ladder) :: R,RES
   integer :: J1,J2,PAR,TZ,ji,ja,jp,jq,a,i,p,q,g
   integer :: ti,ta,tp,tq,li,la,lp,lq,ak,ik,pk,qk,rank
   real(8) :: sm,smx,smy,smx2,smy2,d6ji
@@ -126,7 +126,7 @@ subroutine  EOM_dTZ_commutator_211(L,R,RES,jbas)
   implicit none 
   
   type(spd) :: jbas
-  type(iso_tensor) :: R,RES
+  type(iso_ladder) :: R,RES
   type(sq_op) :: L
   integer :: J1,J2,PAR,TZ,ji,ja,jp,jq,a,i,p,q,g,JTM
   integer :: ti,ta,tp,tq,li,la,lp,lq,ak,ik,pk,qk,rank
@@ -201,7 +201,7 @@ subroutine EOM_dTZ_commutator_122(L,R,RES,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: L
-  type(iso_tensor) :: R,RES
+  type(iso_ladder) :: R,RES
   integer :: q,IX,JX,nh,np,nb,i,J1,J2
   integer :: a,b,c,d,ja,jb,jc,jd,ji,g_ix,q_sp,i_sp
   integer :: ta,tb,tc,td,ti,la,lb,lc,ld,li,spec
@@ -300,7 +300,7 @@ subroutine EOM_dTZ_commutator_212(L,R,RES,jbas)
   
   type(spd) :: jbas
   type(sq_op) :: L
-  type(iso_tensor) :: R,RES
+  type(iso_ladder) :: R,RES
   integer :: q,IX,JX,nh,np,nb,i,J1,J2
   integer :: a,b,c,d,ja,jb,jc,jd,ji,g_ix,q_sp,i_sp
   integer :: ta,tb,tc,td,ti,modla,modlb,modlc,modld,modli,spec,rank
@@ -441,7 +441,7 @@ subroutine EOM_dTZ_commutator_222_pp_hh(L,R,RES,jbas)
   
   type(spd) :: jbas
   type(sq_op) ::  L
-  type(iso_tensor) :: R,RES
+  type(iso_ladder) :: R,RES
   integer :: q,q1,q2,J1,J2,Tz1,Tz2,Par,phase,rank,a,ja ,IX,JX,hx,px
   integer :: np1,nb1,nh1,np2,nb2,nh2,pm,i,p1,h1,kk,ll,jp,jh,ji
   real(8) :: bet_off,al_off,pre1,pre2,d6ji
@@ -632,7 +632,7 @@ end subroutine EOM_dTZ_commutator_222_pp_hh
    implicit none 
   
    type(spd) :: jbas
-   type(iso_tensor) :: R,RES
+   type(iso_ladder) :: R,RES
    real(8),allocatable,dimension(:,:) :: PANDYA_A,PANDYA_B,PANDYA_AB
    type(sq_op) :: L
    integer :: nh,np,nb1,nb2,q,IX,JX,i,r1,r2,Tz1_cc,Tz2_CC,PAR_J3,JTM,q1,q2,J3,J4,a,p1,p2,h1,h2

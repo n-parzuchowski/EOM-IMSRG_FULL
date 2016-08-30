@@ -15,7 +15,7 @@ program main_IMSRG
   type(spd) :: jbas,jbx
   type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0,Hcm
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
-  type(iso_tensor),allocatable,dimension(:) :: isoladder_ops
+  type(iso_ladder),allocatable,dimension(:) :: isoladder_ops
   type(cc_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   type(three_body_force) :: threebod
