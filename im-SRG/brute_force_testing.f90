@@ -5,6 +5,7 @@ module brute_force_testing
   use TS_commutators
   use EOM_TS_commutators
   use EOM_dTZ_commutators
+  use operator_commutators
   use EOM_scalar_commutators
   
   
@@ -264,6 +265,87 @@ subroutine construct_random_rankX(OP,HERM,jbas)
 end subroutine construct_random_rankX
 !============================================================
 !============================================================
+subroutine construct_random_opX(OP,HERM,jbas) 
+  implicit none 
+  
+  integer,intent(in) :: HERM
+  type(iso_operator) :: OP 
+  type(spd) :: jbas
+  integer :: i,j,k,l,ji,jj,jk,jl,ig,jg
+  integer :: J1,J2,IX,JX,q,qx,rank
+  real(8) :: x
+
+  rank = OP%rank
+  OP%herm = HERM 
+  
+  do i = 1, OP%nsp
+     do j = 1, OP%nsp
+        
+        ji = jbas%jj(i) 
+        jj = jbas%jj(j)
+
+        if (.not. triangle(ji,jj,OP%rank)) cycle        
+        if (jbas%itzp(i)-OP%dTz*2 .ne. jbas%itzp(j) ) cycle
+        if (mod(jbas%ll(i),2) .ne. mod(jbas%ll(j)+op%dpar/2,2)) cycle
+
+        call random_number(x) 
+        x = 10.*x-5.
+        OP%fock(i,j) = x
+        if (Op%dTZ == 0 ) OP%fock(j,i) = x*(-1)**((ji-jj)/2)*herm 
+     end do 
+  end do 
+
+  do q = 1, OP%nblocks
+     if (OP%tblck(q)%Jpair(2) > jbas%jtotal_max*2) cycle
+     if (abs(OP%tblck(q)%lam(4)) > 1) cycle
+     do i = 1, 9
+        
+        do IX = 1, size(OP%tblck(q)%tgam(i)%X(:,1) )
+           do JX = 1, size(OP%tblck(q)%tgam(i)%X(1,:) )
+              
+              call random_number(x)
+
+              x = 10.*x-5.              
+              ! PAULI PRINCIPLE 
+              if ( OP%tblck(q)%tensor_qn(sea1(i),1)%Y(IX,1) == OP%tblck(q)%tensor_qn(sea1(i),1)%Y(IX,2) ) then 
+                 if ( mod( OP%tblck(q)%Jpair(1)/2, 2) == 1) x = 0.d0 
+              end if
+              
+              if ( OP%tblck(q)%tensor_qn(sea2(i),2)%Y(JX,1) == OP%tblck(q)%tensor_qn(sea2(i),2)%Y(JX,2) ) then 
+                 if ( mod( OP%tblck(q)%Jpair(2)/2, 2) == 1) x = 0.d0 
+              end if
+              
+              OP%tblck(q)%tgam(i)%X(IX,JX) = x
+                                             
+           end do
+        end do
+     end do
+
+     if (OP%dTZ == 0) then
+        ! need to make sure tranposes look okay
+         qx = iso_ladder_block_index(OP%tblck(q)%Jpair(2),OP%tblck(q)%Jpair(1)&
+                   ,rank,OP%tblck(q)%lam(3),mod(OP%tblck(q)%lam(2)+OP%dpar/2,2))
+         if (qx > q) cycle
+         if (qx == q) then
+            OP%tblck(q)%tgam(4)%X = 0.5*OP%tblck(q)%tgam(4)%X + 0.5*transpose(OP%tblck(q)%tgam(4)%X)
+            OP%tblck(q)%tgam(1)%X = 0.5*OP%tblck(q)%tgam(1)%X + 0.5*transpose(OP%tblck(q)%tgam(1)%X)
+            OP%tblck(q)%tgam(5)%X = 0.5*OP%tblck(q)%tgam(5)%X + 0.5*transpose(OP%tblck(q)%tgam(5)%X)
+         end if
+         OP%tblck(qx)%tgam(7)%X = Transpose(OP%tblck(q)%tgam(3)%X)*OP%herm*OP%tblck(q)%lam(1)
+         OP%tblck(qx)%tgam(8)%X = Transpose(OP%tblck(q)%tgam(2)%X)*OP%herm*OP%tblck(q)%lam(1) 
+         OP%tblck(qx)%tgam(9)%X = Transpose(OP%tblck(q)%tgam(6)%X)*OP%herm*OP%tblck(q)%lam(1)
+         OP%tblck(qx)%tgam(3)%X = Transpose(OP%tblck(q)%tgam(7)%X)*OP%herm*OP%tblck(q)%lam(1)
+         OP%tblck(qx)%tgam(2)%X = Transpose(OP%tblck(q)%tgam(8)%X)*OP%herm*OP%tblck(q)%lam(1) 
+         OP%tblck(qx)%tgam(6)%X = Transpose(OP%tblck(q)%tgam(9)%X)*OP%herm*OP%tblck(q)%lam(1)
+         OP%tblck(qx)%tgam(1)%X = Transpose(OP%tblck(q)%tgam(1)%X)*OP%herm*OP%tblck(q)%lam(1)
+         OP%tblck(qx)%tgam(4)%X = Transpose(OP%tblck(q)%tgam(4)%X)*OP%herm*OP%tblck(q)%lam(1)
+         OP%tblck(qx)%tgam(5)%X = Transpose(OP%tblck(q)%tgam(5)%X)*OP%herm*OP%tblck(q)%lam(1)
+      end if
+  end do
+
+end subroutine construct_random_opX
+!============================================================
+!============================================================
 subroutine construct_random_isoX(OP,HERM,jbas) 
   implicit none 
   
@@ -314,7 +396,7 @@ subroutine construct_random_isoX(OP,HERM,jbas)
               end if
 
               OP%tblck(q)%Xpphh(IX,JX) = x
-              
+
         end do
         
                 
@@ -972,6 +1054,138 @@ do a =  1, jbas%total_orbits
   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
   
 end subroutine test_scalar_tensor_commutator
+!=========================================================================
+!=========================================================================
+subroutine test_scalar_iso_commutator(jbas,h1,h2,rank,dpar,dTz) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: AA
+  type(iso_operator) :: BB,OUT
+  type(cc_mat) :: AACC
+  integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max,N
+  integer :: j2min,j2max,PAR,TZ,J1,J2,dpar,iii,dTz
+  integer,intent(in) :: h1,h2,rank
+  real(8) :: val,t1,t2,t3,t4,t5,t6,t7,omp_get_wtime
+  real(8) :: vv,xx,yy,zz
+    
+!  call seed_random_number
+  
+  BB%rank = rank
+  BB%dpar = dpar
+  BB%dTz = dTz
+  BB%xindx = 1 
+  AA%rank = 0
+  N = jbas%total_orbits
+  call allocate_blocks(jbas,AA) 
+  allocate(jbas%xmap_tensor(1,N*(N+1)/2)) 
+  allocate(half6j(1))
+  call allocate_isospin_operator(jbas,BB,AA)
+
+  call duplicate_isospin_operator(BB,OUT)
+  BB%herm = 1 
+  call construct_random_rank0(AA,h1,jbas) 
+  call construct_random_opX(BB,h2,jbas) 
+    
+  call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
+
+  OUT%herm = -1* AA%herm * BB%herm 
+  
+  print*, 'TESTING SCALAR-TENSOR COMMUTATORS rank:' ,BB%rank,'parity:',BB%dpar
+!  call calculate_cross_coupled(AA,AACC,jbas) 
+
+  ! siete 
+ ! call operator_commutator_111(AA,BB,OUT,jbas) 
+!  call operator_commutator_121(AA,BB,OUT,jbas)
+   call operator_commutator_211(AA,BB,OUT,jbas) 
+
+  ! call TS_commutator_122(AA,BB,OUT,jbas)
+  ! call TS_commutator_212(AA,BB,OUT,jbas)
+
+  ! call TS_commutator_222_pp_hh(AA,BB,OUT,w1,w2,jbas)   
+  ! call TS_commutator_221(w1,w2,AA%herm*BB%herm,OUT,jbas)
+
+  ! call TS_commutator_222_ph(AACC,BBCC,BB,OUT,jbas)
+
+!goto 12
+  do a =  1, jbas%total_orbits
+     do b = 1, jbas%total_orbits
+        !   do iii = 1, 50   
+     !     call random_number(vv)
+      !    call random_number(yy)
+          
+!          a = ceiling(vv*(AA%Nsp))
+ !         b = ceiling(yy*(AA%Nsp))
+          
+        val = scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
+        
+        if (abs(val-f_iso_op_elem(a,b,OUT,jbas)) > 1e-10) then
+           print*, 'at: ',a,b
+           print*, val, f_iso_op_elem(a,b,OUT,jbas)
+           STOP 'ONE BODY FAILURE'  
+        end if
+        
+        print*, 'success:', a,b,val
+     end do
+  end do
+  
+ !do a = 12, jbas%total_orbits
+     
+!   iii = 0 
+!   do while (iii < 55)  
+!      call random_number(vv)
+!      call random_number(xx)
+!      call random_number(yy)
+!      call random_number(zz)
+        
+!      a = ceiling(vv*AA%Nsp)
+!      b = ceiling(xx*AA%Nsp)
+!      c = ceiling(yy*AA%Nsp)
+!      d = ceiling(zz*AA%Nsp)
+     
+!      ja = jbas%jj(a) 
+! !     do b = 7, jbas%total_orbits
+!         jb = jbas%jj(b)
+        
+!         PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
+!         TZ = jbas%itzp(a) + jbas%itzp(b) 
+        
+!  !       do c = 1, jbas%total_orbits
+!            jc = jbas%jj(c)
+!   !         do d = 1, jbas%total_orbits
+!               jd = jbas%jj(d) 
+              
+!               if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
+!               if ( TZ .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
+!               iii = iii+1 
+!               j1min = abs(ja-jb) 
+!               j1max = ja+jb 
+!               j2min = abs(jc-jd) 
+!               j2max = jc+jd
+              
+!               do J1 = j1min,j1max,2
+!                  do J2 = j2min,j2max,2
+                    
+!                     if (.not. (triangle(J1,J2,rank))) cycle
+                    
+!                     val = scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
+                                  
+!                     if (abs(val-tensor_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
+!                        print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)                       
+!                        STOP 'TWO BODY FAILURE'  
+!                     end if
+!                  end do 
+!               end do
+              
+!               print*, 'success:', a,b,c,d
+!    !        end do
+!     !    end do
+!      !end do
+!   end do
+
+  print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
+  
+end subroutine test_scalar_iso_commutator
 !============================================================
 subroutine test_tensor_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpar_c) 
   use operators
@@ -1923,7 +2137,98 @@ real(8) function scalar_tensor_1body_comm(AA,BB,a,b,jbas)
 
   scalar_tensor_1body_comm = sm 
   
-end function
+end function scalar_tensor_1body_comm
+!============================================================
+!============================================================
+real(8) function scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
+  !returns [AA^0, BB^X]_{ab} 
+  ! uses brute force method. 
+  implicit none 
+  
+  integer :: a,b,i,j,k,rank,J1,J2
+  integer :: ja,jb,jj,ji,jk,Jtot,JTM,totorb
+  type(spd) :: jbas
+  type(sq_op) :: AA
+  type(iso_operator) :: BB 
+  real(8) :: sm ,d6ji
+  
+  rank = BB%rank
+  sm = 0.d0 
+  JTM = jbas%jtotal_max*2
+  totorb = jbas%total_orbits
+  
+  ja = jbas%jj(a) 
+  jb = jbas%jj(b) 
+  
+  ! do i = 1, totorb
+     
+  !    sm = sm + f_elem(a,i,AA,jbas) * f_iso_op_elem(i,b,BB,jbas) &
+  !         - f_iso_op_elem(a,i,BB,jbas) * f_elem(i,b,AA,jbas)
+  
+  ! end do 
+  
+  ! do i = 1, totorb
+  !    ji = jbas%jj(i)
+  !    do j = 1, totorb
+  !       jj = jbas%jj(j) 
+        
+  !       do J1 = 0,JTM,2
+  !          do J2 = 0, JTM,2 
+                 
+  !             sm = sm + (jbas%con(i) -jbas%con(j) )* &
+  !                  f_elem(i,j,AA,jbas) * iso_op_elem(j,a,i,b,J1,J2,BB,jbas) &
+  !                  * sqrt( (J1+1.d0)*(J2+1.d0) ) * (-1)**(( J1+ rank +jb +ji)/2) * &
+  !                  d6ji(J1,J2,rank,jb,ja,ji)
+              
+  !          end do
+  !       end do
+  !    end do
+  ! end do
+  
+  ! do i = 1, totorb
+  !    ji = jbas%jj(i)
+  !    do j = 1, totorb
+  !       jj = jbas%jj(j) 
+  !       do k = 1, totorb
+  !          jk =jbas%jj(k)
+           
+  !          do J1 = 0,JTM,2
+  !             do J2 = 0, JTM,2 
+                 
+  !                sm = sm + 0.5*(jbas%con(k)*jbas%con(j)*(1-jbas%con(i)) + &
+  !                     (1-jbas%con(k))*(1-jbas%con(j))*jbas%con(i) )* &
+  !                     ( v_elem(i,a,j,k,J1,AA,jbas) * iso_op_elem(j,k,i,b,J1,J2,BB,jbas) &
+  !                     - iso_op_elem(i,a,j,k,J1,J2,BB,jbas) * v_elem(j,k,i,b,J2,AA,jbas) ) &
+  !                     * sqrt( (J1+1.d0)*(J2+1.d0) ) * (-1)**(( J1+ rank +jb +ji)/2) * &
+  !                     d6ji(J1,J2,rank,jb,ja,ji) 
+           
+  !             end do
+  !          end do
+  !       end do
+  !    end do
+  ! end do
+  
+
+  do i =  1, totorb
+     ji =jbas%jj(i)
+     do j =  1, totorb
+        jj = jbas%jj(j) 
+        
+        do Jtot = 0,JTM,2 
+
+           sm = sm - (jbas%con(i) - jbas%con(j)) * (Jtot+1.d0) * &
+                (-1) ** ((ja+jj+Jtot)/2) *d6ji(ji,jj,rank,ja,jb,Jtot) * &
+                f_iso_op_elem(i,j,BB,jbas) * v_elem(j,a,i,b,Jtot,AA,jbas)
+         !  sm = sm + (jbas%con(i)-jbas%con(j)) * (-1) ** ((ja+jb+ji+jj)/2)&
+          !      *f_iso_op_elem(j,i,BB,jbas)*vpandya(i,j,b,a,rank,AA,jbas) 
+           
+        end do
+     end do
+  end do
+
+  scalar_tensor_iso1body_comm = sm 
+  
+end function scalar_tensor_iso1body_comm
 !============================================================
 !============================================================
 real(8) function EOM_scalar_tensor_1body_comm(AA,BB,a,b,jbas) 

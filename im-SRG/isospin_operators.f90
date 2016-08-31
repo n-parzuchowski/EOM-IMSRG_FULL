@@ -1,6 +1,5 @@
-module isospin_operators
+ module isospin_operators
   use basic_IMSRG
-
   
   TYPE :: iso_block
      integer :: lam(4) ! specifices J,Par,Tz1,Tz2 of the block
@@ -38,8 +37,6 @@ module isospin_operators
      character(2) :: trans_label
   end type iso_operator
     
-  !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 contains
 !=========================================================
 !=========================================================
@@ -403,7 +400,7 @@ subroutine allocate_isospin_operator(jbas,op,zerorank)
               op%tblck(q)%Jpair(2) = Jtot2
 
               Tz2 = Tz1 - dTz 
-              op%tblck(q)%lam(1) = 1 ! phase instead of J 
+              op%tblck(q)%lam(1) = (-1)**((Jtot1-Jtot2)/2) ! phase instead of J 
               op%tblck(q)%lam(2) = Par1 !just remember that they change if the operator has odd parity.
               op%tblck(q)%lam(3) = Tz1
               op%tblck(q)%lam(4) = Tz2
@@ -502,7 +499,7 @@ subroutine allocate_isospin_operator(jbas,op,zerorank)
          Tz = zerorank%mat(q)%lam(3)
          Par1 = zerorank%mat(q)%lam(2)
 
-         npp1 = 0 ; nhh1 = 0
+         npp1 = 0 ; nhh1 = 0 ; nph1 = 0 
          do i = 1,N   !looping over sp states
             do j = i,N
                
@@ -838,6 +835,99 @@ subroutine add_elem_to_ladder(V,a,b,c,d,J1,J2,op,jbas)
   op%tblck(q)%Xpphh(i1,i2) = op%tblck(q)%Xpphh(i1,i2) + V *pre 
     
 end subroutine add_elem_to_ladder
+!==================================================================  
+!==================================================================
+subroutine add_elem_to_iso_op_elem(V,a,b,c,d,J1,J2,op,jbas) 
+  ! not safe
+  implicit none
+  
+  integer :: a,b,c,d,J1,J2,rank,T,P,q,qx,c1,c2,N,J1x,J2x
+  integer :: int1,int2,i1,i2,j_min,x,k1,k2,ax,bx,cx,dx
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,ta,tb,tc,td
+  integer :: c1_c,c2_c,q_c,qx_c,i1_c,i2_c  ,phase
+  logical :: fail_c,switch
+  type(iso_operator) :: op 
+  type(spd) :: jbas
+  real(8) :: pre,pre_c,V
+
+  !make sure the matrix element exists first
+ 
+  rank = op%rank
+
+  if ( .not. (triangle ( J1,J2,rank ))) then 
+     print*, 'cock' 
+     return
+  end if 
+   
+  fail_c = .true. 
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  
+  if ( .not. ((triangle(ja,jb,J1)) .and. (triangle (jc,jd,J2))) ) then 
+     print*, 'cock'
+     return
+  end if
+     
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+
+  P = mod(la + lb,2) 
+     
+  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
+    print*, 'cock' 
+    return
+  end if 
+        
+  ta = jbas%itzp(a)
+  tb = jbas%itzp(b)
+  tc = jbas%itzp(c)
+  td = jbas%itzp(d)
+     
+  T = (ta + tb)/2
+     
+  if ((tc+td) .ne. 2*(T-op%dTz)) then     
+    print*, 'cock'
+    return
+  end if 
+
+  q = iso_ladder_block_index(J1,J2,rank,T,P) 
+  
+  ! see subroutine "allocate_blocks" for mapping from qx to each 
+  ! of the 6 storage arrays
+      
+  C1 = jbas%con(a)+jbas%con(b) + 1 !ph nature
+  C2 = jbas%con(c)+jbas%con(d) + 1
+    
+  qx = C1*C2
+  qx = qx + adjust_index(qx)   !Vpppp nature  
+
+  pre = 1 
+  
+  N = op%Nsp
+  
+  if (a == b) pre = pre * sqrt( 2.d0 )
+  x = bosonic_tp_index(a,b,N)
+  j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+  i1 = jbas%xmap_tensor(op%xindx,x)%Z( (J1-j_min)/2 + 2) 
+
+  if (c == d) pre = pre * sqrt( 2.d0 )
+  x = bosonic_tp_index(c,d,N) 
+  j_min = jbas%xmap_tensor(op%xindx,x)%Z(1)  
+  i2 = jbas%xmap_tensor(op%xindx,x)%Z( (J2-j_min)/2 + 2)  
+
+ 
+  ! grab the matrix element
+
+   If (C1>C2) qx = qx + tensor_adjust(qx)       
+
+   ! right now i1 and i2 still refer to where the pair is located
+   op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V * pre
+    
+ end subroutine add_elem_to_iso_op_elem
 !=================================================================     
 !=================================================================
 real(8) function f_iso_ladder_elem(a,b,op,jbas) 
@@ -868,6 +958,18 @@ real(8) function f_iso_ladder_elem(a,b,op,jbas)
   end select
 
 end function f_iso_ladder_elem
+!=================================================================     
+!=================================================================
+real(8) function f_iso_op_elem(a,b,op,jbas) 
+  implicit none 
+  
+  integer :: a,b,x1,x2,c1,c2
+  type(spd) :: jbas
+  type(iso_operator) :: op 
+  
+  f_iso_op_elem = op%fock(a,b)
+  
+end function f_iso_op_elem
 !=================================================================     
 !=================================================================
 integer function iso_ladder_block_index(J1,J2,RANK,T,P) 
@@ -922,6 +1024,36 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
 
    count_dTz_configs = r1 
  end function count_dTz_configs
+!=======================================================================
+!=======================================================================
+ subroutine fill_generalized_oppandya_matrix(J1,J2,MAT,qn1,qn2,OP,jbas)
+   ! CALCULATES THE CROSS GENERALIZED PANDYA MATRIX ELEMENTS OF
+   ! OP FOR A GIVEN CHANNEL
+   implicit none
+
+   type(spd) :: jbas
+   type(iso_operator) :: OP 
+   integer,dimension(:,:) :: qn1,qn2
+   real(8),dimension(:,:) :: MAT
+   integer :: a,b,c,d,J1,J2,N1,N2,II,JJ
+
+   N1  = size(MAT(:,1))
+   N2  = size(MAT(1,:))   
+
+   do JJ = 1,N2
+      do II = 1,N1
+
+         a=qn1(II,1)
+         b=qn1(II,2)
+         c=qn2(JJ,2)
+         d=qn2(JJ,1)
+
+         MAT(II,JJ) = Voppandya(a,b,c,d,J1,J2,Op,jbas)
+
+      end do
+   end do
+   
+ end subroutine fill_generalized_oppandya_matrix
 !=======================================================================
 !=======================================================================
  subroutine fill_generalized_isopandya_matrix(J1,J2,MAT,qn1,qn2,OP,jbas)
@@ -982,7 +1114,7 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
    end do
    
  end subroutine fill_cc_matrix
- !=========================================================
+!=========================================================
 !=========================================================
 real(8) function Visopandya(a,d,c,b,J1,J2,Op,jbas)
   ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
@@ -1019,5 +1151,42 @@ real(8) function Visopandya(a,d,c,b,J1,J2,Op,jbas)
   
   Visopandya = sm 
 end function Visopandya
+!=========================================================
+!=========================================================
+real(8) function Voppandya(a,d,c,b,J1,J2,Op,jbas)
+  ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
+  implicit none 
+  
+  integer :: a,b,c,d,J1,J2,rank,J4min,J4max
+  integer :: ja,jb,jc,jd,J3,J4,j3min,j3max
+  type(spd) :: jbas
+  type(iso_operator) :: Op
+  real(8) :: sm ,coef9
+  
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
+  rank = Op%rank 
+
+  j3min = abs(ja-jb)
+  j4min = abs(jc-jd) 
+  j3max = ja+jb
+  j4max = jc+jd  
+  
+  sm = 0.d0 
+  
+  do J3 = j3min,j3max,2
+     do J4 = j4min,j4max,2 
+     sm = sm - sqrt((J1+1.d0)*(J2+1.d0) &
+          *(J3+1.d0)*(J4+1.d0)) * &
+          ninej(OP%xindx,ja,jd,J1,jb,jc,J2,J3,J4,rank) * &
+          iso_op_elem(a,b,c,d,J3,J4,Op,jbas) * &
+          (-1)**((jb+jd+J2+J4)/2) 
+     end do 
+  end do 
+  
+  Voppandya = sm 
+end function Voppandya
 
 end module isospin_operators
