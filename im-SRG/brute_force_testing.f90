@@ -1095,40 +1095,41 @@ subroutine test_scalar_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
 !  call calculate_cross_coupled(AA,AACC,jbas) 
 
   ! siete 
-  call operator_commutator_111(AA,BB,OUT,jbas) 
-  call operator_commutator_121(AA,BB,OUT,jbas)
-  call operator_commutator_211(AA,BB,OUT,jbas) 
-
+  ! call operator_commutator_111(AA,BB,OUT,jbas) 
+  ! call operator_commutator_121(AA,BB,OUT,jbas)
+  ! call operator_commutator_211(AA,BB,OUT,jbas) 
+  
   ! call operator_commutator_122(AA,BB,OUT,jbas)
   ! call operator_commutator_212(AA,BB,OUT,jbas)
+  
+  ! call operator_commutator_222_pp_hh(AA,BB,OUT,jbas)   
 
-  call operator_commutator_222_pp_hh(AA,BB,OUT,jbas)   
-
-  ! call operator_commutator_222_ph(AACC,BBCC,BB,OUT,jbas)
+  call operator_commutator_222_ph(AA,BB,OUT,jbas)
 
 !goto 12
-  do a =  1, jbas%total_orbits
-     do b = 1, jbas%total_orbits
-        !   do iii = 1, 50   
-     !     call random_number(vv)
-      !    call random_number(yy)
+  ! do a =  1, jbas%total_orbits
+!      do b = 1, jbas%total_orbits
+!         !   do iii = 1, 50   
+!      !     call random_number(vv)
+!       !    call random_number(yy)
           
-!          a = ceiling(vv*(AA%Nsp))
- !         b = ceiling(yy*(AA%Nsp))
+! !          a = ceiling(vv*(AA%Nsp))
+!  !         b = ceiling(yy*(AA%Nsp))
           
-        val = scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
+!         val = scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
         
-        if (abs(val-f_iso_op_elem(a,b,OUT,jbas)) > 1e-10) then
-           print*, 'at: ',a,b
-           print*, val, f_iso_op_elem(a,b,OUT,jbas)
-           STOP 'ONE BODY FAILURE'  
-        end if
+!         if (abs(val-f_iso_op_elem(a,b,OUT,jbas)) > 1e-10) then
+!            print*, 'at: ',a,b
+!            print*, val, f_iso_op_elem(a,b,OUT,jbas)
+!            STOP 'ONE BODY FAILURE'  
+!         end if
         
-        print*, 'success:', a,b,val
-     end do
-  end do
+!         print*, 'success:', a,b,val
+!      end do
+!   end do
   
-! do a = 12, jbas%total_orbits
+! ! 
+!  do a = 12, jbas%total_orbits
      
   iii = 0 
   do while (iii < 55)  
@@ -1137,10 +1138,10 @@ subroutine test_scalar_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
      call random_number(yy)
      call random_number(zz)
         
-     a = ceiling(vv*AA%Nsp)
-     b = ceiling(xx*AA%Nsp)
-     c = ceiling(yy*AA%Nsp)
-     d = ceiling(zz*AA%Nsp)
+     a = 4!ceiling(vv*AA%Nsp)
+     b = 7!ceiling(xx*AA%Nsp)
+     c = 4!ceiling(yy*AA%Nsp)
+     d = 7!ceiling(zz*AA%Nsp)
      
      ja = jbas%jj(a) 
 !     do b = 7, jbas%total_orbits
@@ -2150,7 +2151,7 @@ real(8) function scalar_tensor_iso1body_comm(AA,BB,a,b,jbas)
   type(spd) :: jbas
   type(sq_op) :: AA
   type(iso_operator) :: BB 
-  real(8) :: sm ,d6ji
+  real(8) :: sm ,d6ji,smx,matml
   
   rank = BB%rank
   sm = 0.d0 
@@ -2159,7 +2160,7 @@ real(8) function scalar_tensor_iso1body_comm(AA,BB,a,b,jbas)
   
   ja = jbas%jj(a) 
   jb = jbas%jj(b) 
-  
+!  print*
   do i = 1, totorb
      
      sm = sm + f_elem(a,i,AA,jbas) * f_iso_op_elem(i,b,BB,jbas) &
@@ -2184,30 +2185,37 @@ real(8) function scalar_tensor_iso1body_comm(AA,BB,a,b,jbas)
         end do
      end do
   end do
-  
-  ! do i = 1, totorb
-  !    ji = jbas%jj(i)
-  !    do j = 1, totorb
-  !       jj = jbas%jj(j) 
-  !       do k = 1, totorb
-  !          jk =jbas%jj(k)
-           
-  !          do J1 = 0,JTM,2
-  !             do J2 = 0, JTM,2 
+
+  do J1 = 0,JTM,2
+     do J2 = 0, JTM,2 
+        
+        do i = 1, totorb
+           ji = jbas%jj(i)
+
+           matml = 0.d0 
+           do j = 1, totorb
+              jj = jbas%jj(j) 
+              do k = 1, totorb
+                 jk =jbas%jj(k)
                  
-  !                sm = sm + 0.5*(jbas%con(k)*jbas%con(j)*(1-jbas%con(i)) + &
-  !                     (1-jbas%con(k))*(1-jbas%con(j))*jbas%con(i) )* &
-  !                     ( v_elem(i,a,j,k,J1,AA,jbas) * iso_op_elem(j,k,i,b,J1,J2,BB,jbas) &
-  !                     - iso_op_elem(i,a,j,k,J1,J2,BB,jbas) * v_elem(j,k,i,b,J2,AA,jbas) ) &
-  !                     * sqrt( (J1+1.d0)*(J2+1.d0) ) * (-1)**(( J1+ rank +jb +ji)/2) * &
-  !                     d6ji(J1,J2,rank,jb,ja,ji) 
-           
-  !             end do
-  !          end do
-  !       end do
-  !    end do
-  ! end do
+                 matml = matml + 0.5*(jbas%con(k)*jbas%con(j)*(1-jbas%con(i)) + &
+                      (1-jbas%con(k))*(1-jbas%con(j))*jbas%con(i) )* &
+                      ( v_elem(i,a,j,k,J1,AA,jbas) * iso_op_elem(j,k,i,b,J1,J2,BB,jbas) &
+                      - iso_op_elem(i,a,j,k,J1,J2,BB,jbas) * v_elem(j,k,i,b,J2,AA,jbas) )
+ 
+              end do
+           end do
+
+           smx = matml * sqrt( (J1+1.d0)*(J2+1.d0) ) * (-1)**(( J1+ rank +jb +ji)/2) * &
+                      d6ji(J1,J2,rank,jb,ja,ji) 
+
+           sm = sm + smx
+
+        end do
+     end do
+  end do
   
+
 
   do i =  1, totorb
      ji =jbas%jj(i)
@@ -2942,45 +2950,44 @@ real(8) function scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   jc = jbas%jj(c)
   jd = jbas%jj(d)
 
-   ! do i = 1, totorb
-   !    ji = jbas%jj(i)
+!    do i = 1, totorb
+!       ji = jbas%jj(i)
 
-   !   sm = sm + f_elem(a,i,AA,jbas) * iso_op_elem( i,b,c,d,J1,J2,BB,jbas) &
-   !        + f_elem(b,i,AA,jbas) * iso_op_elem( a,i,c,d,J1,J2,BB,jbas) &
-   !        - f_elem(i,c,AA,jbas) * iso_op_elem( a,b,i,d,J1,J2,BB,jbas) &
-   !        - f_elem(i,d,AA,jbas) * iso_op_elem( a,b,c,i,J1,J2,BB,jbas) 
+!      sm = sm + f_elem(a,i,AA,jbas) * iso_op_elem( i,b,c,d,J1,J2,BB,jbas) &
+!           + f_elem(b,i,AA,jbas) * iso_op_elem( a,i,c,d,J1,J2,BB,jbas) &
+!           - f_elem(i,c,AA,jbas) * iso_op_elem( a,b,i,d,J1,J2,BB,jbas) &
+!           - f_elem(i,d,AA,jbas) * iso_op_elem( a,b,c,i,J1,J2,BB,jbas) 
      
           
-   !   sm = sm - f_iso_op_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
-   !        * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
-   !        sqrt( (J1+1.d0) * (J2+1.d0) ) &
+!      sm = sm - f_iso_op_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
+!           * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
+!           sqrt( (J1+1.d0) * (J2+1.d0) ) &
      
-   !        + f_iso_op_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
-   !        * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
-   !        sqrt( (J1+1.d0) * (J2+1.d0) ) &
+!           + f_iso_op_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
+!           * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
+!           sqrt( (J1+1.d0) * (J2+1.d0) ) &
 
-   !        - f_iso_op_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
-   !        *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
-   !        sqrt( (J1+1.d0) * (J2+1.d0) ) &
+!           - f_iso_op_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
+!           *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
+!           sqrt( (J1+1.d0) * (J2+1.d0) ) &
          
           
-   !        + f_iso_op_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
-   !        *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
-   !        sqrt( (J1+1.d0) * (J2+1.d0) )
+!           + f_iso_op_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
+!           *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
+!           sqrt( (J1+1.d0) * (J2+1.d0) )
      
-   ! end do
+!     end do
   
-!cork
-  do i = 1, totorb
-     !if (jbas%con(i) == 1) cycle 
-     do j = 1, totorb
+! !cork
+!   do i = 1, totorb
+!      do j = 1, totorb
         
         
-        sm = sm + 0.5*(1- jbas%con(i) - jbas%con(j)) *&
-             (v_elem(a,b,i,j,J1,AA,jbas)*iso_op_elem(i,j,c,d,J1,J2,BB,jbas)   &
-             - iso_op_elem(a,b,i,j,J1,J2,BB,jbas)*v_elem(i,j,c,d,J2,AA,jbas)) 
-     end do
-  end do
+!         sm = sm + 0.5*(1- jbas%con(i) - jbas%con(j)) *&
+!              (v_elem(a,b,i,j,J1,AA,jbas)*iso_op_elem(i,j,c,d,J1,J2,BB,jbas)   &
+!              - iso_op_elem(a,b,i,j,J1,J2,BB,jbas)*v_elem(i,j,c,d,J2,AA,jbas)) 
+!      end do
+!   end do
  
 
 !!$OMP PARALLEL DO PRIVATE( ji,jj,i,j,J3,J4,J5,jx) SHARED(AA,BB) REDUCTION(+:sm)
@@ -3031,64 +3038,64 @@ real(8) function scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
 !   end do
 ! !!$OMP END PARALLEL DO
 
-  ! smx = 0.d0 
-  ! do J3 = 0,JTM,2
-  !    do J4 = 0,JTM,2 
-  !       smx = 0.d0 
-  !       sm1=0.d0;sm2=0.d0
-  !       sm3=0.d0;sm4=0.d0
-  !       do i = 1, jbas%total_orbits
-  !          ji = jbas%jj(i)
-  !          do j = 1, jbas%total_orbits
-  !             jj = jbas%jj(j) 
-  !             if (jbas%con(i)-jbas%con(j) == 0) cycle
+  smx = 0.d0 
+  do J3 = 0,JTM,2
+     do J4 = 0,JTM,2 
+        smx = 0.d0 
+        sm1=0.d0;sm2=0.d0
+        sm3=0.d0;sm4=0.d0
+        do i = 1, jbas%total_orbits
+           ji = jbas%jj(i)
+           do j = 1, jbas%total_orbits
+              jj = jbas%jj(j) 
+              if (jbas%con(i)-jbas%con(j) == 0) cycle
               
-  !             ! smx = smx- (jbas%con(i)-jbas%con(j))*&
-  !             !      (-1)**((J1+J2+J3+J4)/2) * &
-  !             !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-  !             !      coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
-  !             !      vcc(b,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,a,J3,J4,BB,jbas)
+              ! smx = smx- (jbas%con(i)-jbas%con(j))*&
+              !      (-1)**((J1+J2+J3+J4)/2) * &
+              !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+              !      coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
+              !      vcc(b,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,a,J3,J4,BB,jbas)
               
-  !             sm1= sm1 +(jbas%con(i)-jbas%con(j))*&
-  !                  (-1)**((ja+jb+J2+J3+J4)/2) * &
-  !                  sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-  !                  coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
-  !                  vcc(a,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,b,J3,J4,BB,jbas)
+              sm1= sm1 +(jbas%con(i)-jbas%con(j))*&
+                   (-1)**((ja+jb+J2+J3+J4)/2) * &
+                   sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+                   coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
+                   vcc(a,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,b,J3,J4,BB,jbas)
               
-  !             ! RAGNAR's expression 'cows'
-  !             ! sm = sm + (jbas%con(i)-jbas%con(j))*&
-  !             !      (-1)**((jb+jd+J2+J4)/2) * &
-  !             !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-  !             !      coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
-  !             !      Vpandya(a,d,i,j,J3,AA,jbas) * Voppandya(i,j,c,b,J3,J4,BB,jbas)
+              ! RAGNAR's expression 'cows'
+              ! sm = sm + (jbas%con(i)-jbas%con(j))*&
+              !      (-1)**((jb+jd+J2+J4)/2) * &
+              !      sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+              !      coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
+              !      Vpandya(a,d,i,j,J3,AA,jbas) * Voppandya(i,j,c,b,J3,J4,BB,jbas)
 
-  !             sm2 =  sm2- (jbas%con(i)-jbas%con(j))*&
-  !                  (-1)**((J1+J2+J3+J4)/2) * &
-  !                  sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-  !                  coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
-  !                  vcc(b,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,a,J3,J4,BB,jbas)
+              sm2 =  sm2- (jbas%con(i)-jbas%con(j))*&
+                   (-1)**((J1+J2+J3+J4)/2) * &
+                   sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+                   coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
+                   vcc(b,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,a,J3,J4,BB,jbas)
 
-  !             sm3 = sm3 + (jbas%con(i)-jbas%con(j))*&
-  !                  (-1)**((jc+jd+J1+J3+J4)/2) * &
-  !                  sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-  !                  coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank)* &
-  !                  vcc(b,c,j,i,J3,AA,jbas) * Voppandya(i,j,d,a,J3,J4,BB,jbas)
+              sm3 = sm3 + (jbas%con(i)-jbas%con(j))*&
+                   (-1)**((jc+jd+J1+J3+J4)/2) * &
+                   sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+                   coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank)* &
+                   vcc(b,c,j,i,J3,AA,jbas) * Voppandya(i,j,d,a,J3,J4,BB,jbas)
 
-  !             sm4 = sm4 - (jbas%con(i)-jbas%con(j))*&
-  !                  (-1)**((ja+jb+jc+jd+J3+J4)/2) * &
-  !                  sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
-  !                  coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* &
-  !                  vcc(a,c,j,i,J3,AA,jbas) * Voppandya(i,j,d,b,J3,J4,BB,jbas)
+              sm4 = sm4 - (jbas%con(i)-jbas%con(j))*&
+                   (-1)**((ja+jb+jc+jd+J3+J4)/2) * &
+                   sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
+                   coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* &
+                   vcc(a,c,j,i,J3,AA,jbas) * Voppandya(i,j,d,b,J3,J4,BB,jbas)
               
              
-  !          end do
-  !       end do
-  !       smx = sm1+sm2+sm3+sm4
-  !       sm = sm + smx
+           end do
+        end do
+        smx = sm1+sm2+sm3+sm4
+        sm = sm + smx
 
-  !       smx = 0.d0 
-  !    end do
-  ! end do
+        smx = 0.d0 
+     end do
+  end do
 
   scalar_tensor_iso2body_comm = sm 
   

@@ -3585,19 +3585,20 @@ end subroutine print_basis
 subroutine print_matrix(matrix)
   implicit none 
   
-  integer :: i,m
+  integer :: i,m1,m2 
   real(8),dimension(:,:) :: matrix
   character(1) :: y
   character(10) :: fmt2
   
-  m=size(matrix(1,:))
+  m1=size(matrix(1,:))
+  m2=size(matrix(:,1)) 
   
-  write(y,'(i1)') m
+  write(y,'(i1)') m1
   
   fmt2= '('//y//'(f14.8))'	
 	
   print*
-  do i=1,m
+  do i=1,m2
      write(*,fmt2) matrix(i,:)
   end do
   print* 

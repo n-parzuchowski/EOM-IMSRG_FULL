@@ -473,7 +473,6 @@ end subroutine operator_commutator_212
 !===================================================================
 subroutine operator_commutator_222_pp_hh(L,R,RES,jbas) 
   !VERIFIED
-  !NEEDS TO BE RUN BEFORE 221, because it sets up the 
   !intermediary matrices
   implicit none
   
@@ -481,9 +480,12 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
   type(sq_op) ::  L
   type(iso_operator) :: R,RES
   integer :: q,qx,q1,q2,J1,J2,Tz,Par,phase,rank,i
-  integer :: np1,nb1,nh1,np2,nb2,nh2,pm
-  real(8) :: bet_off,al_off
-
+  integer :: np1,nb1,nh1,np2,nb2,nh2,pm,jh,ji,ja,jp,ii,jj
+  integer :: nhb1,nhb2,ntot1,ntot2,IX,JX,px,hx,p1,h1,kk,ll,a 
+  real(8) :: bet_off,al_off,pre1,pre2
+  real(8),allocatable,dimension(:,:) :: W,Y
+  integer,allocatable,dimension(:,:) :: qn1,qn2
+  
   bet_off = 1.d0 
   pm = R%herm*L%herm
   rank = R%rank
@@ -506,34 +508,45 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
      nh2 = R%tblck(q)%nhh2
      np2 = R%tblck(q)%npp2
      nb2 = R%tblck(q)%nph2
-       
-!----------------------------------------------------------------------------
-!         Zpppp 
-!----------------------------------------------------------------------------
+
+     nhb1 = nh1 + nb1
+     nhb2 = nh2 + nb2
+     ntot1 = nhb1 + np1
+     ntot2 = nhb2 + np2
+     if (ntot1*ntot2==0) cycle
+     allocate(W(ntot1,ntot2)) 
+     allocate(Y(ntot1,ntot2))
+     W = 0.d0
+     Y = 0.d0 
+     !----------------------------------------------------------------------------
+     !         Zpppp 
+     !----------------------------------------------------------------------------
      if (np1*np2 .ne. 0)  then 
 
         al_off = 1.d0 
         call dgemm('N','N', np1,np2,np1,al_off,L%mat(q1)%gam(1)%X,np1,&
-             R%tblck(q)%tgam(1)%X,np1,bet_off,RES%tblck(q)%tgam(1)%X,np1)
+             R%tblck(q)%tgam(1)%X,np1,bet_off,W(nhb1+1:ntot1,nhb2+1:ntot2),np1)
 
         al_off = -1.d0 
         call dgemm('N','N', np1,np2,np2,al_off,R%tblck(q)%tgam(1)%X,np1,&
-             L%mat(q2)%gam(1)%X,np2,bet_off,RES%tblck(q)%tgam(1)%X,np1)
+             L%mat(q2)%gam(1)%X,np2,bet_off,W(nhb1+1:ntot1,nhb2+1:ntot2),np1)
 
 
         if(nh1 .ne. 0) then        
            al_off = -1.d0 
            call dgemm('N','N',np1,np2,nh1,al_off,L%mat(q1)%gam(3)%X,np1,&
-                R%tblck(q)%tgam(7)%X,nh1,bet_off,RES%tblck(q)%tgam(1)%X,np1)
+                R%tblck(q)%tgam(7)%X,nh1,bet_off,Y(nhb1+1:ntot1,nhb2+1:ntot2),np1)
         end if
 
         if (nh2 .ne. 0 ) then 
            al_off = 1.d0*L%herm        
            call dgemm('N','T',np1,np2,nh2,al_off,R%tblck(q)%tgam(3)%X,np1,&
-                L%mat(q2)%gam(3)%X,np2,bet_off,RES%tblck(q)%tgam(1)%X,np1)
+                L%mat(q2)%gam(3)%X,np2,bet_off,Y(nhb1+1:ntot1,nhb2+1:ntot2),np1)
         end if
      end if
 
+     RES%tblck(q)%tgam(1)%X = RES%tblck(q)%tgam(1)%X  + &
+          W(nhb1+1:ntot1,nhb2+1:ntot2) +  Y(nhb1+1:ntot1,nhb2+1:ntot2)   
 !----------------------------------------------------------------------------
 !         Zhhhh 
 !----------------------------------------------------------------------------
@@ -541,24 +554,26 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
         if(np1 .ne. 0) then        
            al_off = 1.d0 * L%herm  
            call dgemm('T','N', nh1,nh2,np1,al_off,L%mat(q1)%gam(3)%X,np1,&
-                R%tblck(q)%tgam(3)%X,np1,bet_off,RES%tblck(q)%tgam(5)%X,nh1)
+                R%tblck(q)%tgam(3)%X,np1,bet_off,W(1:nh1,1:nh2),nh1)
         end if
 
         if (np2 .ne. 0 ) then 
            al_off = -1.d0 
            call dgemm('N','N', nh1,nh2,np2,al_off,R%tblck(q)%tgam(7)%X,nh1,&
-                L%mat(q2)%gam(3)%X,np2,bet_off,RES%tblck(q)%tgam(5)%X,nh1)
+                L%mat(q2)%gam(3)%X,np2,bet_off,W(1:nh1,1:nh2),nh1)
         end if
 
         al_off = -1.d0 
         call dgemm('N','N',nh1,nh2,nh1,al_off,L%mat(q1)%gam(5)%X,nh1,&
-             R%tblck(q)%tgam(5)%X,nh1,bet_off,RES%tblck(q)%tgam(5)%X,nh1)
+             R%tblck(q)%tgam(5)%X,nh1,bet_off,Y(1:nh1,1:nh2),nh1)
                 
         al_off = 1.d0        
         call dgemm('N','N',nh1,nh2,nh2,al_off,R%tblck(q)%tgam(5)%X,nh1,&
-             L%mat(q2)%gam(5)%X,nh2,bet_off,RES%tblck(q)%tgam(5)%X,nh1)
+             L%mat(q2)%gam(5)%X,nh2,bet_off,Y(1:nh1,1:nh2),nh1)
      end if
 
+     RES%tblck(q)%tgam(5)%X = RES%tblck(q)%tgam(5)%X + &
+          W(1:nh1,1:nh2) + Y(1:nh1,1:nh2) 
 !----------------------------------------------------------------------------
 !         Zphph 
 !----------------------------------------------------------------------------
@@ -567,27 +582,30 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
         if (np1 .ne. 0 ) then 
            al_off = 1.d0* L%herm 
            call dgemm('T','N', nb1,nb2,np1,al_off,L%mat(q1)%gam(2)%X,np1,&
-                R%tblck(q)%tgam(2)%X,np1,bet_off,RES%tblck(q)%tgam(4)%X,nb1)
+                R%tblck(q)%tgam(2)%X,np1,bet_off,W(nh1+1:nhb1,nh2+1:nhb2),nb1)
         end if
 
         if (np2 .ne. 0 ) then 
            al_off = -1.d0 
            call dgemm('N','N', nb1,nb2,np2,al_off,R%tblck(q)%tgam(8)%X,nb1,&
-                L%mat(q2)%gam(2)%X,np2,bet_off,RES%tblck(q)%tgam(4)%X,nb1)
+                L%mat(q2)%gam(2)%X,np2,bet_off,W(nh1+1:nhb1,nh2+1:nhb2),nb1)
         end if
 
         if(nh1 .ne. 0) then        
            al_off = -1.d0 
            call dgemm('N','N',nb1,nb2,nh1,al_off,L%mat(q1)%gam(6)%X,nb1,&
-                R%tblck(q)%tgam(9)%X,nh1,bet_off,RES%tblck(q)%tgam(4)%X,nb1)
+                R%tblck(q)%tgam(9)%X,nh1,bet_off,Y(nh1+1:nhb1,nh2+1:nhb2),nb1)
         end if
 
         if (nh2 .ne. 0 ) then 
             al_off = 1.d0 * L%herm
             call dgemm('N','T',nb1,nb2,nh2,al_off,R%tblck(q)%tgam(6)%X,nb1,&
-                 L%mat(q2)%gam(6)%X,nb2,bet_off,RES%tblck(q)%tgam(4)%X,nb1)
+                 L%mat(q2)%gam(6)%X,nb2,bet_off,Y(nh1+1:nhb1,nh2+1:nhb2),nb1)
         end if
      end if
+
+     RES%tblck(q)%tgam(4)%X = RES%tblck(q)%tgam(4)%X + &
+          W(nh1+1:nhb1,nh2+1:nhb2) + Y(nh1+1:nhb1,nh2+1:nhb2)
      
 !----------------------------------------------------------------------------
 !         Zpphh 
@@ -596,27 +614,29 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
 
         al_off = 1.d0 
         call dgemm('N','N', np1,nh2,np1,al_off,L%mat(q1)%gam(1)%X,np1,&
-             R%tblck(q)%tgam(3)%X,np1,bet_off,RES%tblck(q)%tgam(3)%X,np1)
+             R%tblck(q)%tgam(3)%X,np1,bet_off,W(nhb1+1:ntot1,1:nh2),np1)
 
         if (np2 .ne. 0 ) then         
            al_off = -1.d0 
            call dgemm('N','N', np1,nh2,np2,al_off,R%tblck(q)%tgam(1)%X,np1,&
-                L%mat(q2)%gam(3)%X,np2,bet_off,RES%tblck(q)%tgam(3)%X,np1)
+                L%mat(q2)%gam(3)%X,np2,bet_off,W(nhb1+1:ntot1,1:nh2),np1)
         end if
 
         if(nh1 .ne. 0) then        
            al_off = -1.d0 
            call dgemm('N','N',np1,nh2,nh1,al_off,L%mat(q1)%gam(3)%X,np1,&
-                R%tblck(q)%tgam(5)%X,nh1,bet_off,RES%tblck(q)%tgam(3)%X,np1)
+                R%tblck(q)%tgam(5)%X,nh1,bet_off,Y(nhb1+1:ntot1,1:nh2),np1)
         end if
 
         if (nh2 .ne. 0 ) then 
            al_off = 1.d0        
            call dgemm('N','N',np1,nh2,nh2,al_off,R%tblck(q)%tgam(3)%X,np1,&
-                L%mat(q2)%gam(5)%X,nh2,bet_off,RES%tblck(q)%tgam(3)%X,np1)
+                L%mat(q2)%gam(5)%X,nh2,bet_off,Y(nhb1+1:ntot1,1:nh2),np1)
         end if
      end if
 
+     RES%tblck(q)%tgam(3)%X = RES%tblck(q)%tgam(3)%X + &
+          W(nhb1+1:ntot1,1:nh2) + Y(nhb1+1:ntot1,1:nh2)
 !----------------------------------------------------------------------------
 !         Zhhpp 
 !----------------------------------------------------------------------------
@@ -625,28 +645,29 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
         if (np1 .ne. 0 ) then 
            al_off = 1.d0 * L%herm  
            call dgemm('T','N', nh1,np2,np1,al_off,L%mat(q1)%gam(3)%X,np1,&
-                R%tblck(q)%tgam(1)%X,np1,bet_off,RES%tblck(q)%tgam(7)%X,nh1)
+                R%tblck(q)%tgam(1)%X,np1,bet_off,W(1:nh1,nhb2+1:ntot2),nh1)
         end if
         
         al_off = -1.d0 
         call dgemm('N','N', nh1,np2,np2,al_off,R%tblck(q)%tgam(7)%X,nh1,&
-             L%mat(q2)%gam(1)%X,np2,bet_off,RES%tblck(q)%tgam(7)%X,nh1)
+             L%mat(q2)%gam(1)%X,np2,bet_off,W(1:nh1,nhb2+1:ntot2),nh1)
 
 
         if(nh1 .ne. 0) then        
            al_off = -1.d0 
            call dgemm('N','N',nh1,np2,nh1,al_off,L%mat(q1)%gam(5)%X,nh1,&
-                R%tblck(q)%tgam(7)%X,nh1,bet_off,RES%tblck(q)%tgam(7)%X,nh1)
+                R%tblck(q)%tgam(7)%X,nh1,bet_off,Y(1:nh1,nhb2+1:ntot2),nh1)
         end if
 
         if (nh2 .ne. 0 ) then 
            al_off = 1.d0  * L%herm       
            call dgemm('N','T',nh1,np2,nh2,al_off,R%tblck(q)%tgam(5)%X,nh1,&
-                L%mat(q2)%gam(3)%X,np2,bet_off,RES%tblck(q)%tgam(7)%X,nh1)
+                L%mat(q2)%gam(3)%X,np2,bet_off,Y(1:nh1,nhb2+1:ntot2),nh1)
         end if
      end if
 
-     
+     RES%tblck(q)%tgam(7)%X = RES%tblck(q)%tgam(7)%X  + &
+          W(1:nh1,nhb2+1:ntot2) + Y(1:nh1,nhb2+1:ntot2)
 !----------------------------------------------------------------------------
 !         Zppph 
 !----------------------------------------------------------------------------
@@ -654,25 +675,28 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
 
         al_off = 1.d0
         call dgemm('N','N', np1,nb2,np1,al_off,L%mat(q1)%gam(1)%X,np1,&
-             R%tblck(q)%tgam(2)%X,np1,bet_off,RES%tblck(q)%tgam(2)%X,np1)
+             R%tblck(q)%tgam(2)%X,np1,bet_off,W(nhb1+1:ntot1,nh2+1:nhb2),np1)
 
         if (np2 .ne. 0 ) then 
            al_off = -1.d0 
            call dgemm('N','N', np1,nb2,np2,al_off,R%tblck(q)%tgam(1)%X,np1,&
-                L%mat(q2)%gam(2)%X,np2,bet_off,RES%tblck(q)%tgam(2)%X,np1)
+                L%mat(q2)%gam(2)%X,np2,bet_off,W(nhb1+1:ntot1,nh2+1:nhb2),np1)
         end if
 
         if(nh1 .ne. 0) then        
            al_off = -1.d0 
            call dgemm('N','N',np1,nb2,nh1,al_off,L%mat(q1)%gam(3)%X,np1,&
-                R%tblck(q)%tgam(9)%X,nh1,bet_off,RES%tblck(q)%tgam(2)%X,np1)
+                R%tblck(q)%tgam(9)%X,nh1,bet_off,Y(nhb1+1:ntot1,nh2+1:nhb2),np1)
         end if
 
         if (nh2 .ne. 0 ) then 
            al_off = 1.d0 * L%herm
            call dgemm('N','T',np1,nb2,nh2,al_off,R%tblck(q)%tgam(3)%X,np1,&
-                L%mat(q2)%gam(6)%X,nb2,bet_off,RES%tblck(q)%tgam(2)%X,np1)
+                L%mat(q2)%gam(6)%X,nb2,bet_off,Y(nhb1+1:ntot1,nh2+1:nhb2),np1)
         end if
+
+        RES%tblck(q)%tgam(2)%X = RES%tblck(q)%tgam(2)%X + &
+             W(nhb1+1:ntot1,nh2+1:nhb2) + Y(nhb1+1:ntot1,nh2+1:nhb2)
      end if
 
 !----------------------------------------------------------------------------
@@ -683,25 +707,27 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
         if (np1 .ne. 0 ) then 
            al_off = 1.d0* L%herm 
            call dgemm('T','N', nb1,np2,np1,al_off,L%mat(q1)%gam(2)%X,np1,&
-                R%tblck(q)%tgam(1)%X,np1,bet_off,RES%tblck(q)%tgam(8)%X,nb1)
+                R%tblck(q)%tgam(1)%X,np1,bet_off,W(nh1+1:nhb1,nhb2+1:ntot2),nb1)
         end if
         
         al_off = -1.d0 
         call dgemm('N','N', nb1,np2,np2,al_off,R%tblck(q)%tgam(8)%X,nb1,&
-             L%mat(q2)%gam(1)%X,np2,bet_off,RES%tblck(q)%tgam(8)%X,nb1)
+             L%mat(q2)%gam(1)%X,np2,bet_off,W(nh1+1:nhb1,nhb2+1:ntot2),nb1)
 
 
         if(nh1 .ne. 0) then        
            al_off = -1.d0 
            call dgemm('N','N',nb1,np2,nh1,al_off,L%mat(q1)%gam(6)%X,nb1,&
-                R%tblck(q)%tgam(7)%X,nh1,bet_off,RES%tblck(q)%tgam(8)%X,nb1)
+                R%tblck(q)%tgam(7)%X,nh1,bet_off,Y(nh1+1:nhb1,nhb2+1:ntot2),nb1)
         end if
 
         if (nh2 .ne. 0 ) then 
            al_off = 1.d0 * L%herm
            call dgemm('N','T',nb1,np2,nh2,al_off,R%tblck(q)%tgam(6)%X,nb1,&
-                L%mat(q2)%gam(3)%X,np2,bet_off,RES%tblck(q)%tgam(8)%X,nb1)
+                L%mat(q2)%gam(3)%X,np2,bet_off,Y(nh1+1:nhb1,nhb2+1:ntot2),nb1)
         end if
+        RES%tblck(q)%tgam(8)%X = RES%tblck(q)%tgam(8)%X + &
+             W(nh1+1:nhb1,nhb2+1:ntot2) + Y(nh1+1:nhb1,nhb2+1:ntot2)
      end if
      
 
@@ -713,26 +739,28 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
         if (np1 .ne. 0 ) then 
            al_off = 1.d0* L%herm 
            call dgemm('T','N', nb1,nh2,np1,al_off,L%mat(q1)%gam(2)%X,np1,&
-                R%tblck(q)%tgam(3)%X,np1,bet_off,RES%tblck(q)%tgam(6)%X,nb1)
+                R%tblck(q)%tgam(3)%X,np1,bet_off,W(nh1+1:nhb1,1:nh2),nb1)
         end if
 
         if (np2 .ne. 0 ) then 
            al_off = -1.d0 
            call dgemm('N','N', nb1,nh2,np2,al_off,R%tblck(q)%tgam(8)%X,nb1,&
-                L%mat(q2)%gam(3)%X,np2,bet_off,RES%tblck(q)%tgam(6)%X,nb1)
+                L%mat(q2)%gam(3)%X,np2,bet_off,W(nh1+1:nhb1,1:nh2),nb1)
         end if
 
         if(nh1 .ne. 0) then        
            al_off = -1.d0 
            call dgemm('N','N',nb1,nh2,nh1,al_off,L%mat(q1)%gam(6)%X,nb1,&
-                R%tblck(q)%tgam(5)%X,nh1,bet_off,RES%tblck(q)%tgam(6)%X,nb1)
+                R%tblck(q)%tgam(5)%X,nh1,bet_off,Y(nh1+1:nhb1,1:nh2),nb1)
         end if
 
         if (nh2 .ne. 0 ) then 
            al_off = 1.d0
            call dgemm('N','N',nb1,nh2,nh2,al_off,R%tblck(q)%tgam(6)%X,nb1,&
-                L%mat(q2)%gam(5)%X,nh2,bet_off,RES%tblck(q)%tgam(6)%X,nb1)
+                L%mat(q2)%gam(5)%X,nh2,bet_off,Y(nh1+1:nhb1,1:nh2),nb1)
         end if
+        RES%tblck(q)%tgam(6)%X = RES%tblck(q)%tgam(6)%X  + &
+             W(nh1+1:nhb1,1:nh2) + Y(nh1+1:nhb1,1:nh2)
      end if
           
 
@@ -744,424 +772,596 @@ subroutine operator_commutator_222_pp_hh(L,R,RES,jbas)
         if (np1 .ne. 0 ) then 
            al_off = 1.d0*L%herm
            call dgemm('T','N', nh1,nb2,np1,al_off,L%mat(q1)%gam(3)%X,np1,&
-                R%tblck(q)%tgam(2)%X,np1,bet_off,RES%tblck(q)%tgam(9)%X,nh1)
+                R%tblck(q)%tgam(2)%X,np1,bet_off,W(1:nh1,nh2+1:nhb2),nh1)
         end if
         
         if (np2 .ne. 0 ) then 
            al_off = -1.d0 
            call dgemm('N','N', nh1,nb2,np2,al_off,R%tblck(q)%tgam(7)%X,nh1,&
-                L%mat(q2)%gam(2)%X,np2,bet_off,RES%tblck(q)%tgam(9)%X,nh1)
+                L%mat(q2)%gam(2)%X,np2,bet_off,W(1:nh1,nh2+1:nhb2),nh1)
         end if
 
         if(nh1 .ne. 0) then        
            al_off = -1.d0 
            call dgemm('N','N',nh1,nb2,nh1,al_off,L%mat(q1)%gam(5)%X,nh1,&
-                R%tblck(q)%tgam(9)%X,nh1,bet_off,RES%tblck(q)%tgam(9)%X,nh1)
+                R%tblck(q)%tgam(9)%X,nh1,bet_off,Y(1:nh1,nh2+1:nhb2),nh1)
         end if
 
         if (nh2 .ne. 0 ) then 
            al_off = 1.d0 * L%herm
            call dgemm('N','T',nh1,nb2,nh2,al_off,R%tblck(q)%tgam(5)%X,nh1,&
-                L%mat(q2)%gam(6)%X,nb2,bet_off,RES%tblck(q)%tgam(9)%X,nh1)
+                L%mat(q2)%gam(6)%X,nb2,bet_off,Y(1:nh1,nh2+1:nhb2),nh1)
         end if
 
+        RES%tblck(q)%tgam(9)%X = RES%tblck(q)%tgam(9)%X +&
+             W(1:nh1,nh2+1:nhb2) + Y(1:nh1,nh2+1:nhb2)
      end if
+
+     !========!
+     !221 part!
+     !========!
+
+     W = W * sqrt((J1+1.d0)*(J2+1.d0)) 
+     Y = -1*Y * sqrt((J1+1.d0)*(J2+1.d0))
+!!!! current state of things:
+!!!! I have not declared many of these variables
+!!!! There is also an issue with the pp and hh terms, do I have to flip them and add them twice? probably.
+          
+     allocate(qn1(ntot1,2), qn2(ntot2,2))
+     
+     ! make one big two particle basis descriptor 
+
+     qn1(1:nh1,:) = L%mat(q1)%qn(3)%Y(:,:)
+     qn1(nh1+1:nhb1,:) = L%mat(q1)%qn(2)%Y(:,:)
+     qn1(nhb1+1:ntot1,:) = L%mat(q1)%qn(1)%Y(:,:)
+
+     qn2(1:nh2,:) = L%mat(q2)%qn(3)%Y(:,:)
+     qn2(nh2+1:nhb2,:) = L%mat(q2)%qn(2)%Y(:,:)
+     qn2(nhb2+1:ntot2,:) = L%mat(q2)%qn(1)%Y(:,:)
+      
+
+
+     ! this is the part of the 221 commutator where we sum over a single hole index, and two particles.
+     ! the particle indices have already been summed up into W, we loop over all matrix elements of W
+     ! and add their contributions to RES where ever possible.
+          
+     do IX = 1, nhb1
+        pre1 = 1.d0
+        
+        ii = qn1(IX,1) 
+        jj = qn1(IX,2)
+        
+        if (IX .le. nh1) then 
+
+           !!  IX is a hh ket 
+           !! this means I have to loop over
+           !! all JX configs for each hole state in IX. 
+           
+           jp = jbas%jj(ii)
+           ji = jbas%jj(jj)
+
+           if (ii==jj) pre1 = sqrt(2.d0)
+           ! ll is the summing hole
+           p1 = ii
+           i = jj
+
+           pre1 = pre1 * (-1) ** ((ji-jp-J1)/2)                      
+           do JX = 1, nhb2
+              
+              pre2 = 1.d0
+
+              kk = qn2(JX,1)
+              ll = qn2(JX,2)
+
+              if (kk==ll) pre2 = sqrt(2.d0)
+
+              !! figure out which index in the JX config
+              !! corresponds the the index being summed (if any) 
+              if ( kk == i ) then         
+                 jh = jbas%jj(ll)
+                 h1 = ll                 
+              else if (ll == i )then
+                 h1 = kk
+                 jh = jbas%jj(kk)
+                 pre2 = pre2 * (-1) ** ((ji-jh-J2)/2)
+              else
+                 cycle
+              end if
+
+              ! if one of those indices matches the current "summing hole"
+              ! add it to the running sum (RES%fock(px,hx))
+              ! despite naming conventions, px and hx are not particle and hole states
+              ! this is copied from a different routine where they are. I don't care, get pissed. :) 
+              
+              px = p1
+              hx = h1
+
+              RES%fock(px,hx) = RES%fock(px,hx) + (-1) ** ((jh+ji + rank+J1)/2) &
+                   *xxxsixj(RES%xindx,J1,J2,rank,jh,jp,ji)*W(IX,JX)*pre1*pre2
+
+           end do
+
+           
+           ! kk is the summing hole
+           p1 = jj
+           i = ii            
+
+           jp = jbas%jj(jj)
+           ji = jbas%jj(ii)
+
+           if (ii==jj) cycle! pre1 = sqrt(2.d0)
+           pre1 = 1.d0         
+
+           do JX = 1, nhb2
+              
+              pre2 = 1.d0
+
+              kk = qn2(JX,1)
+              ll = qn2(JX,2)
+
+              if (kk==ll) pre2 = sqrt(2.d0)
+
+              if ( kk == i ) then
+                 ! k is a particle
+                 jh = jbas%jj(ll)
+                 h1 = ll                 
+              else if (ll == i )then
+                 h1 = kk
+                 jh = jbas%jj(kk)
+                 pre2 = pre2 * (-1) ** ((ji-jh-J2)/2)
+              else                
+                 cycle
+              end if
+
+              px = p1
+              hx = h1
+              
+              RES%fock(px,hx) = RES%fock(px,hx) + (-1) ** ((jh+ji + rank+J1)/2) &
+                   *xxxsixj(RES%xindx,J1,J2,rank,jh,jp,ji)*W(IX,JX)*pre1*pre2
+
+           end do
+           
+           
+
+        else
+
+           !!  IX is ph config
+           !! I only need to loop over JX for the hole state
+           
+           if ( jbas%con(ii) == 0 ) then
+              ! ll is the summing hole
+              
+              jp = jbas%jj(ii)
+              ji = jbas%jj(jj)
+
+              p1 = ii
+              i = jj
+
+              pre1 = pre1 * (-1) ** ((ji-jp-J1)/2)
+
+           else    
+              ! kk is the summing hole
+              p1 = jj
+              i = ii              
+
+              jp = jbas%jj(jj)
+              ji = jbas%jj(ii)
+
+           end if
+
+
+           do JX = 1, nhb2
+              
+              pre2 = 1.d0
+
+              kk = qn2(JX,1)
+              ll = qn2(JX,2)
+
+              if (kk==ll) pre2 = sqrt(2.d0)
+
+              if ( kk == i ) then                 
+                 jh = jbas%jj(ll)
+                 h1 = ll                 
+              else if (ll == i )then
+                 h1 = kk
+                 jh = jbas%jj(kk)
+                 pre2 = pre2 * (-1) ** ((ji-jh-J2)/2)
+              else
+                 cycle
+              end if
+
+              px = p1
+              hx = h1
+              
+              RES%fock(px,hx) = RES%fock(px,hx) + (-1) ** ((jh+ji + rank+J1)/2) &
+                   *xxxsixj(RES%xindx,J1,J2,rank,jh,jp,ji)*W(IX,JX)*pre1*pre2
+
+           end do
+
+        end if
+     end do
+
+         
+     do JX = nh2+1, ntot2
+        pre2 = 1.d0
+
+        ii = qn2(JX,1) 
+        jj = qn2(JX,2)
+        
+        if ( JX .le. nhb2) then
+
+           !! JX is a ph state. only need one IX loop. GOOD.
+           
+           if ( jbas%con(ii) == 1 ) then
+              ! ii is a hole
+              ! jj is the summing particle. 
+              jh = jbas%jj(ii)
+              ja = jbas%jj(jj)
+              h1 = ii
+              a = jj
+              pre2 = pre2 * (-1) ** ((ja-jh-J2)/2)
+           else
+              !! ii is the summing particle. 
+              h1 = jj
+              a = ii
+              jh = jbas%jj(jj)
+              ja = jbas%jj(ii)
+           end if
+
+           do IX = nh1+1, ntot1
+
+              pre1 = 1.d0
+
+              kk = qn1(IX,1) 
+              ll = qn1(IX,2)
+
+              if (kk==ll) pre1 = sqrt(2.d0)
+
+              if ( kk == a ) then
+                 jp = jbas%jj(ll)
+                 p1 = ll                 
+              else if (ll == a ) then 
+                 p1 = kk
+                 jp = jbas%jj(kk)
+                 pre1 = pre1 * (-1) ** ((ja-jp-J1)/2)
+              else
+                 cycle
+              end if
+
+              px = p1
+              hx = h1
+
+              RES%fock(px,hx) = RES%fock(px,hx) + (-1) ** ((jh+ja + rank+J1)/2) &
+                   *xxxsixj(RES%xindx,J1,J2,rank,jh,jp,ja)*Y(IX,JX)*pre1*pre2
+
+
+           end do
+
+        else
+
+           !! JX is a pp state. Need two IX loops. LAME.
+          
+           ! ll is the summing particle
+           jh = jbas%jj(ii)
+           ja = jbas%jj(jj)
+           
+           if (ii==jj) pre2 = sqrt(2.d0)
+           h1 = ii
+           a = jj
+           pre2 = pre2 * (-1) ** ((ja-jh-J2)/2)
+           
+           do IX = nh1+1, ntot1
+
+              pre1 = 1.d0
+
+              kk = qn1(IX,1) 
+              ll = qn1(IX,2)
+
+              if (kk==ll) pre1 = sqrt(2.d0)
+
+              if ( kk == a ) then
+                 jp = jbas%jj(ll)
+                 p1 = ll                 
+              else if (ll == a ) then 
+                 p1 = kk
+                 jp = jbas%jj(kk)
+                 pre1 = pre1 * (-1) ** ((ja-jp-J1)/2)
+              else
+                 cycle
+              end if
+
+              px = p1
+              hx = h1
+
+              RES%fock(px,hx) = RES%fock(px,hx) + (-1) ** ((jh+ja + rank+J1)/2) &
+                   *xxxsixj(RES%xindx,J1,J2,rank,jh,jp,ja)*Y(IX,JX)*pre1*pre2
+
+           end do
+
+
+           !! kk is the summing particle now.
+           h1 = jj
+           a = ii
+           jh = jbas%jj(jj)
+           ja = jbas%jj(ii)
+           pre2 = 1.d0 
+           if (ii==jj) cycle
+           do IX = nh1+1, ntot1
+
+              pre1 = 1.d0
+
+              kk = qn1(IX,1) 
+              ll = qn1(IX,2)
+
+              if (kk==ll) pre1 = sqrt(2.d0)
+
+              if ( kk == a ) then
+                 jp = jbas%jj(ll)
+                 p1 = ll                 
+              else if (ll == a ) then 
+                 p1 = kk
+                 jp = jbas%jj(kk)
+                 pre1 = pre1 * (-1) ** ((ja-jp-J1)/2)
+              else
+                 cycle
+              end if
+
+              px = p1
+              hx = h1
+
+              RES%fock(px,hx) = RES%fock(px,hx) + (-1) ** ((jh+ja + rank+J1)/2) &
+                   *xxxsixj(RES%xindx,J1,J2,rank,jh,jp,ja)*Y(IX,JX)*pre1*pre2
+           end do
+
+        end if
+     end do
+
+
+     
+
+     
+     deallocate(W,Y,qn1,qn2)
   end do
 
 end subroutine operator_commutator_222_pp_hh
 !=================================================================
 !=================================================================
- subroutine operator_commutator_222_ph(LCC,RCC,R,RES,jbas) 
+ subroutine operator_commutator_222_ph(L,R,RES,jbas) 
    ! VERIFIED ph channel 2body operator_commutator. DFWT! 
    implicit none 
   
    type(spd) :: jbas
-   type(sq_op) :: RES,R
-   type(pandya_mat) :: RCC
-   real(8),allocatable,dimension(:,:) :: Wx,Wy 
-   type(cc_mat) :: LCC
-   integer :: nh,np,nb1,nb2,q,IX,JX,i,j,k,l,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank,a,b,c,d
-   integer :: ji,jj,jk,jl,ti,tj,tk,tl,li,lj,lk,ll,n1,n2,c1,c2,jxstart,J4min,J4max,ja,jb,jc,jd
+   type(iso_operator) :: RES,R
+   type(sq_op) :: L
+   real(8),allocatable,dimension(:,:) :: PANDYA_A,PANDYA_B,PANDYA_AB
+   integer,allocatable,dimension(:,:) :: qn_J3,qn_J4,qn_J3_ph
+   integer :: nh,np,nb1,nb2,q,IX,JX,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank,a,b,c,d
+   integer :: ta,tb,tc,td,la,lb,lc,ld,n1,n2,c1,c2,jxstart,J4min,J4max,ja,jb,jc,jd
    integer :: J1,J2, Jtot,Ntot,qx,J3min,J3max,ril,rjk,rli,rkj,g_ix,thread,total_threads
    integer :: phase1,phase2,phase3,rik,rki,rjl,rlj,PAR2,J1min,J2min,J1max,J2max
-   integer :: phase_34,phase_abcd,phase_ac,phase_bc
-   integer :: phase_bd,phase_ad,nj_perm,full_int_phase  
+   integer :: phase_34,phase_abcd,phase_ac,phase_bc,n_J3,n_J3_ph, n_J4,PAR_J3,PAR_J4,herm
+   integer :: phase_bd,phase_ad,nj_perm,full_int_phase,Tz1_cc,Tz2_cc,omp_get_num_threads
    real(8) :: sm ,pre,pre2,omp_get_wtime ,t1,t2,coef9,factor,sm_ex, nj1,nj2  
-   real(8) :: prefac_34,prefac_134,prefac_1234,Xelem,Yelem,V
+   real(8) :: prefac_12,Xelem,Yelem,V,al_off,bet_off
    logical :: square
    
    rank = RES%rank
+   ! construct intermediate matrices
+   herm = L%herm * R%herm 
    Ntot = RES%Nsp
-   JTM = jbas%Jtotal_max
-   total_threads = size(RES%direct_omp) - 1
+   JTM = jbas%Jtotal_max*2
+   !$OMP PARALLEL
+   total_threads = omp_get_num_threads()
+   !$OMP END PARALLEL
+
    ! construct intermediate matrices
 
-   do qx = 1,RCC%nblocks
-      if (RCC%jval2(qx) > jbas%jtotal_max*2) cycle
+   !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(R,L,RES)   
+   ! sum over all cross coupled channels for both matrices 
+   do thread = 0,total_threads-1
       
-      nb2 = RCC%nb2(qx)
-      nb1 = RCC%nb1(qx)
-      r1 = size(RCC%qn1(qx)%Y(:,1))
-      r2 = size(RCC%qn2(qx)%Y(:,1))      
-      
-      if (r1 * r2 == 0) cycle
-      
-      allocate(Wx(r1,r2),Wy(r1,r2)) 
-      Wx = 0.d0 
-      Wy = 0.d0
-      PAR = mod(qx-1,2)
-      Tz = mod((qx-1)/2,2) 
-      J3 = RCC%Jval(qx) 
-      J4 = RCC%Jval2(qx)          
-      
-      if (nb1 .ne. 0 ) then 
-
-         allocate(RCC%CCR(qx)%X(nb1,r2))
-         call calculate_single_pandya(R,RCC,jbas,qx,2)  
-         factor = 1.0/sqrt(J3+1.d0)*LCC%herm
-         q1 = J3/2+1 + Tz*(JTM+1) + 2*PAR*(JTM+1) 
-         call dgemm('N','N',r1,r2,nb1,factor,LCC%CCX(q1)%X,r1,&
-              RCC%CCR(qx)%X,nb1,bet,Wx,r1)       
-         deallocate(RCC%CCR(qx)%X)
-      end if
+    
+      do J3 = 2*thread, JTM  ,2*total_threads      
+         J4min = abs(rank -J3)
+         J4max = min(rank + J3,JTM)
          
-      if ((nb2 .ne. 0) .and. (J3 .ne. J4)) then 
-         allocate(RCC%CCX(qx)%X(r1,nb2))
-         call calculate_single_pandya(R,RCC,jbas,qx,1)
-         PAR2 = mod(PAR+RCC%dpar/2,2) 
-         q2 = J4/2+1 + Tz*(JTM+1) + 2*PAR2*(JTM+1)
-         factor = 1.d0/sqrt(J4+1.d0)
-         
-        call dgemm('N','T',r1,r2,nb2,factor,RCC%CCX(qx)%X,r1,&
-             LCC%CCX(q2)%X,r2,bet,Wy,r1) 
-        deallocate(RCC%CCX(qx)%X)
-      end if
-
-      
-      prefac_34 = sqrt((J3+1.d0)*(J4+1.d0))
-      phase_34 = (-1)**((J3+J4)/2) 
-
-      do IX = 1,r1
-         
-         ! GET BRA
-         d = RCC%qn1(qx)%Y(IX,1)
-         a = RCC%qn1(qx)%Y(IX,2)
-
-         ja = jbas%jj(a)
-         jd = jbas%jj(d)
-
-         do JX = 1, r2 
-                       
-            ! GET KET 
-            c = RCC%qn2(qx)%Y(JX,1) 
-            b = RCC%qn2(qx)%Y(JX,2)            
-
-
-            jc = jbas%jj(c)
-            jb = jbas%jj(b)
+         do Tz1_cc = 0,2,2 ! this is the cross coupled TZ
+            Tz2_cc = abs(Tz1_cc - abs(R%dTz*2))
             
-            ! CALCULATE X CONTRIBUTIONS
+            do PAR_J3 = 0,1
+               
+               n_J3 = count_iso_op_configs( J3 ,Tz1_cc, PAR_J3 , jbas, .false. ) !boolean true: ph, false: all configs
+               n_J3_ph = count_iso_op_configs( J3 ,Tz1_cc, PAR_J3 , jbas, .true. ) 
+               if (n_J3*n_J3_ph == 0) cycle
+
+               allocate(qn_J3(n_J3,2),qn_J3_ph(n_J3_ph,2)) 
+               n_J3 = count_iso_op_configs( J3 ,Tz1_cc, PAR_J3 , jbas, .false.,qn_J3) ! this fills the cc- basis descriptor
+               n_J3_ph = count_iso_op_configs( J3 ,Tz1_cc, PAR_J3 , jbas, .true.,qn_J3_ph)
+               
+               allocate(PANDYA_A(n_J3, n_J3_ph) )
+               PANDYA_A = 0.d0 
+
+               call fill_rectangle_cc_matrix(J3,PANDYA_A,qn_J3,qn_J3_ph,L,jbas)
+               
+               PAR_J4 = mod(PAR_J3 + R%dpar/2,2)
+               
+               do J4 = J4min,J4max ,2
+
+                  n_J4 = count_iso_op_configs( J4 ,Tz2_cc, PAR_J4 , jbas, .false. )
+                  if (n_J4 == 0) cycle
+                  allocate(qn_J4(n_J4,2)) 
+                  n_J4 = count_iso_op_configs( J4 ,Tz2_CC, PAR_J4 , jbas, .false.,qn_J4)
+                  
+                  allocate( PANDYA_B( n_J3_ph, n_J4) )
+                  allocate( PANDYA_AB( n_J3, n_J4) )
+                  PANDYA_B = 0.d0
+
+                  call fill_generalized_oppandya_matrix(J3,J4,PANDYA_B,qn_J3_ph,qn_J4,R,jbas)
+
+                  PANDYA_AB = 0.d0 
+                  al_off =  sqrt((J3+1.d0)*(J4+1.d0)) 
+
+                  call dgemm('N','N',n_J3,n_J4,n_J3_ph,al_off,PANDYA_A,n_J3,PANDYA_B,n_J3_ph,bet,PANDYA_AB,n_J3) 
+
+                  do JX = 1,n_J4
+
+                     ! GET KET 
+                     d = qn_J4(JX,1)
+                     a = qn_J4(JX,2)
+
+                     jd = jbas%jj(d)
+                     ld = jbas%ll(d)
+                     td = jbas%itzp(d)
+                     ja = jbas%jj(a)
+                     la = jbas%ll(a)
+                     ta = jbas%itzp(a)
+
+                     do IX = 1, n_J3 
+
+                        ! GET BRA
+                        c = qn_J3(IX,1)
+                        b = qn_J3(IX,2)
+
+                        jc = jbas%jj(c)
+                        jb = jbas%jj(b)
+                        lc = jbas%ll(c)
+                        tc = jbas%itzp(c)
+                        lb = jbas%ll(b)
+                        tb = jbas%itzp(b)
+
+                        if ( (ta +tb)-2*R%dTz .ne. (tc+td) ) cycle
+                        if ( mod(la +lb,2) .ne. mod(lc+ld+RES%dpar/2,2) ) cycle
+                                         
+                        ! CALCULATE X CONTRIBUTIONS
+                        
+                        J1min = abs(ja-jb)
+                        J1max = ja+jb
+                        
+                        J2min = abs(jc-jd) 
+                        J2max = jc+jd 
             
-            J1min = abs(ja-jb)
-            J1max = ja+jb
-            
-            J2min = abs(jc-jd) 
-            J2max = jc+jd 
-            
-            ! these are the results of the Matmuls 
-            Xelem = Wx(IX,JX)
-            Yelem = Wy(IX,JX)
+                        ! these are the results of the Matmuls 
+                        Xelem = PANDYA_AB(IX,JX)                        
 
-            phase_abcd= (-1)**((ja+jb+jc+jd)/2)
-            
-            if (abs(Xelem) > 1e-6) then 
-               if (b .ge. a) then 
-                  if (d .ge. c) then 
-                     
-                     ! CALCULATE V^{J1 J2}_{abcd} and V^{J1 J2}_{cdab}
-                     
-                     do J1 = J1min,J1max,2
-                        if ((a==b).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
-                           if ((c==d).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
+                        phase_abcd= (-1)**((ja+jb+jc+jd)/2)
+                        
+                        if (abs(Xelem) > 1e-6) then 
 
-                           ! V^{J1 J2}_{abcd} 
-                           V = prefac_1234* ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,rank) &
-                                * (-1)**((jb+jd+J2)/2) * phase_34 * LCC%herm &
-                                * Xelem
+                           do J1 = J1min,J1max,2
+                              if ((a==b).and.(mod(J1/2,2)==1)) cycle
 
-                           call add_elem_to_tensor(V,a,b,c,d,J1,J2,RES,jbas) 
+                              do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
+                                 if ((c==d).and.(mod(J2/2,2)==1)) cycle
+                                 nj1 = ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,rank)
 
-                        end do
+                                 prefac_12 =  sqrt((J1+1.d0)*(J2+1.d0))
+                                       
+                                 if (b .ge. a) then 
+                                    if (d .ge. c) then 
+                                 
+                                       ! CALCULATE V^{J1 J2}_{abcd} and V^{J1 J2}_{cdab}
+                                       
+
+                                       ! V^{J1 J2}_{abcd} 
+                                       V = prefac_12* nj1 * (-1)**((ja+jb+J2+J3+J4)/2) * Xelem
+
+                                       call add_elem_to_iso_op(V,a,b,c,d,J1,J2,RES,jbas) 
+
+
+                                    else
+
+                                       V = prefac_12* nj1 * (-1)**((ja-jb+jc+jd+J3+J4)/2) * Xelem 
+                                       
+
+                                       call add_elem_to_iso_op(V,a,b,d,c,J1,J2,RES,jbas)
+                                    end if
+
+                                 else
+
+                                    if (d .ge. c) then
+                                       
+
+                                       V = -1*prefac_12* nj1 * (-1)**((J1+J2+J3+J4)/2) * Xelem 
+                                       
+
+                                       call add_elem_to_iso_op(V,b,a,c,d,J1,J2,RES,jbas)
+
+                                    else
+                                       
+                                       V = prefac_12* nj1 * (-1)**((jc+jd+J1+J3+J4)/2) * Xelem 
+                                       
+                                       call add_elem_to_iso_op(V,b,a,d,c,J1,J2,RES,jbas)
+
+                                    end if
+
+                                 end if
+
+                              end do
+                           end do
+
+
+                           do J1 = J2min,J2max,2
+                              if ((a==b).and.(mod(J1/2,2)==1)) cycle
+
+                              do J2 = max(J1,J1min,abs(rank-J1)),min(J1max,rank+J1),2 
+                                 if ((c==d).and.(mod(J2/2,2)==1)) cycle
+                                 nj2 = ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,rank) 
+                                 prefac_12 =  sqrt((J1+1.d0)*(J2+1.d0))
+                                       
+                                 if (b .ge. a) then 
+                                    if (d .ge. c) then 
+                                 
+                                       ! CALCULATE V^{J1 J2}_{abcd} and V^{J1 J2}_{cdab}
+
+                                       V = prefac_12* nj2 * (-1)**((ja-jb+J1+rank)/2) * Xelem * herm 
+
+                                       call add_elem_to_iso_op(V,c,d,a,b,J1,J2,RES,jbas) 
+                                    else
+
+                                       V = prefac_12* nj2 * (-1)**(rank/2) * Xelem * herm
+                                       
+                                       call add_elem_to_iso_op(V,d,c,a,b,J1,J2,RES,jbas) 
+                                    end if
+
+                                 else
+
+                                    if (d .ge. c) then
+
+                                       V = prefac_12* nj2 * (-1)**((ja+jb+jc+jd+J2+J1+rank)/2) * Xelem * herm 
+
+                                       call add_elem_to_iso_op(V,c,d,b,a,J1,J2,RES,jbas) 
+
+ 
+                                    else
+
+                                       V = prefac_12* nj2 * (-1)**((jc-jd+J2+rank)/2) * Xelem * herm 
+
+                                       call add_elem_to_iso_op(V,d,c,b,a,J1,J2,RES,jbas) 
+
+                                       
+                                    end if
+
+                                 end if
+                                 
+                              end do
+                           end do
+
+                                 
+
+                                       
+                        end if
                      end do
-
-                     do J1 = J2min,J2max,2
-                        if ((c==d).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
-                           if ((a==b).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           ! V^{J1 J2}_{cdab}
-                           V = -1*prefac_1234* ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,rank) &
-                                * (-1)**((jc+ja+J1+rank)/2) * RCC%herm &
-                                * Xelem
-                           call add_elem_to_tensor(V,c,d,a,b,J1,J2,RES,jbas) 
-
-                        end do
-                     end do
-
-                  else 
-
-                     ! CALCULATE V^{J1 J2}_{abdc} and V^{J1 J2}_{dcab}
-
-                     do J1 = J1min,J1max,2
-                        if ((a==b).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min,abs(J1-rank)),min(J2max,J1+rank),2 
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{abdc}
-                           V = prefac_1234 * ninej(RES%xindx,ja,jd,J3,jb,jc,j4,J1,J2,rank)&
-                                *(-1)**((jb+jc)/2)*phase_34*LCC%herm*Xelem
-
-                           call add_elem_to_tensor(V,a,b,d,c,J1,J2,RES,jbas)                        
-                        end do
-                     end do
-
-                     do J1 = J2min,J2max,2
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
-                           if ((a==b).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{dcab}
-                           V = prefac_1234 * ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,rank) &
-                                * (-1)**((ja-jd+rank)/2) * RCC%herm *Xelem
-                           ! the mapping here inverts the indeces to {cdba} so you need 
-                           ! an additional factor of phase(a+b+c+d+J1+J2) 
-                           call add_elem_to_tensor(V,d,c,a,b,J1,J2,RES,jbas)
-
-                        end do
-                     end do
-                  end if
-
-               else 
-                  if (d .ge. c) then 
-
-                     ! CALCULATE V^{J1 J2}_{bacd} and V^{J1 J2}_{cdba}
-                     do J1 = J1min,J1max,2
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min,abs(J1-rank)),min(J2max,J1+rank),2 
-                           if ((c==d).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{bacd}
-
-                           V = prefac_1234 * ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,rank) &
-                                *(-1)** ((ja+jd+J1+J2)/2) * phase_34 * LCC%herm * Xelem
-
-                           call add_elem_to_tensor(V,b,a,c,d,J1,J2,RES,jbas)                        
-
-                        end do
-                     end do
-
-                     do J1 = J2min,J2max,2
-                        if ((c==d).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{cdba}
-
-                           V = prefac_1234 * ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,rank) &
-                                *(-1)**((jc-jb+J1+J2+rank)/2) * RCC%herm * Xelem
-                           ! the mapping here inverts the indeces to {dcab} so you need 
-                           ! an additional factor of phase(a+b+c+d+J1+J2)
-                           call add_elem_to_tensor(V,c,d,b,a,J1,J2,RES,jbas)               
-
-                        end do
-                     end do
-
-                  else
-
-                     ! CALCULATE V^{J1 J2}_{badc} and V^{J1 J2}_{dcba}
-                     do J1 = J1min,J1max,2
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min,abs(J1-rank)),min(J2max,J1+rank),2 
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{badc}
-                           V = prefac_1234 * ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,Rank) &
-                                * (-1) ** ((ja+jc+J1)/2) *phase_34 * LCC%herm * Xelem 
-
-                           call add_elem_to_tensor(V,b,a,d,c,J1,J2,RES,jbas)               
-
-                        end do
-                     end do
-
-                     do J1 = J2min,J2max,2
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{dcba}
-                           V = prefac_1234 * ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,Rank) &
-                                * (-1)**((jb-jd+J2 + rank )/2) *RCC%herm * Xelem 
-
-                           call add_elem_to_tensor(V,d,c,b,a,J1,J2,RES,jbas)               
-
-                        end do
-                     end do
-                  end if
-               end if
-            end if
-            
-            
-            J1min = abs(jd-jb)
-            J1max = jd+jb
-            
-            J2min = abs(jc-ja) 
-            J2max = jc+ja 
-            
-            if ( abs(Yelem) > 1e-6) then 
-               if (b .ge. d ) then                
-                  if ( a .ge. c ) then 
-
-                     do J1 = J1min,J1max,2
-                        if ((d==b).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
-                           if ((c==a).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{dbca}
-                           V = prefac_1234* ninej(RES%xindx,jd,ja,J3,jb,jc,J4,J1,J2,rank)&
-                                * (-1) ** ((jc+ja+J2)/2) *LCC%herm * Yelem 
-                           call add_elem_to_tensor(V,d,b,c,a,J1,J2,RES,jbas)               
-
-                        end do
-                     end do
-
-                     !V^{J1 J2}_{cadb}
-                     do J1 = J2min,J2max,2
-                        if ((c==a).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
-                           if ((b==d).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           V = prefac_1234* ninej(RES%xindx,ja,jd,J3,jc,jb,J4,J1,J2,rank)&
-                                * (-1)** ((jd-jb+J1+rank)/2) * phase_34 *RCC%herm * Yelem
-                           call add_elem_to_tensor(V,c,a,d,b,J1,J2,RES,jbas)
-                        end do
-                     end do
-
-                  else
-                     do J1 = J1min,J1max,2
-                        if ((d==b).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
-                           if ((c==a).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{dbca}
-                           V = -1*prefac_1234* ninej(RES%xindx,jd,ja,J3,jb,jc,J4,J1,J2,rank)&
-                                * LCC%herm * Yelem 
-                           call add_elem_to_tensor(V,d,b,a,c,J1,J2,RES,jbas)               
-
-                        end do
-                     end do
-
-                     do J1 = J2min,J2max,2
-                        if ((a==c).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
-                           if ((b==d).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{dbca}
-                           V = prefac_1234* ninej(RES%xindx,ja,jd,J3,jc,jb,J4,J1,J2,rank)&
-                                *phase_abcd*phase_34*(-1)**(rank/2)* RCC%herm * Yelem
-                           call add_elem_to_tensor(V,a,c,d,b,J1,J2,RES,jbas)               
-
-                        end do
-                     end do
-                     !do nothing
-                  end if
-               else 
-                  if ( a .ge. c ) then 
-
-                     do J1 = J1min,J1max,2
-                        if ((b==d).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
-                           if ((a==c).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           V = -1*prefac_1234  * ninej(RES%xindx,jd,ja,J3,jb,jc,J4,J1,J2,rank) &
-                                * phase_abcd*(-1)**((J1+J2)/2) * LCC%herm * Yelem 
-
-                           call add_elem_to_tensor(V,b,d,c,a,J1,J2,RES,jbas)               
-                        end do
-                     end do
-
-                     do J1 = J2min,J2max,2
-                        if ((c==a).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
-                           if ((b==d).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           V = prefac_1234  * ninej(RES%xindx,ja,jd,J3,jc,jb,J4,J1,J2,rank) &
-                                * (-1)**((J1+J2+rank)/2) * phase_34 * RCC%herm * Yelem
-
-                           call add_elem_to_tensor(V,c,a,b,d,J1,J2,RES,jbas)               
-                        end do
-                     end do
-
-                  else
-                     do J1 = J1min,J1max,2
-                        if ((b==d).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J2min,abs(rank-J1)),min(J2max,rank+J1),2 
-                           if ((a==c).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{bdac}
-                           V = prefac_1234 * ninej(RES%xindx,jd,ja,J3,jb,jc,J4,J1,J2,rank) &
-                                * (-1)**((jb+jd+J1)/2) * LCC%herm *Yelem
-                           call add_elem_to_tensor(V,b,d,a,c,J1,J2,RES,jbas)               
-                        end do
-                     end do
-
-                     do J1 = J2min,J2max,2
-                        if ((a==c).and.(mod(J1/2,2)==1)) cycle
-                        prefac_134 = prefac_34 * sqrt((J1+1.d0))
-                        do J2 = max(J1,J1min,abs(J1-rank)),min(J1max,J1+rank),2 
-                           if ((d==b).and.(mod(J2/2,2)==1)) cycle
-                           prefac_1234 = prefac_134 * sqrt((J2+1.d0))
-
-                           !V^{J1 J2}_{acbd}
-                           V = prefac_1234 * ninej(RES%xindx,ja,jd,J3,jc,jb,J4,J1,J2,rank) &
-                                * (-1)**((ja-jc+J2+rank)/2) * phase_34 * RCC%herm *Yelem
-
-                           call add_elem_to_tensor(V,a,c,b,d,J1,J2,RES,jbas)               
-                        end do
-                     end do
-
-
-                  end if
-               end if
-            end if
+                  end do
+                  deallocate(PANDYA_B,PANDYA_AB,qn_J4)   
+               end do
+               deallocate(PANDYA_A,qn_J3,qn_J3_ph)                
+            end do
          end do
-      end do
 
-      deallocate(Wx,Wy)
+      end do
    end do
-end subroutine operator_commutator_222_ph
+   
+ end subroutine operator_commutator_222_ph
 !=================================================================
 !=================================================================
 real(8) function operator_commutator_223_single(L,R,ip,iq,ir,is,it,iu,jtot1,jtot2,Jpq,Jst,jbas)

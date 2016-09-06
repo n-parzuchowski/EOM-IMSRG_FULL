@@ -784,7 +784,7 @@ subroutine add_elem_to_ladder(V,a,b,c,d,J1,J2,op,jbas)
 
 
   !make sure the matrix element exists first
- 
+
   rank = op%rank 
   
   fail_c = .true. 
@@ -831,13 +831,14 @@ subroutine add_elem_to_ladder(V,a,b,c,d,J1,J2,op,jbas)
 
   ! right now i1 and i2 still refer to where the pair is located
   ! in the rank zero qn storage
+
   !$OMP ATOMIC
   op%tblck(q)%Xpphh(i1,i2) = op%tblck(q)%Xpphh(i1,i2) + V *pre 
     
 end subroutine add_elem_to_ladder
 !==================================================================  
 !==================================================================
-subroutine add_elem_to_iso_op_elem(V,a,b,c,d,J1,J2,op,jbas) 
+subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas) 
   ! not safe
   implicit none
   
@@ -853,7 +854,6 @@ subroutine add_elem_to_iso_op_elem(V,a,b,c,d,J1,J2,op,jbas)
   !make sure the matrix element exists first
  
   rank = op%rank
-
   if ( .not. (triangle ( J1,J2,rank ))) then 
      print*, 'cock' 
      return
@@ -924,10 +924,14 @@ subroutine add_elem_to_iso_op_elem(V,a,b,c,d,J1,J2,op,jbas)
 
    If (C1>C2) qx = qx + tensor_adjust(qx)       
 
+   if ((a==4) .and. (b==7) .and. (c==4) .and. (d==7) .and.( J1==2).and.(J2==2)) then
+      print*, V
+   end if
+ 
    ! right now i1 and i2 still refer to where the pair is located
    op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V * pre
     
- end subroutine add_elem_to_iso_op_elem
+ end subroutine add_elem_to_iso_op
 !=================================================================     
 !=================================================================
 real(8) function f_iso_ladder_elem(a,b,op,jbas) 
@@ -1024,6 +1028,43 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
 
    count_dTz_configs = r1 
  end function count_dTz_configs
+!===================================================================================
+!===================================================================================
+ real(8) function count_iso_op_configs(J1,Tz,PAR,jbas,ph,qn)
+  implicit none
+   
+   type(spd) :: jbas
+   integer :: J1,Tz,PAR,i,j,ji,jj,NX,r1
+   integer,optional,dimension(:,:) :: qn 
+   logical,intent(in) :: ph 
+   
+   NX = jbas%total_orbits
+   r1 = 0
+   do i = 1, NX
+      do j = 1,NX 
+         
+         ji = jbas%jj(i) 
+         jj = jbas%jj(j) 
+         if (abs(jbas%itzp(i) - jbas%itzp(j)) .ne. Tz ) cycle 
+         if ( mod(jbas%ll(i) + jbas%ll(j),2) == PAR ) then
+            if (triangle(ji,jj,J1)) then 
+               
+               if (ph) then 
+                  if ( (jbas%con(i) + jbas%con(j) .ne. 1)) cycle 
+               end if
+                              
+               r1 = r1+1                       
+               if (present(qn)) then
+                  qn(r1,1) = i
+                  qn(r1,2) = j
+               end if
+            end if
+         end if
+      end do
+   end do
+
+   count_iso_op_configs = r1 
+ end function count_iso_op_configs
 !=======================================================================
 !=======================================================================
  subroutine fill_generalized_oppandya_matrix(J1,J2,MAT,qn1,qn2,OP,jbas)
@@ -1035,7 +1076,7 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
    type(iso_operator) :: OP 
    integer,dimension(:,:) :: qn1,qn2
    real(8),dimension(:,:) :: MAT
-   integer :: a,b,c,d,J1,J2,N1,N2,II,JJ
+   integer :: a,b,c,d,J1,J2,N1,N2,II,JJ,p,h 
 
    N1  = size(MAT(:,1))
    N2  = size(MAT(1,:))   
@@ -1045,10 +1086,19 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
 
          a=qn1(II,1)
          b=qn1(II,2)
+
+         if ( jbas%con(a) == 1) then
+            h = a
+            p = b
+         else
+            h = B
+            p = a
+         end if
+         
          c=qn2(JJ,2)
          d=qn2(JJ,1)
 
-         MAT(II,JJ) = Voppandya(a,b,c,d,J1,J2,Op,jbas)
+         MAT(II,JJ) = Voppandya(h,p,c,d,J1,J2,Op,jbas)
 
       end do
    end do
@@ -1116,7 +1166,46 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
  end subroutine fill_cc_matrix
 !=========================================================
 !=========================================================
-real(8) function Visopandya(a,d,c,b,J1,J2,Op,jbas)
+ subroutine fill_rectangle_cc_matrix(J1,MAT,qn1,qn2,OP,jbas)
+   ! CALCULATES THE CROSS GENERALIZED PANDYA MATRIX ELEMENTS OF
+   ! OP FOR A GIVEN CHANNEL
+   implicit none
+
+   type(spd) :: jbas
+   type(sq_op) :: OP 
+   integer,dimension(:,:) :: qn1,qn2
+   real(8),dimension(:,:) :: MAT
+   integer :: a,b,c,d,J1,N1,N2,II,JJ,p,h
+
+   N1  = size(MAT(:,1))
+   N2  = size(MAT(1,:))   
+
+   do JJ = 1,N2
+      do II = 1,N1
+
+         a=qn1(II,1)
+         b=qn1(II,2)
+         c=qn2(JJ,2)
+         d=qn2(JJ,1)
+
+         if ( jbas%con(c) == 1) then
+            h = c
+            p = d
+         else
+            h = d
+            p = c
+         end if
+
+
+         MAT(II,JJ) = VCC(a,b,p,h,J1,Op,jbas)
+
+      end do
+   end do
+   
+ end subroutine fill_rectangle_cc_matrix
+!=========================================================
+!=========================================================
+ real(8) function Visopandya(a,d,c,b,J1,J2,Op,jbas)
   ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
   implicit none 
   
