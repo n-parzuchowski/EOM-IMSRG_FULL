@@ -855,7 +855,7 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
  
   rank = op%rank
   if ( .not. (triangle ( J1,J2,rank ))) then 
-     print*, 'cock' 
+     print*, 'cock1' 
      return
   end if 
    
@@ -866,7 +866,7 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
   jd = jbas%jj(d)
   
   if ( .not. ((triangle(ja,jb,J1)) .and. (triangle (jc,jd,J2))) ) then 
-     print*, 'cock'
+     print*, 'cock2'
      return
   end if
      
@@ -878,7 +878,7 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
   P = mod(la + lb,2) 
      
   if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
-    print*, 'cock' 
+    print*, 'cock3' 
     return
   end if 
         
@@ -890,7 +890,7 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
   T = (ta + tb)/2
      
   if ((tc+td) .ne. 2*(T-op%dTz)) then     
-    print*, 'cock'
+    print*, 'cock4'
     return
   end if 
 
@@ -905,7 +905,7 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
   qx = C1*C2
   qx = qx + adjust_index(qx)   !Vpppp nature  
 
-  pre = 1 
+  pre = 1.d0 
   
   N = op%Nsp
   
@@ -924,9 +924,9 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
 
    If (C1>C2) qx = qx + tensor_adjust(qx)       
 
-   if ((a==4) .and. (b==7) .and. (c==4) .and. (d==7) .and.( J1==2).and.(J2==2)) then
-      print*, V
-   end if
+   ! if ((a==4) .and. (b==7) .and. (c==4) .and. (d==7) .and.( J1==2).and.(J2==2)) then
+   !    print*, V
+   ! end if
  
    ! right now i1 and i2 still refer to where the pair is located
    op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V * pre
@@ -1050,7 +1050,7 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
             if (triangle(ji,jj,J1)) then 
                
                if (ph) then 
-                  if ( (jbas%con(i) + jbas%con(j) .ne. 1)) cycle 
+                  if ( (jbas%con(i) - jbas%con(j) .ne. 1)) cycle 
                end if
                               
                r1 = r1+1                       
@@ -1091,12 +1091,12 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
             h = a
             p = b
          else
-            h = B
+            h = b
             p = a
          end if
          
-         c=qn2(JJ,2)
-         d=qn2(JJ,1)
+         c=qn2(JJ,1)
+         d=qn2(JJ,2)
 
          MAT(II,JJ) = Voppandya(h,p,c,d,J1,J2,Op,jbas)
 
@@ -1264,7 +1264,7 @@ real(8) function Voppandya(a,d,c,b,J1,J2,Op,jbas)
   j4max = jc+jd  
   
   sm = 0.d0 
-  
+
   do J3 = j3min,j3max,2
      do J4 = j4min,j4max,2 
      sm = sm - sqrt((J1+1.d0)*(J2+1.d0) &

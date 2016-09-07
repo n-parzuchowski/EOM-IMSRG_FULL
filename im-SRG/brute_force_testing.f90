@@ -1138,10 +1138,14 @@ subroutine test_scalar_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
      call random_number(yy)
      call random_number(zz)
         
-     a = 4!ceiling(vv*AA%Nsp)
-     b = 7!ceiling(xx*AA%Nsp)
-     c = 4!ceiling(yy*AA%Nsp)
-     d = 7!ceiling(zz*AA%Nsp)
+     a = ceiling(vv*AA%Nsp)
+     b = ceiling(xx*AA%Nsp)
+     c = ceiling(yy*AA%Nsp)
+     d = ceiling(zz*AA%Nsp)
+     ! a = 4!ceiling(vv*AA%Nsp)
+     ! b = 7!ceiling(xx*AA%Nsp)
+     ! c = 4!ceiling(yy*AA%Nsp)
+     ! d = 7!ceiling(zz*AA%Nsp)
      
      ja = jbas%jj(a) 
 !     do b = 7, jbas%total_orbits
@@ -1169,7 +1173,7 @@ subroutine test_scalar_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
                     if (.not. (triangle(J1,J2,rank))) cycle
                     
                     val = scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
-                                  
+                    print*, a,b,c,d, 'J:', J1,J2 ,val,iso_op_elem(a,b,c,d,J1,J2,OUT,jbas)                       
                     if (abs(val-iso_op_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
                        print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,iso_op_elem(a,b,c,d,J1,J2,OUT,jbas)                       
 !                       print*, 'FAIL'
@@ -2939,7 +2943,8 @@ real(8) function scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   type(sq_op) :: AA
   type(iso_operator) :: BB 
   real(8) :: sm,coef9,d6ji,pre,ass,smx,sm1,sm2,sm3,sm4
-
+  real(8) :: m1,m2,m3,m4
+  
   rank = BB%rank  
   sm = 0.d0 
   JTM = jbas%jtotal_max*2
@@ -3044,6 +3049,9 @@ real(8) function scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
         smx = 0.d0 
         sm1=0.d0;sm2=0.d0
         sm3=0.d0;sm4=0.d0
+        m1=0.d0;m2=0.d0
+        m3=0.d0;m4=0.d0
+        
         do i = 1, jbas%total_orbits
            ji = jbas%jj(i)
            do j = 1, jbas%total_orbits
@@ -3061,7 +3069,15 @@ real(8) function scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
                    sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
                    coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)* &
                    vcc(a,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,b,J3,J4,BB,jbas)
-              
+
+              m1= m1 -(jbas%con(i)-jbas%con(j))*&                  
+                   sqrt((J3+1.d0)*(J4+1.d0))*&
+                   vcc(a,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,b,J3,J4,BB,jbas)
+              ! if ( (jbas%con(i)-jbas%con(j)) ==1 ) then 
+              !    if (abs( vcc(a,d,j,i,J3,AA,jbas) *  Voppandya(i,j,c,b,J3,J4,BB,jbas) ) > 1e-10) then 
+              !       print*, i,j, vcc(a,d,j,i,J3,AA,jbas) ,  Voppandya(i,j,c,b,J3,J4,BB,jbas) 
+              !    end if
+              ! end if              
               ! RAGNAR's expression 'cows'
               ! sm = sm + (jbas%con(i)-jbas%con(j))*&
               !      (-1)**((jb+jd+J2+J4)/2) * &
@@ -3075,21 +3091,40 @@ real(8) function scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
                    coef9(jb,jd,J3,ja,jc,J4,J1,J2,rank)* &
                    vcc(b,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,a,J3,J4,BB,jbas)
 
+              m2 =  m2- (jbas%con(i)-jbas%con(j))*&
+                   sqrt((J3+1.d0)*(J4+1.d0))*&                   
+                   vcc(b,d,j,i,J3,AA,jbas) * Voppandya(i,j,c,a,J3,J4,BB,jbas)
+
               sm3 = sm3 + (jbas%con(i)-jbas%con(j))*&
                    (-1)**((jc+jd+J1+J3+J4)/2) * &
                    sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
                    coef9(jb,jc,J3,ja,jd,J4,J1,J2,rank)* &
                    vcc(b,c,j,i,J3,AA,jbas) * Voppandya(i,j,d,a,J3,J4,BB,jbas)
 
+              m3 = m3 + (jbas%con(i)-jbas%con(j))*&                   
+                   sqrt((J3+1.d0)*(J4+1.d0))*&
+                   vcc(b,c,j,i,J3,AA,jbas) * Voppandya(i,j,d,a,J3,J4,BB,jbas)
+                            
               sm4 = sm4 - (jbas%con(i)-jbas%con(j))*&
                    (-1)**((ja+jb+jc+jd+J3+J4)/2) * &
                    sqrt((J1+1.d0)*(J2+1.d0)*(J3+1.d0)*(J4+1.d0))*&
                    coef9(ja,jc,J3,jb,jd,J4,J1,J2,rank)* &
                    vcc(a,c,j,i,J3,AA,jbas) * Voppandya(i,j,d,b,J3,J4,BB,jbas)
-              
+
+              m4 = m4 - (jbas%con(i)-jbas%con(j))*&                   
+                   sqrt((J3+1.d0)*(J4+1.d0))*&
+                   vcc(a,c,j,i,J3,AA,jbas) * Voppandya(i,j,d,b,J3,J4,BB,jbas)
+                            
              
            end do
         end do
+   
+ !       if (abs(sm1) > 1e-10 ) print*, '1',sm1,m1, (-1)**((ja-jb+J2+J3+J4)/2) * &
+  !                 sqrt((J1+1.d0)*(J2+1.d0))*coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)
+                                      
+!        if (abs(sm2) > 1e-10 ) print*, '2',sm2,m2
+!        if (abs(sm3) > 1e-10 ) print*, '4',sm3,m3
+  !      if (abs(sm4) > 1e-10 ) print*, '3',sm4,m4
         smx = sm1+sm2+sm3+sm4
         sm = sm + smx
 
