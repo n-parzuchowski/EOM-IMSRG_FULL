@@ -854,10 +854,6 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
   !make sure the matrix element exists first
  
   rank = op%rank
-  if ( .not. (triangle ( J1,J2,rank ))) then 
-     print*, 'cock1' 
-     return
-  end if 
    
   fail_c = .true. 
   ja = jbas%jj(a)
@@ -865,10 +861,6 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
   jc = jbas%jj(c)
   jd = jbas%jj(d)
   
-  if ( .not. ((triangle(ja,jb,J1)) .and. (triangle (jc,jd,J2))) ) then 
-     print*, 'cock2'
-     return
-  end if
      
   la = jbas%ll(a)
   lb = jbas%ll(b)
@@ -877,10 +869,6 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
 
   P = mod(la + lb,2) 
      
-  if ( mod(lc + ld,2) .ne. abs(P - ((-1)**(op%dpar/2+1)+1)/2) ) then
-    print*, 'cock3' 
-    return
-  end if 
         
   ta = jbas%itzp(a)
   tb = jbas%itzp(b)
@@ -889,10 +877,6 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
      
   T = (ta + tb)/2
      
-  if ((tc+td) .ne. 2*(T-op%dTz)) then     
-    print*, 'cock4'
-    return
-  end if 
 
   q = iso_ladder_block_index(J1,J2,rank,T,P) 
   
@@ -922,13 +906,10 @@ subroutine add_elem_to_iso_op(V,a,b,c,d,J1,J2,op,jbas)
  
   ! grab the matrix element
 
-   If (C1>C2) qx = qx + tensor_adjust(qx)       
-
-   ! if ((a==4) .and. (b==7) .and. (c==4) .and. (d==7) .and.( J1==2).and.(J2==2)) then
-   !    print*, V
-   ! end if
- 
+  If (C1>C2) qx = qx + tensor_adjust(qx)
+  
    ! right now i1 and i2 still refer to where the pair is located
+   !$OMP ATOMIC
    op%tblck(q)%tgam(qx)%X(i1,i2) = op%tblck(q)%tgam(qx)%X(i1,i2) + V * pre
     
  end subroutine add_elem_to_iso_op
@@ -1067,7 +1048,7 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
  end function count_iso_op_configs
 !=======================================================================
 !=======================================================================
- subroutine fill_generalized_oppandya_matrix(J1,J2,MAT,qn1,qn2,OP,jbas)
+ subroutine fill_generalized_oppandya_matrix(J1,J2,MAT,qn1,qn2,OP,jbas,hp)
    ! CALCULATES THE CROSS GENERALIZED PANDYA MATRIX ELEMENTS OF
    ! OP FOR A GIVEN CHANNEL
    implicit none
@@ -1076,7 +1057,8 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
    type(iso_operator) :: OP 
    integer,dimension(:,:) :: qn1,qn2
    real(8),dimension(:,:) :: MAT
-   integer :: a,b,c,d,J1,J2,N1,N2,II,JJ,p,h 
+   integer :: a,b,c,d,J1,J2,N1,N2,II,JJ,p,h
+   logical :: hp
 
    N1  = size(MAT(:,1))
    N2  = size(MAT(1,:))   
@@ -1098,8 +1080,11 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
          c=qn2(JJ,1)
          d=qn2(JJ,2)
 
-         MAT(II,JJ) = Voppandya(h,p,c,d,J1,J2,Op,jbas)
-
+         if (hp) then 
+            MAT(II,JJ) = Voppandya(h,p,c,d,J1,J2,Op,jbas)
+         else
+            MAT(II,JJ) = Voppandya(p,h,c,d,J1,J2,Op,jbas)
+         end if
       end do
    end do
    
@@ -1166,9 +1151,11 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
  end subroutine fill_cc_matrix
 !=========================================================
 !=========================================================
- subroutine fill_rectangle_cc_matrix(J1,MAT,qn1,qn2,OP,jbas)
+ subroutine fill_rectangle_cc_matrix(J1,MAT,qn1,qn2,OP,jbas,ph)
    ! CALCULATES THE CROSS GENERALIZED PANDYA MATRIX ELEMENTS OF
    ! OP FOR A GIVEN CHANNEL
+   ! ph is true if the summing channel is arranged "ph", else
+   ! it should be "hp" 
    implicit none
 
    type(spd) :: jbas
@@ -1176,6 +1163,7 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
    integer,dimension(:,:) :: qn1,qn2
    real(8),dimension(:,:) :: MAT
    integer :: a,b,c,d,J1,N1,N2,II,JJ,p,h
+   logical :: ph 
 
    N1  = size(MAT(:,1))
    N2  = size(MAT(1,:))   
@@ -1197,8 +1185,12 @@ real(8) function count_dTz_configs(J1,Tz,PAR,jbas,ph,qn)
          end if
 
 
-         MAT(II,JJ) = VCC(a,b,p,h,J1,Op,jbas)
-
+         if (ph) then
+            MAT(II,JJ) = VCC(a,b,p,h,J1,Op,jbas)
+         else
+            MAT(II,JJ) = VCC(a,b,h,p,J1,Op,jbas)
+         end if
+         
       end do
    end do
    

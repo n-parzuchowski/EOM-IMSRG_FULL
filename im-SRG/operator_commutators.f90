@@ -1134,6 +1134,7 @@ end subroutine operator_commutator_222_pp_hh
    type(iso_operator) :: RES,R
    type(sq_op) :: L
    real(8),allocatable,dimension(:,:) :: PANDYA_A,PANDYA_B,PANDYA_AB
+   real(8),allocatable,dimension(:,:) :: PANDYA_revA,PANDYA_revB,PANDYA_revAB
    integer,allocatable,dimension(:,:) :: qn_J3,qn_J4,qn_J3_ph
    integer :: nh,np,nb1,nb2,q,IX,JX,r1,r2,Tz,PAR,JTM,q1,q2,J3,J4,rank,a,b,c,d
    integer :: ta,tb,tc,td,la,lb,lc,ld,n1,n2,c1,c2,jxstart,J4min,J4max,ja,jb,jc,jd
@@ -1167,11 +1168,11 @@ end subroutine operator_commutator_222_pp_hh
          J4min = abs(rank -J3)
          J4max = min(rank + J3,JTM)
          
-         do Tz1_cc = 0,2,2 ! this is the cross coupled TZ
+         do Tz1_cc = -2,2,2 ! this is the cross coupled TZ
             Tz2_cc = abs(Tz1_cc - abs(R%dTz*2))
             
             do PAR_J3 = 0,1
-               
+                  
                n_J3 = count_iso_op_configs( J3 ,Tz1_cc, PAR_J3 , jbas, .false. ) !boolean true: ph, false: all configs
                n_J3_ph = count_iso_op_configs( J3 ,Tz1_cc, PAR_J3 , jbas, .true. ) 
                if (n_J3*n_J3_ph == 0) cycle
@@ -1179,14 +1180,17 @@ end subroutine operator_commutator_222_pp_hh
                allocate(qn_J3(n_J3,2),qn_J3_ph(n_J3_ph,2)) 
                n_J3 = count_iso_op_configs( J3 ,Tz1_cc, PAR_J3 , jbas, .false.,qn_J3) ! this fills the cc- basis descriptor
                n_J3_ph = count_iso_op_configs( J3 ,Tz1_cc, PAR_J3 , jbas, .true.,qn_J3_ph)
-               
-               allocate(PANDYA_A(n_J3, n_J3_ph) )
-               PANDYA_A = 0.d0 
 
-               call fill_rectangle_cc_matrix(J3,PANDYA_A,qn_J3,qn_J3_ph,L,jbas)
+               allocate(PANDYA_A(n_J3, n_J3_ph) )
+               allocate(PANDYA_revA(n_J3, n_J3_ph) )
+               PANDYA_A = 0.d0
+               PANDYA_revA = 0.d0
+
+               call fill_rectangle_cc_matrix(J3,PANDYA_A,qn_J3,qn_J3_ph,L,jbas,.true.)  !boolean (true: sum over ph , false: hp) 
+               call fill_rectangle_cc_matrix(J3,PANDYA_revA,qn_J3,qn_J3_ph,L,jbas,.false.)
                
                PAR_J4 = mod(PAR_J3 + R%dpar/2,2)
-               
+
                do J4 = J4min,J4max ,2
 
                   n_J4 = count_iso_op_configs( J4 ,Tz2_cc, PAR_J4 , jbas, .false. )
@@ -1195,15 +1199,23 @@ end subroutine operator_commutator_222_pp_hh
                   n_J4 = count_iso_op_configs( J4 ,Tz2_CC, PAR_J4 , jbas, .false.,qn_J4)
                   
                   allocate( PANDYA_B( n_J3_ph, n_J4) )
+                  allocate( PANDYA_revB( n_J3_ph, n_J4) )
+
                   allocate( PANDYA_AB( n_J3, n_J4) )
+                  allocate( PANDYA_revAB( n_J3, n_J4) )
+                  
                   PANDYA_B = 0.d0
-
-                  call fill_generalized_oppandya_matrix(J3,J4,PANDYA_B,qn_J3_ph,qn_J4,R,jbas)
-
-                  PANDYA_AB = 0.d0 
+                  PANDYA_revB = 0.d0
+                  
+                  call fill_generalized_oppandya_matrix(J3,J4,PANDYA_B,qn_J3_ph,qn_J4,R,jbas,.true.)!boolean (true: sum over hp , false: ph)  
+                  call fill_generalized_oppandya_matrix(J3,J4,PANDYA_revB,qn_J3_ph,qn_J4,R,jbas,.false.)
+                  
+                  PANDYA_AB = 0.d0
+                  PANDYA_revAB = 0.d0 
                   al_off =  sqrt((J3+1.d0)*(J4+1.d0)) 
 
-                  call dgemm('N','N',n_J3,n_J4,n_J3_ph,al_off,PANDYA_A,n_J3,PANDYA_B,n_J3_ph,bet,PANDYA_AB,n_J3) 
+                  call dgemm('N','N',n_J3,n_J4,n_J3_ph,al_off,PANDYA_A,n_J3,PANDYA_B,n_J3_ph,bet,PANDYA_AB,n_J3)
+                  call dgemm('N','N',n_J3,n_J4,n_J3_ph,al_off,PANDYA_revA,n_J3,PANDYA_revB,n_J3_ph,bet,PANDYA_revAB,n_J3) 
 
                   do JX = 1,n_J4
 
@@ -1222,9 +1234,6 @@ end subroutine operator_commutator_222_pp_hh
                      do IX = 1, n_J3 
 
                         ! GET BRA
-                       ! c = qn_J3(IX,1)
-                       ! b = qn_J3(IX,2)
-
                         a = qn_J3(IX,1)
                         d = qn_J3(IX,2)
 
@@ -1235,10 +1244,15 @@ end subroutine operator_commutator_222_pp_hh
                         ja = jbas%jj(a)
                         la = jbas%ll(a)
                         ta = jbas%itzp(a)
-                        if ( mod(la +lb,2).ne. mod(lc+ld+RES%dpar/2,2) ) cycle
-                        if ( (ta +tb)-2*R%dTz ==  (tc+td) ) then 
 
-                                         
+                        if ( mod(la +lb,2).ne. mod(lc+ld+RES%dpar/2,2) ) cycle
+                        Xelem = PANDYA_AB(IX,JX)-PANDYA_revAB(IX,JX)
+
+                        if (abs(Xelem) > 1e-6) then
+
+                        if ( (ta +tb)-2*R%dTz  ==  (tc+td) ) then 
+
+                           
                         ! CALCULATE X CONTRIBUTIONS
 
                         J1min = abs(ja-jb)
@@ -1248,11 +1262,11 @@ end subroutine operator_commutator_222_pp_hh
                         J2max = jc+jd 
                         
                         ! these are the results of the Matmuls 
-                        Xelem = PANDYA_AB(IX,JX)                        
+                        
 
                         phase_abcd= (-1)**((ja+jb+jc+jd)/2)
                         
-                        if (abs(Xelem) > 1e-6) then 
+                        
 
                            do J1 = J1min,J1max,2
                               if ((a==b).and.(mod(J1/2,2)==1)) cycle
@@ -1260,8 +1274,7 @@ end subroutine operator_commutator_222_pp_hh
                               do J2 = max(J2min,abs(rank-J1)),min(J2max,rank+J1),2 
                                  if ((c==d).and.(mod(J2/2,2)==1)) cycle
 
-                                 nj1 =coef9(ja,jd,J3,jb,jc,J4,J1,J2,rank)
-                                 !ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,rank)
+                                 nj1 = ninej(RES%xindx,ja,jd,J3,jb,jc,J4,J1,J2,rank)
 
                                  prefac_12 =  sqrt((J1+1.d0)*(J2+1.d0))
                                        
@@ -1272,20 +1285,11 @@ end subroutine operator_commutator_222_pp_hh
                                        
                                        ! V^{J1 J2}_{abcd} 
                                        V = prefac_12* nj1 * (-1)**((ja+jb+J2+J3+J4)/2) * Xelem
-                                       if (( a==4).and.(b==5).and.(c==9).and.(d==10).and.(J1==4).and.(J2==0)) then
-!                                          print*, 'dick'
- !                                         if (abs(V)>1e-10)  print*, '1', V,Xelem,prefac_12*nj1*(-1)**((ja+jb+J2+J3+J4)/2)
-                                       end if 
                                        call add_elem_to_iso_op(V,a,b,c,d,J1,J2,RES,jbas) 
-                                       
-
+                                      
                                     else
 
                                        V = prefac_12* nj1 * (-1)**((ja-jb+jc+jd+J3+J4)/2) * Xelem 
-                                       if (( a==4).and.(b==5).and.(d==9).and.(c==10).and.(J1==4).and.(J2==0)) then
-  !                                        print*, 'dick'
-   !                                       if (abs(V)>1e-10) print*, '2', V,Xelem
-                                       end if 
                                        call add_elem_to_iso_op(V,a,b,d,c,J1,J2,RES,jbas)
                                     end if
 
@@ -1294,19 +1298,11 @@ end subroutine operator_commutator_222_pp_hh
                                     if (d .ge. c) then
                                        
                                        V = -1*prefac_12* nj1 * (-1)**((J1+J2+J3+J4)/2) * Xelem 
-                                       if (( b==4).and.(a==5).and.(c==9).and.(d==10).and.(J1==4).and.(J2==0)) then
-    !                                      print*, 'dick'
-     !                                     if (abs(V)>1e-10) print*, '3', V,Xelem
-                                       end if 
                                        call add_elem_to_iso_op(V,b,a,c,d,J1,J2,RES,jbas)
 
                                     else
                                        
                                        V = prefac_12* nj1 * (-1)**((jc+jd+J1+J3+J4)/2) * Xelem 
-                                       if (( b==4).and.(a==5).and.(d==9).and.(c==10).and.(J1==4).and.(J2==0)) then
-      !                                    print*, 'dick'
-       !                                   if (abs(V)>1e-10) print*, '4', V,Xelem
-                                       end if 
                                        call add_elem_to_iso_op(V,b,a,d,c,J1,J2,RES,jbas)
 
                                     end if
@@ -1317,74 +1313,18 @@ end subroutine operator_commutator_222_pp_hh
                            end do
 
                         end if
-                        if ( (ta +tb)+2*R%dTz ==  (tc+td) ) then 
-                                 
-                           do J1 = J2min,J2max,2
-                              if ((c==d).and.(mod(J1/2,2)==1)) cycle
-                              
-                              do J2 = max(J1min,abs(rank-J1)),min(J1max,rank+J1),2 
-                                 if ((a==b).and.(mod(J2/2,2)==1)) cycle
-                                 nj2 = ninej(RES%xindx,jd,ja,J3,jc,jb,J4,J1,J2,rank) 
-                                 prefac_12 =  sqrt((J1+1.d0)*(J2+1.d0))
-                                 
-                                 if (b .ge. a) then 
-                                    if (d .ge. c) then 
-                                 
-                                       ! CALCULATE V^{J1 J2}_{abcd} and V^{J1 J2}_{cdab}
-
-                                       V = prefac_12* nj2 * (-1)**((jc-jd+J1+rank)/2) * Xelem * herm 
-                                       if (( c==4).and.(d==5).and.(a==9).and.(b==10).and.(J1==2).and.(J2==2)) then                                      
-                                          !if (abs(V)>1e-10)  print*, '1', V,Xelem
-                                       end if
                                        
-                                       call add_elem_to_iso_op(V,c,d,a,b,J1,J2,RES,jbas) 
-                                    else
-
-                                       V = prefac_12* nj2 * (-1)**(rank/2) * Xelem * herm
-                                       if (( d==4).and.(c==5).and.(a==9).and.(b==10).and.(J1==2).and.(J2==2)) then                                      
-!                                          if (abs(V)>1e-10)  print*, '2', V,Xelem
-                                       end if                                       
-                                       call add_elem_to_iso_op(V,d,c,a,b,J1,J2,RES,jbas) 
-                                    end if
-
-                                 else
-
-                                    if (d .ge. c) then
-
-                                       V = prefac_12* nj2 * (-1)**((ja+jb+jc+jd+J2+J1+rank)/2) * Xelem * herm 
-                                       if (( c==4).and.(d==5).and.(b==9).and.(a==10).and.(J1==2).and.(J2==2)) then                                      
-                                       !   if (abs(V)>1e-10)  print*, '3', V,Xelem
-                                       end if
-                                       call add_elem_to_iso_op(V,c,d,b,a,J1,J2,RES,jbas) 
-
- 
-                                    else
-
-                                       V = prefac_12* nj2 * (-1)**((ja-jb+J2+rank)/2) * Xelem * herm 
-                                       if (( d==4).and.(c==5).and.(b==9).and.(a==10).and.(J1==2).and.(J2==2)) then                                      
-                                          !if (abs(V)>1e-10)  print*, '4', V,Xelem,prefac_12* nj2 * (-1)**((jc-jd+J2+rank)/2) * herm 
-                                       end if
-                                       call add_elem_to_iso_op(V,d,c,b,a,J1,J2,RES,jbas) 
-
-                                       
-                                    end if
-
-                                 end if
-                                 
-                              end do
-                           end do
-                        end if
-                                 
-
-                                       
-                        end if
+                     end if
                      end do
                   end do
                   q = q+ 1 
-                  deallocate(PANDYA_B,PANDYA_AB,qn_J4)   
+                  deallocate(PANDYA_B,PANDYA_AB,qn_J4)
+                  deallocate(PANDYA_revB,PANDYA_revAB)   
                end do
                deallocate(PANDYA_A,qn_J3,qn_J3_ph)                
+               deallocate(PANDYA_revA)                
             end do
+
          end do
 
       end do

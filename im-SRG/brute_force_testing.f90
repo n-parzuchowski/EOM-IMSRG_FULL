@@ -1069,7 +1069,7 @@ subroutine test_scalar_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
   real(8) :: val,t1,t2,t3,t4,t5,t6,t7,omp_get_wtime
   real(8) :: vv,xx,yy,zz
     
-!  call seed_random_number
+  call seed_random_number
   
   BB%rank = rank
   BB%dpar = dpar
@@ -1095,38 +1095,38 @@ subroutine test_scalar_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
 !  call calculate_cross_coupled(AA,AACC,jbas) 
 
   ! siete 
-  ! call operator_commutator_111(AA,BB,OUT,jbas) 
-  ! call operator_commutator_121(AA,BB,OUT,jbas)
-  ! call operator_commutator_211(AA,BB,OUT,jbas) 
+  call operator_commutator_111(AA,BB,OUT,jbas) 
+  call operator_commutator_121(AA,BB,OUT,jbas)
+  call operator_commutator_211(AA,BB,OUT,jbas) 
   
-  ! call operator_commutator_122(AA,BB,OUT,jbas)
-  ! call operator_commutator_212(AA,BB,OUT,jbas)
+  call operator_commutator_122(AA,BB,OUT,jbas)
+  call operator_commutator_212(AA,BB,OUT,jbas)
   
-  ! call operator_commutator_222_pp_hh(AA,BB,OUT,jbas)   
+  call operator_commutator_222_pp_hh(AA,BB,OUT,jbas)   
 
   call operator_commutator_222_ph(AA,BB,OUT,jbas)
 
 !goto 12
-  ! do a =  1, jbas%total_orbits
-!      do b = 1, jbas%total_orbits
-!         !   do iii = 1, 50   
-!      !     call random_number(vv)
-!       !    call random_number(yy)
+  do a =  1, jbas%total_orbits
+     do b = 1, jbas%total_orbits
+        !   do iii = 1, 50   
+     !     call random_number(vv)
+      !    call random_number(yy)
           
-! !          a = ceiling(vv*(AA%Nsp))
-!  !         b = ceiling(yy*(AA%Nsp))
+!          a = ceiling(vv*(AA%Nsp))
+ !         b = ceiling(yy*(AA%Nsp))
           
-!         val = scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
+        val = scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
         
-!         if (abs(val-f_iso_op_elem(a,b,OUT,jbas)) > 1e-10) then
-!            print*, 'at: ',a,b
-!            print*, val, f_iso_op_elem(a,b,OUT,jbas)
-!            STOP 'ONE BODY FAILURE'  
-!         end if
+        if (abs(val-f_iso_op_elem(a,b,OUT,jbas)) > 1e-10) then
+           print*, 'at: ',a,b
+           print*, val, f_iso_op_elem(a,b,OUT,jbas)
+           STOP 'ONE BODY FAILURE'  
+        end if
         
-!         print*, 'success:', a,b,val
-!      end do
-!   end do
+        print*, 'success:', a,b,val
+     end do
+  end do
   
 ! ! 
 !  do a = 12, jbas%total_orbits
@@ -2955,44 +2955,44 @@ real(8) function scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
   jc = jbas%jj(c)
   jd = jbas%jj(d)
 
-!    do i = 1, totorb
-!       ji = jbas%jj(i)
+   do i = 1, totorb
+      ji = jbas%jj(i)
 
-!      sm = sm + f_elem(a,i,AA,jbas) * iso_op_elem( i,b,c,d,J1,J2,BB,jbas) &
-!           + f_elem(b,i,AA,jbas) * iso_op_elem( a,i,c,d,J1,J2,BB,jbas) &
-!           - f_elem(i,c,AA,jbas) * iso_op_elem( a,b,i,d,J1,J2,BB,jbas) &
-!           - f_elem(i,d,AA,jbas) * iso_op_elem( a,b,c,i,J1,J2,BB,jbas) 
+     sm = sm + f_elem(a,i,AA,jbas) * iso_op_elem( i,b,c,d,J1,J2,BB,jbas) &
+          + f_elem(b,i,AA,jbas) * iso_op_elem( a,i,c,d,J1,J2,BB,jbas) &
+          - f_elem(i,c,AA,jbas) * iso_op_elem( a,b,i,d,J1,J2,BB,jbas) &
+          - f_elem(i,d,AA,jbas) * iso_op_elem( a,b,c,i,J1,J2,BB,jbas) 
      
           
-!      sm = sm - f_iso_op_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
-!           * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
-!           sqrt( (J1+1.d0) * (J2+1.d0) ) &
+     sm = sm - f_iso_op_elem(a,i,BB,jbas) * v_elem( i,b,c,d,J2,AA,jbas) &
+          * d6ji(ji,jb,J2,J1,rank,ja) * (-1)**((ja+jb+rank-J2)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
      
-!           + f_iso_op_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
-!           * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
-!           sqrt( (J1+1.d0) * (J2+1.d0) ) &
+          + f_iso_op_elem(b,i,BB,jbas) * v_elem( i,a,c,d,J2,AA,jbas) &
+          * d6ji(ji,ja,J2,J1,rank,jb) * (-1)**((J1+J2+rank)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
 
-!           - f_iso_op_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
-!           *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
-!           sqrt( (J1+1.d0) * (J2+1.d0) ) &
+          - f_iso_op_elem(i,c,BB,jbas) * v_elem( a,b,d,i,J1,AA,jbas) &
+          *d6ji(ji,jc,rank,J2,J1,jd) * (-1)**((J1+J2+rank)/2) *  &
+          sqrt( (J1+1.d0) * (J2+1.d0) ) &
          
           
-!           + f_iso_op_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
-!           *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
-!           sqrt( (J1+1.d0) * (J2+1.d0) )
+          + f_iso_op_elem(i,d,BB,jbas) * v_elem( a,b,c,i,J1,AA,jbas) &
+          *d6ji( ji,jd,rank,J2,J1,jc) * (-1)**((jc+jd-J1+rank)/2) * &
+          sqrt( (J1+1.d0) * (J2+1.d0) )
      
-!     end do
+    end do
   
-! !cork
-!   do i = 1, totorb
-!      do j = 1, totorb
+
+  do i = 1, totorb
+     do j = 1, totorb
         
         
-!         sm = sm + 0.5*(1- jbas%con(i) - jbas%con(j)) *&
-!              (v_elem(a,b,i,j,J1,AA,jbas)*iso_op_elem(i,j,c,d,J1,J2,BB,jbas)   &
-!              - iso_op_elem(a,b,i,j,J1,J2,BB,jbas)*v_elem(i,j,c,d,J2,AA,jbas)) 
-!      end do
-!   end do
+        sm = sm + 0.5*(1- jbas%con(i) - jbas%con(j)) *&
+             (v_elem(a,b,i,j,J1,AA,jbas)*iso_op_elem(i,j,c,d,J1,J2,BB,jbas)   &
+             - iso_op_elem(a,b,i,j,J1,J2,BB,jbas)*v_elem(i,j,c,d,J2,AA,jbas)) 
+     end do
+  end do
  
 
 !!$OMP PARALLEL DO PRIVATE( ji,jj,i,j,J3,J4,J5,jx) SHARED(AA,BB) REDUCTION(+:sm)
