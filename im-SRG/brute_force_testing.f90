@@ -1419,10 +1419,10 @@ subroutine test_tensor_dTZ_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b
      call random_number(yy)
      call random_number(zz)
 
-     a = 23!jbas%parts(ceiling(vv*(AA%Nsp-AA%belowEF)))
-     b = 28!jbas%parts(ceiling(xx*(AA%Nsp-AA%belowEF)))
-     c = 1!jbas%holes(ceiling(yy*AA%belowEF))
-     d = 5!bas%holes(ceiling(zz*AA%belowEF))
+     a = jbas%parts(ceiling(vv*(AA%Nsp-AA%belowEF)))
+     b = jbas%parts(ceiling(xx*(AA%Nsp-AA%belowEF)))
+     c = jbas%holes(ceiling(yy*AA%belowEF))
+     d = jbas%holes(ceiling(zz*AA%belowEF))
 
      ja = jbas%jj(a) 
      jb = jbas%jj(b)
@@ -1441,12 +1441,11 @@ subroutine test_tensor_dTZ_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b
      j2min = abs(jc-jd) 
      j2max = jc+jd
 
-     do J1 = 8,8,1!j1min,j1max,2
-        do J2 = 4,4,1!j2min,j2max,2
+     do J1 = j1min,j1max,2
+        do J2 = j2min,j2max,2
            print*, J1,J2,rank_c
            if (.not. (triangle(J1,J2,rank_c))) cycle
            
-           print*, iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)
            val = EOM_dTz_tensor_prod_2body(AA,BB,a,b,c,d,J1,J2,rank_c,jbas)
 
            print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)                       

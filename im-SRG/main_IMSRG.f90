@@ -435,9 +435,9 @@ subroutine test
 !  call test_scalar_tensor_commutator(jbas,-1,1,6,2) 
  !  call test_tensor_product(jbas,1,1,2,4,6,2,2,0) 
 !  call test_EOM_iso_commutator(jbas,1,1,4,0,0)
-!  call test_scalar_iso_commutator(jbas,-1,1,6,2,1) !butt
-  call test_tensor_dTZ_product(jbas,1,1,4,4,4,2,0,2,1) 
-  
+!  call test_scalar_iso_commutator(jbas,-1,1,6,2,1) 
+  call test_tensor_dTZ_product(jbas,1,1,2,0,2,0,0,0,-1) 
+
 end subroutine test
 end program main_IMSRG
 !=========================================================================
