@@ -93,6 +93,7 @@ module basic_IMSRG
      integer :: num
      character(2) :: oper 
      character(2),allocatable,dimension(:) :: Jpi1,Jpi2
+     integer,allocatable,dimension(:) :: dTz  
   end type obsv_mgr
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   type eom_mgr
@@ -4656,7 +4657,8 @@ real(8) function Tensor_mscheme(a,ma,b,mb,c,mc,d,md,MU,Op,jbas)
   
   Tensor_mscheme = sm 
 end function Tensor_mscheme
-   
+!===============================================================
+!===============================================================
 real(8) function Vpandya(a,d,c,b,J,Op,jbas)
   ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
   implicit none 
@@ -4685,7 +4687,8 @@ real(8) function Vpandya(a,d,c,b,J,Op,jbas)
   
   Vpandya = sm 
 end function Vpandya
-  
+!=================================================================
+!=================================================================
 real(8) function Vgenpandya(a,d,c,b,J1,J2,Op,jbas)
   ! \overbar{V}^J_{ a \bar{d} c \bar{b} } 
   implicit none 

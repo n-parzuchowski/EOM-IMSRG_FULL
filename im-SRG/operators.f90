@@ -1,5 +1,6 @@
 module operators
   use cross_coupled
+  use isospin_operators
   implicit none 
   
 
@@ -952,6 +953,99 @@ subroutine calculate_MX(op,jbas)
   end do     
         
 end subroutine calculate_MX
+!==============================================================
+!==============================================================
+real(8) function transition_ME_Tz_EM_Tz( Xout,Trans_op ,Xin,jbas ) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(sq_op) :: Trans_op
+  type(iso_ladder) :: Xout,Xin,product
+  integer :: ja,jb,ji,jj,rank_out,rank_in,rank_op,Nsp,Abody,M
+  integer :: a,b,i,j,ax,ix,jx,bx,J1,J2,dpar_in,dpar_out,dpar_op
+  real(8) :: sm , phase,dcgi,mult,aaa,bbb
+
+  sm = 0.d0
+  Nsp = jbas%total_orbits 
+  Abody = sum(jbas%con) 
+   
+  rank_op = Trans_op%rank 
+  rank_in = Xin%rank 
+  rank_out = Xout%rank
+
+  if (.not. triangle(rank_in,rank_op,rank_out))  then 
+     transition_ME_Tz_EM_Tz = 0.d0 
+     return
+  end if 
+
+  if (Xin%dTz .ne. Xout%dTz) then
+     transition_ME_Tz_EM_Tz = 0.d0
+     return
+  end if
+  
+  dpar_in = Xin%dpar/2
+  dpar_out = Xout%dpar/2
+  dpar_op = Trans_op%dpar/2
+  
+  if (mod(dpar_in+dpar_op+dpar_out,2).ne.0) then
+     transition_ME_Tz_EM_Tz = 0.d0
+  end if
+
+  call duplicate_isospin_ladder(Xout,product)
+  call tensor_dTz_tensor_product(Trans_op,Xin,product,jbas)
+  
+  do ax = 1,Nsp-Abody
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     do ix = 1,Abody 
+        i = jbas%holes(ix)
+        ji = jbas%jj(i) 
+        
+        sm = sm + f_iso_ladder_elem(a,i,Xout,jbas)*&
+             f_iso_ladder_elem(a,i,product,jbas)
+     end do 
+  end do 
+
+  
+  do ax = 1,Nsp-Abody
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     do bx = 1,Nsp-Abody
+        b = jbas%parts(bx)
+        jb = jbas%jj(b) 
+        
+        do ix = 1,Abody 
+           i = jbas%holes(ix)
+           ji = jbas%jj(i) 
+           
+           do jx = 1,Abody 
+              j = jbas%holes(jx)
+              jj = jbas%jj(j) 
+  
+              do J1 = abs(ji-jj),ji+jj,2
+                 do J2 = abs(ja-jb),ja+jb,2
+
+                    if (.not. triangle(J1,J2,rank_out)) cycle
+
+                    sm = sm + 0.25d0*&
+                        iso_ladder_elem(a,b,i,j,J2,J1,product,jbas)*&
+                        iso_ladder_elem(a,b,i,j,J2,J1,Xout,jbas) 
+                    
+                 end do
+              end do 
+           end do
+        end do
+     end do
+  end do
+  
+  transition_ME_Tz_EM_Tz = sm * sqrt(rank_in+1.d0) &
+       * ( -1 ) ** ((rank_in+rank_out+rank_op)/2)  
+  !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
+  !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
+ 
+end function transition_ME_Tz_EM_Tz
 !====================================================================
 !====================================================================
 real(8) function transition_ME( Xout,Trans_op ,Xin,jbas ) 
@@ -1269,7 +1363,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
         do ax = 1, parts
            a = jbas%parts(ax)
            ja = jbas%jj(a)
-           if ( mod(jbas%ll(a)+jbas%ll(p1),2) .ne. 0) cycle
+           if ( mod(jbas%ll(a)+jbas%ll(p1)+AA%dpar/2,2) .ne. 0) cycle
            if ( jbas%itzp(a).ne.jbas%itzp(p1)) cycle           
 
            sm1 = sm1 + f_tensor_elem(p1,a,AA,jbas) * f_tensor_elem(a,h1,BB,jbas) &
@@ -1282,7 +1376,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
         do ix = 1, holes
            i = jbas%holes(ix)
            ji = jbas%jj(i)
-           if ( mod(jbas%ll(i)+jbas%ll(p1),2) .ne. 0) cycle
+           if ( mod(jbas%ll(i)+jbas%ll(p1)+BB%dpar/2,2) .ne. 0) cycle
            if ( jbas%itzp(i).ne.jbas%itzp(p1)) cycle           
            sm2 = sm2 - f_tensor_elem(p1,i,BB,jbas) * f_tensor_elem(i,h1,AA,jbas) &
                 * (-1) ** ((rank_a + rank_b + jp1 + jh1)/2) * d6ji(rank_a,rank_b,rank_c,jp1,jh1,ji)
@@ -1644,26 +1738,440 @@ subroutine tensor_product(AA,BB,CC,jbas)
   call tensor_product_222_ph(AA,BB,CC,jbas) 
   ! do nothing
 end subroutine tensor_product
+!=====================================================================================
+!=====================================================================================
+subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas) 
+  !TENSOR PRODUCT A . B = C 
+  ! mind you that B and C must be of pphh form 
+  use tensor_products
+  implicit none 
   
-subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jbas)
+  type(spd) :: jbas 
+  type(sq_op) :: AA
+  type(iso_ladder) :: BB,CC 
+  integer :: a,b,c,d,i,j,k,l,p1,p2,h1,h2 
+  integer :: p1x,p2x,h1x,h2x,holes,parts
+  integer :: jp1,jp2,jh1,jh2,ja,jb,ji,jj
+  integer :: J1,J2,J1x,J2x,rank_a,rank_b,rank_c,g
+  integer :: par_a,par_b,par_c,J1max,J1min,J5min,J5max
+  integer :: ax,bx,ix,jx,lh1,lh2,lp1,lp2,c1,c2
+  integer :: J2min,J2max,J3min,J3max,J3,q,I_BIG,J_BIG
+  integer :: tp1,tp2,th1,th2,n1,n2,J4,J5,J4min,J4max
+  real(8) :: sm1,sm2,sm3,sm4,sm,d6ji,coef9,pre,presum
+  
+  rank_a = AA%rank
+  rank_b = BB%rank
+  rank_c = CC%rank 
+
+  par_a = AA%dpar/2
+  par_b = BB%dpar/2
+  par_c = CC%dpar/2 
+  
+  if (.not. triangle(rank_a,rank_b,rank_c)) then
+     STOP 'non-triangular tensor product' 
+  end if
+
+  if ( mod(par_a + par_b,2) .ne. (mod(par_c,2)) ) then
+     STOP 'parity violating tensor product'
+  end if
+
+  holes = sum(jbas%con)
+  parts = sum(1-jbas%con) 
+  
+  do p1x = 1, parts
+     p1 = jbas%parts(p1x)
+
+     jp1 = jbas%jj(p1) 
+     lp1 = jbas%ll(p1)
+     
+     do h1x = 1,holes
+        h1 = jbas%holes(h1x)
+        jh1 = jbas%jj(h1) 
+        lh1 = jbas%ll(h1) 
+
+        if (jbas%itzp(h1)  .ne. jbas%itzp(p1) - 2*CC%dTz ) cycle 
+        if (.not. triangle(jp1,jh1,rank_c) ) cycle
+        if ( mod(lh1+lp1+par_c,2) == 1 ) cycle
+        sm = 0.d0 
+        ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        !   1 + 1 -> 1
+        ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        sm1 = 0.d0 
+
+        do ax = 1, parts
+           a = jbas%parts(ax)
+           ja = jbas%jj(a)
+           if ( mod(jbas%ll(a)+jbas%ll(p1)+AA%dpar/2,2) .ne. 0) cycle
+           if ( jbas%itzp(a).ne.jbas%itzp(p1)) cycle           
+
+           sm1 = sm1 + f_tensor_elem(p1,a,AA,jbas) * f_iso_ladder_elem(a,h1,BB,jbas) &
+                * (-1) ** ((rank_c + jp1 + jh1)/2) * d6ji(rank_a,rank_b,rank_c,jh1,jp1,ja)
+
+        end do
+
+        sm2 = 0.d0 
+
+        do ix = 1, holes
+           i = jbas%holes(ix)
+           ji = jbas%jj(i)
+           if ( mod(jbas%ll(i)+jbas%ll(p1)+BB%dpar/2,2) .ne. 0) cycle
+           if ( jbas%itzp(i).ne.jbas%itzp(p1)-BB%dTz*2) cycle           
+           sm2 = sm2 - f_iso_ladder_elem(p1,i,BB,jbas) * f_tensor_elem(i,h1,AA,jbas) &
+                * (-1) ** ((rank_a + rank_b + jp1 + jh1)/2) * d6ji(rank_a,rank_b,rank_c,jp1,jh1,ji)
+
+        end do
+
+        sm = sm + sqrt(rank_c+1.d0) * (sm1+sm2) 
+        ! ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        ! !   1 + 2 -> 1
+        ! ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        sm1 = 0.d0
+        sm2 = 0.d0 
+        do ix = 1,holes
+           i = jbas%holes(ix)
+           do ax = 1,parts
+              a = jbas%parts(ax)
+             
+              sm1 = sm1 +  f_tensor_elem(i,a,AA,jbas) * Visopandya(p1,h1,i,a,rank_c,rank_a,BB,jbas)
+              sm2 = sm2 +  Vgenpandya(p1,h1,a,i,rank_c,rank_b,AA,jbas) * f_iso_ladder_elem(a,i,BB,jbas)  
+           end do
+        end do
+
+        sm = sm + 1/sqrt(rank_a+1.d0) * sm1 + (-1)**((rank_a+rank_b+rank_c)/2)/sqrt(rank_b+1.d0)*sm2
+
+        ! ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        ! !   2 + 2 -> 1
+        ! ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        
+        do ix = 1, holes
+           i = jbas%holes(ix)
+           ji = jbas%jj(i)
+
+           J1min = abs(jp1-ji)
+           J1max = jp1+ji
+
+           do ax = 1, parts
+              a = jbas%parts(ax)
+              ja = jbas%jj(a)
+
+              do bx = ax,parts
+                 b = jbas%parts(bx)
+                 jb = jbas%jj(b)
+
+                 pre = 1.d0
+                 if (a==b) then
+                    pre = 0.5d0
+                 end if 
+
+                 do J1 = J1min,J1max,2
+                    J3min = max(abs(jh1-ji),abs(rank_c-J1)) 
+                    J3max = min(jh1+ji,rank_c+J1)
+                    do J3=J3min,J3max,2
+                       J2min = max(abs(ja-jb),abs(J1-rank_a),abs(J3-rank_b))
+                       J2max = max(ja+jb,J1+rank_a,J3+rank_b)
+                       do J2 = J2min,J2max,2                 
+                          
+                          sm = sm - d6ji(J3,J1,rank_c,jp1,jh1,ji) &
+                               * d6ji(rank_a,rank_b,rank_c,J3,J1,J2) &
+                               * tensor_elem(i,p1,a,b,J1,J2,AA,jbas) &
+                               * iso_ladder_elem(a,b,h1,i,J2,J3,BB,jbas) &
+                               * sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))*pre
+                          
+                       end do
+                    end do
+                 end do
+              end do
+           end do
+        end do
+
+        sm2 = 0.d0 
+        do ax = 1, parts
+           a = jbas%parts(ax)
+           ja = jbas%jj(a)
+
+           J1min = abs(jp1-ja)
+           J1max = jp1+ja
+
+           do ix = 1, holes
+              i = jbas%holes(ix)
+              ji = jbas%jj(i)
+
+              do jx = ix,holes
+                 j = jbas%holes(jx)
+                 jj = jbas%jj(j)
+
+                 pre =1.d0
+
+                 if (i ==j ) pre = 0.5d0 
+
+                 do J1 = J1min,J1max,2
+                    J3min = max(abs(jh1-ja),abs(J1-rank_c))
+                    J3max = min(jh1+ja,J1+rank_c)
+           
+                    do J3 = J3min,J3max,2
+                       J2min = max(abs(ji-jj),abs(J1-rank_b),abs(J3-rank_a))
+                       J2max = max(ji+jj,J1+rank_b,J3+rank_a)                
+                       do J2=J2min,J2max,2
+
+                          sm2 = sm2 + d6ji(J3,J1,rank_c,jp1,jh1,ja) &
+                               * d6ji(rank_b,rank_a,rank_c,J3,J1,J2) &
+                               * iso_ladder_elem(a,p1,i,j,J1,J2,BB,jbas) &
+                               * tensor_elem(i,j,h1,a,J2,J3,AA,jbas) &
+                               * sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))*pre
+                       end do
+                    end do
+                 end do
+              end do
+
+           end do
+        end do
+                 
+
+       sm = sm + sm2*(-1)**((rank_a+rank_b+rank_c)/2) 
+
+        CC%fph(p1x,h1x) = sm
+        
+     end do
+  end do
+
+  do q = 1, CC%nblocks
+     J1x = CC%tblck(q)%Jpair(1)
+     J2x = CC%tblck(q)%Jpair(2)
+     
+     n1 = CC%tblck(q)%npp1
+     n2 = CC%tblck(q)%nhh2
+     ! main calculation
+     
+     do I_BIG = 1,n1
+       
+        p1 = CC%tblck(q)%qn(1)%Y(I_BIG,1)
+        jp1 = jbas%jj(p1)           
+        lp1 = jbas%ll(p1)
+        tp1 = jbas%itzp(p1)
+        
+        p2 = CC%tblck(q)%qn(1)%Y(I_BIG,2)
+        jp2 = jbas%jj(p2)
+        lp2 = jbas%ll(p2)
+        tp2 = jbas%itzp(p2)
+        J1 = J1x
+        J2 = J2x             
+   
+        do J_BIG = 1,n2
+
+
+           h1 = CC%tblck(q)%qn(2)%Y(J_BIG,1)
+           jh1 = jbas%jj(h1)                 
+           lh1 = jbas%ll(h1)
+           th1 = jbas%itzp(h1)
+
+           h2 = CC%tblck(q)%qn(2)%Y(J_BIG,2)
+           jh2 = jbas%jj(h2)
+           lh2 = jbas%ll(h2)
+           th2 = jbas%itzp(h2)
+
+           pre = 1.d0 
+           if (p1==p2) pre = sqrt(0.5d0)
+           if (h1==h2) pre = pre*sqrt(0.5d0)
+           sm = 0.d0 
+
+           do ax = 1, parts
+              a = jbas%parts(ax)
+              ja = jbas%jj(a)
+
+              sm1 = 0.d0
+              if (jbas%itzp(a)== tp1 ) then
+                 if (mod(jbas%ll(a)+par_a+lp1,2)==0) then 
+                    if (triangle(ja,jp1,rank_a) )then
+                       
+                       J3min = max(abs(ja - jp2),abs(rank_a-J1),abs(rank_b-J2))
+                       J3max =  min(ja + jp2,rank_a+J1,rank_b+J2)
+                       
+                       do J3 = J3min,J3max,2 
+                          
+                          sm1 = sm1 + (-1) ** (J3/2) * d6ji(J3,J1,rank_a,jp1,ja,jp2) &
+                               * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(p1,a,AA,jbas) &
+                               * iso_ladder_elem(a,p2,h1,h2,J3,J2,BB,jbas)* sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+                       end do
+
+                       sm = sm + (-1) ** ((jp1+jp2+J1+J2+rank_a+rank_c)/2) * sm1 
+
+                    end if
+                 end if
+              end if
+
+              sm1 = 0.d0
+              if (jbas%itzp(a)== tp2 ) then
+                 if (mod(jbas%ll(a)+par_a+lp2,2)==0) then 
+                    if (triangle(ja,jp2,rank_a) )then
+
+                       J3min = max(abs(ja - jp1),abs(rank_a-J1),abs(rank_b-J2))
+                       J3max = min(ja + jp1,rank_a+J1,rank_b+J2)
+
+                       do J3 = J3min,J3max,2 
+
+                          sm1 = sm1 - (-1) ** (J3/2) * d6ji(J3,J1,rank_a,jp2,ja,jp1) &
+                               * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(p2,a,AA,jbas) &
+                               * iso_ladder_elem(a,p1,h1,h2,J3,J2,BB,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
+
+                       end do
+                       sm = sm + (-1) ** ((J2+rank_a+rank_c)/2) * sm1 
+                    end if
+                 end if
+              end if
+
+              sm1 = 0.d0 
+              if (jbas%itzp(a) - BB%dTz*2 == th1 ) then
+                 if (mod(jbas%ll(a)+par_b+lh1,2)==0) then 
+                    if (triangle(ja,jh1,rank_b) )then
+
+                       J3min = max(abs(ja - jh2),abs(rank_a-J1),abs(rank_b-J2))
+                       J3max = min(ja + jh2,rank_a+J1,rank_b+J2)
+
+                       do J3 = J3min,J3max,2
+                          sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh1,ja,jh2)&
+                               * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_iso_ladder_elem(a,h1,BB,jbas)&
+                               * tensor_elem(p1,p2,h2,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+                       end do
+                       sm = sm + sm1 * (-1)**((J1+rank_b+rank_c)/2) 
+                    end if
+                 end if
+              end if
+
+              sm1 = 0.d0 
+              if (jbas%itzp(a)  - BB%dTz*2 == th2 ) then
+                 if (mod(jbas%ll(a)+par_b+lh2,2)==0) then 
+                    if (triangle(ja,jh2,rank_b) )then
+
+                       J3min = max(abs(ja - jh1),abs(rank_a-J1),abs(rank_b-J2))
+                       J3max = min(ja + jh1,rank_a+J1,rank_b+J2)
+
+                       do J3 = J3min,J3max,2
+                          sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J2,rank_b,jh2,ja,jh1)&
+                               * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_iso_ladder_elem(a,h2,BB,jbas)&
+                               * tensor_elem(p1,p2,h1,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
+                       end do
+                       sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_b+rank_c)/2) 
+                    end if
+                 end if
+              end if
+           end do
+
+
+           do ix = 1, holes
+              i = jbas%holes(ix)
+              ji = jbas%jj(i)
+
+              sm1 = 0.d0
+              if (jbas%itzp(i)== th1 ) then
+                 if (mod(jbas%ll(i)+par_a+lh1,2)==0) then 
+                    if (triangle(ji,jh1,rank_a) )then
+
+                       J3min = max(abs(ji - jh2),abs(rank_a-J2),abs(rank_b-J1))
+                       J3max = min(ji + jh2,rank_a+J2,rank_b+J1)
+
+                       do J3 = J3min,J3max,2 
+
+                          sm1 = sm1 + (-1) ** (J3/2) * d6ji(J3,J2,rank_a,jh1,ji,jh2) &
+                               * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(i,h1,AA,jbas) &
+                               * iso_ladder_elem(p1,p2,h2,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+
+                       end do
+                       sm = sm + (-1) ** ((J1+rank_b)/2) * sm1 
+                    end if
+                 end if
+              end if
+
+              sm1 = 0.d0
+              if (jbas%itzp(i)== th2 ) then
+                 if (mod(jbas%ll(i)+par_a+lh2,2)==0) then 
+                    if (triangle(ji,jh2,rank_a) )then
+
+                       J3min = max(abs(ji - jh1),abs(rank_a-J2),abs(rank_b-J1))
+                       J3max = min(ji + jh1,rank_a+J2,rank_b+J1)
+
+                       do J3 = J3min,J3max,2 
+
+                          sm1 = sm1 - (-1) ** (J3/2) * d6ji(J3,J2,rank_a,jh2,ji,jh1) &
+                               * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(i,h2,AA,jbas) &
+                               * iso_ladder_elem(p1,p2,h1,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+
+                       end do
+                       sm = sm + (-1) ** ((jh1+jh2+J1+J2+rank_b)/2) * sm1 
+                    end if
+                 end if
+              end if
+
+              sm1 = 0.d0 
+              if (jbas%itzp(i)== tp1-BB%dTz*2 ) then
+                 if (mod(jbas%ll(i)+par_b+lp1,2)==0) then 
+                    if (triangle(ji,jp1,rank_b) )then
+
+                       J3min = max(abs(ji - jp2),abs(rank_a-J2),abs(rank_b-J1))
+                       J3max = min(ji + jp2,rank_a+J2,rank_b+J1)
+
+                       do J3 = J3min,J3max,2
+                          sm1 = sm1 - (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp1,ji,jp2)&
+                               * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_iso_ladder_elem(p1,i,BB,jbas)&
+                               * tensor_elem(i,p2,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
+                       end do
+                       sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_a)/2) 
+                    end if
+                 end if
+              end if
+
+              sm1 = 0.d0 
+              if (jbas%itzp(i)== tp2-BB%dTz*2 ) then
+                 if (mod(jbas%ll(i)+par_b+lp2,2)==0) then 
+                    if (triangle(ji,jp2,rank_b) )then
+
+                       J3min = max(abs(ji - jp1),abs(rank_a-J2),abs(rank_b-J1))
+                       J3max = min(ji + jp1,rank_a+J2,rank_b+J1)
+
+                       do J3 = J3min,J3max,2
+                          sm1 = sm1 + (-1)**(J3/2) * d6ji(J3,J1,rank_b,jp2,ji,jp1)&
+                               * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_iso_ladder_elem(p2,i,BB,jbas)&
+                               * tensor_elem(i,p1,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
+                       end do
+                       sm = sm + sm1 * (-1)**((J2+rank_a)/2) 
+                    end if
+                 end if
+              end if
+
+           end do
+           CC%tblck(q)%Xpphh(I_BIG,J_BIG) = sm*pre
+        end do
+     end do
+  end do
+
+  call dTZ_tensor_product_222_pp_hh(AA,BB,CC,jbas)
+  call dTz_tensor_product_222_ph(AA,BB,CC,jbas) 
+  ! do nothing
+end subroutine tensor_dTz_tensor_product
+!=========================================================================================================
+!=========================================================================================================
+subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_states , jbas)
   implicit none
 
   type(sq_op),dimension(:) :: ladder_ops
+  type(iso_ladder),dimension(:) :: iso_ops
   type(sq_op) :: O1,HS,Hcm
   type(spd) :: jbas
   type(eom_mgr) :: eom_states
   type(obsv_mgr) :: trans,mom
-  integer :: q,Jin,Jout,Pin,Pout,in,out,states,instate
+  integer :: q,Jin,Jout,Pin,Pout,in,out,states,instate,DTz
   logical :: to_ground
   real(8) :: Mfi,strength_down,strength_up,moment,dcgi,dcgi00
   real(8) :: E_in, E_out
   real(8),allocatable,dimension(:) :: STRENGTHS,MOMENTS,ENERGIES
-  character(2) :: flts 
+  character(2) :: flts,dTzlab 
   character(1) :: statlab
   Mfi = dcgi00()
   ! CALCULATE TRANSITIONS 
   do q = 1, trans%num
-     to_ground = .false. 
+     to_ground = .false.
+     dTz = trans%dtz(q)
      read(trans%Jpi1(q)(1:1),'(I1)') Jin
      
      if (trans%Jpi1(q)(2:2) == '+' ) then
@@ -1682,6 +2190,8 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
            Pout = 2
         end if
      end if
+
+
      print*
      print*, '============================================================================='
      print*, '        E_in                E_out         B('&
@@ -1692,105 +2202,182 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
      Jin = 2* Jin
      Jout = 2* Jout
 
-     
-     If (to_Ground) then
-        ! count number of states
-        states = 0.d0 
-        do in = 1,size(ladder_ops)
-           IF ( ladder_ops(in)%rank .ne. Jin) cycle
-           IF ( ladder_ops(in)%dpar .ne. Pin) cycle
-           states = states + 1 
-        end do
-        
-        allocate(Strengths(states),Energies(states))
-        states = 2*states + 1 ! energies, observs, and gs
-        write(flts,'(I2)') states       
-        states = 0
-        
-        do in = 1, size(ladder_ops)
 
-           IF ( ladder_ops(in)%rank .ne. Jin) cycle
-           IF ( ladder_ops(in)%dpar .ne. Pin) cycle
-
-           Mfi = transition_to_ground_ME(O1,ladder_ops(in),jbas)
-           
-           strength_down = Mfi * Mfi /(ladder_ops(in)%rank+1.d0)
-           strength_up = Mfi * Mfi
-           
-           E_in = ladder_ops(in)%E0
-           E_out = 0.d0
-           states = states + 1
-           strengths(states) = strength_down
-           Energies(states) = ladder_ops(in)%E0
-           
-           write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
-           
-        end do
-
-        open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
-             '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//trans%Jpi2(q)//'.dat',position='append')
-        write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,strengths
-        close(31)
-        deallocate(Energies,strengths)  
-            
-     else
-        instate = 0
-        do In = 1, size(ladder_ops)
-
-           IF ( ladder_ops(in)%rank .ne. Jin) cycle
-           IF ( ladder_ops(in)%dpar .ne. Pin) cycle
-
+     if (dTZ ==0 ) then 
+        If (to_Ground) then
+           ! count number of states
            states = 0.d0 
-           do out = 1,size(ladder_ops)
-              IF ( out == in) cycle
-              IF ( ladder_ops(out)%rank .ne. Jout) cycle
-              IF ( ladder_ops(out)%dpar .ne. Pout) cycle
+           do in = 1,size(ladder_ops)
+              IF ( ladder_ops(in)%rank .ne. Jin) cycle
+              IF ( ladder_ops(in)%dpar .ne. Pin) cycle
               states = states + 1 
            end do
-           
+
            allocate(Strengths(states),Energies(states))
            states = 2*states + 1 ! energies, observs, and gs
            write(flts,'(I2)') states       
            states = 0
+
+           do in = 1, size(ladder_ops)
+
+              IF ( ladder_ops(in)%rank .ne. Jin) cycle
+              IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+
+              Mfi = transition_to_ground_ME(O1,ladder_ops(in),jbas)
+
+              strength_down = Mfi * Mfi /(ladder_ops(in)%rank+1.d0)
+              strength_up = Mfi * Mfi
+
+              E_in = ladder_ops(in)%E0
+              E_out = 0.d0
+              states = states + 1
+              strengths(states) = strength_down
+              Energies(states) = ladder_ops(in)%E0
+
+              write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+
+           end do
+
+           open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+                '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//trans%Jpi2(q)//'.dat',position='append')
+           write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,strengths
+           close(31)
+           deallocate(Energies,strengths)  
+
+        else
+           instate = 0
+           do In = 1, size(ladder_ops)
+
+              IF ( ladder_ops(in)%rank .ne. Jin) cycle
+              IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+
+              states = 0.d0 
+              do out = 1,size(ladder_ops)
+                 IF ( out == in) cycle
+                 IF ( ladder_ops(out)%rank .ne. Jout) cycle
+                 IF ( ladder_ops(out)%dpar .ne. Pout) cycle
+                 states = states + 1 
+              end do
+
+              allocate(Strengths(states),Energies(states))
+              states = 2*states + 1 ! energies, observs, and gs
+              write(flts,'(I2)') states       
+              states = 0
+
+              do out = 1, size(ladder_ops)
+
+
+                 if (out==in) cycle ! not a transition
+                 IF ( ladder_ops(out)%rank .ne. Jout) cycle
+                 IF ( ladder_ops(out)%dpar .ne. Pout) cycle
+                 states = states + 1
+                 Mfi = transition_ME(ladder_ops(out),O1,ladder_ops(in),jbas) 
+
+                 if (ladder_ops(out)%E0 > ladder_ops(in)%E0) then 
+                    strength_down = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
+                    strength_up = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
+                    E_in = ladder_ops(out)%E0
+                    E_out = ladder_ops(in)%E0
+                    strengths(states) = strength_up
+                    Energies(states) = E_in 
+                    write(*,'(4(f19.12))') E_in,E_out,Strength_up,Strength_down           
+                 else
+                    strength_down = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
+                    strength_up = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
+                    E_in = ladder_ops(in)%E0
+                    E_out = ladder_ops(out)%E0
+                    strengths(states) = strength_down
+                    Energies(states) = E_out 
+                    write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+                 end if
+
+
+              end do
+              instate = instate+1
+              write(statlab,'(I1)') instate
+              write(dTzlab,'(I2)') dTz
+              dTzlab = adjustl(dTzlab) 
+              open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+                   '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//statlab//'_'&
+                   //trans%Jpi2(q)//'_dTz'//trim(dTzlab)//'.dat',position='append')
+              write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') &
+                   nint(HS%hospace),HS%eMax,ladder_ops(in)%E0,Energies,strengths
+              close(31)
+              deallocate(Energies,strengths)  
+
+           end do
+        end if
+     else
+        
+        instate = 0
+        do In = 1, size(iso_ops)
            
-           do out = 1, size(ladder_ops)
-              
+           IF ( iso_ops(in)%rank .ne. Jin) cycle
+           IF ( iso_ops(in)%dpar .ne. Pin) cycle
+           IF ( iso_ops(in)%dTz .ne. dTz ) cycle          
+           
+           states = 0.d0 
+           do out = 1,size(iso_ops)
+              IF ( out == in) cycle
+              IF ( iso_ops(out)%rank .ne. Jout) cycle
+              IF ( iso_ops(out)%dpar .ne. Pout) cycle
+              IF ( iso_ops(out)%dTz .ne. dTz ) cycle
+              states = states + 1 
+           end do
+
+           allocate(Strengths(states),Energies(states))
+           states = 2*states + 1 ! energies, observs, and gs
+           write(flts,'(I2)') states       
+           states = 0
+
+           do out = 1, size(iso_ops)
+
 
               if (out==in) cycle ! not a transition
-              IF ( ladder_ops(out)%rank .ne. Jout) cycle
-              IF ( ladder_ops(out)%dpar .ne. Pout) cycle
+              IF ( iso_ops(out)%rank .ne. Jout) cycle
+              IF ( iso_ops(out)%dpar .ne. Pout) cycle
+              IF ( iso_ops(out)%dTz  .ne. dTz) cycle
               states = states + 1
-              Mfi = transition_ME(ladder_ops(out),O1,ladder_ops(in),jbas) 
-
-              if (ladder_ops(out)%E0 > ladder_ops(in)%E0) then 
-                 strength_down = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
-                 strength_up = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
-                 E_in = ladder_ops(out)%E0
-                 E_out = ladder_ops(in)%E0
+              Mfi = transition_ME_Tz_EM_Tz(iso_ops(out),O1,iso_ops(in),jbas) 
+       
+              if (iso_ops(out)%E0 > iso_ops(in)%E0) then 
+                 strength_down = Mfi * Mfi / (iso_ops(out)%rank+1.d0)
+                 strength_up = Mfi * Mfi / (iso_ops(in)%rank+1.d0)
+                 E_in = iso_ops(out)%E0
+                 E_out = iso_ops(in)%E0
                  strengths(states) = strength_up
                  Energies(states) = E_in 
                  write(*,'(4(f19.12))') E_in,E_out,Strength_up,Strength_down           
               else
-                 strength_down = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
-                 strength_up = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
-                 E_in = ladder_ops(in)%E0
-                 E_out = ladder_ops(out)%E0
+                 strength_down = Mfi * Mfi / (iso_ops(in)%rank+1.d0)
+                 strength_up = Mfi * Mfi / (iso_ops(out)%rank+1.d0)
+                 E_in = iso_ops(in)%E0
+                 E_out = iso_ops(out)%E0
                  strengths(states) = strength_down
                  Energies(states) = E_out 
                  write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
               end if
 
-              
+
            end do
            instate = instate+1
            write(statlab,'(I1)') instate
+           write(dTzlab,'(I2)') dTz
+           dTzlab = adjustl(dTzlab)               
            open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
-                '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//statlab//'_'//trans%Jpi2(q)//'.dat',position='append')
-           write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,ladder_ops(in)%E0,Energies,strengths
+                '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//statlab//'_'//&
+                trans%Jpi2(q)//'_dTz'//trim(dTzlab)//'.dat',position='append')
+           write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),&
+                HS%eMax,iso_ops(in)%E0,Energies,strengths
            close(31)
            deallocate(Energies,strengths)  
-              
+
         end do
+
+
+
+
+        
      end if
      print*         
   end do
@@ -1799,7 +2386,7 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
   do q = 1, mom%num
 
      read(mom%Jpi1(q)(1:1),'(I1)') Jin
-     
+     dTz = mom%dtz(q)
      if (mom%Jpi1(q)(2:2) == '+' ) then
         Pin = 0
      else
@@ -1812,39 +2399,87 @@ subroutine EOM_observables( ladder_ops, O1,HS, Hcm, trans, mom, eom_states , jba
      print*, '           E              <'//mom%oper//'>('//mom%Jpi1(q)//')'  
      print*, '======================================='
 
-     ! count number of states
-     states = 0.d0 
-     do in = 1,size(ladder_ops)
-        IF ( ladder_ops(in)%rank .ne. Jin) cycle
-        IF ( ladder_ops(in)%dpar .ne. Pin) cycle
-        states = states + 1 
-     end do
+     if (dTz == 0 ) then 
+        ! count number of states
+        states = 0.d0 
+        do in = 1,size(ladder_ops)
+           IF ( ladder_ops(in)%rank .ne. Jin) cycle
+           IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+           states = states + 1 
+        end do
 
-     allocate(moments(states),Energies(states))
-     states = 2*states + 1 ! energies, observs, and gs
-     write(flts,'(I2)') states       
-     states = 0
+        allocate(moments(states),Energies(states))
+        states = 2*states + 1 ! energies, observs, and gs
+        write(flts,'(I2)') states       
+        states = 0
 
-     
-     do In = 1, size(ladder_ops) 
 
-        IF ( ladder_ops(in)%rank .ne. Jin) cycle
-        IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+        do In = 1, size(ladder_ops) 
 
-        Mfi = transition_ME(ladder_ops(in),O1,ladder_ops(in),jbas)  
-        moment = Mfi * sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
-        E_in = ladder_ops(in)%E0
-        write(*,'(2(f19.12))') E_in,moment
-        states = states + 1
-        moments(states) = moment
-        energies(states)=E_in
-     end do
-     open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
-          '_energies_moments_'//mom%oper//'_'//mom%Jpi1(q)//'.dat',position='append')
-     write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,moments
-     close(31)
-     deallocate(Energies,moments)  
-     print* 
+           IF ( ladder_ops(in)%rank .ne. Jin) cycle
+           IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+
+           Mfi = transition_ME(ladder_ops(in),O1,ladder_ops(in),jbas)  
+           moment = Mfi * sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
+           E_in = ladder_ops(in)%E0
+           write(*,'(2(f19.12))') E_in,moment
+           states = states + 1
+           moments(states) = moment
+           energies(states)=E_in
+        end do
+        dTZlab = '0 '
+        open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+             '_energies_moments_'//mom%oper//'_'//mom%Jpi1(q)//'_dTz'//trim(dTzlab)//'.dat',position='append')
+        write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,moments
+        close(31)
+        deallocate(Energies,moments)  
+        print* 
+     else
+        ! count number of states
+        states = 0.d0 
+        do in = 1,size(iso_ops)
+           IF ( iso_ops(in)%rank .ne. Jin) cycle
+           IF ( iso_ops(in)%dpar .ne. Pin) cycle
+           IF ( iso_ops(in)%dTz .ne. dTz) cycle
+           states = states + 1 
+        end do
+
+        allocate(moments(states),Energies(states))
+        states = 2*states + 1 ! energies, observs, and gs
+        write(flts,'(I2)') states       
+
+        states = 0
+
+        
+        do In = 1, size(iso_ops) 
+
+           IF ( iso_ops(in)%rank .ne. Jin) cycle
+           IF ( iso_ops(in)%dpar .ne. Pin) cycle
+           IF ( iso_ops(in)%dTz .ne. dTz) cycle
+           
+           Mfi = transition_ME_Tz_EM_Tz(iso_ops(in),O1,iso_ops(in),jbas)  
+
+           moment = Mfi * sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
+           E_in = iso_ops(in)%E0
+           write(*,'(2(f19.12))') E_in,moment
+           states = states + 1
+           moments(states) = moment
+           energies(states)=E_in
+        end do
+        write(dTzlab,'(I2)') dTz
+        dTzlab = adjustl(dTzlab)               
+           
+        open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+             '_energies_moments_'//mom%oper//'_'//mom%Jpi1(q)//'_dTz'//trim(dTzlab)//'.dat',position='append')
+        write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,moments
+        close(31)
+        deallocate(Energies,moments)  
+        print* 
+
+
+
+
+     end if
   end do
 
 

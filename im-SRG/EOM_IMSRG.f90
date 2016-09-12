@@ -115,17 +115,18 @@ subroutine calculate_isospin_states(J,PAR,dTZ,Numstates,HS,jbas,ladder_ops)
   type(spd) :: jbas
   type(sq_op) :: HS ,newladder
   type(iso_ladder),dimension(Numstates) :: ladder_ops
-  integer :: J,PAR,Numstates,i,q,aa,jj,istart,ist,prots,neuts,dTZ
+  integer :: Numstates,i,q,aa,jj,istart,ist,prots,neuts
   character(2) :: Jlabel,Plabel,betalabel
   character(3) :: tzlab 
   character(2) :: statelabel
   REAL(8),dimension(Numstates) :: Es,BEs ,moms ,trips
+  integer,intent(in) :: J,PAR,DTz
 
   ladder_ops%herm = 1
   ladder_ops%rank = J
   ladder_ops%dTZ = dTZ 
   ladder_ops%dpar = PAR
-  
+
   prots = 0 
   neuts = 0 
   do i = 1, jbas%total_orbits,2 
@@ -134,7 +135,7 @@ subroutine calculate_isospin_states(J,PAR,dTZ,Numstates,HS,jbas,ladder_ops)
   do i = 2, jbas%total_orbits,2 
      neuts = neuts + (jbas%jj(i)+1)*jbas%con(i) 
   end do   
-  
+
   call allocate_isospin_ladder(jbas,ladder_ops(1),HS)   
   
   do i = 2, Numstates
@@ -1754,22 +1755,24 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
   read(44,*) num_trans
   trs%num = num_trans
 
-  allocate(trs%Jpi1(num_trans)) 
+  allocate(trs%Jpi1(num_trans))
+  allocate(trs%dTz(num_trans)) 
   allocate(trs%Jpi2(num_trans))
 
   read(44,*)
   do i=1,num_trans
-     read(44,*) trs%Jpi1(i),trs%Jpi2(i)
+     read(44,*) trs%Jpi1(i),trs%Jpi2(i),trs%dtz(i)
   end do 
 
   read(44,*)
   read(44,*) num_mom
   mom%num = num_mom
 
-  allocate(mom%Jpi1(num_mom)) 
+  allocate(mom%Jpi1(num_mom))
+  allocate(mom%dTz(num_trans)) 
   read(44,*)
   do i=1,num_mom
-     read(44,*) mom%Jpi1(i)
+     read(44,*) mom%Jpi1(i),mom%dtz(i)
   end do 
 
   allocate(jbas%xmap_tensor(uniq,N*(N+1)/2))

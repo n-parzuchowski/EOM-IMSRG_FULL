@@ -1263,21 +1263,21 @@ subroutine test_tensor_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpa
   print*, 'TIME:',t2-t1
 
   
-  ! do a =  1, jbas%total_orbits
-  !    if (jbas%con(a) == 1) cycle
-  !    do b = 1, jbas%total_orbits
-  !       if (jbas%con(b) == 0) cycle
+  do a =  1, jbas%total_orbits
+     if (jbas%con(a) == 1) cycle
+     do b = 1, jbas%total_orbits
+        if (jbas%con(b) == 0) cycle
 
-  !       val = EOM_tensor_prod_1body(AA,BB,a,b,rank_c,jbas)
-  !       if (abs(val-f_tensor_elem(a,b,OUT,jbas)) > 1e-10) then
-  !          print*, 'at: ',a,b
-  !          print*, val, f_tensor_elem(a,b,OUT,jbas),f_tensor_elem(a,b,OUT,jbas)/val  
-  !          STOP 'ONE BODY FAILURE'  
-  !       end if
+        val = EOM_tensor_prod_1body(AA,BB,a,b,rank_c,jbas)
+        if (abs(val-f_tensor_elem(a,b,OUT,jbas)) > 1e-10) then
+           print*, 'at: ',a,b
+           print*, val, f_tensor_elem(a,b,OUT,jbas),f_tensor_elem(a,b,OUT,jbas)/val  
+           STOP 'ONE BODY FAILURE'  
+        end if
 
-  !       print*, 'success:', a,b , val 
-  !    end do
-  ! end do
+        print*, 'success:', a,b , val 
+     end do
+  end do
        
 !  !do a = 12, jbas%total_orbits
      
@@ -1336,7 +1336,134 @@ subroutine test_tensor_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpa
   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
   
 end subroutine test_tensor_product
+!============================================================
+!============================================================
+subroutine test_tensor_dTZ_product(jbas,h1,h2,rank_a,rank_b,rank_c,dpar_a,dpar_b,dpar_c,DtZ) 
+  use operators
+  implicit none 
+  
+  type(spd) :: jbas
+  type(sq_op) :: AA,HS
+  type(iso_ladder) :: BB,OUT
+!  type(pandya_mat) :: BBCC,WCC
+ ! type(cc_mat) :: AACC
+  integer :: a,b,c,d,ja,jb,jc,jd,j1min,j1max,g
+  integer :: j2min,j2max,PAR,TZ,J1,J2,iii,q,N,dtz
+  integer,intent(in) :: h1,h2,rank_a,rank_b,rank_c,dpar_A,dpar_B,dpar_c
+  real(8) :: val,t1,t2,t3,t4,t5,t6,t7,omp_get_wtime
+  real(8) :: vv,xx,yy,zz,dcgi00
+   
+  call seed_random_number
+  vv = dcgi00()
+  BB%rank = rank_b 
+  BB%dpar = dpar_b
+  AA%rank = rank_a
+  AA%dpar = dpar_a
+  OUT%rank = rank_c
+  OUT%dpar = dpar_c 
+  BB%pphh_ph = .false.
+  AA%pphh_ph = .false.
+  OUT%pphh_ph = .false.
 
+  BB%Dtz = dTz
+  OUT%dTz = dTz 
+  HS%rank = 0
+  HS%herm = 1
+
+  N = jbas%total_orbits
+  allocate(jbas%xmap_tensor(3,N*(N+1)/2)) 
+  allocate(half6j(3))
+  call allocate_blocks(jbas,HS)
+ 
+  AA%xindx = 1
+
+  call allocate_tensor(jbas,AA,HS)
+  BB%xindx = 2
+  call allocate_isospin_ladder(jbas,BB,HS)
+  OUT%xindx = 3
+  call allocate_isospin_ladder(jbas,OUT,HS)
+  
+  call construct_random_rankX(AA,h1,jbas) 
+  call construct_random_isoX(BB,h2,jbas)   
+         
+  OUT%herm = 1 
+
+  print*, 'TESTING TENSOR PRODUCT' 
+  t1 = omp_get_wtime()
+  call tensor_dTz_tensor_product(AA,BB,OUT,jbas) 
+  t2 = omp_get_wtime()  
+  print*, 'TIME:',t2-t1
+
+  
+  ! do a =  1, jbas%total_orbits
+  !    if (jbas%con(a) == 1) cycle
+  !    do b = 1, jbas%total_orbits
+  !       if (jbas%con(b) == 0) cycle
+
+  !       val = EOM_dTz_tensor_prod_1body(AA,BB,a,b,rank_c,jbas)
+  !       if (abs(val-f_iso_ladder_elem(a,b,OUT,jbas)) > 1e-10) then
+  !          print*, 'at: ',a,b
+  !          print*, val, f_iso_ladder_elem(a,b,OUT,jbas),f_iso_ladder_elem(a,b,OUT,jbas)/val  
+  !          STOP 'ONE BODY FAILURE'  
+  !       end if
+
+  !       print*, 'success:', a,b , val 
+  !    end do
+  ! end do
+
+! TIT
+  iii = 0 
+  do while (iii < 55)  
+     call random_number(vv)
+     call random_number(xx)
+     call random_number(yy)
+     call random_number(zz)
+
+     a = 23!jbas%parts(ceiling(vv*(AA%Nsp-AA%belowEF)))
+     b = 28!jbas%parts(ceiling(xx*(AA%Nsp-AA%belowEF)))
+     c = 1!jbas%holes(ceiling(yy*AA%belowEF))
+     d = 5!bas%holes(ceiling(zz*AA%belowEF))
+
+     ja = jbas%jj(a) 
+     jb = jbas%jj(b)
+
+     PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
+     TZ = jbas%itzp(a) + jbas%itzp(b) 
+
+     jc = jbas%jj(c)
+     jd = jbas%jj(d) 
+
+     if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+OUT%dpar/2,2)) cycle 
+     if ( TZ - 2*DTz  .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
+     iii = iii+1 
+     j1min = abs(ja-jb) 
+     j1max = ja+jb 
+     j2min = abs(jc-jd) 
+     j2max = jc+jd
+
+     do J1 = 8,8,1!j1min,j1max,2
+        do J2 = 4,4,1!j2min,j2max,2
+           print*, J1,J2,rank_c
+           if (.not. (triangle(J1,J2,rank_c))) cycle
+           
+           print*, iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)
+           val = EOM_dTz_tensor_prod_2body(AA,BB,a,b,c,d,J1,J2,rank_c,jbas)
+
+           print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)                       
+           if (abs(val-iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
+              print*, iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)/val
+              !print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)                       
+              STOP 'TWO BODY FAILURE'  
+           end if
+        end do
+     end do
+
+     print*, 'success:', a,b,c,d
+  end do
+
+  print*, ' TENSOR PRODUCT EXPRESSIONS CONFIRMED '
+  
+end subroutine test_tensor_dTZ_product
 !============================================================
 !============================================================
 subroutine test_EOM_scalar_tensor_commutator(jbas,h1,h2,rank,dpar) 
@@ -1505,8 +1632,6 @@ subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
   type(spd) :: jbas
   type(sq_op) :: AA
   type(iso_ladder) :: BB,OUT
-  type(ex_pandya_mat) :: BBCC,WCC
-  type(ex_cc_mat) :: AACC 
   integer :: a,b,c,d,g,q,ja,jb,jc,jd,j1min,j1max,dpar,dTz
   integer :: j2min,j2max,PAR,TZ,J1,J2,ax,bx,cx,dx,iii,N
   integer,intent(in) :: h1,h2,rank
@@ -1531,13 +1656,7 @@ subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
   call construct_random_rank0(AA,h1,jbas) 
   call construct_random_isoX(BB,h2,jbas) 
  
-
  
-  call init_ph_mat(AA,AACC,jbas) ! cross coupled ME
-!  call init_ph_mat(BB,BBCC,jbas) !cross coupled ME
-!  call init_ph_wkspc(BBCC,WCC) !
-  
-
   do q = 1, BB%nblocks
      BB%tblck(q)%lam(1) = 1
      OUT%tblck(q)%lam(1) = 1
@@ -1546,14 +1665,6 @@ subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
   OUT%herm = 1
   
   print*, 'TESTING EOM ISOSPIN-CHANGING-TENSOR COMMUTATORS' 
-
-!  call EOM_generalized_pandya(BB,BBCC,jbas)
-
-  call calculate_cross_coupled_pphh(AA,AACC,jbas) 
-
-  ! do q = 1,BB%nblocks
-  !    print*, sum(BB%tblck(q)%Xpphh**2) , BB%tblck(q)%Jpair ,BB%tblck(q)%lam(2:4)
-  ! end do
   
   call EOM_dTZ_commutator_111(AA,BB,OUT,jbas) 
   call EOM_dTZ_commutator_121(AA,BB,OUT,jbas)
@@ -1567,34 +1678,32 @@ subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
 
   
 
-!goto 12
-  ! do ax = 1, AA%Nsp-AA%belowEF
    
   do iii = 1, 50   
-    call random_number(vv)
+     call random_number(vv)
      call random_number(yy)
    
      ax = ceiling(vv*(AA%Nsp-AA%belowEF))
      bx = ceiling(yy*(AA%belowEF))
      
      a = jbas%parts(ax)
-     !do bx = 1, AA%belowEF
-        b = jbas%holes(bx)
-        
-        val = EOM_scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
-        
+     
+     
+     b = jbas%holes(bx)
 
-        if (abs(val-f_iso_ladder_elem(a,b,OUT,jbas)) > 1e-10) then
-           print*, 'at: ',a,b
-           print*, val, f_iso_ladder_elem(a,b,OUT,jbas)
-           print*, 'fail', f_iso_ladder_elem(a,b,OUT,jbas)/val
-           !STOP 'ONE BODY FAILURE'  
-        end if 
-        
-        print*, 'success:', a,b,val
-     !end do
+     val = EOM_scalar_tensor_iso1body_comm(AA,BB,a,b,jbas) 
+
+
+     if (abs(val-f_iso_ladder_elem(a,b,OUT,jbas)) > 1e-10) then
+        print*, 'at: ',a,b
+        print*, val, f_iso_ladder_elem(a,b,OUT,jbas)
+        print*, 'fail', f_iso_ladder_elem(a,b,OUT,jbas)/val
+        !STOP 'ONE BODY FAILURE'  
+     end if
+
+     print*, 'success:', a,b,val     
   end do 
-
+  
   
   iii = 0 
   do while (iii < 50) 
@@ -1602,57 +1711,52 @@ subroutine test_EOM_iso_commutator(jbas,h1,h2,rank,dpar,dTz)
      call random_number(xx)
      call random_number(yy)
      call random_number(zz)
-   
+
      ax = ceiling(vv*(AA%Nsp-AA%belowEF))
      bx = ceiling(xx*(AA%Nsp-AA%belowEF))
      cx = ceiling(yy*(AA%belowEF))
      dx = ceiling(zz*(AA%belowEF))
-     
-  !   do ax = 1, AA%Nsp-AA%belowEF
-        a = jbas%parts(ax)
-        ja = jbas%jj(a) 
-   !     do bx = 1, AA%Nsp-AA%belowEF
-           b = jbas%parts(bx)
-           jb = jbas%jj(b)
-           
-           PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
-           TZ = jbas%itzp(a) + jbas%itzp(b) 
-           
-    !       do cx = 1,AA%belowEF
-              c = jbas%holes(cx)
-              jc = jbas%jj(c)
-     !         do dx = 1,AA%belowEF
-                 d = jbas%holes(dx)
-                 jd = jbas%jj(d) 
-                 
-                 if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
-                 if ( TZ - BB%dTz*2 .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
-                 iii = iii + 1
-                 
-                 j1min = abs(ja-jb) 
-                 j1max = ja+jb 
-                 j2min = abs(jc-jd) 
-                 j2max = jc+jd
-                 
-                 do J1 = j1min,j1max,2
-                    do J2 = j2min,j2max,2
-                       
-                       if (.not. (triangle(J1,J2,rank))) cycle
-                       
-                       val = EOM_scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
-                       !                    print*, a,b,c,d, 'J:', J1,J2 ,val,tensor_elem(a,b,c,d,J1,J2,OUT,jbas)  
-                       print*, a,b,c,d,J1,J2, val
-                       if (abs(val-iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
-                          print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)                            
-                          STOP 'TWO BODY FAILURE'  
-                       end if
-                    end do
-                 end do
-                 
-                 print*, 'success:', a,b,c,d
-    !       end do
-   !     end do
-  !   end do
+
+
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     b = jbas%parts(bx)
+     jb = jbas%jj(b)
+
+     PAR = mod(jbas%ll(a) + jbas%ll(b),2) 
+     TZ = jbas%itzp(a) + jbas%itzp(b) 
+
+
+     c = jbas%holes(cx)
+     jc = jbas%jj(c)
+
+     d = jbas%holes(dx)
+     jd = jbas%jj(d) 
+
+     if (PAR .ne. mod(jbas%ll(c) + jbas%ll(d)+BB%dpar/2,2)) cycle 
+     if ( TZ - BB%dTz*2 .ne.  jbas%itzp(c) + jbas%itzp(d) ) cycle
+     iii = iii + 1
+
+     j1min = abs(ja-jb) 
+     j1max = ja+jb 
+     j2min = abs(jc-jd) 
+     j2max = jc+jd
+
+     do J1 = j1min,j1max,2
+        do J2 = j2min,j2max,2
+
+           if (.not. (triangle(J1,J2,rank))) cycle
+
+           val = EOM_scalar_tensor_iso2body_comm(AA,BB,a,b,c,d,J1,J2,jbas)
+           if (abs(val-iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)) > 1e-8) then
+              print*, 'at:',a,b,c,d, 'J:', J1,J2 ,val,iso_ladder_elem(a,b,c,d,J1,J2,OUT,jbas)                            
+              STOP 'TWO BODY FAILURE'  
+           end if
+        end do
+     end do
+
+     print*, 'success:', a,b,c,d
   end do
   
   print*, ' COMMUTATOR EXPRESSIONS CONFIRMED '
@@ -2571,6 +2675,150 @@ real(8) function EOM_tensor_prod_1body(AA,BB,p,h,rank_c,jbas)
 end function EOM_tensor_prod_1body
 !==================================================================
 !==================================================================
+real(8) function EOM_dTz_tensor_prod_1body(AA,BB,p,h,rank_c,jbas) 
+  !returns [AA^0, BB^X]_{ab} 
+  ! uses brute force method. 
+  implicit none 
+  
+  integer :: a,b,i,j,k,rank,J1,J2,ax,ix,p,h,mp,ma,mh,mi,rank_c
+  integer :: ja,jb,jj,ji,jk,Jtot,JTM,totorb,jp,jh,jm,holes,parts
+  integer :: rank_a,rank_b,mu_a,mu_b,mu_c,bx,jx,mb,mj
+  type(spd) :: jbas
+  type(sq_op) :: AA
+  type(iso_ladder) :: BB 
+  real(8) :: sm ,d6ji,sx,sm1,sm2 ,dcgi
+
+  rank_b = BB%rank
+  rank_a = AA%rank
+  sm = 0.d0 
+  JTM = jbas%jtotal_max*2
+  totorb = jbas%total_orbits
+  holes = sum(jbas%con)
+  parts = totorb- holes
+
+  jp = jbas%jj(p) 
+  jh = jbas%jj(h) 
+
+  do mh = -1*jh,jh,2
+     do mp = -1*jp,jp,2
+        do mu_c = -1*rank_c,rank_c,2
+
+           do mu_a = -1*rank_a,rank_a,2
+              do mu_b = -1*rank_b,rank_b,2
+                 sm1 = 0.d0
+
+                 do ax = 1, parts
+                    a = jbas%parts(ax)
+                    ja = jbas%jj(a) 
+                    do ma = -1*ja,ja,2
+                       
+                       sm1 = sm1 + f_tensor_mscheme(p,mp,a,ma,mu_a,AA,jbas) * &
+                            f_iso_ladder_mscheme(a,ma,h,mh,mu_b,BB,jbas)
+                    end do
+                    
+                 end do
+                 
+                 do ix = 1, holes
+                    i = jbas%holes(ix)
+                    ji = jbas%jj(i)
+                    
+                    do mi = -1*ji,ji,2
+                       sm1 = sm1 - f_iso_ladder_mscheme(p,mp,i,mi,mu_b,BB,jbas) * &
+                            f_tensor_mscheme(i,mi,h,mh,mu_a,AA,jbas)  
+                
+                    end do
+                 end do
+
+                 do ax = 1, parts
+                    a = jbas%parts(ax)
+                    ja = jbas%jj(a) 
+                    do ma = -1*ja,ja,2
+
+                       do ix = 1, holes
+                          i = jbas%holes(ix)
+                          ji = jbas%jj(i)
+                          
+                          do mi = -1*ji,ji,2
+
+                             sm1 = sm1 + f_Iso_Ladder_mscheme(a,ma,i,mi,mu_b,BB,jbas)*&
+                                  tensor_mscheme(p,mp,i,mi,h,mh,a,ma,mu_a,AA,jbas)
+
+                             sm1 = sm1 + f_Tensor_mscheme(i,mi,a,ma,mu_a,AA,jbas)*&
+                                  iso_ladder_mscheme(p,mp,a,ma,h,mh,i,mi,mu_b,BB,jbas)
+                          end do
+                       end do
+                    end do
+                 end do
+
+                 do ax = 1, parts
+                    a = jbas%parts(ax)
+                    ja = jbas%jj(a) 
+                    do ma = -1*ja,ja,2
+
+                       do bx = 1, parts
+                          b = jbas%parts(bx)
+                          jb = jbas%jj(b) 
+                          do mb = -1*jb,jb,2
+
+                             do ix = 1, holes
+                                i = jbas%holes(ix)
+                                ji = jbas%jj(i)
+                          
+                                do mi = -1*ji,ji,2
+
+                                   sm1 = sm1 + tensor_mscheme(i,mi,p,mp,a,ma,b,mb,mu_a,AA,jbas)*&
+                                        iso_ladder_mscheme(a,ma,b,mb,i,mi,h,mh,mu_b,BB,jbas) *0.5
+
+                                end do
+                             end do
+                          end do
+                       end do
+                    end do
+                 end do
+                             
+                 do ix = 1, holes
+                    i = jbas%holes(ix)
+                    ji = jbas%jj(i)
+
+                    do mi = -1*ji,ji,2
+
+                       do jx = 1, holes
+                          j = jbas%holes(jx)
+                          jj = jbas%jj(j)
+
+                          do mj = -1*jj,jj,2
+
+                             do ax = 1, parts
+                                a = jbas%parts(ax)
+                                ja = jbas%jj(a) 
+                                do ma = -1*ja,ja,2
+
+                                   sm1 = sm1 - iso_ladder_mscheme(a,ma,p,mp,i,mi,j,mj,mu_b,BB,jbas)*&
+                                        tensor_mscheme(i,mi,j,mj,a,ma,h,mh,mu_a,AA,jbas) *0.5
+
+                                end do
+                             end do
+                          end do
+                       end do
+                    end do
+                 end do
+                             
+                                   
+                 sm = sm + sm1 * dcgi(jh,mh,rank_c,mu_c,jp,mp) &
+                            *dcgi(rank_a,mu_a,rank_b,mu_b,rank_c,mu_c)/sqrt(jp+1.d0)  
+              end do
+           end do
+        end do
+     end do
+  end do
+     
+     
+  
+  EOM_dTz_tensor_prod_1body = sm 
+  
+end function EOM_dTz_tensor_prod_1body
+!==================================================================
+!==================================================================
 real(8) function EOM_tensor_prod_2body(AA,BB,p1,p2,h1,h2,J1,J2,rank_c,jbas) 
   !returns [AA^0, BB^X]_{ab} 
   ! uses brute force method. 
@@ -2757,6 +3005,196 @@ real(8) function EOM_tensor_prod_2body(AA,BB,p1,p2,h1,h2,J1,J2,rank_c,jbas)
   EOM_tensor_prod_2body = sm 
   
 end function EOM_tensor_prod_2body
+!==================================================================
+!==================================================================
+real(8) function EOM_dTz_tensor_prod_2body(AA,BB,p1,p2,h1,h2,J1,J2,rank_c,jbas) 
+  !returns [AA^0, BB^X]_{ab} 
+  ! uses brute force method. 
+  implicit none 
+  
+  integer :: a,b,i,j,k,rank,J1,J2,ax,ix,p1,p2,h1,h2,mp1,ma,mh1,mi,rank_c
+  integer :: ja,jb,jj,ji,jk,Jtot,JTM,totorb,jp1,jh1,jm,holes,parts,mp2,mh2,M1,M2
+  integer :: rank_a,rank_b,mu_a,mu_b,mu_c,bx,jx,mb,mj,jp2,jh2
+  type(spd) :: jbas
+  type(sq_op) :: AA
+  type(iso_ladder) :: BB 
+  real(8) :: sm ,d6ji,sx,sm1,sm2 ,dcgi
+
+  rank_b = BB%rank
+  rank_a = AA%rank
+  sm = 0.d0 
+  JTM = jbas%jtotal_max*2
+  totorb = jbas%total_orbits
+  holes = sum(jbas%con)
+  parts = sum(1-jbas%con) 
+
+  jp1 = jbas%jj(p1)
+  jp2 = jbas%jj(p2) 
+  jh1 = jbas%jj(h1) 
+  jh2 = jbas%jj(h2)
+
+  !!! ASS 
+  !  !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) REDUCTION(+:sm)
+  do M1 = -1*J1,J1,2
+     do M2 = -1*J2,J2,2
+
+        do mh2 = -1*jh2,jh2,2
+           do mh1 = -1*jh1,jh1,2
+              do mp1 = -1*jp1,jp1,2
+                 do mp2 = -1*jp2,jp2,2
+
+
+                    do mu_c = -1*rank_c,rank_c,2                        
+                       do mu_a = -1*rank_a,rank_a,2
+                          do mu_b = -1*rank_b,rank_b,2
+                             sm1 = 0.d0
+
+                             do ax = 1, parts
+                                a = jbas%parts(ax)
+                                ja = jbas%jj(a) 
+                                do ma = -1*ja,ja,2
+
+                                   sm1 = sm1 + f_tensor_mscheme(p1,mp1,a,ma,mu_a,AA,jbas) * &
+                                        iso_ladder_mscheme(a,ma,p2,mp2,h1,mh1,h2,mh2,mu_b,BB,jbas)
+
+                                   sm1 = sm1 - f_tensor_mscheme(p2,mp2,a,ma,mu_a,AA,jbas) * &
+                                        iso_ladder_mscheme(a,ma,p1,mp1,h1,mh1,h2,mh2,mu_b,BB,jbas)
+
+                                end do
+                             end do
+
+                             do ix = 1, holes
+                                i = jbas%holes(ix)
+                                ji = jbas%jj(i) 
+                                do mi = -1*ji,ji,2
+
+                                   sm1 = sm1 - f_iso_ladder_mscheme(p1,mp1,i,mi,mu_b,BB,jbas) * &
+                                        tensor_mscheme(i,mi,p2,mp2,h1,mh1,h2,mh2,mu_a,AA,jbas)
+
+                                   sm1 = sm1 + f_iso_ladder_mscheme(p2,mp2,i,mi,mu_b,BB,jbas) * &
+                                        tensor_mscheme(i,mi,p1,mp1,h1,mh1,h2,mh2,mu_a,AA,jbas)
+
+                                end do
+                             end do
+
+                             do ix = 1, holes
+                                i = jbas%holes(ix)
+                                ji = jbas%jj(i)
+
+                                do mi = -1*ji,ji,2
+                                   sm1 = sm1 - iso_ladder_mscheme(p1,mp1,p2,mp2,i,mi,h2,mh2,mu_b,BB,jbas) * &
+                                        f_tensor_mscheme(i,mi,h1,mh1,mu_a,AA,jbas)  
+
+                                   sm1 = sm1 + iso_ladder_mscheme(p1,mp1,p2,mp2,i,mi,h1,mh1,mu_b,BB,jbas) * &
+                                        f_tensor_mscheme(i,mi,h2,mh2,mu_a,AA,jbas)
+                                end do
+                             end do
+
+                             do ax = 1, parts
+                                a = jbas%parts(ax)
+                                ja = jbas%jj(a)
+
+                                do ma = -1*ja,ja,2
+                                   sm1 = sm1 + tensor_mscheme(p1,mp1,p2,mp2,a,ma,h2,mh2,mu_a,AA,jbas) * &
+                                        f_iso_ladder_mscheme(a,ma,h1,mh1,mu_b,BB,jbas)  
+
+                                   sm1 = sm1 - tensor_mscheme(p1,mp1,p2,mp2,a,ma,h1,mh1,mu_a,AA,jbas) * &
+                                        f_iso_ladder_mscheme(a,ma,h2,mh2,mu_b,BB,jbas)
+                                end do
+                             end do
+
+
+
+
+                             do ax = 1, parts
+                                a = jbas%parts(ax)
+                                ja = jbas%jj(a) 
+                                do ma = -1*ja,ja,2
+
+                                   do bx = 1, parts
+                                      b = jbas%parts(bx)
+                                      jb = jbas%jj(b) 
+                                      do mb = -1*jb,jb,2
+
+
+                                         sm1 = sm1 + tensor_mscheme(p1,mp1,p2,mp2,a,ma,b,mb,mu_a,AA,jbas)*&
+                                              iso_ladder_mscheme(a,ma,b,mb,h1,mh1,h2,mh2,mu_b,BB,jbas) *0.5
+
+                                      end do
+                                   end do
+                                end do
+                             end do
+
+                             do ix = 1, holes
+                                i = jbas%holes(ix)
+                                ji = jbas%jj(i)
+
+                                do mi = -1*ji,ji,2
+
+                                   do jx = 1, holes
+                                      j = jbas%holes(jx)
+                                      jj = jbas%jj(j)
+
+                                      do mj = -1*jj,jj,2
+
+
+                                         sm1 = sm1 + iso_ladder_mscheme(p1,mp1,p2,mp2,i,mi,j,mj,mu_b,BB,jbas)*&
+                                              tensor_mscheme(i,mi,j,mj,h1,mh1,h2,mh2,mu_a,AA,jbas) *0.5
+
+                                      end do
+                                   end do
+                                end do
+                             end do
+
+                             do ax = 1, parts
+                                a = jbas%parts(ax)
+                                ja = jbas%jj(a) 
+                                do ma = -1*ja,ja,2
+
+                                   do ix = 1, holes
+                                      i = jbas%holes(ix)
+                                      ji = jbas%jj(i) 
+                                      do mi = -1*ji,ji,2
+
+
+                                         sm1 = sm1 + tensor_mscheme(p1,mp1,i,mi,h1,mh1,a,ma,mu_a,AA,jbas)*&
+                                              iso_ladder_mscheme(p2,mp2,a,ma,h2,mh2,i,mi,mu_b,BB,jbas)
+
+                                         sm1 = sm1 - tensor_mscheme(p2,mp2,i,mi,h1,mh1,a,ma,mu_a,AA,jbas)*&
+                                              iso_ladder_mscheme(p1,mp1,a,ma,h2,mh2,i,mi,mu_b,BB,jbas)
+
+                                         sm1 = sm1 + tensor_mscheme(p2,mp2,i,mi,h2,mh2,a,ma,mu_a,AA,jbas)*&
+                                              iso_ladder_mscheme(p1,mp1,a,ma,h1,mh1,i,mi,mu_b,BB,jbas)
+
+                                         sm1 = sm1 - tensor_mscheme(p1,mp1,i,mi,h2,mh2,a,ma,mu_a,AA,jbas)*&
+                                              iso_ladder_mscheme(p2,mp2,a,ma,h1,mh1,i,mi,mu_b,BB,jbas)
+
+
+                                      end do
+                                   end do
+                                end do
+                             end do
+
+
+                             sm = sm + sm1 * dcgi(J2,M2,rank_c,mu_c,J1,M1) * dcgi(jp1,mp1,jp2,mp2,J1,M1)&
+                                  *dcgi(jh1,mh1,jh2,mh2,J2,M2) *dcgi(rank_a,mu_a,rank_b,mu_b,rank_c,mu_c)/sqrt(J1+1.d0)  
+
+                          end do
+                       end do
+                    end do
+                 end do
+
+              end do
+           end do
+        end do
+     end do
+  end do
+!  !$OMP END PARALLEL DO
+     
+  
+  EOM_dTZ_tensor_prod_2body = sm 
+  
+end function EOM_dTz_tensor_prod_2body
 !==================================================================
 !==================================================================
 real(8) function scalar_tensor_2body_comm(AA,BB,a,b,c,d,J1,J2,jbas) 

@@ -658,7 +658,11 @@ real(8) function iso_ladder_elem(a,b,c,d,J1,J2,op,jbas)
   ! right now i1 and i2 still refer to where the pair is located
   ! in the rank zero qn storage
 
-   iso_ladder_elem = op%tblck(q)%Xpphh(i1,i2) * pre
+ ! if ((a==23).and.(b==28).and.(c==1).and.(d==5).and.(J1==8).and.(J2==4))then
+!     print*, q,i1,i2,op%tblck(q)%Xpphh(i1,i2) * pre
+ ! end if
+ 
+  iso_ladder_elem = op%tblck(q)%Xpphh(i1,i2) * pre
     
  end function iso_ladder_elem
 !==================================================================  
@@ -1269,5 +1273,70 @@ real(8) function Voppandya(a,d,c,b,J1,J2,Op,jbas)
   
   Voppandya = sm 
 end function Voppandya
+!==================================================================
+!==================================================================
+real(8) function iso_ladder_mscheme(a,ma,b,mb,c,mc,d,md,MU,Op,jbas) 
+  implicit none
+  
+  integer :: a,ma,b,mb,c,mc,d,md,J1min,J1max,mu,rank
+  integer :: ja,jb,jc,jd,J1,M1,J2,M2,J2min,J2max
+  type(spd) :: jbas
+  type(iso_ladder) :: Op
+  real(8) :: dcgi,sm
+  
+  M1 = ma+mb 
+  M2 = mc+md 
+  rank = Op%rank
+  if (MU .ne. M1-M2) then
+     iso_ladder_mscheme = 0.d0
+     return
+  end if
+  
+  sm = 0.d0 
+  
+  ja = jbas%jj(a) 
+  jb = jbas%jj(b) 
+  jc = jbas%jj(c) 
+  jd = jbas%jj(d) 
 
+  J1min = abs(ja-jb)
+  J1max = ja+jb
+  J2min = abs(jc-jd)
+  J2max = jc+jd
+  
+  do J1 = J1min,J1max,2
+     do J2 = J2min,J2max,2 
+        
+        sm = sm + iso_ladder_elem(a,b,c,d,J1,J2,op,jbas) *&
+             dcgi(ja,ma,jb,mb,J1,M1)*&
+             dcgi(jc,mc,jd,md,J2,M2)*&
+             dcgi(J2,M2,RANK,MU,J1,M1)/&
+             sqrt(J1 + 1.d0)
+     end do
+  end do
+  
+  iso_ladder_mscheme = sm 
+end function iso_ladder_mscheme
+!==================================================================
+!==================================================================
+real(8) function f_iso_ladder_mscheme(a,ma,b,mb,mu,Op,jbas)
+  implicit none
+
+  integer :: a,ma,b,mb,ja,jb,rank,mu
+  type(spd) :: jbas
+  type(iso_ladder) :: Op
+  real(8) :: dcgi,sm 
+
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  rank = op%rank
+  if (mu+mb.ne.ma) then
+     f_iso_ladder_mscheme= 0.d0 
+  else
+     f_iso_ladder_mscheme = dcgi(jb,mb,rank,mu,ja,ma)&
+          /sqrt(ja+1.d0)*f_iso_ladder_elem(a,b,Op,jbas)
+  end if
+end function f_iso_ladder_mscheme
+!===================================================================
+!===================================================================
 end module isospin_operators

@@ -288,8 +288,7 @@ print*, 'BASIS SETUP COMPLETE'
      totstates=read_eom_file(trans,moments,eom_states,jbas)! total number of states
      
      allocate(ladder_ops(totstates-eom_states%total_dTz))
-     allocate(isoladder_ops(eom_states%total_dTz))
-     
+     allocate(isoladder_ops(eom_states%total_dTz))     
 
      oldnum = 0
      oldnum_dTz = 0
@@ -301,16 +300,14 @@ print*, 'BASIS SETUP COMPLETE'
            oldnum = oldnum + Numstates
            Numstates = eom_states%number_requested(q)        
            ladder_ops(1+oldnum:Numstates+oldnum)%xindx = q
-
            call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
                 jbas,ladder_ops(1+oldnum:Numstates+oldnum))
         else
            oldnum_dTz = oldnum_dTz + Numstates_dTz
            Numstates_dTz = eom_states%number_requested(q)        
            isoladder_ops(1+oldnum_dTz:Numstates_dTz+oldnum_dTz)%xindx = q
-           
            call calculate_isospin_states(eom_states%ang_mom(q),eom_states%par(q),eom_states%dTz(q),&
-                numstates,HS,jbas,isoladder_ops(1+oldnum_dTz:Numstates_dTz+oldnum_dTz))
+                numstates_dTZ,HS,jbas,isoladder_ops(1+oldnum_dTz:Numstates_dTz+oldnum_dTz))
         
         end if        
         
@@ -355,7 +352,7 @@ print*, 'BASIS SETUP COMPLETE'
            call build_Hcm(pipj,rirj,Hcm,jbas)
         end if
         
-        call EOM_observables( ladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
+        call EOM_observables( ladder_ops, isoladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
         
      end if
      
@@ -419,6 +416,9 @@ print*, 'BASIS SETUP COMPLETE'
   
   end if 
 
+  ! free it up brah
+  deallocate(isoladder_ops,ladder_ops)
+  
 contains
 
 subroutine test
@@ -433,9 +433,10 @@ subroutine test
 !   deallocate(jbas%xmap,jbas%xmap_tensor,phase_hh,phase_pp)
 !   deallocate(half6j%tp_mat)
 !  call test_scalar_tensor_commutator(jbas,-1,1,6,2) 
-!  call test_tensor_product(jbas,1,1,2,4,2,2,0,2) 
+ !  call test_tensor_product(jbas,1,1,2,4,6,2,2,0) 
 !  call test_EOM_iso_commutator(jbas,1,1,4,0,0)
-  call test_scalar_iso_commutator(jbas,-1,1,6,2,1) !butt
+!  call test_scalar_iso_commutator(jbas,-1,1,6,2,1) !butt
+  call test_tensor_dTZ_product(jbas,1,1,4,4,4,2,0,2,1) 
   
 end subroutine test
 end program main_IMSRG
