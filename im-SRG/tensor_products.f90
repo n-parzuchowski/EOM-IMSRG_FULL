@@ -63,7 +63,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
               if (np1*nh2 .ne. 0)  then                       
                  if (np2 .ne. 0) then 
                     !w1pphh = Bpppp.Apphh
-                    al_off = d6ji(rank_a,rank_b,rank_c,J2,J1,J3)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J2,J1,J3)*&
                          (-1)**((J1+J2+rank_c)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
 
@@ -91,7 +91,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
               if (np1*nh2 .ne. 0)  then                       
                  if (np2*nh1 .ne. 0) then 
                     !w1pphh = Bpppp.Apphh
-                    al_off = d6ji(rank_a,rank_b,rank_c,J2,J1,J3)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J2,J1,J3)*&
                          (-1)**((J1+J2+rank_c)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
                     call dgemm('N','T',np1,nh2,np2,al_off,AA%tblck(q1)%tgam(1)%X,np1,&
@@ -122,7 +122,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
               if (np1*nh2 .ne. 0)  then                       
                  if (np2 .ne. 0) then 
                     !w1pphh = Bpppp.Apphh
-                    al_off = d6ji(rank_a,rank_b,rank_c,J2,J1,J3)*AA%tblck(q1)%lam(1)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J2,J1,J3)*AA%tblck(q1)%lam(1)*&
                          (-1)**((J1+J2+rank_c)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
 
@@ -171,7 +171,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
               if (np1*nh2 .ne. 0)  then                       
                  if (nh1 .ne. 0) then 
-                    al_off = d6ji(rank_a,rank_b,rank_c,J1,J2,J3)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J1,J2,J3)*&
                          (-1)**((J1+J2+rank_a+rank_b)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
                     call dgemm('N','N',np1,nh2,nh1,al_off,BB%tblck(q1)%tgam(3)%X,np1,&
@@ -198,7 +198,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
               if (np1*nh2 .ne. 0)  then                       
                  if (nh1 .ne. 0) then 
-                    al_off = d6ji(rank_a,rank_b,rank_c,J1,J2,J3)*AA%tblck(q2)%lam(1)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J1,J2,J3)*AA%tblck(q2)%lam(1)*&
                          (-1)**((J1+J2+rank_a+rank_b)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
                     call dgemm('N','T',np1,nh2,nh1,al_off,BB%tblck(q1)%tgam(3)%X,np1,&
@@ -232,7 +232,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
               if (np1*nh2 .ne. 0)  then                       
                  if (nh1 .ne. 0) then 
-                    al_off = d6ji(rank_a,rank_b,rank_c,J1,J2,J3)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J1,J2,J3)*&
                          (-1)**((J1+J2+rank_a+rank_b)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
                     call dgemm('T','N',np1,nh2,nh1,al_off,BB%tblck(q1)%tgam(7)%X,nh1,&
@@ -290,7 +290,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
               if (np1*nh2 .ne. 0)  then                       
                  if (np2*nh1 .ne. 0) then 
                     !w1pphh = Bpppp.Apphh
-                    al_off = d6ji(rank_a,rank_b,rank_c,J2,J1,J3)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J2,J1,J3)*&
                          (-1)**((J1+J2+rank_c)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
                     
@@ -320,7 +320,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
               if (np1*nh2 .ne. 0)  then                       
                  if (np2 .ne. 0) then 
                     !w1pphh = Bpppp.Apphh
-                    al_off = d6ji(rank_a,rank_b,rank_c,J2,J1,J3)*AA%tblck(q1)%lam(1)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J2,J1,J3)*AA%tblck(q1)%lam(1)*&
                          (-1)**((J1+J2+rank_c)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
                     call dgemm('T','N',np1,nh2,np2,al_off,AA%tblck(q1)%tgam(1)%X,np2,&
@@ -350,7 +350,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
               if (np1*nh2 .ne. 0)  then                       
                  if (np2*nh1 .ne. 0) then 
                     !w1pphh = Bpppp.Apphh
-                    al_off = d6ji(rank_a,rank_b,rank_c,J2,J1,J3)*AA%tblck(q1)%lam(1)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J2,J1,J3)*AA%tblck(q1)%lam(1)*&
                          (-1)**((J1+J2+rank_c)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
 
@@ -397,7 +397,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
                if (np1*nh2 .ne. 0)  then                       
                   if (nh1 .ne. 0) then 
-                     al_off = d6ji(rank_a,rank_b,rank_c,J1,J2,J3)*AA%tblck(q2)%lam(1)*&
+                     al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J1,J2,J3)*AA%tblck(q2)%lam(1)*&
                           (-1)**((J1+J2+rank_a+rank_b)/2)*sqrt(rank_c+1.d0)
                      bet_off = 1.d0
                      call dgemm('N','T',np1,nh2,nh1,al_off,BB%tblck(q1)%tgam(3)%X,np1,&
@@ -427,7 +427,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
                if (np1*nh2 .ne. 0)  then                       
                   if (nh1 .ne. 0) then 
-                     al_off = d6ji(rank_a,rank_b,rank_c,J1,J2,J3)* &
+                     al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J1,J2,J3)* &
                           (-1)**((J1+J2+rank_a+rank_b)/2)*sqrt(rank_c+1.d0)
                      bet_off = 1.d0
                      call dgemm('T','N',np1,nh2,nh1,al_off,BB%tblck(q1)%tgam(7)%X,nh1,&
@@ -456,7 +456,7 @@ subroutine tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
                if (np1*nh2 .ne. 0)  then                       
                   if (nh1 .ne. 0) then 
-                     al_off = d6ji(rank_a,rank_b,rank_c,J1,J2,J3)*AA%tblck(q2)%lam(1)*&
+                     al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J1,J2,J3)*AA%tblck(q2)%lam(1)*&
                           (-1)**((J1+J2+rank_a+rank_b)/2)*sqrt(rank_c+1.d0)
                      bet_off = 1.d0
                      call dgemm('T','T',np1,nh2,nh1,al_off,BB%tblck(q1)%tgam(7)%X,nh1,&
@@ -550,7 +550,7 @@ end subroutine tensor_product_222_pp_hh
                   PANDYA_AB = 0.d0 
                   call fill_generalized_pandya_matrix(J4,J5,PANDYA_B,qn_J4,qn_J5,BB,jbas)                  
 
-                  al_off = d6ji(rank_a,rank_b,rank_c,J5,J3,J4) * (-1)** ((rank_C + J3)/2) * &
+                  al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J5,J3,J4) * (-1)** ((rank_C + J3)/2) * &
                        sqrt((J3+1.d0)*(J5+1.d0)*(rank_c+1.d0)) 
                   call dgemm('N','N',n_J3,n_J5,n_J4,al_off,PANDYA_A,n_J3,PANDYA_B,n_J4,bet,PANDYA_AB,n_J3) 
 
@@ -602,7 +602,7 @@ end subroutine tensor_product_222_pp_hh
 
                            do J2 = J2min,J2max,2
                               if ((h1==h2).and.(mod(J2/2,2)==1)) cycle                           
-                              nj = coef9(jp1,jh1,J3,jp2,jh2,J5,J1,J2,rank_c)
+                              nj = ninej(CC%xindx,jp1,jh1,J3,jp2,jh2,J5,J1,J2,rank_c)
                               prefac_12 = prefac_1 *sqrt(J2+1.d0)
 
                               V = prefac_12*nj*(-1)**((jp2-jh2)/2)*Xelem
@@ -790,7 +790,7 @@ subroutine dTz_tensor_product_222_pp_hh(AA,BB,CC,jbas)
                  if (np2 .ne. 0) then 
                     ! Apppp . Bpphh 
 
-                    al_off = d6ji(rank_a,rank_b,rank_c,J2,J1,J3)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J2,J1,J3)*&
                          (-1)**((J1+J2+rank_c)/2)*sqrt(rank_c+1.d0)
 
                     bet_off = 1.d0
@@ -816,7 +816,7 @@ subroutine dTz_tensor_product_222_pp_hh(AA,BB,CC,jbas)
                  if (np2 .ne. 0) then 
                     ! Apppp . Bpphh 
                     
-                    al_off = d6ji(rank_a,rank_b,rank_c,J2,J1,J3)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J2,J1,J3)*&
                          (-1)**(rank_c/2)*sqrt(rank_c+1.d0)* AA%herm 
                     
                     bet_off = 1.d0
@@ -861,7 +861,7 @@ subroutine dTz_tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
               if (np1*nh2 .ne. 0)  then                       
                  if (nh1 .ne. 0) then 
-                    al_off = d6ji(rank_a,rank_b,rank_c,J1,J2,J3)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J1,J2,J3)*&
                          (-1)**((J1+J2+rank_a+rank_b)/2)*sqrt(rank_c+1.d0)
                     bet_off = 1.d0
                     call dgemm('N','N',np1,nh2,nh1,al_off,BB%tblck(q1)%Xpphh,np1,&
@@ -888,7 +888,7 @@ subroutine dTz_tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
               if (np1*nh2 .ne. 0)  then                       
                  if (nh1 .ne. 0) then 
-                    al_off = d6ji(rank_a,rank_b,rank_c,J1,J2,J3)*AA%tblck(q2)%lam(1)*&
+                    al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J1,J2,J3)*AA%tblck(q2)%lam(1)*&
                          (-1)**((J1+J2+rank_a+rank_b)/2)*sqrt(rank_c+1.d0)*AA%herm 
                     bet_off = 1.d0
                     call dgemm('N','T',np1,nh2,nh1,al_off,BB%tblck(q1)%Xpphh,np1,&
@@ -979,7 +979,7 @@ subroutine dTz_tensor_product_222_pp_hh(AA,BB,CC,jbas)
                   PANDYA_AB = 0.d0 
                   call fill_isoladder_pandya_matrix(J4,J5,PANDYA_B,qn_J4,qn_J5,BB,jbas)                  
 
-                  al_off = d6ji(rank_a,rank_b,rank_c,J5,J3,J4) * (-1)** ((rank_C + J3)/2) * &
+                  al_off = xxxsixj(CC%xindx,rank_a,rank_b,rank_c,J5,J3,J4) * (-1)** ((rank_C + J3)/2) * &
                        sqrt((J3+1.d0)*(J5+1.d0)*(rank_c+1.d0)) 
                   call dgemm('N','N',n_J3,n_J5,n_J4,al_off,PANDYA_A,n_J3,PANDYA_B,n_J4,bet,PANDYA_AB,n_J3) 
 
@@ -1029,7 +1029,7 @@ subroutine dTz_tensor_product_222_pp_hh(AA,BB,CC,jbas)
 
                            do J2 = J2min,J2max,2
                               if ((h1==h2).and.(mod(J2/2,2)==1)) cycle                           
-                              nj = coef9(jp1,jh1,J3,jp2,jh2,J5,J1,J2,rank_c)
+                              nj = ninej(CC%xindx,jp1,jh1,J3,jp2,jh2,J5,J1,J2,rank_c)
                               prefac_12 = prefac_1 *sqrt(J2+1.d0)
 
 
