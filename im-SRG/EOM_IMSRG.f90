@@ -38,7 +38,7 @@ subroutine calculate_excited_states(J,PAR,Numstates,HS,jbas,ladder_ops)
      neuts = neuts + (jbas%jj(i)+1)*jbas%con(i) 
   end do   
   
-  if ( ladder_ops(1)%rank .ne. 0 ) then 
+!  if ( ladder_ops(1)%rank .ne. 0 ) then 
      if ( allocated(phase_hh) ) then
         deallocate(phase_hh,phase_pp)
      end if
@@ -46,9 +46,9 @@ subroutine calculate_excited_states(J,PAR,Numstates,HS,jbas,ladder_ops)
      do q = 1,ladder_ops(1)%nblocks
         ladder_ops(1)%tblck(q)%lam(1) = 1 
      end do
-  else 
-     call duplicate_sq_op(HS,ladder_ops(1)) 
-  end if
+ ! else 
+  !   call duplicate_sq_op(HS,ladder_ops(1)) 
+  !end if
     
   do i = 2, Numstates
      call duplicate_sq_op(ladder_ops(1),ladder_ops(i),'y')
@@ -230,15 +230,15 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   call duplicate_sq_op(vecs(1),Q1,'y') !workspace
   call duplicate_sq_op(vecs(1),Q2,'y') !workspace
  
-  if (vecs(1)%rank == 0) then 
-     call init_ph_mat(Op,OpCC,jbas) !cross coupled ME
-     call duplicate_ph_mat(OpCC,QCC) !cross coupled ME     
-     call init_ph_wkspc(QCC,WCC) 
-  else 
+  ! if (vecs(1)%rank == 0) then 
+  !    call init_ph_mat(Op,OpCC,jbas) !cross coupled ME
+  !    call duplicate_ph_mat(OpCC,QCC) !cross coupled ME     
+  !    call init_ph_wkspc(QCC,WCC) 
+  ! else 
      call init_ph_mat(Op,OpPP,jbas) !cross coupled ME
      call init_ph_mat(vecs(1),QPP,jbas) !cross coupled ME
      call init_ph_wkspc(QPP,WPP) 
-  end if
+  !end if
   
   h = OP%belowEF !holes
   p = OP%Nsp-h  !particles
@@ -261,27 +261,27 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   end do
   
 
-  if (vecs(1)%rank == 0) then 
-     ! scalar operator
-     tps = 0 
-     do q = 1, OP%nblocks
+  ! if (vecs(1)%rank == 0) then 
+  !    ! scalar operator
+  !    tps = 0 
+  !    do q = 1, OP%nblocks
      
-        do II = 1,OP%mat(q)%npp
-           do JJ = 1, OP%mat(q)%nhh 
+  !       do II = 1,OP%mat(q)%npp
+  !          do JJ = 1, OP%mat(q)%nhh 
            
-              if (mod(OP%mat(q)%lam(1)/2,2) == 1) then 
-                 if ( OP%mat(q)%qn(1)%Y(II,1) == &
-                      OP%mat(q)%qn(1)%Y(II,2) ) cycle
-                 if ( OP%mat(q)%qn(3)%Y(JJ,1) == &
-                      OP%mat(q)%qn(3)%Y(JJ,2) ) cycle
-              end if
+  !             if (mod(OP%mat(q)%lam(1)/2,2) == 1) then 
+  !                if ( OP%mat(q)%qn(1)%Y(II,1) == &
+  !                     OP%mat(q)%qn(1)%Y(II,2) ) cycle
+  !                if ( OP%mat(q)%qn(3)%Y(JJ,1) == &
+  !                     OP%mat(q)%qn(3)%Y(JJ,2) ) cycle
+  !             end if
            
-              tps = tps+ 1
-           end do
-        end do
-     end do
+  !             tps = tps+ 1
+  !          end do
+  !       end do
+  !    end do
   
-  else 
+  ! else 
      ! tensor case
      tps = 0 
      do q = 1, vecs(1)%nblocks
@@ -327,7 +327,7 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
         end do
 
      end do
-  end if    
+ ! end if    
            
   print*, '1p1h Amplitudes: ', sps
   print*, '2p2h Amplitudes: ', tps
@@ -378,11 +378,11 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
      end if
      
 
-     if ( vecs(1)%rank == 0 ) then 
-        call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
-     else
+    ! if ( vecs(1)%rank == 0 ) then 
+     !   call matvec_prod(N,OP,Q1,Q2,w1,w2,OpCC,QCC,WCC,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
+     !else
       call matvec_nonzeroX_prod(N,OP,Q1,Q2,w1,w2,OpPP,QPP,WPP,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
-     end if
+    ! end if
      
   end do
   write(6,*) 
@@ -402,11 +402,11 @@ subroutine LANCZOS_DIAGONALIZE(jbas,OP,Vecs,nev)
   ! right now Z contains the eigenvectors in the columns
   ! d contains the eigenvalues in the same order. 
   do i = 1, nev
-     if (Vecs(i)%rank .ne. 0 ) then
+!     if (Vecs(i)%rank .ne. 0 ) then
         call unwrap_tensor(Z(:,i),Vecs(i),N,jbas) 
-     else
-        call unwrap(Z(:,i),Vecs(i),N,jbas)
-     end if 
+ !    else
+  !      call unwrap(Z(:,i),Vecs(i),N,jbas)
+   !  end if 
      Vecs(i)%E0 = d(i)
   end do 
       
@@ -811,11 +811,11 @@ real(8) function EOM_triples(H,Xdag,jbas)
   type(spd) :: jbas
   type(sq_op) :: H,Xdag
   
-  if (Xdag%rank == 0 ) then 
-     EOM_triples = scalar_Triples(H,Xdag,jbas)
-  else
+!  if (Xdag%rank == 0 ) then 
+ !    EOM_triples = scalar_Triples(H,Xdag,jbas)
+ ! else
      EOM_triples = tensor_Triples(H,Xdag,jbas)
-  end if
+  !end if
 end function EOM_triples
 !=====================================================
 !=====================================================
@@ -1451,15 +1451,15 @@ subroutine write_ladder_operators(AX,jbas)
   
   allocate(outvec(numstates*neq)) 
 
-  if (AX(1)%rank == 0 ) then 
-     do q = 1, numstates
-        call rewrap(outvec((q-1)*neq+1:q*neq),AX(q),neq,jbas) 
-     end do
-  else
+!  if (AX(1)%rank == 0 ) then 
+ !    do q = 1, numstates
+  !      call rewrap(outvec((q-1)*neq+1:q*neq),AX(q),neq,jbas) 
+   !  end do
+ ! else
      do q = 1, numstates
         call rewrap_tensor(outvec((q-1)*neq+1:q*neq),AX(q),neq,jbas) 
      end do
-  end if 
+ ! end if 
 
   filehandle = gzOpen(playplace//trim(adjustl(prefix2(1:i+6)))//&
        '_ladder.gz'//achar(0),'w'//achar(0)) 
@@ -1540,15 +1540,15 @@ logical function read_ladder_operators(AX,jbas)
      read(instring,'(d20.14)') outvec(q)
   end do
 
-  if (AX(1)%rank == 0) then 
-     do q = 1, numstates
-        call unwrap( outvec((q-1)*neq+1:q*neq), AX(q) ,neq ,jbas) 
-     end do
-  else
+  ! if (AX(1)%rank == 0) then 
+  !    do q = 1, numstates
+  !       call unwrap( outvec((q-1)*neq+1:q*neq), AX(q) ,neq ,jbas) 
+  !    end do
+  ! else
      do q = 1, numstates
         call unwrap_tensor( outvec((q-1)*neq+1:q*neq), AX(q) ,neq ,jbas) 
      end do
-  end if 
+!  end if 
   rx = gzClose(filehandle) 
   read_ladder_operators = .false. 
 
