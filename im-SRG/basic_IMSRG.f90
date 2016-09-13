@@ -2306,14 +2306,15 @@ subroutine store_6j_3halfint(jbas,rank,xindx)
   ! which are forcibly ordered
   
   ! the second index refers to j4,j5 which cannot be ordered
-  ! so we need an extra set of states for the reverse ordering (nferm) 
+  ! so we need an extra set of states for the reverse ordering (nferm)
   
   do J1 = 0,JTM,2 
      do J2 = max(abs(J1 - rank),J1), J1+rank , 2   
 
         X12 = tensor_block_index(J1,J2,RANK,TZ,PAR)/6 
-        
+  
         do j4 = 1, halfmax,2
+  
            do j5 = abs(j4-rank),j4+rank,2
            
               ! if j5<j4 use fermionic index
@@ -2332,7 +2333,8 @@ subroutine store_6j_3halfint(jbas,rank,xindx)
              
               do j3 = j3min,j3max,2
                  r2 = 1
-                    half6j(xindx)%tp_mat(X12,X45)%X(r1,1) =  d6ji(J1,J2,rank,j4,j5,j3)   
+
+                 half6j(xindx)%tp_mat(X12,X45)%X(r1,1) =  d6ji(J1,J2,rank,j4,j5,j3)   
                     ! d6ji is the anglib sixj calculator (takes 2*j as arguments) 
                  r1 = r1 + 1
               end do 
