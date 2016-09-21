@@ -3942,7 +3942,7 @@ real(8) function mat_frob_norm(op)
   end do 
   
   mat_frob_norm = sqrt(sm)
-end function 
+end function mat_frob_norm
 !===============================================================
 !===============================================================  
 real(8) function onebd_frob_norm(op) 

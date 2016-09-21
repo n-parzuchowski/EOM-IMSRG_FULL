@@ -65,7 +65,6 @@ subroutine calculate_excited_states(J,PAR,Numstates,HS,jbas,ladder_ops)
   !    call write_ladder_operators(ladder_ops,jbas)
  ! end if
 
-     
   print*
   write(*,'((A21),(f16.9))') 'Ground State Energy: ',HS%E0 
   print*

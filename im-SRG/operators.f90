@@ -3,6 +3,9 @@ module operators
   use isospin_operators
   implicit none 
   
+  interface initialize_transition_operator
+     module procedure initialize_EM_operator,initialize_beta_operator 
+  end interface initialize_transition_operator
 
 contains
 !==================================================================  
@@ -114,11 +117,10 @@ subroutine calculate_rirj(rr,jbas)
      end do 
   end do   
 
-      
 end subroutine calculate_rirj
 !=====================================================================================
 !=====================================================================================
-subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
+subroutine initialize_EM_operator(trs_type,rank,Op,zr,jbas,tcalc)
   implicit none
   
   type(spd) :: jbas
@@ -164,11 +166,51 @@ subroutine initialize_transition_operator(trs_type,rank,Op,zr,jbas,tcalc)
      case ('F') ! FERMI TRANSITION
         stop 'not implemented'
      case ('G') ! GAMOW-TELLER TRANSITION
+        stop 'Beta-decay operators need to use type(iso_operator) structure'        
+     case default
+        tcalc = .false. 
+     end select
+end subroutine initialize_EM_operator
+!=====================================================================================
+!=====================================================================================
+subroutine initialize_beta_operator(trs_type,dTz,Op,zr,jbas,tcalc)
+  implicit none
+  
+  type(spd) :: jbas
+  type(iso_operator) :: Op
+  type(sq_op) :: zr
+  character(1) :: trs_type,ranklab
+  character(1):: dTz 
+  logical :: tcalc
+  
+  tcalc = .true. 
+  Select case (trs_type) 
+     case ('E') ! ELECTRIC TRANSITION
+        STOP 'Electromagnetic operators need to use type(sq_op) structure'        
+     case ('M') ! MAGNETIC TRANSITION
+        STOP 'Electromagnetic operators need to use type(sq_op) structure'
+     case ('F') ! FERMI TRANSITION
         stop 'not implemented'
+     case ('G') ! GAMOW-TELLER TRANSITION
+        OP%rank = 2
+        Op%herm = 1
+        Op%dpar = 0        
+        Op%trans_label = 'GT'
+        if (dTZ == '+') then
+           Op%dTz = 1
+        else if (dTZ == '-') then
+           Op%dTz = -1
+        else
+           stop 'not implemented'
+        end if
+        
+        call allocate_isospin_operator(jbas,Op,zr)
+        Op%hospace=zr%hospace
+        call calculate_GT(Op,jbas)               
      case default
         tcalc = .false. 
   end select
-end subroutine initialize_transition_operator
+end subroutine initialize_beta_operator
 !===================================================================
 !===================================================================
 subroutine initialize_TDA(TDA,jbas,Jtarget,PARtarget,cut) 
@@ -953,6 +995,140 @@ subroutine calculate_MX(op,jbas)
   end do     
         
 end subroutine calculate_MX
+!==================================================================================
+!==================================================================================
+subroutine calculate_GT(op,jbas) 
+  ! calculates Gamow-Teller transition operator 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(iso_operator) :: op   
+  integer :: a,b,ax,bx,rank,na,nb,kappa,N
+  integer :: ta,tb,tc,td,la,lb,lc,ld,ja,jb,jc,jd
+  real(8) :: pol,charge(2),dcgi,dcgi00,x,dcg,hw,holength
+  real(8) :: mu_N_overC,gl(2),gs(2),d6ji
+  
+
+  pol = 0.0d0   ! between -1 and 0 
+  hw = op%hospace
+  holength = sqrt(hbarc2_over_mc2/hw) 
+  mu_N_overc = 1.d0!sqrt(hbarc2_over_mc2/4.d0) 
+  x = dcgi00()
+  N = jbas%total_orbits
+  ! access the correct charge with: 
+  ! charge( (jbas%tz(i) + 1)/2 + 1 )  
+  
+  rank = op%rank
+  
+  do a = 1, N  
+     do b = 1,N
+        
+        ta = jbas%itzp(a) 
+        tb = jbas%itzp(b) 
+       
+        if (ta - 2*OP%dTz .ne. tb) cycle
+        
+        la = jbas%ll(a) 
+        lb = jbas%ll(b) 
+
+        if (la .ne. lb) cycle
+        
+        na = jbas%nn(a)
+        nb = jbas%nn(b) 
+
+        if (na .ne. nb) cycle
+        
+        ja = jbas%jj(a) 
+        jb = jbas%jj(b) 
+               
+        if (.not.(triangle(ja,jb,rank))) cycle
+
+        op%fock(a,b) = (-1) ** ((ja+3)/2 + la ) * sqrt(2.d0) * d6ji(1,1,2,jb,ja,la*2)*&
+             sqrt((ja+1.d0)*(jb+1.d0))
+
+        op%fock(b,a) = op%fock(a,b) ** ((ja-jb)/2)
+     end do
+  end do 
+             
+        
+end subroutine calculate_GT
+!====================================================================
+!====================================================================
+real(8) function iso_transition_to_ground_ME( Trans_op , Qdag,jbas ) 
+  implicit none
+  
+  type(spd) :: jbas
+  type(iso_operator) :: Trans_op
+  type(iso_ladder) :: Qdag 
+  integer :: ja,jb,ji,jj,rank,Nsp,Abody
+  integer :: a,b,i,j,ax,ix,jx,bx,J1,J2
+  real(8) :: sm , phase
+  
+  sm = 0.d0 
+  
+  Nsp = jbas%total_orbits 
+  Abody = sum(jbas%con) 
+   
+  rank = Trans_op%rank 
+  
+  if (rank .ne. Qdag%rank)  then 
+     iso_transition_to_ground_ME = 0.d0 
+     return
+  end if 
+
+  
+  do ax = 1,Nsp-Abody
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     do ix = 1,Abody 
+        i = jbas%holes(ix)
+        ji = jbas%jj(i) 
+        
+        
+        phase = (-1) ** ((ja-ji)/2)
+
+        sm = sm + f_iso_op_elem(i,a,Trans_op,jbas)*&
+             f_iso_ladder_elem(a,i,Qdag,jbas)*phase 
+     end do
+  end do 
+
+  do ax = 1,Nsp-Abody
+     a = jbas%parts(ax)
+     ja = jbas%jj(a) 
+
+     do bx = 1,Nsp-Abody
+        b = jbas%parts(bx)
+        jb = jbas%jj(b) 
+        
+        do ix = 1,Abody 
+           i = jbas%holes(ix)
+           ji = jbas%jj(i) 
+           
+           do jx = 1,Abody 
+              j = jbas%holes(jx)
+              jj = jbas%jj(j) 
+  
+              do J1 = abs(ji-jj),ji+jj,2
+                 do J2 = abs(ja-jb),ja+jb,2
+                    
+                    phase = (-1) **((J1+J2)/2) 
+                    sm = sm + phase*0.25d0*&
+                         iso_op_elem(i,j,a,b,J1,J2,Trans_op,jbas)*&
+                         iso_ladder_elem(a,b,i,j,J2,J1,Qdag,jbas) 
+                    
+                 end do 
+              end do 
+           end do
+        end do
+     end do
+  end do
+
+  iso_transition_to_ground_ME = sm * (-1.d0)**(rank/2)
+  !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
+  !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
+  
+end function iso_transition_to_ground_ME
 !==============================================================
 !==============================================================
 real(8) function transition_ME_Tz_EM_Tz( Xout,Trans_op ,Xin,jbas ) 
@@ -1204,7 +1380,8 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
   !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
   
 end function transition_to_ground_ME
-
+!==========================================================================
+!==========================================================================
 subroutine construct_number_operator(op,H,jbas) 
   implicit none
   
@@ -2217,7 +2394,9 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
            states = 2*states + 1 ! energies, observs, and gs
            write(flts,'(I2)') states       
            states = 0
-
+ !          open(unit=71, file='He4_stuff',position="append")
+  !         if ((jin == 1).and.(pin==0)) write(71,'(5(I5),5(e25.14))') 2,2,2,Jin/2,Pin/2, 0.d0 , &
+   !             HS%E0, 0.d0,0.d0,0.d0
            do in = 1, size(ladder_ops)
 
               IF ( ladder_ops(in)%rank .ne. Jin) cycle
@@ -2235,15 +2414,17 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
               Energies(states) = ladder_ops(in)%E0
 
               write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
-
+              ! write(71,'(5(I5),5(e25.14))') 2,2,2,Jin/2,Pin/2, ladder_ops(in)%E0 , &
+              !      ladder_ops(in)%E0+HS%E0, Strength_down , strength_up,sum(ladder_ops(in)%fph**2)
            end do
-
+!           close(71)
            open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
                 '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//trans%Jpi2(q)//'.dat',position='append')
            write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,strengths
            close(31)
-           deallocate(Energies,strengths)  
 
+           deallocate(Energies,strengths)  
+     
         else
            instate = 0
            do In = 1, size(ladder_ops)
@@ -2501,8 +2682,370 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
   end if
 
 end subroutine EOM_observables
-   
+!=========================================================================================================
+!=========================================================================================================
+subroutine EOM_beta_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_states , jbas)
+  implicit none
 
+  type(sq_op),dimension(:) :: ladder_ops
+  type(iso_ladder),dimension(:) :: iso_ops
+  type(sq_op) :: HS,Hcm
+  type(iso_operator) :: O1
+  type(spd) :: jbas
+  type(eom_mgr) :: eom_states
+  type(obsv_mgr) :: trans,mom
+  integer :: q,Jin,Jout,Pin,Pout,in,out,states,instate,DTz
+  logical :: to_ground,from_ground
+  real(8) :: Mfi,strength_down,strength_up,moment,dcgi,dcgi00
+  real(8) :: E_in, E_out
+  real(8),allocatable,dimension(:) :: STRENGTHS,MOMENTS,ENERGIES
+  character(2) :: flts,dTzlab 
+  character(1) :: statlab
+  Mfi = dcgi00()
+  ! CALCULATE TRANSITIONS 
+  do q = 1, trans%num
+     to_ground = .false.
+     from_ground = .false. 
+     dTz = trans%dtz(q) ! dTz is the dTz of the INCOMING STATE     
+
+     IF ( trans%Jpi1(q) == 'GS' ) then
+        Jin = 0 
+        from_ground = .true.
+     else
+        read(trans%Jpi1(q)(1:1),'(I1)') Jin
+        if (trans%Jpi1(q)(2:2) == '+' ) then
+           Pin = 0
+        else
+           Pin = 2
+        end if
+     end if
+     IF ( trans%Jpi2(q) == 'GS' ) then
+        Jout = 0
+        to_ground = .true.
+     else
+        read(trans%Jpi2(q)(1:1),'(I1)') Jout  
+        if (trans%Jpi2(q)(2:2) == '+' ) then
+           Pout = 0
+        else
+           Pout = 2
+        end if
+     end if
+
+     if (to_Ground .and. from_ground) STOP 'No GT transitions between the same state, silly'
+
+     print*
+     print*, '============================================================================='
+     print*, '        E_in                E_out         B('&
+          //trans%oper//';'//trans%Jpi1(q)//' -> '//trans%Jpi2(q)//&
+          ')      B('//trans%oper//';'//trans%Jpi2(q)//' -> '//trans%Jpi1(q)//')' 
+     print*, '============================================================================='
+
+     Jin = 2* Jin
+     Jout = 2* Jout
+
+     If (to_Ground) then
+        ! count number of states
+        states = 0
+    
+        do in = 1,size(iso_ops)
+           IF ( abs(iso_ops(in)%dTz) .ne. abs(O1%dTz) ) cycle 
+!           IF ( iso_ops(in)%dTz .ne. -1*O1%dTz ) cycle ! need to change dTz to zero 
+           IF ( iso_ops(in)%rank .ne. Jin) cycle
+           IF ( iso_ops(in)%dpar .ne. Pin) cycle
+           states = states + 1 
+        end do
+        
+        allocate(Strengths(states),Energies(states))
+        states = 2*states + 1 ! energies, observs, and gs
+        write(flts,'(I2)') states       
+        states = 0
+        do in = 1, size(iso_ops)
+           IF ( abs(iso_ops(in)%dTz) .ne. abs(O1%dTz) ) cycle 
+!           IF ( iso_ops(in)%dTz .ne. -1*O1%dTz ) cycle ! need to change dTz to zero 
+           IF ( iso_ops(in)%rank .ne. Jin) cycle
+           IF ( iso_ops(in)%dpar .ne. Pin) cycle
+           
+           Mfi = iso_transition_to_ground_ME(O1,iso_ops(in),jbas)
+           
+           strength_down = Mfi * Mfi /(iso_ops(in)%rank+1.d0)
+           strength_up = Mfi * Mfi
+           
+           E_in = iso_ops(in)%E0
+           E_out = 0.d0
+           states = states + 1
+           strengths(states) = strength_down
+           Energies(states) = iso_ops(in)%E0
+           
+           write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+        end do
+        
+        open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+             '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//trans%Jpi2(q)//'.dat',position='append')
+        write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,strengths
+        close(31)
+        
+        deallocate(Energies,strengths)  
+     
+     else if ( from_ground) then 
+        ! count number of states
+        states = 0
+            
+        do out = 1,size(iso_ops)
+           IF ( abs(iso_ops(out)%dTz) .ne. abs(O1%dTz) ) cycle 
+!           IF ( iso_ops(out)%dTz .ne. O1%dTz ) cycle ! need to change dTz from zero 
+           IF ( iso_ops(out)%rank .ne. Jout) cycle
+           IF ( iso_ops(out)%dpar .ne. Pout) cycle
+           states = states + 1 
+        end do
+        
+        allocate(Strengths(states),Energies(states))
+        states = 2*states + 1 ! energies, observs, and gs
+        write(flts,'(I2)') states       
+        states = 0
+        do out = 1, size(iso_ops)
+           
+           IF ( abs(iso_ops(out)%dTz) .ne. abs(O1%dTz) ) cycle ! need to change dTz from zero 
+           IF ( iso_ops(out)%rank .ne. Jout) cycle
+           IF ( iso_ops(out)%dpar .ne. Pout) cycle
+           
+           Mfi = iso_transition_to_ground_ME(O1,iso_ops(out),jbas)
+           
+           strength_down = Mfi * Mfi  
+           strength_up = Mfi * Mfi/(iso_ops(out)%rank+1.d0) 
+           
+           E_in =  0.d0 
+           E_out = iso_ops(out)%E0
+
+           states = states + 1
+
+           strengths(states) = strength_down
+           Energies(states) = iso_ops(out)%E0
+           
+           write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+
+        end do
+        
+        open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+             '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//trans%Jpi2(q)//'.dat',position='append')
+        write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,strengths
+        close(31)
+        
+        deallocate(Energies,strengths)  
+
+     else
+
+        stop 'transition not currently implemented, must include reference state' 
+        if (dTZ == 0) then 
+           instate = 0        
+           do In = 1, size(ladder_ops)
+              
+              IF ( ladder_ops(in)%rank .ne. Jin) cycle
+              IF ( ladder_ops(in)%dpar .ne. Pin) cycle
+              
+              states = 0.d0 
+              do out = 1,size(iso_ops)
+
+                 IF ( iso_ops(out)%dTz .ne. O1%dTz ) cycle ! change dTz from zero
+                 IF ( iso_ops(out)%rank .ne. Jout) cycle
+                 IF ( iso_ops(out)%dpar .ne. Pout) cycle
+                 states = states + 1 
+              end do
+              
+           allocate(Strengths(states),Energies(states))
+           states = 2*states + 1 ! energies, observs, and gs
+           write(flts,'(I2)') states       
+           states = 0
+
+              do out = 1, size(iso_ops)
+
+                 IF ( iso_ops(out)%dTz .ne. O1%dTz ) cycle ! change dTz from zero
+                 IF ( iso_ops(out)%rank .ne. Jout) cycle
+                 IF ( iso_ops(out)%dpar .ne. Pout) cycle
+
+                 states = states + 1
+ !                Mfi = iso_transition_ME(iso_ops(out),O1,ladder_ops(in),jbas) 
+
+                 if (iso_ops(out)%E0 > ladder_ops(in)%E0) then 
+                    strength_down = Mfi * Mfi / (iso_ops(out)%rank+1.d0)
+                    strength_up = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
+                    E_in = iso_ops(out)%E0
+                    E_out = ladder_ops(in)%E0
+                    strengths(states) = strength_up
+                    Energies(states) = E_in 
+                    write(*,'(4(f19.12))') E_in,E_out,Strength_up,Strength_down           
+                 else
+                    strength_down = Mfi * Mfi / (ladder_ops(in)%rank+1.d0)
+                    strength_up = Mfi * Mfi / (iso_ops(out)%rank+1.d0)
+                    E_in = ladder_ops(in)%E0
+                    E_out = iso_ops(out)%E0
+                    strengths(states) = strength_down
+                    Energies(states) = E_out 
+                    write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+                 end if
+
+
+              end do
+              instate = instate+1
+              write(statlab,'(I1)') instate
+              write(dTzlab,'(I2)') dTz
+              dTzlab = adjustl(dTzlab) 
+              open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+                   '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//statlab//'_'&
+                   //trans%Jpi2(q)//'_dTz'//trim(dTzlab)//'.dat',position='append')
+              write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') &
+                   nint(HS%hospace),HS%eMax,ladder_ops(in)%E0,Energies,strengths
+              close(31)
+              deallocate(Energies,strengths)  
+
+           end do
+
+
+        else
+
+           if ( dTz + O1%dTz  == 0 ) then
+
+              stop 'transition not implemented yet.' 
+              ! the outgoing state is ladder_ops
+              instate = 0        
+              do In = 1, size(iso_ops)
+
+                 IF ( iso_ops(in)%dTz .ne. O1%dTz ) cycle ! change dTz to zero
+                 IF ( iso_ops(in)%rank .ne. Jin) cycle
+                 IF ( iso_ops(in)%dpar .ne. Pin) cycle
+
+                 states = 0.d0 
+                 do out = 1,size(ladder_ops)
+
+                    IF ( ladder_ops(out)%rank .ne. Jout) cycle
+                    IF ( ladder_ops(out)%dpar .ne. Pout) cycle
+                    states = states + 1 
+                 end do
+
+                 allocate(Strengths(states),Energies(states))
+                 states = 2*states + 1 ! energies, observs, and gs
+                 write(flts,'(I2)') states       
+                 states = 0
+
+                 do out = 1, size(ladder_ops)
+
+                    IF ( ladder_ops(out)%rank .ne. Jout) cycle
+                    IF ( ladder_ops(out)%dpar .ne. Pout) cycle
+
+                    states = states + 1
+!                    Mfi = reverse_iso_transition_ME(ladder_ops(out),O1,iso_ops(in),jbas) 
+
+                    if (ladder_ops(out)%E0 > iso_ops(in)%E0) then 
+                       strength_down = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
+                       strength_up = Mfi * Mfi / (iso_ops(in)%rank+1.d0)
+                       E_in = ladder_ops(out)%E0
+                       E_out = iso_ops(in)%E0
+                       strengths(states) = strength_up
+                       Energies(states) = E_in 
+                       write(*,'(4(f19.12))') E_in,E_out,Strength_up,Strength_down           
+                    else
+                       strength_down = Mfi * Mfi / (iso_ops(in)%rank+1.d0)
+                       strength_up = Mfi * Mfi / (ladder_ops(out)%rank+1.d0)
+                       E_in = iso_ops(in)%E0
+                       E_out = ladder_ops(out)%E0
+                       strengths(states) = strength_down
+                       Energies(states) = E_out 
+                       write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+                    end if
+
+
+                 end do
+                 instate = instate+1
+                 write(statlab,'(I1)') instate
+                 write(dTzlab,'(I2)') dTz
+                 dTzlab = adjustl(dTzlab) 
+                 open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+                      '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//statlab//'_'&
+                      //trans%Jpi2(q)//'_dTz'//trim(dTzlab)//'.dat',position='append')
+                 write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') &
+                      nint(HS%hospace),HS%eMax,iso_ops(in)%E0,Energies,strengths
+                 close(31)
+                 deallocate(Energies,strengths)  
+
+              end do
+
+             
+           else ! both states are iso
+
+              stop 'transition not implemented yet.' 
+              instate = 0
+              do In = 1, size(iso_ops)
+
+                 IF ( iso_ops(in)%rank .ne. Jin) cycle
+                 IF ( iso_ops(in)%dpar .ne. Pin) cycle
+                 IF ( iso_ops(in)%dTz .ne. dTz ) cycle          
+
+                 states = 0.d0 
+                 do out = 1,size(iso_ops)
+                    IF ( out == in) cycle
+                    IF ( iso_ops(out)%rank .ne. Jout) cycle
+                    IF ( iso_ops(out)%dpar .ne. Pout) cycle
+                    IF ( iso_ops(out)%dTz .ne. dTz + O1%dTz) cycle
+                    states = states + 1 
+                 end do
+
+                 allocate(Strengths(states),Energies(states))
+                 states = 2*states + 1 ! energies, observs, and gs
+                 write(flts,'(I2)') states       
+                 states = 0
+                 
+                 do out = 1, size(iso_ops)
+                    
+                    if (out==in) cycle ! not a transition
+                    IF ( iso_ops(out)%rank .ne. Jout) cycle
+                    IF ( iso_ops(out)%dpar .ne. Pout) cycle
+                    IF ( iso_ops(out)%dTz  .ne. dTz + O1%dTz) cycle
+
+                    states = states + 1
+!                    Mfi = twoiso_transition_ME_Tz_EM_Tz(iso_ops(out),O1,iso_ops(in),jbas) 
+                    
+                    if (iso_ops(out)%E0 > iso_ops(in)%E0) then 
+                       strength_down = Mfi * Mfi / (iso_ops(out)%rank+1.d0)
+                       strength_up = Mfi * Mfi / (iso_ops(in)%rank+1.d0)
+                       E_in = iso_ops(out)%E0
+                       E_out = iso_ops(in)%E0
+                       strengths(states) = strength_up
+                       Energies(states) = E_in 
+                       write(*,'(4(f19.12))') E_in,E_out,Strength_up,Strength_down           
+                    else
+                       strength_down = Mfi * Mfi / (iso_ops(in)%rank+1.d0)
+                       strength_up = Mfi * Mfi / (iso_ops(out)%rank+1.d0)
+                       E_in = iso_ops(in)%E0
+                       E_out = iso_ops(out)%E0
+                       strengths(states) = strength_down
+                       Energies(states) = E_out 
+                       write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
+                    end if
+
+
+                 end do
+                 instate = instate+1
+                 write(statlab,'(I1)') instate
+                 write(dTzlab,'(I2)') dTz
+                 dTzlab = adjustl(dTzlab)               
+                 open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
+                      '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//statlab//'_'//&
+                      trans%Jpi2(q)//'_dTz'//trim(dTzlab)//'.dat',position='append')
+                 write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),&
+                      HS%eMax,iso_ops(in)%E0,Energies,strengths
+                 close(31)
+                 deallocate(Energies,strengths)  
+                 
+              end do
+              
+           end if
+        end if
+        print*
+
+     end if
+  end do
+     
+  
+end subroutine EOM_beta_observables
 
 
 

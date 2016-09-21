@@ -16,6 +16,7 @@ program main_IMSRG
   type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0,Hcm
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(iso_ladder),allocatable,dimension(:) :: isoladder_ops
+  type(iso_operator) :: GT_trans
   type(cc_mat) :: CCHS,CCETA,WCC
   type(full_sp_block_mat) :: coefs,TDA,ppTDA,rrTDA
   type(three_body_force) :: threebod
@@ -331,11 +332,16 @@ print*, 'BASIS SETUP COMPLETE'
      write(*,'(A5,f12.7)') 'TIME:', t2-t1
 
      Otrans%xindx = eom_states%num+1
+     GT_Trans%xindx = Otrans%xindx
+
      trans_type = trans%oper(1:1)
 
-     read(trans%oper(2:2),'(I1)') trans_rank
-
-     call initialize_transition_operator(trans_type,trans_rank,Otrans,HS,jbas,trans_calc)
+     if (trans_type == 'G') then 
+        call initialize_transition_operator('G',trans%oper(2:2),GT_trans,HS,jbas,trans_calc)
+     else        
+        read(trans%oper(2:2),'(I1)') trans_rank        
+        call initialize_transition_operator(trans_type,trans_rank,Otrans,HS,jbas,trans_calc)
+     end if 
      
      if (trans_calc) then 
         if (hartree_fock) then 
@@ -343,7 +349,11 @@ print*, 'BASIS SETUP COMPLETE'
         end if
         print*, 'Transforming transition operator...' 
 
-        if ( trans%num + moments%num > 0 ) call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
+        if (trans_type == 'G') then 
+           if ( trans%num + moments%num > 0 ) call transform_observable_BCH(GT_trans,exp_omega,jbas,quads)
+        else
+           if ( trans%num + moments%num > 0 ) call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
+        end if
 
         if (com_calc) then 
            Hcm%rank = 0
@@ -351,8 +361,12 @@ print*, 'BASIS SETUP COMPLETE'
            Hcm%xindx = Otrans%xindx + 1 
            call build_Hcm(pipj,rirj,Hcm,jbas)
         end if
-        
-        call EOM_observables( ladder_ops, isoladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
+
+        if (trans_type == 'G') then 
+           call EOM_beta_observables( ladder_ops, isoladder_ops, GT_trans, HS, Hcm,trans, moments,eom_states,jbas)
+        else           
+           call EOM_observables( ladder_ops, isoladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
+        end if 
         
      end if
      

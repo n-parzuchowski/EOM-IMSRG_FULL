@@ -4,6 +4,11 @@ module IMSRG_MAGNUS
   use operators
   use HF_mod 
   implicit none 
+
+
+  interface transform_observable_BCH
+     module procedure BCH_ISOTENSOR,transform_sq_op_BCH
+  end interface transform_observable_BCH
   
 contains
 
@@ -273,20 +278,16 @@ subroutine magnus_HF(HS,G,jbas,build_generator)
 
   end do
   
-end subroutine  
-!===========================================================================
-!===========================================================================
+end subroutine magnus_HF
 !=========================================================================
 !=========================================================================
-subroutine transform_observable_BCH(Op,G,jbas,quads)
+subroutine transform_sq_op_BCH(Op,G,jbas,quads)
   implicit none 
   
   type(spd) :: jbas
   type(sq_op) :: Op,G,Oevolved
   character(1) :: quads
-  
-
-  
+    
   if (Op%rank > 0) then      
      call BCH_TENSOR(G,Op,jbas,quads)    
   else
@@ -295,9 +296,7 @@ subroutine transform_observable_BCH(Op,G,jbas,quads)
      call copy_sq_op(Oevolved,Op) 
   end if 
   
-
- 
-end subroutine   
+end subroutine transform_sq_op_BCH
 !=========================================================================
 !=========================================================================
 subroutine BCH_EXPAND(HS,G,H,jbas,quads) 
@@ -533,6 +532,73 @@ subroutine BCH_TENSOR(G,HS,jbas,quads)
   end do
  
 end subroutine BCH_TENSOR
+!=========================================================================
+!=========================================================================
+subroutine BCH_ISOTENSOR(HS,G,jbas,quads) 
+  use operator_commutators
+  use isospin_operators
+  implicit none 
+  
+  real(8), parameter :: conv = 1e-4
+  integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw,omp_get_num_threads
+  integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
+  integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT,threads
+  type(spd) :: jbas
+  type(sq_op) :: G
+  type(iso_operator) :: INT2, INT3,HS, AD 
+  type(pandya_mat) :: WCC,ADCC
+  type(cc_mat) :: GCC 
+  real(8) ::  coef,adnorm,fullnorm,s,advals(30),sm,sm2,dcgi,dcgi00
+  character(3) :: args
+  character(1) :: quads ! enter some character to restore quadrupoles 
+
+  return
+  call duplicate_isospin_operator(HS,INT2) !workspace
+ ! call duplicate_sq_op(HS,INT3) !workspace
+  call duplicate_isospin_operator(HS,AD) !workspace
+  INT2%herm = 1
+  AD%herm = 1
+  
+  advals = 0.d0 
+  coef = 1.d0
+  ! intermediates must be HERMITIAN
+  !! so here:  H is the current hamiltonian and we 
+  !! copy it onto HS.  We copy this onto 
+  !! INT2, just to make things easier for everyone.
+
+  call copy_isospin_operator( HS , INT2 )
+ 
+  advals(1) = abs(HS%E0)   
+  do iw = 2 ,30
+     
+     coef = coef/(iw-1.d0)
+     ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
+     ! AD refers AD_n and INT2 becomes AD_{n+1} . 
+     call copy_isospin_operator( INT2 , AD ) 
+     ! so to start, AD is equal to H
+     call clear_isospin_operator(INT2)    
+!     call clear_sq_op(INT3)    
+     !now: INT2 = [ G , AD ]  
+
+     call operator_commutator_111(G,AD,INT2,jbas) 
+     call operator_commutator_211(G,AD,INT2,jbas)
+     call operator_commutator_121(G,AD,INT2,jbas)      
+     call operator_commutator_122(G,AD,INT2,jbas)   
+     call operator_commutator_212(G,AD,INT2,jbas)  
+     call operator_commutator_222_pp_hh(G,AD,INT2,jbas)    
+     call operator_commutator_222_ph(G,AD,INT2,jbas)       
+     ! so now just add HS + c_n * INT2 to get current value of HS
+     !   call append_operator( INT3 , 1.d0 , INT2 )   !basic_IMSRG
+    
+     call append_isospin_operator( INT2 , coef , HS )   !basic_IMSRG
+     
+         
+     advals(iw) = iso_frob_norm(INT2)*coef
+     if (advals(iw) < conv) exit
+     
+  end do
+ 
+end subroutine BCH_ISOTENSOR
 !=========================================================================
 !=========================================================================
 subroutine CR_EXPAND(HS,G,H,jbas,quads) 

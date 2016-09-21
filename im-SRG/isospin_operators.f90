@@ -38,6 +38,91 @@
   end type iso_operator
     
 contains
+!===============================================================
+!===============================================================  
+real(8) function iso_frob_norm(op) 
+  implicit none 
+  
+  type(iso_operator) :: op
+  integer :: q,g
+  real(8) :: sm
+
+  sm = sum(op%fock**2)
+ 
+  do q = 1, op%nblocks
+        do g = 1,9
+           sm = sm + sum(op%tblck(q)%tgam(g)%X**2)
+        end do
+  end do 
+  
+  iso_frob_norm = sqrt(sm)
+end function 
+!=====================================================
+!=====================================================
+subroutine append_isospin_operator(BB,bx,AA) 
+  ! make a copy of H onto op
+  implicit none 
+  
+  type(iso_operator) :: AA,BB
+  real(8) :: bx
+  integer :: q,i,j,holes,parts,nh,np,nb
+  
+  AA%E0 = BB%E0*bx+AA%E0
+  AA%fock = BB%fock*bx + AA%fock 
+  
+  do q = 1, AA%nblocks
+     
+     do i = 1,9
+        AA%tblck(q)%tgam(i)%X = bx*BB%tblck(q)%tgam(i)%X + &
+             AA%tblck(q)%tgam(i)%X
+     end do
+       
+  end do
+    
+end subroutine append_isospin_operator
+!=====================================================
+!=====================================================
+subroutine copy_isospin_operator(H,op) 
+  ! make a copy of H onto op
+  implicit none 
+  
+  type(iso_operator) :: H,op
+  integer :: q,i,j,holes,parts,nh,np,nb
+  
+  op%herm = H%herm
+  op%E0 = H%E0
+  op%fock = H%fock
+  
+  do q = 1, op%nblocks
+     
+     do i = 1,9
+        op%tblck(q)%tgam(i)%X = H%tblck(q)%tgam(i)%X
+     end do
+       
+  end do
+    
+end subroutine copy_isospin_operator
+!=====================================================
+!=====================================================
+subroutine clear_isospin_operator(op) 
+  ! make a copy of H onto op
+  implicit none 
+  
+  type(iso_operator) :: op
+  integer :: q,i,j,holes,parts,nh,np,nb
+  
+  op%E0 = 0.d0
+  op%fock = 0.d0
+  
+  do q = 1, op%nblocks
+     
+     do i = 1,9
+        op%tblck(q)%tgam(i)%X = 0.d0
+     end do
+     
+  end do
+  
+end subroutine clear_isospin_operator
 !=========================================================
 !=========================================================
 subroutine duplicate_isospin_operator(A,B)
