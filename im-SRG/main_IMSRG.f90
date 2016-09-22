@@ -369,7 +369,8 @@ print*, 'BASIS SETUP COMPLETE'
         end if 
         
      end if
-     
+
+     deallocate(isoladder_ops,ladder_ops)
   end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! excited state decoupling
@@ -431,7 +432,7 @@ print*, 'BASIS SETUP COMPLETE'
   end if 
 
   ! free it up brah
-  deallocate(isoladder_ops,ladder_ops)
+
   
 contains
 

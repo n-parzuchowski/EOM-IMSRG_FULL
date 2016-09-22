@@ -2605,7 +2605,7 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
            Mfi = transition_ME(ladder_ops(in),O1,ladder_ops(in),jbas)  
            moment = Mfi / sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
            E_in = ladder_ops(in)%E0
-           write(*,'(2(f19.12))') E_in,moment,1/sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
+           write(*,'(2(f19.12))') E_in,moment
 
            states = states + 1
            moments(states) = moment
@@ -2701,6 +2701,7 @@ subroutine EOM_beta_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eo
   real(8),allocatable,dimension(:) :: STRENGTHS,MOMENTS,ENERGIES
   character(2) :: flts,dTzlab 
   character(1) :: statlab
+
   Mfi = dcgi00()
   ! CALCULATE TRANSITIONS 
   do q = 1, trans%num
@@ -2747,9 +2748,8 @@ subroutine EOM_beta_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eo
         ! count number of states
         states = 0
     
-        do in = 1,size(iso_ops)
-           IF ( abs(iso_ops(in)%dTz) .ne. abs(O1%dTz) ) cycle 
-!           IF ( iso_ops(in)%dTz .ne. -1*O1%dTz ) cycle ! need to change dTz to zero 
+        do in = 1,size(iso_ops)          
+           IF ( iso_ops(in)%dTz .ne. -1*O1%dTz ) cycle ! need to change dTz to zero 
            IF ( iso_ops(in)%rank .ne. Jin) cycle
            IF ( iso_ops(in)%dpar .ne. Pin) cycle
            states = states + 1 
@@ -2760,8 +2760,7 @@ subroutine EOM_beta_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eo
         write(flts,'(I2)') states       
         states = 0
         do in = 1, size(iso_ops)
-           IF ( abs(iso_ops(in)%dTz) .ne. abs(O1%dTz) ) cycle 
-!           IF ( iso_ops(in)%dTz .ne. -1*O1%dTz ) cycle ! need to change dTz to zero 
+           IF ( iso_ops(in)%dTz .ne. -1*O1%dTz ) cycle ! need to change dTz to zero 
            IF ( iso_ops(in)%rank .ne. Jin) cycle
            IF ( iso_ops(in)%dpar .ne. Pin) cycle
            
@@ -2791,8 +2790,7 @@ subroutine EOM_beta_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eo
         states = 0
             
         do out = 1,size(iso_ops)
-           IF ( abs(iso_ops(out)%dTz) .ne. abs(O1%dTz) ) cycle 
-!           IF ( iso_ops(out)%dTz .ne. O1%dTz ) cycle ! need to change dTz from zero 
+           IF ( iso_ops(out)%dTz .ne. O1%dTz ) cycle ! need to change dTz from zero 
            IF ( iso_ops(out)%rank .ne. Jout) cycle
            IF ( iso_ops(out)%dpar .ne. Pout) cycle
            states = states + 1 
@@ -2804,7 +2802,7 @@ subroutine EOM_beta_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eo
         states = 0
         do out = 1, size(iso_ops)
            
-           IF ( abs(iso_ops(out)%dTz) .ne. abs(O1%dTz) ) cycle ! need to change dTz from zero 
+           IF ( iso_ops(out)%dTz .ne. O1%dTz ) cycle ! need to change dTz from zero 
            IF ( iso_ops(out)%rank .ne. Jout) cycle
            IF ( iso_ops(out)%dpar .ne. Pout) cycle
            
