@@ -552,7 +552,6 @@ subroutine BCH_ISOTENSOR(HS,G,jbas,quads)
   character(3) :: args
   character(1) :: quads ! enter some character to restore quadrupoles 
 
-  return
   call duplicate_isospin_operator(HS,INT2) !workspace
  ! call duplicate_sq_op(HS,INT3) !workspace
   call duplicate_isospin_operator(HS,AD) !workspace

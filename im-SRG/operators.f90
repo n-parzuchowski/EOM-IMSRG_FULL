@@ -2338,12 +2338,14 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
   type(eom_mgr) :: eom_states
   type(obsv_mgr) :: trans,mom
   integer :: q,Jin,Jout,Pin,Pout,in,out,states,instate,DTz
+  integer :: i,a,b,j,jx,ix,ax,bx,ja,ji,jj,jb,rank
   logical :: to_ground
   real(8) :: Mfi,strength_down,strength_up,moment,dcgi,dcgi00
-  real(8) :: E_in, E_out
+  real(8) :: E_in, E_out,sm,d6ji
   real(8),allocatable,dimension(:) :: STRENGTHS,MOMENTS,ENERGIES
   character(2) :: flts,dTzlab 
   character(1) :: statlab
+
   Mfi = dcgi00()
   ! CALCULATE TRANSITIONS 
   do q = 1, trans%num
@@ -2599,11 +2601,12 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
 
            IF ( ladder_ops(in)%rank .ne. Jin) cycle
            IF ( ladder_ops(in)%dpar .ne. Pin) cycle
-
+           
            Mfi = transition_ME(ladder_ops(in),O1,ladder_ops(in),jbas)  
-           moment = Mfi * sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
+           moment = Mfi / sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
            E_in = ladder_ops(in)%E0
-           write(*,'(2(f19.12))') E_in,moment
+           write(*,'(2(f19.12))') E_in,moment,1/sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
+
            states = states + 1
            moments(states) = moment
            energies(states)=E_in
@@ -2656,9 +2659,6 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
         close(31)
         deallocate(Energies,moments)  
         print* 
-
-
-
 
      end if
   end do

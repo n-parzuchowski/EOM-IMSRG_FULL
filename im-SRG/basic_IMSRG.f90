@@ -4771,7 +4771,26 @@ character(500) function find_file( directory_name,file_name)
      istart = iend+2
   end do
 end function find_file
+!====================================================================================
+!====================================================================================
+subroutine project_1p1h(Q) 
+  ! ladder_operator projection onto the 1p1h space, zero out 2p2h stuff
+  implicit none
 
+  type(sq_op) :: Q
+  real(8) :: nrm
+  integer :: qx
+
+  do qx = 1, Q%nblocks
+     Q%tblck(qx)%tgam(3)%X = 0.d0 
+     Q%tblck(qx)%tgam(7)%X = 0.d0
+  end do
+
+  nrm = sqrt(sum( Q%fph**2 ))
+
+  Q%fph = Q%fph /nrm
+
+end subroutine project_1p1h
 end module       
 
 
