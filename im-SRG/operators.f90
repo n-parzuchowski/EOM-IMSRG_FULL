@@ -1315,7 +1315,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
   type(sq_op) :: Trans_op,Qdag 
   integer :: ja,jb,ji,jj,rank,Nsp,Abody
   integer :: a,b,i,j,ax,ix,jx,bx,J1,J2
-  real(8) :: sm , phase
+  real(8) :: sm , phase, sm1,sm2
   
   sm = 0.d0 
   
@@ -1343,7 +1343,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
              f_tensor_elem(a,i,Qdag,jbas)*phase
      end do
   end do 
-
+  sm1 = sm
   do ax = 1,Nsp-Abody
      a = jbas%parts(ax)
      ja = jbas%jj(a) 
@@ -1374,6 +1374,7 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
         end do
      end do
   end do
+  sm2 = sm - sm1
 
   transition_to_ground_ME = sm * (-1.d0)**(rank/2)
   !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
@@ -2643,7 +2644,7 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
            
            Mfi = transition_ME_Tz_EM_Tz(iso_ops(in),O1,iso_ops(in),jbas)  
 
-           moment = Mfi * sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
+           moment = Mfi / sqrt(Jin+1.d0)*dcgi(Jin,Jin,O1%rank,0,Jin,Jin)
            E_in = iso_ops(in)%E0
            write(*,'(2(f19.12))') E_in,moment
            states = states + 1

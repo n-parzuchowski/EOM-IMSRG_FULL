@@ -54,7 +54,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   steps = 0
   
   if (HS%eMax==14) then 
-     chk = 8
+     chk = 20
   else
      chk = 24
   end if 
@@ -458,7 +458,7 @@ end subroutine BCH_EXPAND_1b
 subroutine BCH_TENSOR(G,HS,jbas,quads) 
   implicit none 
   
-  real(8), parameter :: conv = 1e-4
+  real(8), parameter :: conv = 1e-6
   integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw,omp_get_num_threads
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT,threads
@@ -539,7 +539,7 @@ subroutine BCH_ISOTENSOR(HS,G,jbas,quads)
   use isospin_operators
   implicit none 
   
-  real(8), parameter :: conv = 1e-4
+  real(8), parameter :: conv = 1e-6
   integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw,omp_get_num_threads
   integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
   integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT,threads
