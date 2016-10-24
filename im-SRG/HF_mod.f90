@@ -1,8 +1,13 @@
 module HF_mod
-  use basic_IMSRG 
+  use isospin_operators
   use three_body_routines
   ! J-scheme Hartree-Fockery. 
   implicit none 
+
+  interface observable_to_HF
+     module procedure sqop_to_HF, transform_1b_to_HF_dTZ_tensor 
+  end interface
+
   
 contains
 !====================================================
@@ -100,7 +105,7 @@ subroutine calc_HF(H,THREEBOD,jbas,D)
 ! call output_gaute_format(F,D,H,jbas) 
 end subroutine calc_HF
 !====================================================
-subroutine observable_to_HF(Op,coefs,jbas) 
+subroutine sqop_to_HF(Op,coefs,jbas) 
   ! transforms observable to HF basis
   ! works for scalar observables 
   ! and ONE BODY TENSORS ONLY 
@@ -678,6 +683,41 @@ subroutine transform_1b_to_HF_tensor(D,O1,jbas)
 
 
 end subroutine transform_1b_to_HF_tensor
+!==============================================================
+!==============================================================
+subroutine transform_1b_to_HF_dTZ_tensor(O1,D,jbas) 
+  implicit none 
+  
+  type(spd) :: jbas
+  type(iso_operator) :: O1
+  type(full_sp_block_mat) :: D 
+  integer :: q,i,j,a,b,nt,c1,c2,cx
+  real(8),allocatable,dimension(:,:) :: Dfull,Ffull,Dx
+
+  nt = O1%Nsp
+  allocate(Dfull(nt,nt)) 
+  Dfull = 0.d0 
+  do q = 1, D%blocks
+     if (D%map(q) == 0) cycle
+     
+     do i = 1, D%map(q) 
+        do j = 1,D%map(q) 
+           
+           Dfull(D%blkM(q)%states(i),D%blkM(q)%states(j)) = &
+            D%blkM(q)%matrix(i,j) 
+        
+        end do
+     end do 
+  end do 
+  
+
+  allocate(Dx(nt,nt)) 
+  
+  ! transform the Fock matrix
+  call dgemm('N','N',nt,nt,nt,al,O1%fock,nt,Dfull,nt,bet,Dx,nt) 
+  call dgemm('T','N',nt,nt,nt,al,Dfull,nt,Dx,nt,bet,O1%fock,nt)
+  
+end subroutine transform_1b_to_HF_dTZ_tensor
 !=======================================================================
 !=======================================================================
 subroutine meanfield_2b(rho,H,TB,jbas) 

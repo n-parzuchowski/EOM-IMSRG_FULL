@@ -1,6 +1,7 @@
 program main_IMSRG
   use isospin_operators
   use HF_mod
+  use response
   use IMSRG_ODE
   use IMSRG_MAGNUS
   use IMSRG_CANONICAL
@@ -304,9 +305,7 @@ print*, 'BASIS SETUP COMPLETE'
            call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
                 jbas,ladder_ops(1+oldnum:Numstates+oldnum))
         
-           
-             
-        
+               
            ! print*
            ! print*, '================================================'
            ! print*, '  J^Pi          E            E+dE       time    '
@@ -315,6 +314,9 @@ print*, 'BASIS SETUP COMPLETE'
            !    t1= omp_get_wtime()
            !    dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  
            !    t2= omp_get_wtime()
+           !    write(71,'(5(I5),5(e25.14))') 2,2,2,eom_states%ang_mom(q)/2,eom_states%par(q)/2, ladder_ops(qx)%E0+dE_trips , &
+           !      ladder_ops(qx)%E0+HS%E0+dE_trips, 0.d0 , 0.d0 ,sum(ladder_ops(qx)%fph**2)
+  
            !    write(*,'(A2,4(f20.10))') eom_states%name(q),&
            !         ladder_ops(qx)%E0,ladder_ops(qx)%E0+dE_trips,dE_trips,t2-t1
            ! end do
@@ -348,15 +350,19 @@ print*, 'BASIS SETUP COMPLETE'
      end if 
      
      if (trans_calc) then 
-        if (hartree_fock) then 
-           call observable_to_HF(Otrans,coefs,jbas)
-        end if
         print*, 'Transforming transition operator...' 
 
         if (trans_type == 'G') then 
+           if (hartree_fock) then 
+              call observable_to_HF(GT_trans,coefs,jbas)
+           end if
            if ( trans%num + moments%num > 0 ) call transform_observable_BCH(GT_trans,exp_omega,jbas,quads)
                                             
         else
+           if (hartree_fock) then 
+              call observable_to_HF(Otrans,coefs,jbas)
+           end if
+
            if ( trans%num + moments%num > 0 ) call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
         end if
         
@@ -371,8 +377,10 @@ print*, 'BASIS SETUP COMPLETE'
            call EOM_beta_observables( ladder_ops, isoladder_ops, GT_trans, HS, Hcm,trans, moments,eom_states,jbas)
         else           
            call EOM_observables( ladder_ops, isoladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
-        end if 
-        
+!           call compute_response_function(jbas,HS,Otrans) 
+        end if
+
+
      end if
 
      deallocate(isoladder_ops,ladder_ops)
