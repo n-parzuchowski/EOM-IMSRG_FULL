@@ -17,8 +17,8 @@ subroutine compute_response_function(jbas,HS,OP)!,folder)
   type(ex_pandya_mat) :: QPP,WPP
   type(ex_cc_mat) :: OpPP
   real(8),allocatable,dimension(:) :: workl,D,eigs,resid,work,workD
-  real(8),allocatable,dimension(:,:) :: V,Z
-  integer :: i,j,ix,jx,lwork,info,ido,ncv,ldv,iparam(11),ipntr(11),q,II,JJ
+  real(8),allocatable,dimension(:,:) :: V,Z,VX,XXX 
+  integer :: i,j,k,ix,jx,lwork,info,ido,ncv,ldv,iparam(11),ipntr(11),q,II,JJ
   integer :: ishift,mxiter,nb,nconv,mode,np,lworkl,ldz,p,h,sps,tps,jp,jh
   real(8) ::  x,tol,y,sigma,t1,t2,strength,sm
   character(1) :: BMAT,HOWMNY 
@@ -123,7 +123,7 @@ subroutine compute_response_function(jbas,HS,OP)!,folder)
   nev = 200
   ncv = 10*nev ! number of lanczos vectors I guess
   lworkl = ncv*(ncv+8) 
-  allocate(V(N,NCV),workl(lworkl))
+  allocate(V(N,NCV),VX(N,NCV),workl(lworkl))
   LDV = N  
   ishift = 1
   mxiter = 1   !!!! THIS TURNS OFF IMPLICIT RESTART
@@ -152,36 +152,38 @@ subroutine compute_response_function(jbas,HS,OP)!,folder)
           lworkl, info )
      ! The actual matrix only gets multiplied with the "guess" vector in "matvec_prod" 
      call progress_bar( i )
- 
      i=i+1 
 
      if ( ido /= -1 .and. ido /= 1 ) then
         exit
      end if
-     
+     if ( i > NCV ) STOP 'response failed to converge' 
      call matvec_nonzeroX_prod(N,HS,Q1,Q2,w1,w2,OpPP,QPP,WPP,jbas, workd(ipntr(1)), workd(ipntr(2)) ) 
      
   end do
-
+  
   rvec= .true. 
   howmny = 'A'
-  
+
+  VX = V 
+
   allocate(selct(NCV)) 
   allocate(D(NEV)) 
   allocate(Z(N,NEV)) 
   ldz = N  
   call dseupd( rvec, howmny, selct, d, Z, ldv, sigma, &
       bmat, n, which, nev, tol, resid, ncv, v, ldv, &
-      iparam, ipntr, workd, workl, lworkl, info )
-
+      iparam, ipntr, workd, workl, lworkl, info )  
+  
   do j = 1, NEV
-     print*, D(j),Z(1,j)**2*strength 
+     print*, D(j),sum(Z(:,j)*VX(:,1))  
   end do 
+
   x = 0.d0 
   do i = 1, 10000
      sm = 0.d0 
      do j = 1,NEV
-        sm = sm + strength * Z(1,j)**2 * gaussian(x,D(j),0.5d0)        
+        sm = sm + strength * sum(Z(:,j)*VX(:,1))**2 * gaussian(x,D(j),0.5d0)        
      end do
      
      write(82,'(2(f25.14))') x ,  sm

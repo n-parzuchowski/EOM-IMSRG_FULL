@@ -377,7 +377,7 @@ print*, 'BASIS SETUP COMPLETE'
            call EOM_beta_observables( ladder_ops, isoladder_ops, GT_trans, HS, Hcm,trans, moments,eom_states,jbas)
         else           
            call EOM_observables( ladder_ops, isoladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
-!           call compute_response_function(jbas,HS,Otrans) 
+           call compute_response_function(jbas,HS,Otrans) 
         end if
 
 
