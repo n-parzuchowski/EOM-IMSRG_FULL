@@ -54,7 +54,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   steps = 0
   
   if (HS%eMax==14) then 
-     chk = 20
+     chk = 10
   else
      chk = 24
   end if 
@@ -93,7 +93,6 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      first = .true. 
   end if 
   
-
   do while (crit > 1e-6) 
  
      steps = steps + 1

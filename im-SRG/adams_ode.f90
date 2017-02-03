@@ -4,10 +4,10 @@ module adams_ode
     
 contains
 
-subroutine euler_ode( f,neqn,y,rx,jbas,t,dt) 
+subroutine euler_ode( f,build_Gen,neqn,y,rx,jbas,t,dt) 
   implicit none
 
-  external f
+  external f , build_gen
   integer :: neqn 
   real(8) :: t,dt
   real(8),dimension(neqn) :: y,yp,z 
@@ -15,14 +15,14 @@ subroutine euler_ode( f,neqn,y,rx,jbas,t,dt)
   type(spd) :: jbas
 
 ! get derivatives  
-  call f(t,y,yp,rx,jbas) 
-  
+  call f(t,y,yp,rx,jbas,build_gen) 
+
 ! write rx as a vector
-  call vectorize(rx,yp) 
-  
+  call vectorize(rx,y) 
+
 ! euler step
-  z = yp + dt*y
-  
+  z = y + dt*yp
+
 ! overwrite rx 
   call repackage(rx,z)
   t = t +dt

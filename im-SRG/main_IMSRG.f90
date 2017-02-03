@@ -286,12 +286,12 @@ print*, 'BASIS SETUP COMPLETE'
 
   
   if (ex_calc_int==1) then
-
+     print*, 'STARTING EXCITED STATES CALCULATION'
      totstates=read_eom_file(trans,moments,eom_states,jbas)! total number of states
-     
+     print*, totstates
      allocate(ladder_ops(totstates-eom_states%total_dTz))
      allocate(isoladder_ops(eom_states%total_dTz))     
-
+     
      oldnum = 0
      oldnum_dTz = 0
      numstates = 0
@@ -306,20 +306,25 @@ print*, 'BASIS SETUP COMPLETE'
                 jbas,ladder_ops(1+oldnum:Numstates+oldnum))
         
                
-           ! print*
-           ! print*, '================================================'
-           ! print*, '  J^Pi          E            E+dE       time    '
-           ! print*, '================================================'
-           ! do qx = 1+oldnum,Numstates+oldnum
-           !    t1= omp_get_wtime()
-           !    dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  
-           !    t2= omp_get_wtime()
-           !    write(71,'(5(I5),5(e25.14))') 2,2,2,eom_states%ang_mom(q)/2,eom_states%par(q)/2, ladder_ops(qx)%E0+dE_trips , &
-           !      ladder_ops(qx)%E0+HS%E0+dE_trips, 0.d0 , 0.d0 ,sum(ladder_ops(qx)%fph**2)
+!            print*
+!            print*, '=========================================================='
+!            print*, '  J^Pi          dE(1+2)         dE(1+2+3)    dE(3)      time    '
+!            print*, '=========================================================='
+!            do qx = 1+oldnum,Numstates+oldnum
+! !              if (sum(ladder_ops(qx)%fph**2)<0.3) cycle
+              
+!               if ( ladder_ops(qx)%E0 > 12.0 ) cycle
+              
+!               t1= omp_get_wtime()
+!               dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  
+!               t2= omp_get_wtime()
+              
+!               write(71,'(5(I5),5(e25.14))') 2,2,2,eom_states%ang_mom(q)/2,eom_states%par(q)/2, ladder_ops(qx)%E0+dE_trips , &
+!                 ladder_ops(qx)%E0+HS%E0+dE_trips, 0.d0 , 0.d0 ,sum(ladder_ops(qx)%fph**2)
   
-           !    write(*,'(A2,4(f20.10))') eom_states%name(q),&
-           !         ladder_ops(qx)%E0,ladder_ops(qx)%E0+dE_trips,dE_trips,t2-t1
-           ! end do
+!               write(*,'(A2,4(f20.10))') eom_states%name(q),&
+!                    ladder_ops(qx)%E0,ladder_ops(qx)%E0+dE_trips,dE_trips,t2-t1
+!            end do
            
         else
         
@@ -334,6 +339,12 @@ print*, 'BASIS SETUP COMPLETE'
                
     end do
 
+    if ((trans%num + moments%num)*(Numstates+Numstates_dTz) == 0) then 
+       trans_Calc=.false.
+    else
+       trans_Calc= .true.
+    end if
+    
      t2 = omp_get_wtime() 
      write(*,'(A5,f25.14)') 'TIME:', t2-t1
 
@@ -366,23 +377,21 @@ print*, 'BASIS SETUP COMPLETE'
            if ( trans%num + moments%num > 0 ) call transform_observable_BCH(Otrans,exp_omega,jbas,quads)
         end if
         
-        if (com_calc) then 
-           Hcm%rank = 0
-           Hcm%dpar = 0
-           Hcm%xindx = Otrans%xindx + 1 
-           call build_Hcm(pipj,rirj,Hcm,jbas)
-        end if
-
-        if (trans_type == 'G') then 
-           call EOM_beta_observables( ladder_ops, isoladder_ops, GT_trans, HS, Hcm,trans, moments,eom_states,jbas)
-        else           
-           call EOM_observables( ladder_ops, isoladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
-!           call compute_response_function(jbas,HS,Otrans) 
-        end if
-
-
      end if
 
+     if (com_calc) then 
+        Hcm%rank = 0
+        Hcm%dpar = 0
+        Hcm%xindx = Otrans%xindx + 1 
+        call build_Hcm(pipj,rirj,Hcm,jbas)
+     end if
+     
+     if (trans_type == 'G') then 
+        call EOM_beta_observables( ladder_ops, isoladder_ops, GT_trans, HS, Hcm,trans, moments,eom_states,jbas)
+     else           
+        call EOM_observables( ladder_ops, isoladder_ops, Otrans, HS, Hcm,trans, moments,eom_states,jbas)
+        !           call compute_response_function(jbas,HS,Otrans) 
+     end if
      deallocate(isoladder_ops,ladder_ops)
   end if
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

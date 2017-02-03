@@ -1727,6 +1727,7 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
   allocate(eom_states%number_requested(num_jpi))
   totstates = 0 
   read(44,*)
+
   do i = 1, num_jpi
      read(44,*) eom_states%name(i),eom_states%dTz(i),eom_states%number_requested(i)
      read(eom_states%name(i)(1:1),'(I1)') eom_states%ang_mom(i)
@@ -1759,6 +1760,7 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
   allocate(trs%Jpi2(num_trans))
 
   read(44,*)
+
   do i=1,num_trans
      read(44,*) trs%Jpi1(i),trs%Jpi2(i),trs%dtz(i)
   end do 
@@ -1768,8 +1770,9 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
   mom%num = num_mom
 
   allocate(mom%Jpi1(num_mom))
-  allocate(mom%dTz(num_trans)) 
+  allocate(mom%dTz(num_mom)) 
   read(44,*)
+
   do i=1,num_mom
      read(44,*) mom%Jpi1(i),mom%dtz(i)
   end do 

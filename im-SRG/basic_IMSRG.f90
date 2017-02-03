@@ -363,7 +363,7 @@ subroutine find_holes(jbas,pholes,nholes,hk)
      open(unit=52,file=trim(SP_DIR)//'hole_scheme_nl')
   end if 
   
-  sz = min(20,size(jbas%con)) 
+  sz = min(30,size(jbas%con)) 
   do
      read(52,*,iostat=ist) p,n,jbas%con(1:sz)
        if (ist < 0) then 

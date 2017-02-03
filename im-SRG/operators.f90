@@ -128,8 +128,7 @@ subroutine initialize_EM_operator(trs_type,rank,Op,zr,jbas,tcalc)
   character(1) :: trs_type,ranklab
   integer :: rank 
   logical :: tcalc
-  
-  tcalc = .true. 
+ 
   Select case (trs_type) 
      case ('E') ! ELECTRIC TRANSITION
          Op%rank = 2*rank
@@ -183,7 +182,6 @@ subroutine initialize_beta_operator(trs_type,dTz,Op,zr,jbas,tcalc)
   character(1):: dTz 
   logical :: tcalc
   
-  tcalc = .true. 
   Select case (trs_type) 
      case ('E') ! ELECTRIC TRANSITION
         STOP 'Electromagnetic operators need to use type(sq_op) structure'        
@@ -1375,7 +1373,8 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
      end do
   end do
   sm2 = sm - sm1
-
+  
+  print*, 'onebody: ',sm1,'twobody: ',sm2
   transition_to_ground_ME = sm * (-1.d0)**(rank/2)
   !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
   !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 

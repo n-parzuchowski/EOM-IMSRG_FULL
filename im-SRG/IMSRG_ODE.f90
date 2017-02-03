@@ -147,18 +147,19 @@ subroutine decouple_hamiltonian(H,jbas,build_generator,O1,O2)
 else
    ! main loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
   do while (steps < max_steps) 
-    
+
      E_old = H%E0 
      ! send info to SG solver
      call vectorize(H,cur_vec)
-    
-     call ode(dHds,build_generator,neq,cur_vec,H,jbas,&
-          s,s+ds,relerr,abserr,iflag,work,iwork) 
-          
+
+!     call euler_ode(dHds,build_generator,neq,cur_vec,H,jbas,s,ds) 
+
+
+      call ode(dHds,build_generator,neq,cur_vec,H,jbas,&
+           s,s+ds,relerr,abserr,iflag,work,iwork) 
      call repackage(H,cur_vec) 
         
      steps = steps + 1
-  
      ! weak convergence criteria, but it works
 
      E_mbpt2 = mbpt2(H,jbas) 
