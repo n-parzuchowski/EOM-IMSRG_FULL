@@ -313,7 +313,7 @@ print*, 'BASIS SETUP COMPLETE'
 !            do qx = 1+oldnum,Numstates+oldnum
 ! !              if (sum(ladder_ops(qx)%fph**2)<0.3) cycle
               
-!               if ( ladder_ops(qx)%E0 > 12.0 ) cycle
+! !              if ( ladder_ops(qx)%E0 > 12.0 ) cycle
               
 !               t1= omp_get_wtime()
 !               dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  

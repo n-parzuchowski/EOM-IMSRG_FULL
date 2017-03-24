@@ -1739,8 +1739,21 @@ subroutine tensor_product(AA,BB,CC,jbas)
               pre = 1.d0 
               if (p1==p2) pre = sqrt(0.5d0)
               if (h1==h2) pre = pre*sqrt(0.5d0)
-              sm = 0.d0 
 
+!!! DISCONNECTED DIAGRAMS ==============================================================
+              sm = sqrt((J1+1.d0)*(J2+1.d0)*(rank_c+1.d0)) * ( &
+                   f_tensor_elem(p1,h1,AA,jbas) * f_tensor_elem(p2,h2,BB,jbas) * &
+                   coef9(jh1,jp1,rank_a,jh2,jp2,rank_b,J2,J1,rank_c)&
+                   
+                   - f_tensor_elem(p2,h1,AA,jbas) * f_tensor_elem(p1,h2,BB,jbas) * &
+                   coef9(jh1,jp2,rank_a,jh2,jp1,rank_b,J2,J1,rank_c) * (-1)**((jp1+jp2+J1)/2)&
+
+                   + f_tensor_elem(p2,h2,AA,jbas) * f_tensor_elem(p1,h1,BB,jbas) * &
+                   coef9(jh2,jp2,rank_a,jh1,jp1,rank_b,J2,J1,rank_c) * (-1)**((jp1+jp2+jh1+jh2+J1+J2)/2)&
+
+                   + f_tensor_elem(p1,h2,AA,jbas) * f_tensor_elem(p2,h1,BB,jbas) * &
+                   coef9(jh2,jp1,rank_a,jh1,jp2,rank_b,J2,J1,rank_c) * (-1)**((jh1+jh2+J2)/2) ) 
+!!! ==================================================================================
               do ax = 1, parts
                  a = jbas%parts(ax)
                  ja = jbas%jj(a)
