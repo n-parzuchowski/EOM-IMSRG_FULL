@@ -1773,7 +1773,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
                                   * tensor_elem(a,p2,h1,h2,J3,J2,BB,jbas)* sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
                           end do
 
-                          !sm = sm + (-1) ** ((jp1+jp2+J1+J2+rank_a+rank_c)/2) * sm1 
+                          sm = sm + (-1) ** ((jp1+jp2+J1+J2+rank_a+rank_c)/2) * sm1 
 
                        end if
                     end if
@@ -1794,7 +1794,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
                                   * tensor_elem(a,p1,h1,h2,J3,J2,BB,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
 
                           end do
-                          !sm = sm + (-1) ** ((J2+rank_a+rank_c)/2) * sm1 
+                          sm = sm + (-1) ** ((J2+rank_a+rank_c)/2) * sm1 
                        end if
                     end if
                  end if
@@ -1812,7 +1812,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
                                   * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(a,h1,BB,jbas)&
                                   * tensor_elem(p1,p2,h2,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
                           end do
-                          !sm = sm + sm1 * (-1)**((J1+rank_b+rank_c)/2) 
+                          sm = sm + sm1 * (-1)**((J1+rank_b+rank_c)/2) 
                        end if
                     end if
                  end if
@@ -1830,7 +1830,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
                                   * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_tensor_elem(a,h2,BB,jbas)&
                                   * tensor_elem(p1,p2,h1,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
                           end do
-                          !sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_b+rank_c)/2) 
+                          sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_b+rank_c)/2) 
                        end if
                     end if
                  end if
@@ -1856,7 +1856,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
                                   * tensor_elem(p1,p2,h2,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
 
                           end do
-                          !sm = sm + (-1) ** ((J1+rank_b)/2) * sm1 
+                          sm = sm + (-1) ** ((J1+rank_b)/2) * sm1 
                        end if
                     end if
                  end if
@@ -1876,7 +1876,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
                                   * tensor_elem(p1,p2,h1,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
 
                           end do
-                          !sm = sm + (-1) ** ((jh1+jh2+J1+J2+rank_b)/2) * sm1 
+                          sm = sm + (-1) ** ((jh1+jh2+J1+J2+rank_b)/2) * sm1 
                        end if
                     end if
                  end if
@@ -1894,7 +1894,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
                                   * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(p1,i,BB,jbas)&
                                   * tensor_elem(i,p2,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
                           end do
-                          !sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_a)/2) 
+                          sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_a)/2) 
                        end if
                     end if
                  end if
@@ -1912,7 +1912,7 @@ subroutine tensor_product(AA,BB,CC,jbas)
                                   * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_tensor_elem(p2,i,BB,jbas)&
                                   * tensor_elem(i,p1,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
                           end do
-                          !sm = sm + sm1 * (-1)**((J2+rank_a)/2) 
+                          sm = sm + sm1 * (-1)**((J2+rank_a)/2) 
                        end if
                     end if
                  end if
@@ -1924,8 +1924,8 @@ subroutine tensor_product(AA,BB,CC,jbas)
      end do
   end do
 
-  ! call tensor_product_222_pp_hh(AA,BB,CC,jbas)
-  ! call tensor_product_222_ph(AA,BB,CC,jbas) 
+   call tensor_product_222_pp_hh(AA,BB,CC,jbas)
+   call tensor_product_222_ph(AA,BB,CC,jbas) 
   ! do nothing
 end subroutine tensor_product
 !=====================================================================================
@@ -2177,7 +2177,8 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                    coef9(jp2,jh2,rank_a,jp1,jh1,rank_b,J1,J2,rank_c) * (-1)**((jp1+jp2+jh1+jh2+J1+J2)/2)&
 
                    - f_tensor_elem(p1,h2,AA,jbas) * f_iso_ladder_elem(p2,h1,BB,jbas) * &
-                   coef9(jp1,jh2,rank_a,jp2,jh1,rank_b,J1,J2,rank_c) * (-1)**((jh1+jh2+J2)/2) ) 
+                   coef9(jp1,jh2,rank_a,jp2,jh1,rank_b,J1,J2,rank_c) * (-1)**((jh1+jh2+J2)/2) )
+              
 !!! ==================================================================================
            
            do ax = 1, parts
@@ -2199,7 +2200,7 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                                * iso_ladder_elem(a,p2,h1,h2,J3,J2,BB,jbas)* sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
                        end do
 
-!                       sm = sm + (-1) ** ((jp1+jp2+J1+J2+rank_a+rank_c)/2) * sm1 
+                       sm = sm + (-1) ** ((jp1+jp2+J1+J2+rank_a+rank_c)/2) * sm1 
 
                     end if
                  end if
@@ -2220,7 +2221,7 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                                * iso_ladder_elem(a,p1,h1,h2,J3,J2,BB,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
 
                        end do
- !                      sm = sm + (-1) ** ((J2+rank_a+rank_c)/2) * sm1 
+                       sm = sm + (-1) ** ((J2+rank_a+rank_c)/2) * sm1 
                     end if
                  end if
               end if
@@ -2238,7 +2239,7 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                                * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_iso_ladder_elem(a,h1,BB,jbas)&
                                * tensor_elem(p1,p2,h2,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
                        end do
-  !                     sm = sm + sm1 * (-1)**((J1+rank_b+rank_c)/2) 
+                       sm = sm + sm1 * (-1)**((J1+rank_b+rank_c)/2) 
                     end if
                  end if
               end if
@@ -2256,7 +2257,7 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                                * d6ji(rank_a,rank_b,rank_c,J2,J1,J3) * f_iso_ladder_elem(a,h2,BB,jbas)&
                                * tensor_elem(p1,p2,h1,a,J1,J3,AA,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
                        end do
-   !                    sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_b+rank_c)/2) 
+                       sm = sm + sm1 * (-1)**((jh1+jh2+J2+J1+rank_b+rank_c)/2) 
                     end if
                  end if
               end if
@@ -2282,7 +2283,7 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                                * iso_ladder_elem(p1,p2,h2,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
 
                        end do
-    !                   sm = sm + (-1) ** ((J1+rank_b)/2) * sm1 
+                       sm = sm + (-1) ** ((J1+rank_b)/2) * sm1 
                     end if
                  end if
               end if
@@ -2302,7 +2303,7 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                                * iso_ladder_elem(p1,p2,h1,i,J1,J3,BB,jbas)*sqrt((J2+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
 
                        end do
-     !                  sm = sm + (-1) ** ((jh1+jh2+J1+J2+rank_b)/2) * sm1 
+                       sm = sm + (-1) ** ((jh1+jh2+J1+J2+rank_b)/2) * sm1 
                     end if
                  end if
               end if
@@ -2320,7 +2321,7 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                                * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_iso_ladder_elem(p1,i,BB,jbas)&
                                * tensor_elem(i,p2,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0)) 
                        end do
-      !                 sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_a)/2) 
+                       sm = sm + sm1 * (-1)**((jp1+jp2+J2+J1+rank_a)/2) 
                     end if
                  end if
               end if
@@ -2338,7 +2339,7 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
                                * d6ji(rank_a,rank_b,rank_c,J1,J2,J3) * f_iso_ladder_elem(p2,i,BB,jbas)&
                                * tensor_elem(i,p1,h1,h2,J3,J2,AA,jbas)*sqrt((J1+1.d0)*(J3+1.d0)*(rank_c+1.d0))  
                        end do
-       !                sm = sm + sm1 * (-1)**((J2+rank_a)/2) 
+                       sm = sm + sm1 * (-1)**((J2+rank_a)/2) 
                     end if
                  end if
               end if
@@ -2349,8 +2350,8 @@ subroutine tensor_dTz_tensor_product(AA,BB,CC,jbas)
      end do
   end do
 
-  ! call dTZ_tensor_product_222_pp_hh(AA,BB,CC,jbas)
-  ! call dTz_tensor_product_222_ph(AA,BB,CC,jbas) 
+  call dTZ_tensor_product_222_pp_hh(AA,BB,CC,jbas)
+  call dTz_tensor_product_222_ph(AA,BB,CC,jbas) 
   ! do nothing
 end subroutine tensor_dTz_tensor_product
 !=========================================================================================================
