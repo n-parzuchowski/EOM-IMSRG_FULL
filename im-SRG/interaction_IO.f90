@@ -30,7 +30,7 @@ subroutine read_interaction(H,jbas,htype)
   do 
      read(39,*,iostat=ist) Tz,Par,J,a,b,c,d,V!,g1,g2,g3
      !read(39,*) Tz,Par,J,a,b,c,d,V,g1,g2,g3
-     
+
      ! g1 is COM expectation value, NOT CALCULATED WITH SCOTT'S CODE
      ! g2 is r1*r2 ME 
      ! g3 is p1*p2 ME 

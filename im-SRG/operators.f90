@@ -745,7 +745,11 @@ subroutine calculate_EX(op,jbas)
   integer :: ta,tb,tc,td,la,lb,lc,ld,ja,jb,jc,jd
   real(8) :: pol,charge(2),dcgi,dcgi00,x,dcg,hw,holength
 
-  pol = 0.0d0   ! between -1 and 0 
+  pol = 0.0d0  ! between 0 and 1 
+  ! if (op%rank == 2 )then  !!! electricdipole transition
+  !    pol = -0.5 ! N=Z 
+  ! end if
+  
   hw = op%hospace
   holength = sqrt(hbarc2_over_mc2/hw) 
   x = dcgi00()
@@ -754,6 +758,14 @@ subroutine calculate_EX(op,jbas)
   charge(1) = (1+pol) 
   charge(2) = pol 
   
+  !!! Brown sd-Shell values (2008)
+ ! charge(1) = 1.36
+ ! charge(2) = 0.45  
+
+  !!! Ricccchawrd Trippel values
+  ! charge(1) = 1  
+  ! charge(2)=1
+
   ! access the correct charge with: 
   ! charge( (jbas%tz(i) + 1)/2 + 1 )  
   

@@ -446,7 +446,7 @@ subroutine LANCZOS_ISOSPIN_CHANGER(jbas,OP,Vecs,nev)
         
         i = jbas%parts(ix)
         j = jbas%holes(jx) 
-  
+
         if (triangle(jbas%jj(i),jbas%jj(j),vecs(1)%rank)) then  
 
            if (jbas%itzp(i)-vecs(1)%dTz*2 .ne. jbas%itzp(j) ) cycle
@@ -476,7 +476,7 @@ subroutine LANCZOS_ISOSPIN_CHANGER(jbas,OP,Vecs,nev)
               if ( vecs(1)%tblck(q)%qn(2)%Y(JJ,1) == &
                    vecs(1)%tblck(q)%qn(2)%Y(JJ,2) ) cycle
            end if
-
+           
            tps = tps+ 1
         end do
      end do
@@ -1233,8 +1233,8 @@ subroutine unwrap_iso_ladder( v, AX ,N ,jbas)
      do jx = 1,holes
         
         ii = jbas%parts(ix)
-        JJ = jbas%holes(jx) 
-  
+        JJ = jbas%holes(jx)   
+
         if (triangle(jbas%jj(II),jbas%jj(JJ),AX%rank)) then  
 
            if (jbas%itzp(II)-AX%dTz*2 .ne. jbas%itzp(JJ) ) cycle
@@ -1293,8 +1293,8 @@ subroutine rewrap_iso_ladder( v, AX ,N ,jbas)
      do jx = 1,holes
         
         ii = jbas%parts(ix)
-        JJ = jbas%holes(jx) 
-  
+        JJ = jbas%holes(jx)   
+
         if (triangle(jbas%jj(II),jbas%jj(JJ),AX%rank)) then  
 
            if (jbas%itzp(II)-AX%dTz*2 .ne. jbas%itzp(JJ) ) cycle
@@ -1323,7 +1323,7 @@ subroutine rewrap_iso_ladder( v, AX ,N ,jbas)
 
               if ( AX%tblck(q)%qn(2)%Y(JJ,1) == &
                    AX%tblck(q)%qn(2)%Y(JJ,2) ) cycle
-           end if
+           end if           
 
            v(i) = AX%tblck(q)%Xpphh(II,JJ)
            i = i + 1

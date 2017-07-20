@@ -197,7 +197,13 @@ print*, 'BASIS SETUP COMPLETE'
      if ( decouple ) then 
 
         call magnus_decouple(HS,exp_omega,jbas,quads,trips,build_gs_w2)    
+        open(unit=42,file=trim(OUTPUT_DIR)//&
+             trim(adjustl(prefix))//'_Egs.dat')
+        write(42,'(2(I4),e14.6))')  nint(HS%hospace), HS%eMax, HS%E0
+        close(42)
         if (writing_omega) call write_twobody_operator(exp_omega,'omega')
+
+
      else
         print*, 'READ TRANSFORMATION FROM FILE, SKIPPING IMSRG...' 
         call transform_observable_BCH(HS,exp_omega,jbas,quads) 

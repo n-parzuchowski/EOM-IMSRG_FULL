@@ -190,6 +190,11 @@ subroutine compute_response_function(jbas,HS,OP)!,folder)
      x = x + .01d0
   end do
   
+  do j = 1, NEV
+     write(83,'(2(f25.14))') D(j)-0.00001, 0.0 
+     write(83,'(2(f25.14))') D(j),  strength * sum(Z(:,j)*VX(:,1))**2
+     write(83,'(2(f25.14))') D(j)+0.00001, 0.0
+  end do
 
 end subroutine COMPUTE_RESPONSE_FUNCTION
 
@@ -202,7 +207,20 @@ real(8) function gaussian(x,E,sig)
   div = sqrt(2*PI_const)*sig 
   gaussian = exp( -(x-E)**2 /(2.d0*sig**2) )/div 
 end function gaussian
+
+real(8) function dirac_delta(x,E,sig)
+  implicit none
+
+  real(8),intent(in) :: E,sig,x
   
+  if ( abs(x-E) >1e-3) then 
+     dirac_delta = 0.0
+  else
+     dirac_delta = 1.0
+  end if
+  
+end function dirac_delta
+   
 
 end module response
 
