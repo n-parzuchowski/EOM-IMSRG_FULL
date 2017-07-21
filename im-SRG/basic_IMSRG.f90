@@ -373,8 +373,9 @@ subroutine find_holes(jbas,pholes,nholes,hk)
      if ((p == pholes).and.(n==nholes)) exit
   end do 
 
+
   close(52) 
-    
+
   allocate(jbas%holes(sum(jbas%con)))
   allocate(jbas%parts(jbas%total_orbits - sum(jbas%con))) 
   ! these arrays help us later in f_elem (in this module) 
@@ -785,7 +786,8 @@ subroutine allocate_tensor(jbas,op,zerorank)
                  mem = mem + sizeof(op%tblck(q)%tgam(6)%X)
                  mem = mem + sizeof(op%tblck(q)%tgam(8)%X)
                  mem = mem + sizeof(op%tblck(q)%tgam(9)%X)
-                 tot_unique = tot_unique + npp1 * npp2 + nhh1 * nhh2 + npp1*nph2 + nph1 * nph2 + nph1 * nhh2 + nph1 *npp2 + nhh1 * nph2
+                 tot_unique = tot_unique + npp1 * npp2 + nhh1 * nhh2 + npp1*nph2 &
+                      + nph1 * nph2 + nph1 * nhh2 + nph1 *npp2 + nhh1 * nph2
               end if 
             
               do i = 1,9
@@ -1859,7 +1861,7 @@ real(8) function pphh_tensor_elem(ax,bx,cx,dx,J1x,J2x,op,jbas)
 end function
 !==============================================================
 !==============================================================
-real(8) function T_twobody(a,b,c,d,J,T,op,jbas) 
+real(8) function T_twobody(a,b,c,d,J,op,jbas) 
   ! grabs the matrix element you are looking for
   implicit none
   
@@ -1874,75 +1876,73 @@ real(8) function T_twobody(a,b,c,d,J,T,op,jbas)
  
   !make sure the matrix element exists first
   
- ja = jbas%jj(a)
- jb = jbas%jj(b)
- jc = jbas%jj(c)
- jd = jbas%jj(d)
+  ja = jbas%jj(a)
+  jb = jbas%jj(b)
+  jc = jbas%jj(c)
+  jd = jbas%jj(d)
   
- la = jbas%ll(a)
- lb = jbas%ll(b)
- lc = jbas%ll(c)
- ld = jbas%ll(d)
- 
- na = jbas%nn(a)
- nb = jbas%nn(b)
- nc = jbas%nn(c)
- nd = jbas%nn(d) 
- 
- if ( .not. ((triangle(ja,jb,J)) .and. (triangle (jc,jd,J))) ) then 
-    T_twobody = 0.d0
-    return
- end if 
- 
- pre = 1.d0 
- if (a == b) pre = pre * sqrt( 2.d0 )
- if (c == d) pre = pre * sqrt( 2.d0 )
- 
- sm1=0.d0
- sm2=0.d0
- sm3=0.d0
- sm4=0.d0
- 
- do i1 = 1,op%belowEF
-    i = jbas%holes(i1) 
-    ji = jbas%jj(i) 
-    
-    do JT = abs(ja-ji), ja +ji,2 
-       sm1 = sm1 + v_elem(a,i,c,i,JT,op,jbas) * (JT+1.d0)  
-    end do 
+  la = jbas%ll(a)
+  lb = jbas%ll(b)
+  lc = jbas%ll(c)
+  ld = jbas%ll(d)
+  
+  na = jbas%nn(a)
+  nb = jbas%nn(b)
+  nc = jbas%nn(c)
+  nd = jbas%nn(d) 
+  
+  if ( .not. ((triangle(ja,jb,J)) .and. (triangle (jc,jd,J))) ) then 
+     T_twobody = 0.d0
+     return
+  end if
+  
+  pre = 1.d0
+  if ( mod(J/2,2) == 0) then 
+     if (a == b) pre = pre * sqrt( 2.d0 )
+     if (c == d) pre = pre * sqrt( 2.d0 )
+  else
+     if ((a == b).or.(c==d)) then
+        T_twobody = 0.d0
+        return
+     end if
+  end if
+  
+  sm1=0.d0
+  sm2=0.d0
+  sm3=0.d0
+  sm4=0.d0
+  
+  ! do i1 = 1,op%belowEF
+  !    i = jbas%holes(i1) 
+  !    ji = jbas%jj(i) 
+     
+  !    do JT = abs(ja-ji), ja +ji,2 
+  !       sm1 = sm1 + v_elem(a,i,c,i,JT,op,jbas) * (JT+1.d0)  
+  !    end do
+     
+  !    do JT = abs(jb-ji), jb +ji,2 
+  !       sm2 = sm2 + v_elem(b,i,d,i,JT,op,jbas) * (JT+1.d0)  
+  !    end do
+     
+  !    do JT = abs(jb-ji), jb +ji,2 
+  !       sm3 = sm3 + v_elem(b,i,c,i,JT,op,jbas) * (JT+1.d0)  
+  !    end do
+     
+  !    do JT = abs(ja-ji), ja +ji,2 
+  !       sm4 = sm4 + v_elem(a,i,d,i,JT,op,jbas) * (JT+1.d0)  
+  !    end do
    
-    do JT = abs(jb-ji), jb +ji,2 
-       sm2 = sm2 + v_elem(b,i,d,i,JT,op,jbas) * (JT+1.d0)  
-    end do 
-
-    do JT = abs(jb-ji), jb +ji,2 
-       sm3 = sm3 + v_elem(b,i,c,i,JT,op,jbas) * (JT+1.d0)  
-    end do 
-
-    do JT = abs(ja-ji), ja +ji,2 
-       sm4 = sm4 + v_elem(a,i,d,i,JT,op,jbas) * (JT+1.d0)  
-    end do
-   
-    sm1 = sm1/(ja +1.d0)
-    sm4 = sm4/(ja +1.d0)
-    sm2 = sm2/(jb +1.d0)
-    sm3 = sm3/(jb +1.d0)
- end do 
-
- x1 = 1.d0
- x2 = 1.d0 
- x3 = 1.d0 
- x4 = 1.d0 
- if ((ja == jc).and.(la==lc).and.(na==nc)) x1 = 0.d0
- if ((ja == jd).and.(la==ld).and.(na==nd)) x3 = 0.d0
- if ((jb == jd).and.(lb==ld).and.(nb==nd)) x2 = 0.d0
- if ((jb == jc).and.(lb==lc).and.(nb==nc)) x4 = 0.d0
+  !    sm1 = sm1/(ja +1.d0)
+  !    sm4 = sm4/(ja +1.d0)
+  !    sm2 = sm2/(jb +1.d0)
+  !    sm3 = sm3/(jb +1.d0)
+  ! end do
  
- T_twobody = pre*(kron_del(b,d)*x1* (f_elem(a,c,op,jbas)-sm1) + &
-      kron_del(a,c)*x2 * (f_elem(b,d,op,jbas)-sm2) - &
-      (-1)** ( (ja + jb - J)/2 ) * x3* kron_del(a,d) * (f_elem(b,c,op,jbas)-sm3) - &
-      (-1)** ( (jc + jd - J)/2 ) * x4* kron_del(b,c) * (f_elem(a,d,op,jbas)-sm4))
- 
+  T_twobody = (kron_del(b,d)* (f_elem(a,c,op,jbas)-sm1) + &
+       kron_del(a,c) * (f_elem(b,d,op,jbas)-sm2) - &
+       (-1)** ( (ja + jb - J)/2 ) *  kron_del(a,d) * (f_elem(b,c,op,jbas)-sm3) - &
+       (-1)** ( (jc + jd - J)/2 ) *  kron_del(b,c) * (f_elem(a,d,op,jbas)-sm4))
+  
 end function 
 !=====================================================
 !=====================================================

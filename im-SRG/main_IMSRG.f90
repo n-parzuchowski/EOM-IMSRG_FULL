@@ -10,6 +10,7 @@ program main_IMSRG
   use EOM_IMSRG
   use brute_force_testing
   use three_body_routines
+  use deuteron
   ! ground state IMSRG calculation for nuclear system 
   implicit none
   
@@ -84,7 +85,7 @@ program main_IMSRG
      call duplicate_sq_op(HS,r2_rms) 
      call initialize_rms_radius(r2_rms,rirj,jbas) 
   end if 
-  
+
 !============================================================
 !  CAN WE SKIP STUFF?  
 !============================================================
@@ -95,14 +96,14 @@ program main_IMSRG
      if (.not. do_hf) goto 91 
   end if  
   
-  if (reading_bare) then 
-     do_hf = read_twobody_operator(HS,'bare')
+  ! if (reading_bare) then 
+  !    do_hf = read_twobody_operator(HS,'bare')
 
-     if (.not. do_hf) then
-        call read_umat(coefs,jbas)
-        goto 90
-     end if
-  end if 
+  !    if (.not. do_hf) then
+  !       call read_umat(coefs,jbas)
+  !       goto 90
+  !    end if
+  ! end if 
   ! yes, goto 
 !=============================================================
 ! READ INTERACTION 
@@ -123,12 +124,19 @@ program main_IMSRG
   else
      call read_interaction(HS,jbas,ham_type)
   end if
-    
+
 !============================================================
 ! BUILD BASIS
 !============================================================
   
   call calculate_h0_harm_osc(hw,jbas,HS,ham_type) 
+  
+  !============================================================
+  ! DEUTERON CALCULATION 
+  !============================================================ 
+  
+  call compute_deuteron_ground_state(HS,jbas)
+  stop
   
   if (threebod%e3Max.ne.0) then 
      print*, 'Reading Three Body Force From file'
