@@ -11,9 +11,9 @@ contains
     type(spd) :: jbas
     integer ::dm,q,np,nb,nh,a,b,c,d,II,JJ
     real(8),allocatable,dimension(:) :: PSI
-    real(8) :: Egs 
+    real(8) :: Egs,dstate
     real(8),allocatable,dimension(:,:) :: H
-    integer(8),allocatable,dimension(:,:) :: qnums 
+    integer,allocatable,dimension(:,:) :: qnums 
     real(8),allocatable,dimension(:) :: workl,DX,QX,eigs,resid,work,workD
     real(8),allocatable,dimension(:,:) :: V,Z
     integer :: lwork,info,ido,ncv,ldv,iparam(11),ipntr(11)
@@ -27,7 +27,7 @@ contains
 
     print*, "SETTING UP DEUTERON MATRIX"
 !!! block for the deuteron ground state
-    q = block_index(2,0,1)
+    q = block_index(2,0,0)
 
     np = HS%mat(q)%npp
     nb = HS%mat(q)%nph
@@ -65,83 +65,191 @@ contains
 
        end do
     end do
-
+    
     print *, "DIAGONALIZING MATRIX OF SIZE: ",dm
 
+    if (dm > 2000) then
 !!! Diagonalize?
-    nev = 5 ! I only care about the ground state right now. 
-    ido = 0  ! status integer is 0 at start
-    BMAT = 'I' ! standard eigenvalue problem (N for generalized) 
-    which = 'SM' ! compute smallest eigenvalues in magnitude ('SA') is algebraic. 
-    tol = 0.0 ! error tolerance? (wtf zero?) 
-    info = 0
-    ncv = 5*nev ! number of lanczos vectors I guess
-    lworkl = ncv*(ncv+8) 
-    allocate(V(dm,NCV),workl(lworkl))
-    LDV = dm  
-    ishift = 1
-    mxiter = 500 
-    mode = 1
+       nev = 5 ! I only care about the ground state right now. 
+       ido = 0  ! status integer is 0 at start
+       BMAT = 'I' ! standard eigenvalue problem (N for generalized) 
+       which = 'SM' ! compute smallest eigenvalues in magnitude ('SA') is algebraic. 
+       tol = 0.0 ! error tolerance? (wtf zero?) 
+       info = 0
+       ncv = 5*nev ! number of lanczos vectors I guess
+       lworkl = ncv*(ncv+8) 
+       allocate(V(dm,NCV),workl(lworkl))
+       LDV = dm  
+       ishift = 1
+       mxiter = 500 
+       mode = 1
 
-    allocate(eigs(dm),resid(dm),work(10*dm),workD(3*dm)) 
+       allocate(eigs(dm),resid(dm),work(10*dm),workD(3*dm)) 
 
-    iparam(1) = ishift
-    iparam(3) = mxiter
-    iparam(7) = mode
-    ii = 0
+       iparam(1) = ishift
+       iparam(3) = mxiter
+       iparam(7) = mode
+       ii = 0
 
-    inc = 1
-    do 
-       ! so V is the krylov subspace matrix that is being diagonalized
-       ! it does not need to be initialized, so long as you have the other 
-       ! stuff declared right, the code should know this. 
-       call dsaupd ( ido, bmat, dm, which, nev, tol, resid, &
-            ncv, v, ldv, iparam, ipntr, workd, workl, &
-            lworkl, info )
-       ! The actual matrix only gets multiplied with the "guess" vector in "matvec_prod" 
-
-
-       ii=ii+1 
-
-       if ( ido /= -1 .and. ido /= 1 ) then
-          exit
-       end if
-
-       call dgemv('N',dm,dm,al,H,dm,workd(ipntr(1)),inc,bet,workd(ipntr(2)),inc) 
+       inc = 1
+       do 
+          ! so V is the krylov subspace matrix that is being diagonalized
+          ! it does not need to be initialized, so long as you have the other 
+          ! stuff declared right, the code should know this. 
+          call dsaupd ( ido, bmat, dm, which, nev, tol, resid, &
+               ncv, v, ldv, iparam, ipntr, workd, workl, &
+               lworkl, info )
+          ! The actual matrix only gets multiplied with the "guess" vector in "matvec_prod" 
 
 
-    end do
-    print *, "converged after", ii, "iterations"
-    write(6,*) 
-    ! the ritz values are out of order right now. Need to do post
-    ! processing to fix this, and get the eigenvectors
-    rvec= .true. 
-    howmny = 'A'
+          ii=ii+1 
+
+          if ( ido /= -1 .and. ido /= 1 ) then
+             exit
+          end if
+
+          call dgemv('N',dm,dm,al,H,dm,workd(ipntr(1)),inc,bet,workd(ipntr(2)),inc) 
+
+
+       end do
+       print *, "converged after", ii, "iterations"
+       write(6,*) 
+       ! the ritz values are out of order right now. Need to do post
+       ! processing to fix this, and get the eigenvectors
+       rvec= .true. 
+       howmny = 'A'
+
+       allocate(selct(NCV)) 
+       allocate(DX(NEV)) 
+       allocate(Z(dm,NEV)) 
+       ldz = dm  
+       call dseupd( rvec, howmny, selct, DX, Z, ldv, sigma, &
+            bmat, dm, which, nev, tol, resid, ncv, v, ldv, &
+            iparam, ipntr, workd, workl, lworkl, info )
+
+
+       Egs = DX(1)
+       PSI = Z(:,1)
+       PRINT*, Egs
+       
+       deallocate(DX)
+
+    else
+       allocate(DX(dm))
+       allocate(qx(10*dm))
+       info = 0
+       DX = 0.0
+       QX = 0.0
+       call dsyev('V','U',dm,H,dm,DX,QX,10*dm,info)
+       
+       open(unit=36,file = 'wavefunction.dat')
+       do ii = 1, dm 
+          write(36,*) H(ii,1)
+       end do
+       close(36)
+       PSI = H(:,1) 
+    end if
+
+    open(unit=29,file=trim(OUTPUT_DIR)//"deuteron_energy.dat",position="append")
+    write(29,*)  HS%hospace, HS%eMax , DX(1)
+    close(29)
     
-    allocate(selct(NCV)) 
-    allocate(DX(NEV)) 
-    allocate(Z(dm,NEV)) 
-    ldz = dm  
-    call dseupd( rvec, howmny, selct, DX, Z, ldv, sigma, &
-         bmat, dm, which, nev, tol, resid, ncv, v, ldv, &
-         iparam, ipntr, workd, workl, lworkl, info )
+    dstate= dstate_probability(PSI,qnums,jbas,dm)
 
-
-    Egs = DX(1)
-    PSI = Z(:,1)
-    PRINT*, Egs
-
-    deallocate(DX)
-    allocate(DX(dm))
-    allocate(qx(2244))
-    info = 0
-    DX = 0.0
-    QX = 0.0
-    call dsyev('N','U',dm,H,dm,DX,QX,2244,info)
-    print*, DX(1)
-
-    
+    print*, "ENERGY    P(L=0)   P(L=2)"
+    print*, DX(1), 1-dstate, dstate
   end subroutine compute_deuteron_ground_state
 
 
+  real(8) function dstate_probability(PSI,qnums,jbas,dm)
+    implicit none
+
+    type(spd) :: jbas
+    integer :: dm,II,JJ, a,b,c,d,la,lb,lc,ld,ja,jb,jc,jd,Jtot,f,jf,lf
+    integer,dimension(dm,2) :: qnums
+    real(8),dimension(dm) :: PSI
+    real(8),dimension(dm,dm) :: Lsqrd
+    real(8) :: sm,d6ji,pre,norm
+
+    Jtot=2
+
+    do II=1,dm
+       a = qnums(II,1)
+       b = qnums(II,2)
+       ja = jbas%jj(a)
+       jb = jbas%jj(b)
+       la = jbas%ll(a)
+       lb = jbas%ll(b)
+       do JJ = II,dm
+          c = qnums(JJ,1)
+          d = qnums(JJ,2)
+          jc = jbas%jj(c)
+          jd = jbas%jj(d)
+          lc = jbas%ll(c)
+          ld = jbas%ll(d)
+
+          pre = 1.d0 
+          if (jbas%itzp(a) .ne. jbas%itzp(c)) then
+             pre = (-1)**((jc-jd+Jtot)/2)
+             f=c
+             jf=jc
+             lf=lc
+             c=d
+             jc=jd
+             lc=ld 
+             d=f
+             jd=jf
+             ld=lf
+          end if
+          
+          sm = 0.d0 
+          if (II==JJ) then
+             sm = sm + la*(la+1) + lb*(lb+1)
+          end if
+      
+          if (la == lc) then
+             if (lb == ld) then
+
+                sm = sm + 2*(-1)**((jb+Jtot-jd)/2+la+lb+3)&
+                     * sqrt((ja+1)*(jb+1)*(jc+1)*(jd+1.d0)) &
+                     * sqrt(la*(la+1)*(2*la+1)*lb*(lb+1)*(2*lb+1.d0)) &
+                     *d6ji(ja,jb,Jtot,jd,jc,2)*d6ji(2*la,2*la,2,jc,ja,1)&
+                     *d6ji(2*lb,2*lb,2,jd,jb,1) 
+
+             end if
+          end if
+
+          Lsqrd(II,JJ) = sm*pre
+          Lsqrd(JJ,II) = sm*pre
+
+          
+       end do
+    end do
+
+    sm = 0.d0
+    norm=0.d0
+    do II=1,dm
+       do JJ=1,dm
+          sm = sm +PSI(II)*Lsqrd(II,JJ)*PSI(JJ)
+       end do
+    end do
+          
+    
+    dstate_probability=sm/6.d0   
+    
+
+    
+  end function dstate_probability
+    
+
+   
+                
+          
+          
+          
+          
+          
+    
+
+    
 end module deuteron

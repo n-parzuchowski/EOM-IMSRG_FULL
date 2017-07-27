@@ -1471,8 +1471,56 @@ real(8) function factorial(N)
   end do 
   
   factorial = sm
-end function 
+end function factorial
 
+real(8) function double_factorial(N) 
+  ! N!! 
+  implicit none
+  integer,intent(in) :: N
+  integer :: i
+  real(8) :: sm 
+  
+  sm = 1
+  
+  do i = N,1,-2
+     sm = sm * i 
+  end do 
+  
+  double_factorial = sm
+end function double_factorial
+
+real(8) function fac_over_doublefac(N,M)
+  !  N!/M!!
+  implicit none 
+  integer,intent(in) :: N,M
+  integer :: i,j,k 
+  real(8) :: sm
+
+  sm = 1.d0
+
+  i = N
+  j = M 
+  do while ( (i > 1) .and. (j > 1))  
+     sm = sm * (dfloat(i)/dfloat(j))
+     i = i -1
+     j = j -2
+  end do
+
+  if ( i.le.1) then
+     do k = j,1,-2
+        sm = sm/k
+     end do
+  else if (j.le.1) then
+     do k = i,1,-1
+        sm = sm*k
+     end do
+  end if
+
+  fac_over_doublefac= sm
+  
+end function fac_over_doublefac
+     
+     
 real(8) function half_int_gamma(N)
   !GAMMA(N+1/2) 
   implicit none
@@ -3084,6 +3132,71 @@ subroutine EOM_beta_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eo
      
   
 end subroutine EOM_beta_observables
+
+
+!=========================================================
+subroutine initialize_rho21_zerorange(rho21,jbas)
+  use gaulag
+  implicit none 
+  
+  type(sq_op) :: rho21
+  type(spd) :: jbas
+  real(8) :: nu,alpha,B,A
+  real(8),dimension(50) :: x,w 
+  integer :: q,i,ord
+  
+  nu = rho21%hospace*0.5d0 /hbarc2_over_mc2
+
+
+  ord = 50
+  alpha = 2.5
+  A = 0.0
+  B = 2.0
+  call get_rule(ord,alpha,A,B,x,w)
+  
+  print*, x
+  print*
+  print*, w
+
+  
+end subroutine 
+
+
+subroutine generate_associated_laguerre_polynomials(nMax,l,LAG)
+  implicit none
+
+  integer :: nMax,l,n, II 
+  real(8) :: LAG(0:nMax+1,0:nMax) !!1 coefficients
+  real(8) :: norm
+
+  
+  LAG = 0.d0
+
+  LAG(0,0) = 1.d0   ! L_0^(l+1/2) == 1 always
+
+  LAG(1,0) = 1.5d0 + l  !!! L_1^(l+1/2) = 1.5+l-x 
+  LAG(1,1) = -1.d0   
+
+  LAG(1,:) = LAG(1,:) 
+  
+!!! now use recurrence relation
+  do n = 2, nMax !!! loop over Laguerre rank    
+
+     LAG(n,0) = ( (2*n-0.5 + l)* LAG(n-1,0)  - (n-0.5+l) * LAG(n-2,0) ) / n
+     do II = 1 , n !!! loop over powers of x        
+        LAG(n,II) = ( (2*n-0.5 + l)* LAG(n-1,II)  - (n-0.5+l) * LAG(n-2,II) - LAG(n-1,II-1) )  / n
+     end do
+  end do
+
+  do n = 0,nMax
+     norm = sqrt( 2.d0**( n+ l +3) *fac_over_doublefac(n,2*n+2*l+1) )
+     LAG(n,:) = LAG(n,:)*norm
+  end do
+
+end subroutine generate_associated_laguerre_polynomials
+
+
+
 
 
 

@@ -134,7 +134,8 @@ program main_IMSRG
   !============================================================
   ! DEUTERON CALCULATION 
   !============================================================ 
-  
+
+  call  initialize_rho21_zerorange(HS,jbas)
   call compute_deuteron_ground_state(HS,jbas)
   stop
   
