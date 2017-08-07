@@ -3143,15 +3143,38 @@ subroutine initialize_rho21_zerorange(rho21,jbas)
   type(spd) :: jbas
   real(8) :: nu,alpha,B,A
   real(8),dimension(50) :: x,w 
-  integer :: q,i,ord
+  integer :: q,i,ord,a,b,c,d,II,JJ
+  integer :: ja,jb,jc,jd,la,lb,lc,ld
+  integer :: np,nh,nb,ta,tb,tc,td
   
   nu = rho21%hospace*0.5d0 /hbarc2_over_mc2
-
 
   ord = 50
   alpha = 2.5
   A = 0.0
   B = 2.0
+
+  
+  do q = 1, rho21%nblocks     
+     nh = rho21%mat(q)%nhh
+     np = rho21%mat(q)%npp
+     nb = rho21%mat(q)%nph
+
+     do ii = 1, nh
+
+        a = rho21%mat(q)%qn(3)%X(ii,1)
+        b = rho21%mat(q)%qn(3)%X(ii,2)
+
+        ja = jbas%jj(a)
+        jb = jbas%jj(b)
+        la = jbas%ll(a)
+        lb = jbas%ll(b)
+        
+        do jj = 1, nh
+           
+
+
+
   call get_rule(ord,alpha,A,B,x,w)
   
   print*, x
