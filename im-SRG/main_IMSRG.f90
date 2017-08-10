@@ -15,7 +15,7 @@ program main_IMSRG
   implicit none
   
   type(spd) :: jbas,jbx
-  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0,Hcm
+  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0,Hcm,rho21
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(iso_ladder),allocatable,dimension(:) :: isoladder_ops
   type(iso_operator) :: GT_trans
@@ -131,12 +131,13 @@ program main_IMSRG
   
   call calculate_h0_harm_osc(hw,jbas,HS,ham_type) 
   
-  !============================================================
-  ! DEUTERON CALCULATION 
-  !============================================================ 
+!   !============================================================
+!   ! DEUTERON CALCULATION 
+!   !============================================================ 
 
-  call  initialize_rho21_zerorange(HS,jbas)
-  call compute_deuteron_ground_state(HS,jbas)
+  call  duplicate_sq_op(HS,rho21)
+  call  initialize_rho21_zerorange(rho21,jbas)
+  call compute_deuteron_ground_state(HS,jbas,rho21)
   stop
   
   if (threebod%e3Max.ne.0) then 
@@ -162,6 +163,7 @@ program main_IMSRG
 
   ! Normal Order Observables 
 90 if (hartree_fock) then    
+     call observable_to_HF(rho21,coefs,jbas) 
      call observable_to_HF(pipj,coefs,jbas)
      call observable_to_HF(rirj,coefs,jbas)
      call observable_to_HF(r2_rms,coefs,jbas)
@@ -211,13 +213,20 @@ print*, 'BASIS SETUP COMPLETE'
         write(42,'(2(I4),e14.6))')  nint(HS%hospace), HS%eMax, HS%E0
         close(42)
         if (writing_omega) call write_twobody_operator(exp_omega,'omega')
-
-
+        
+ 
      else
         print*, 'READ TRANSFORMATION FROM FILE, SKIPPING IMSRG...' 
-        call transform_observable_BCH(HS,exp_omega,jbas,quads) 
+        call transform_observable_BCH(HS,exp_omega,jbas,quads)
      end if 
-     
+
+     call transform_observable_BCH(rho21,exp_omega,jbas,quads)
+
+     print*, 'SRC DENSITY:', rho21%E0
+
+     open(unit=81,file="butt.dat",position="append")
+     write(81,*) nint(rho21%hospace), HS%eMax, rho21%E0
+     close(81)
      if (COM_calc) then 
         print*, 'TRANSFORMING Hcm'
         call transform_observable_BCH(pipj,exp_omega,jbas,quads)
@@ -506,6 +515,6 @@ subroutine print_header
   print*, '================================'//&
        '==================================='
 
-end subroutine   
+end subroutine print_header
 
 
