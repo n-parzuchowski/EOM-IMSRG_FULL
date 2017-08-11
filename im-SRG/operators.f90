@@ -3160,10 +3160,10 @@ subroutine initialize_rho21_zerorange(rho21,jbas)
   BB = 2.0
   
   t1 = omp_get_Wtime()
-!!$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RHO21,JBAS)  
-!  do q = 1, rho21%nblocks
-
-  q = block_index(2,0,0)
+  !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RHO21,JBAS)  
+  do q = 1, rho21%nblocks
+     
+  !q = block_index(2,0,0)
   
      nhh = rho21%mat(q)%nhh
      npp = rho21%mat(q)%npp
@@ -3314,8 +3314,8 @@ subroutine initialize_rho21_zerorange(rho21,jbas)
            deallocate(Lag_a,Lag_b)
         end do
      end do
-!  end do 
-  !!$OMP END PARALLEL DO
+  end do
+  !$OMP END PARALLEL DO
   t2 = omp_get_Wtime()
   print*, 'time:', t2-t1
 end subroutine initialize_rho21_zerorange

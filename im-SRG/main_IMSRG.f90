@@ -86,6 +86,10 @@ program main_IMSRG
      call initialize_rms_radius(r2_rms,rirj,jbas) 
   end if 
 
+  call  duplicate_sq_op(HS,rho21)
+  call  initialize_rho21_zerorange(rho21,jbas)
+   
+  
 !============================================================
 !  CAN WE SKIP STUFF?  
 !============================================================
@@ -96,15 +100,15 @@ program main_IMSRG
      if (.not. do_hf) goto 91 
   end if  
   
-  ! if (reading_bare) then 
-  !    do_hf = read_twobody_operator(HS,'bare')
+  if (reading_bare) then 
+     do_hf = read_twobody_operator(HS,'bare')
 
-  !    if (.not. do_hf) then
-  !       call read_umat(coefs,jbas)
-  !       goto 90
-  !    end if
-  ! end if 
-  ! yes, goto 
+     if (.not. do_hf) then
+        call read_umat(coefs,jbas)
+        goto 90
+     end if
+  end if 
+!  yes, goto 
 !=============================================================
 ! READ INTERACTION 
 !=============================================================
@@ -135,10 +139,8 @@ program main_IMSRG
 !   ! DEUTERON CALCULATION 
 !   !============================================================ 
 
-  call  duplicate_sq_op(HS,rho21)
-  call  initialize_rho21_zerorange(rho21,jbas)
-  call compute_deuteron_ground_state(HS,jbas,rho21)
-  stop
+  ! call compute_deuteron_ground_state(HS,jbas,rho21)
+  ! stop
   
   if (threebod%e3Max.ne.0) then 
      print*, 'Reading Three Body Force From file'
@@ -220,6 +222,7 @@ print*, 'BASIS SETUP COMPLETE'
         call transform_observable_BCH(HS,exp_omega,jbas,quads)
      end if 
 
+     
      call transform_observable_BCH(rho21,exp_omega,jbas,quads)
 
      print*, 'SRC DENSITY:', rho21%E0
