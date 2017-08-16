@@ -3,22 +3,23 @@ module deuteron
   implicit none 
 
 contains
-  subroutine compute_deuteron_ground_state(HS,jbas)    
+  subroutine compute_deuteron_ground_state(HS,jbas,rho21)    
 !!! diagonalization of the 1+ Tz=0 block
     implicit none
 
     type(sq_op) :: HS
+    type(sq_op),optional :: rho21
     type(spd) :: jbas
     integer ::dm,q,np,nb,nh,a,b,c,d,II,JJ
     real(8),allocatable,dimension(:) :: PSI
     real(8) :: Egs,dstate
-    real(8),allocatable,dimension(:,:) :: H
+    real(8),allocatable,dimension(:,:) :: H,rho
     integer,allocatable,dimension(:,:) :: qnums 
     real(8),allocatable,dimension(:) :: workl,DX,QX,eigs,resid,work,workD
     real(8),allocatable,dimension(:,:) :: V,Z
     integer :: lwork,info,ido,ncv,ldv,iparam(11),ipntr(11)
     integer :: ishift,mxiter,nconv,mode,lworkl,ldz,nev,inc
-    real(8) :: tol,sigma
+    real(8) :: tol,sigma,sm
     character(1) :: BMAT,HOWMNY 
     character(2) :: which
     logical :: rvec
@@ -153,97 +154,57 @@ contains
     open(unit=29,file=trim(OUTPUT_DIR)//"deuteron_energy.dat",position="append")
     write(29,*)  HS%hospace, HS%eMax , DX(1)
     close(29)
-    
-    dstate= dstate_probability(PSI,qnums,jbas,dm)
 
-    print*, "ENERGY    P(L=0)   P(L=2)"
-    print*, DX(1), 1-dstate, dstate
+    print*, 'Energy: ', DX(1)
+    if (present(rho21)) then
+       ! calculate short range pair density
+       
+       allocate(rho(dm,dm))
+       
+!!! construct matrix from two-body matrix elements
+       rho(1:nh,1:nh) = rho21%mat(q)%gam(5)%X
+       rho(1:nh,nh+1:nh+nb) = transpose(rho21%mat(q)%gam(6)%X)
+       rho(nh+1:nh+nb,1:nh) = rho21%mat(q)%gam(6)%X    
+       rho(nh+1:nh+nb,nh+1:nh+nb) = rho21%mat(q)%gam(4)%X
+       rho(nh+nb+1:dm,1:nh) = rho21%mat(q)%gam(3)%X
+       rho(1:nh,nh+nb+1:dm) = transpose(rho21%mat(q)%gam(3)%X)
+       rho(nh+nb+1:dm,nh+1:nb) = rho21%mat(q)%gam(2)%X
+       rho(nh+1:nb,nh+nb+1:dm) = transpose(rho21%mat(q)%gam(2)%X)
+       rho(nh+nb+1:dm,nh+nb+1:dm) = rho21%mat(q)%gam(1)%X
+       
+       sm = 0.d0 
+       do II = 1, dm
+          do JJ = 1,dm
+
+             sm = sm + PSI(II)*PSI(JJ) * rho(II,JJ)
+          
+          end do
+       end do
+
+       ! call print_matrix(rho(42:54,120:132)) 
+
+       ! print*, qnums(42:54,1)
+       ! print*, qnums(42:54,2)
+       ! print*
+       ! print*, qnums(120:132,1)
+       ! print*, qnums(120:132,2)
+
+
+       print*
+       print*, 'Density: ',sm
+
+    open(unit=29,file=trim(OUTPUT_DIR)//"deuteron_density.dat",position="append")
+    write(29,*)  HS%hospace, HS%eMax , sm
+    close(29)
+
+
+
+    end if
+       
+
   end subroutine compute_deuteron_ground_state
 
 
-  real(8) function dstate_probability(PSI,qnums,jbas,dm)
-    implicit none
-
-    type(spd) :: jbas
-    integer :: dm,II,JJ, a,b,c,d,la,lb,lc,ld,ja,jb,jc,jd,Jtot,f,jf,lf
-    integer,dimension(dm,2) :: qnums
-    real(8),dimension(dm) :: PSI
-    real(8),dimension(dm,dm) :: Lsqrd
-    real(8) :: sm,d6ji,pre,norm
-
-    Jtot=2
-
-    do II=1,dm
-       a = qnums(II,1)
-       b = qnums(II,2)
-       ja = jbas%jj(a)
-       jb = jbas%jj(b)
-       la = jbas%ll(a)
-       lb = jbas%ll(b)
-       do JJ = II,dm
-          c = qnums(JJ,1)
-          d = qnums(JJ,2)
-          jc = jbas%jj(c)
-          jd = jbas%jj(d)
-          lc = jbas%ll(c)
-          ld = jbas%ll(d)
-
-          pre = 1.d0 
-          if (jbas%itzp(a) .ne. jbas%itzp(c)) then
-             pre = (-1)**((jc-jd+Jtot)/2)
-             f=c
-             jf=jc
-             lf=lc
-             c=d
-             jc=jd
-             lc=ld 
-             d=f
-             jd=jf
-             ld=lf
-          end if
-          
-          sm = 0.d0 
-          if (II==JJ) then
-             sm = sm + la*(la+1) + lb*(lb+1)
-          end if
-      
-          if (la == lc) then
-             if (lb == ld) then
-
-                sm = sm + 2*(-1)**((jb+Jtot-jd)/2+la+lb+3)&
-                     * sqrt((ja+1)*(jb+1)*(jc+1)*(jd+1.d0)) &
-                     * sqrt(la*(la+1)*(2*la+1)*lb*(lb+1)*(2*lb+1.d0)) &
-                     *d6ji(ja,jb,Jtot,jd,jc,2)*d6ji(2*la,2*la,2,jc,ja,1)&
-                     *d6ji(2*lb,2*lb,2,jd,jb,1) 
-
-             end if
-          end if
-
-          Lsqrd(II,JJ) = sm*pre
-          Lsqrd(JJ,II) = sm*pre
-
-          
-       end do
-    end do
-
-    sm = 0.d0
-    norm=0.d0
-    do II=1,dm
-       do JJ=1,dm
-          sm = sm +PSI(II)*Lsqrd(II,JJ)*PSI(JJ)
-       end do
-    end do
-          
-    
-    dstate_probability=sm/6.d0   
-    
-
-    
-  end function dstate_probability
-    
-
-   
-                
           
           
           

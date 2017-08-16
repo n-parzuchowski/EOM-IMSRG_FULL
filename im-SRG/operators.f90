@@ -3141,66 +3141,218 @@ subroutine initialize_rho21_zerorange(rho21,jbas)
   
   type(sq_op) :: rho21
   type(spd) :: jbas
-  real(8) :: nu,alpha,B,A
-  real(8),dimension(50) :: x,w 
-  integer :: q,i,ord,a,b,c,d,II,JJ
-  integer :: ja,jb,jc,jd,la,lb,lc,ld
-  integer :: np,nh,nb,ta,tb,tc,td
-  
+  real(8) :: nu,alpha,BB,AA,sm,angular,d6ji,dcgi,pre,dcgi00,t1,t2
+  real(8) :: omp_get_wtime,ang1,ang2
+  real(8),dimension(20) :: x,w
+  real(8),allocatable,dimension(:) :: Lag_a,Lag_b,Lag_c,Lag_d
+  integer :: q,i,ord,a,b,c,d,II,JJ,KK,BigL,weirdx,Lmin,Lmax
+  integer :: ja,jb,jc,jd,la,lb,lc,ld,xmin,xmax,antisym
+  integer :: npp,nhh,nph,ta,tb,tc,td,na,nb,nc,nd,Jtot
+  integer :: jxstart,c1,c2,n1,n2,g_ix,al,bl,cl,dl,LL,s
+  logical :: square
+
+
+  pre = dcgi00()
   nu = rho21%hospace*0.5d0 /hbarc2_over_mc2
 
-  ord = 50
-  alpha = 2.5
-  A = 0.0
-  B = 2.0
-
+  ord = 20
+  AA = 0.0
+  BB = 2.0
   
-  do q = 1, rho21%nblocks     
-     nh = rho21%mat(q)%nhh
-     np = rho21%mat(q)%npp
-     nb = rho21%mat(q)%nph
+  t1 = omp_get_Wtime()
+  !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RHO21,JBAS)  
+  do q = 1, rho21%nblocks
+     
+  !q = block_index(2,0,0)
+  
+     nhh = rho21%mat(q)%nhh
+     npp = rho21%mat(q)%npp
+     nph = rho21%mat(q)%nph
+     Jtot = rho21%mat(q)%lam(1)
 
-     do ii = 1, nh
+    ! print*, q,rho21%nblocks
+     do g_ix = 1,6 
+        n1 = size(rho21%mat(q)%gam(g_ix)%X(:,1))
+        n2 = size(rho21%mat(q)%gam(g_ix)%X(1,:))
+        if ((n1*n2) == 0) cycle 
 
-        a = rho21%mat(q)%qn(3)%X(ii,1)
-        b = rho21%mat(q)%qn(3)%X(ii,2)
+        ! read in information about which 
+        ! array we are using from public arrays
+        c1 = sea1(g_ix) 
+        c2 = sea2(g_ix) 
+        square = sqs(g_ix) 
+        jxstart = jst(g_ix) 
 
-        ja = jbas%jj(a)
-        jb = jbas%jj(b)
-        la = jbas%ll(a)
-        lb = jbas%ll(b)
-        
-        do jj = 1, nh
+
+        do ii = 1, n1
+
+           a = rho21%mat(q)%qn(c1)%Y(ii,1)
+           b = rho21%mat(q)%qn(c1)%Y(ii,2)
+           pre = 1.d0       
+           if (a==b) pre = 1/sqrt(2.d0)
+
+           na = jbas%nn(a) 
+           nb = jbas%nn(b)
+           ja = jbas%jj(a)
+           jb = jbas%jj(b)
+           la = jbas%ll(a)
+           lb = jbas%ll(b)
+           ta = jbas%itzp(a)
+           tb = jbas%itzp(b) 
+
+           allocate(Lag_a(0:na),Lag_b(0:nb) )
+           call generate_associated_laguerre_polynomials(na,la,Lag_a)
+           call generate_associated_laguerre_polynomials(nb,lb,Lag_b)
+
+           do jj = min(jxstart,ii),n2 
+
+              c = rho21%mat(q)%qn(c2)%Y(jj,1)
+              d = rho21%mat(q)%qn(c2)%Y(jj,2)
+              if (c==d) pre = pre/sqrt(2.d0) 
+              
+              nc = jbas%nn(c) 
+              nd = jbas%nn(d)
+              jc = jbas%jj(c)
+              jd = jbas%jj(d)
+              lc = jbas%ll(c)
+              ld = jbas%ll(d)
+              tc = jbas%itzp(c)
+              td = jbas%itzp(d) 
+              
+              if (la + lb == 0 ) then
+                 if (lc .ne. ld) cycle
+              end if
+
+              if (lc + ld == 0 ) then
+                 if (la .ne. lb) cycle
+              end if
+              
+              !the ls should sum to even due to parity conservation           
+              alpha = (la+lb+lc+ld)/2+0.5d0 
+
+              ! generate quadrature rule for \int_0^\infty  x^\alpha e^{-2x} f(x)
+              call get_rule(ord,alpha,AA,BB,x,w) 
+
+              allocate(Lag_c(0:nc),Lag_d(0:nd) )
+
+              ! get laguerre polynomial coefficients 
+              call generate_associated_laguerre_polynomials(nc,lc,Lag_c)
+              call generate_associated_laguerre_polynomials(nd,ld,Lag_d)
+
+              sm = 0.d0 
+              do kk = 1, ord
+
+                 sm = sm +  asslag(na,la,lag_a,x(kk))*asslag(nb,lb,lag_b,x(kk))*asslag(nc,lc,lag_c,x(kk)) &
+                      *asslag(nd,ld,lag_d,x(kk))*w(kk) 
+
+              end do
+
+              deallocate(Lag_c,Lag_d)
+
+              ! sm is now the integral \int_0^\infty  x^\alpha e^{-2x} f(x)
+
+              sm = sm * (nu*0.5)**(1.5) /Pi_const
+              ! sm is now the radial part of the matrix element.          
            
+              ! There is also an angular momentum coupled pre-factor
+              angular = 0.d0
+              ang2=0.d0 
+              ang1=0.d0 
+              
+              Lmin = max( abs(la-lb) , abs(lc-ld))
+              Lmax = min( la+lb , lc+ld)
+
+              xmin = 1!max(  abs(Jtot-1),abs(2*la-jb),abs(2*lc-jd))          
+              xmax = 21!min( Jtot+jb , Jtot+jd)           
+
+              s = 1
+              al = 2*la
+              bl = 2*lb
+              cl = 2*lc
+              dl = 2*ld
 
 
+              if (kron_del(ta,tc)*kron_del(tb,td) == 1) then 
+                 do BigL = Lmin,Lmax              
+                    LL = 2*BigL
+                    do weirdx = xmin,xmax,2
+                       
+                       ang1 = ang1 + (weirdx + 1.d0)*d6ji(ja,jb,Jtot,weirdx,s,al) * &
+                            d6ji(al,bl,LL,s,weirdx,jb) * dcgi(al,0,bl,0,LL,0)*&
+                            dcgi(cl,0,dl,0,LL,0)*d6ji(jc,jd,Jtot,weirdx,s,cl) *&
+                            d6ji(cl,dl,LL,s,weirdx,jd) 
+                       
+                    end do
+                 end do
+              end if
 
-  call get_rule(ord,alpha,A,B,x,w)
-  
-  print*, x
-  print*
-  print*, w
+              if (kron_del(ta,td)*kron_del(tb,tc) == 1) then 
+                 do BigL = Lmin,Lmax              
+                    LL = 2*BigL
+                    do weirdx = xmin,xmax,2
+                       
+                       ang2 = ang2 + (weirdx + 1.d0)*d6ji(ja,jb,Jtot,weirdx,s,al) * &
+                            d6ji(al,bl,LL,s,weirdx,jb) * dcgi(al,0,bl,0,LL,0)*&
+                            dcgi(cl,0,dl,0,LL,0)*d6ji(jd,jc,Jtot,weirdx,s,dl) *&
+                            d6ji(dl,cl,LL,s,weirdx,jc)   ! the permutation comes from the spins, not the
+                       ! mls, so, the clebsch with c and d does not change. 
+                       
+                    end do
+                 end do
+              end if
+              
+              angular = angular + ang1 - ang2 * (-1)**((jc+jd+cl+dl+Jtot+LL)/2) !!! antisymmetry condition              
+              angular = angular * (-1) ** ( (ja+jb+jc+jd)/2)    !!! this may not be needed if I got the coupling order wrong.
 
-  
-end subroutine 
 
+              angular = angular * sqrt( (ja+1.d0)*(jb+1.d0)*(jc+1.d0)*(jd+1.d0) &
+                   *(2*la+1.d0)*(2*lb+1.d0)*(2*lc+1.d0)*(2*ld+1.d0)) / 4.d0 / Pi_const                                                
+              rho21%mat(q)%gam(g_ix)%X(II,JJ) = angular*sm *pre
+              if (square) rho21%mat(q)%gam(g_ix)%X(JJ,II) = angular*sm *pre 
 
-subroutine generate_associated_laguerre_polynomials(nMax,l,LAG)
+           end do
+           deallocate(Lag_a,Lag_b)
+        end do
+     end do
+  end do
+  !$OMP END PARALLEL DO
+  t2 = omp_get_Wtime()
+  print*, 'time:', t2-t1
+end subroutine initialize_rho21_zerorange
+
+real(8) function asslag(n,l,lag,x)
+  implicit none
+
+  integer :: n,l ,ii
+  real(8) :: lag(0:n),x,sm
+
+  sm = 0.d0 
+  do ii = 0,n
+     sm = sm + lag(ii) * x**ii
+  end do
+
+  asslag= sm
+end function asslag
+
+ 
+subroutine generate_associated_laguerre_polynomials(nMax,l,LAGnl)
   implicit none
 
   integer :: nMax,l,n, II 
-  real(8) :: LAG(0:nMax+1,0:nMax) !!1 coefficients
-  real(8) :: norm
+  real(8) :: LAG(0:nMax,0:nMax) !!1 coefficients
+  real(8) :: norm,LAGnl(0:nMax)
 
   
   LAG = 0.d0
 
   LAG(0,0) = 1.d0   ! L_0^(l+1/2) == 1 always
 
-  LAG(1,0) = 1.5d0 + l  !!! L_1^(l+1/2) = 1.5+l-x 
-  LAG(1,1) = -1.d0   
-
-  LAG(1,:) = LAG(1,:) 
+  if (nMax > 0) then 
+     LAG(1,0) = 1.5d0 + l  !!! L_1^(l+1/2) = 1.5+l-x 
+     LAG(1,1) = -1.d0   
+     
+     LAG(1,:) = LAG(1,:) 
+  end if
   
 !!! now use recurrence relation
   do n = 2, nMax !!! loop over Laguerre rank    
@@ -3216,6 +3368,8 @@ subroutine generate_associated_laguerre_polynomials(nMax,l,LAG)
      LAG(n,:) = LAG(n,:)*norm
   end do
 
+  LAGnl = LAG(nMax,:)
+  
 end subroutine generate_associated_laguerre_polynomials
 
 
