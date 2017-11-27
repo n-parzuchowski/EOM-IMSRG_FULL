@@ -54,7 +54,9 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   steps = 0
   
   if (HS%eMax==14) then 
-     chk = 10
+     chk = 4
+  else if (HS%eMax > 14 ) then 
+     chk = 1 
   else
      chk = 24
   end if 
@@ -103,6 +105,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
               first = .false.
            else
               call write_omega_checkpoint(G,s)
+              stop
            end if
         end if
      end if 
@@ -343,7 +346,7 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
  
   advals(1) = abs(H%E0)   
 
-  do iw = 2 ,20
+  do iw = 2 ,40
 
      coef = coef/(iw-1.d0) 
      ! current value of HS is renamed INT1 
@@ -381,7 +384,7 @@ subroutine BCH_EXPAND(HS,G,H,jbas,quads)
      advals(iw) = mat_frob_norm(INT2)*coef
      if (advals(iw) < conv) exit
   end do 
-  if (iw > 20) STOP 'clipping BCH'
+  if (iw > 40) STOP 'clipping BCH'
   
 end subroutine BCH_EXPAND
 !=========================================================================

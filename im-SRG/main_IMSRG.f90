@@ -49,7 +49,6 @@ program main_IMSRG
      test_commutators = .false.
   end if
 
-
   call read_main_input_file(inputs_from_command,HS,ham_type,&
        hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
        me2b,mortbin,hw,skip_setup,skip_gs,quads,trips,threebod%e3max)
@@ -86,8 +85,8 @@ program main_IMSRG
      call initialize_rms_radius(r2_rms,rirj,jbas) 
   end if 
 
-  call  duplicate_sq_op(HS,rho21)
-  call  initialize_rho21_zerorange(rho21,jbas)
+! call  duplicate_sq_op(HS,rho21)
+! call  initialize_rho21_zerorange(rho21,jbas)
    
   
 !============================================================
@@ -132,13 +131,10 @@ program main_IMSRG
 !============================================================
 ! BUILD BASIS
 !============================================================
-  
   call calculate_h0_harm_osc(hw,jbas,HS,ham_type) 
-  
 !   !============================================================
 !   ! DEUTERON CALCULATION 
 !   !============================================================ 
-
   ! call compute_deuteron_ground_state(HS,jbas,rho21)
   ! stop
   
@@ -165,11 +161,12 @@ program main_IMSRG
 
   ! Normal Order Observables 
 90 if (hartree_fock) then    
-     call observable_to_HF(rho21,coefs,jbas) 
+ !    call observable_to_HF(rho21,coefs,jbas) 
      call observable_to_HF(pipj,coefs,jbas)
      call observable_to_HF(rirj,coefs,jbas)
      call observable_to_HF(r2_rms,coefs,jbas)
   else 
+!     call normal_order(rho21,jbas) 
      call normal_order(pipj,jbas) 
      call normal_order(rirj,jbas)
      call normal_order(r2_rms,jbas)
@@ -223,13 +220,17 @@ print*, 'BASIS SETUP COMPLETE'
      end if 
 
      
-     call transform_observable_BCH(rho21,exp_omega,jbas,quads)
+  !   call transform_observable_BCH(rho21,exp_omega,jbas,quads)
 
-     print*, 'SRC DENSITY:', rho21%E0
+!     print*, 'SRC DENSITY:', rho21%E0
 
-     open(unit=81,file="butt.dat",position="append")
-     write(81,*) nint(rho21%hospace), HS%eMax, rho21%E0
-     close(81)
+     ! open(unit=81,file=trim(OUTPUT_DIR)//trim(prefix)//"_SRC_density.dat",position="append")
+     ! write(81,*) nint(rho21%hospace), HS%eMax, rho21%E0
+     ! close(81)
+     ! open(unit=81,file=trim(OUTPUT_DIR)//trim(prefix)//"_energy.dat",position="append")
+     ! write(81,*) nint(rho21%hospace), HS%eMax, HS%E0
+     ! close(81)
+
      if (COM_calc) then 
         print*, 'TRANSFORMING Hcm'
         call transform_observable_BCH(pipj,exp_omega,jbas,quads)

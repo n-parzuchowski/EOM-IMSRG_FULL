@@ -3162,8 +3162,6 @@ subroutine initialize_rho21_zerorange(rho21,jbas)
   t1 = omp_get_Wtime()
   !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE), SHARED(RHO21,JBAS)  
   do q = 1, rho21%nblocks
-     
-  !q = block_index(2,0,0)
   
      nhh = rho21%mat(q)%nhh
      npp = rho21%mat(q)%npp

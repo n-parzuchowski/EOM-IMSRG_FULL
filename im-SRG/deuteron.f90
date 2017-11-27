@@ -69,12 +69,12 @@ contains
     
     print *, "DIAGONALIZING MATRIX OF SIZE: ",dm
 
-    if (dm > 2000) then
+    if (dm > 20) then
 !!! Diagonalize?
        nev = 5 ! I only care about the ground state right now. 
        ido = 0  ! status integer is 0 at start
        BMAT = 'I' ! standard eigenvalue problem (N for generalized) 
-       which = 'SM' ! compute smallest eigenvalues in magnitude ('SA') is algebraic. 
+       which = 'SA' ! compute smallest eigenvalues in magnitude ('SA') is algebraic. 
        tol = 0.0 ! error tolerance? (wtf zero?) 
        info = 0
        ncv = 5*nev ! number of lanczos vectors I guess
@@ -131,10 +131,7 @@ contains
 
        Egs = DX(1)
        PSI = Z(:,1)
-       PRINT*, Egs
        
-       deallocate(DX)
-
     else
        allocate(DX(dm))
        allocate(qx(10*dm))

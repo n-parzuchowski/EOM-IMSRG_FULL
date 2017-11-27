@@ -480,7 +480,9 @@ do ax = nlj1,nlj1+1
             
             T = ta+tb
             if (tc+td .ne. T) cycle
-            T = -T/2
+ 
+            T = -T/2  
+
             q = block_index(JT,T,Par)
 
      ! convert to pn matrix element       
@@ -488,6 +490,7 @@ do ax = nlj1,nlj1+1
           kron_del(ta+tb,-2)*kron_del(tc+td,-2)*me_fromfile(2)+& ! 1-1 
           kron_del(ta+tb,2)*kron_del(tc+td,2)*me_fromfile(4)+& !11 
           0.125d0*abs((ta-tb)*(tc-td))*me_fromfile(3) !10 
+
 
      ! pipj 
      g2 = r1_r2( a, b, c, d, JT ,jbas ) ! morten and Koshiroh are inconsistent with their definitions
