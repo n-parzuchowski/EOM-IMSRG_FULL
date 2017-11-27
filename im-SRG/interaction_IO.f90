@@ -1383,7 +1383,51 @@ subroutine read_me3j(store_3b,jbas,jbx,eMax,lmax)
 end subroutine
 
 
+subroutine export_to_NuShellX(HS,jbas)
+  implicit none
 
+  type(spd) :: jbas
+  type(sq_op) :: Hs
+  integer :: a,b,c,ii,jj,ja,la,na
+  integer :: N
+  integer,allocatable,dimension(:) :: shlls
+  character(1) :: maj_Shel,lenj,lenl,lena
+  
+  allocate(shlls(HS%eMax+1))
+  do ii = 1,HS%eMax+1
+     shlls(ii) = ii
+  end do
+  
+  write(maj_shel,'(I1)') HS%eMax+1
+  
+  N = size(jbas%con)/2
+
+  open(unit=88,file='nu.sp')
+  write(88,'(A)') 't'
+  write(88,'(I1,I2)') 0,0
+  write(88,'(I2)') N
+  write(88,'(I1,'//maj_shel//'(I2))') HS%eMax+1,shlls
+
+  a = 1
+  do ii = 2, 2*N, 2
+     lena='1' 
+     if (a > 9) lena = '2'
+     ja = jbas%jj(ii)
+     lenj='2' 
+     if (ja > 9) lenj = '3'
+     la = jbas%ll(ii)  
+     lenl='2' 
+     if (la > 9) lenl = '3'
+     na = jbas%nn(ii)
+     write(88,'(I'//lena//',I2,I'//lenl//',I'//lenj//')') a,na,la,ja
+     a=a+1
+  end do
+
+  close(88)
+  
+end subroutine export_to_NuShellX
+
+ 
 
 
 
