@@ -567,7 +567,7 @@ do ax = nlj1,nlj1+1
  close(7)
 end subroutine
 
-subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson) 
+subroutine read_me2b_interaction(H,jbas,htype,rr,pp,Lawson) 
   use gzipmod
   implicit none 
   
@@ -592,6 +592,7 @@ subroutine read_me2b_interaction(H,jbas,htype,hw,rr,pp,Lawson)
   character(kind=C_CHAR,len=200) :: buffer,buffer2,buffer3
 
   
+  hw = jbas%hw
   rr_calc = .false.
   pp_calc = .false. 
   Ntot = jbas%total_orbits
@@ -984,13 +985,13 @@ do Tz = 1 , -1, -1
         H%mat(q)%gam(qx)%X(i1,i2)  = V *pre
         
         if (rr_calc) then 
-           STOP 'fuck, this is not implemented yet' 
+           STOP 'Darn!!, this is not implemented yet' 
            rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot)
            rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot)
         end if 
 
         if (pp_calc) then 
-           STOP 'fuck, this is not implemented yet' 
+           STOP 'Darn!!, this is not implemented yet' 
            pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot)
            pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot)
         end if 
@@ -1000,12 +1001,12 @@ do Tz = 1 , -1, -1
         H%mat(q)%gam(qx)%X(i2,i1)  = V *pre
         
         if (rr_calc) then 
-           STOP 'fuck, this is not implemented yet' 
+           STOP 'Darn!!, this is not implemented yet' 
            rr%mat(q)%gam(qx)%X(i2,i1)  = hw*g2*pre/(H%Aneut + H%Aprot) 
         end if
         
         if (pp_calc) then 
-           STOP 'fuck, this is not implemented yet' 
+           STOP 'Darn!!, this is not implemented yet' 
            pp%mat(q)%gam(qx)%X(i2,i1)  = hw*g3*pre/(H%Aneut + H%Aprot) 
         end if
 
@@ -1013,12 +1014,12 @@ do Tz = 1 , -1, -1
         H%mat(q)%gam(qx)%X(i1,i2) = V * pre
         
         if (rr_calc) then 
-           STOP 'fuck, this is not implemented yet' 
+           STOP 'Darn!!, this is not implemented yet' 
            rr%mat(q)%gam(qx)%X(i1,i2)  = hw*g2*pre/(H%Aneut + H%Aprot) 
         end if
 
         if (pp_calc) then 
-           STOP 'fuck, this is not implemented yet' 
+           STOP 'Darn!!, this is not implemented yet' 
            pp%mat(q)%gam(qx)%X(i1,i2)  = hw*g3*pre/(H%Aneut + H%Aprot) 
         end if
 
@@ -1076,7 +1077,7 @@ end do
   else if (buffer(6:6) == '.') then 
      read(buffer(1:12),'(f12.6)') H%E0
   else 
-     print*, 'what the fuck is going on with the me1b file? ' 
+     print*, 'what the darn is going on with the me1b file? ' 
   end if 
   
 ! now lets read the 1 body piece

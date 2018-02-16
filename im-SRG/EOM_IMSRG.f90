@@ -1707,7 +1707,7 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
   type(obsv_mgr) :: trs,mom
   character(2) :: op,init,fin
   integer :: ist,num_trans,num_mom,i,num_jpi,N ,uniq
-  integer :: totstates
+  integer :: totstates,trips_int
   
   N =jbas%total_orbits
   if (trim(INI_DIR) == './' ) then
@@ -1781,6 +1781,19 @@ integer function read_eom_file(trs,mom,eom_states,jbas)
   allocate(half6j(uniq)) 
   read_eom_file = totstates
 
+  read(44,*)
+  read(44,*) trips_int
+
+  if (trips_int == 1) then
+     eom_states%trips=.true.
+  else
+     eom_states%trips=.false.
+  end if
+
+
+  close(44)
+
+  
 end function read_eom_file
 
   

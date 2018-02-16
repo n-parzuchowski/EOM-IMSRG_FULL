@@ -1,4 +1,8 @@
 program main_IMSRG
+!!!===================================================================
+!!!     Equations of Motion IMSRG for closed-shell nuclei 
+!!!     Written by Nathan M. Parzuchowski       
+!!!====================================================================
   use isospin_operators
   use HF_mod
   use response
@@ -11,11 +15,11 @@ program main_IMSRG
   use brute_force_testing
   use three_body_routines
   use deuteron
-  ! ground state IMSRG calculation for nuclear system 
   implicit none
   
   type(spd) :: jbas,jbx
-  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega,num,cr,H0,Hcm,rho21
+  type(sq_op) :: HS,ETA,DH,w1,w2,rirj,pipj,r2_rms,Otrans,exp_omega
+  type(sq_op) :: num,cr,H0,Hcm,Oscal 
   type(sq_op),allocatable,dimension(:) :: ladder_ops 
   type(iso_ladder),allocatable,dimension(:) :: isoladder_ops
   type(iso_operator) :: GT_trans
@@ -25,11 +29,13 @@ program main_IMSRG
   type(obsv_mgr) :: trans,moments
   type(eom_mgr) :: eom_states
   character(200) :: inputs_from_command
+  character(10) :: other_obs
   character(1) :: quads,trips,trans_type
   integer :: i,j,T,JTot,a,b,c,d,g,q,ham_type,j3,ix,jx,kx,lx,PAR,Tz,trans_rank
   integer :: np,nh,nb,k,l,m,n,method_int,mi,mj,ma,mb,j_min,ex_Calc_int,J1,J2
   integer :: na,la,lb,totstates,numstates,oldnum,qx,dTZ,oldnum_dTz,numstates_dTz
-  real(8) :: hw ,sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00,pre,x,corr,de_trips
+  real(8) :: sm,omp_get_wtime,t1,t2,bet_off,d6ji,gx,dcgi,dcgi00
+  real(8) :: corr_op,pre,x,corr,de_trips
   logical :: hartree_fock,COM_calc,r2rms_calc,me2j,me2b,trans_calc
   logical :: skip_setup,skip_gs,do_HF,TEST_commutators,mortbin,decouple
   external :: build_gs_white,build_specific_space,build_gs_atan,build_gs_w2
@@ -50,8 +56,8 @@ program main_IMSRG
   end if
 
   call read_main_input_file(inputs_from_command,HS,ham_type,&
-       hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,me2j,&
-       me2b,mortbin,hw,skip_setup,skip_gs,quads,trips,threebod%e3max)
+       hartree_fock,method_int,ex_calc_int,COM_calc,r2rms_calc,other_obs,me2j,&
+       me2b,mortbin,jbas%hw,skip_setup,skip_gs,quads,trips,threebod%e3max)
 
   call read_sp_basis(jbas,HS%Aprot,HS%Aneut,HS%eMax,HS%lmax,trips,jbx)
 
@@ -67,7 +73,7 @@ program main_IMSRG
   call allocate_blocks(jbas,HS)
 
   HS%herm = 1
-  HS%hospace = hw
+  HS%hospace = jbas%hw
 
 !=================================================================
 ! SET UP OPERATORS
@@ -85,9 +91,10 @@ program main_IMSRG
      call initialize_rms_radius(r2_rms,rirj,jbas) 
   end if 
 
-! call  duplicate_sq_op(HS,rho21)
-! call  initialize_rho21_zerorange(rho21,jbas)
-   
+ if (.not. (trim(other_obs)=="none")) then 
+    call  duplicate_sq_op(HS,Oscal)
+    call initialize_scalar_operator(other_obs,Oscal,jbas)   
+ end if 
   
 !============================================================
 !  CAN WE SKIP STUFF?  
@@ -104,10 +111,10 @@ program main_IMSRG
 
      if (.not. do_hf) then
         call read_umat(coefs,jbas)
-        goto 90
+        goto 90   ! goto is used to skip things in the main program file 
      end if
   end if 
-!  yes, goto 
+
 !=============================================================
 ! READ INTERACTION 
 !=============================================================
@@ -119,7 +126,7 @@ program main_IMSRG
   else if (me2b) then
      ! pre normal ordered interaction with three body included at No2b       
      print*, 'READING PRE-NORMAL ORDERED INTERACTION FROM HEIKO' 
-     call read_me2b_interaction(HS,jbas,ham_type,hw) 
+     call read_me2b_interaction(HS,jbas,ham_type) 
      goto 12 ! skip the normal ordering. 
      ! it's already done.  line 128 or search "bare" 
   else if (mortbin) then 
@@ -131,13 +138,9 @@ program main_IMSRG
 !============================================================
 ! BUILD BASIS
 !============================================================
-  call calculate_h0_harm_osc(hw,jbas,HS,ham_type) 
-!   !============================================================
-!   ! DEUTERON CALCULATION 
-!   !============================================================ 
-  ! call compute_deuteron_ground_state(HS,jbas,rho21)
-  ! stop
-  
+  call calculate_h0_harm_osc(jbas,HS,ham_type) 
+
+  !! threebody machinery if needed
   if (threebod%e3Max.ne.0) then 
      print*, 'Reading Three Body Force From file'
      call allocate_three_body_storage(jbas,jbx,threebod,HS%eMax,HS%lmax)
@@ -154,19 +157,21 @@ program main_IMSRG
 
   ! lawson 0b term
 12 HS%E0 = HS%E0 - HS%lawson_beta * 1.5d0* HS%com_hw
+
+  !! write bare operator to gzipped file (so you don't need to do HF again)   
   if (writing_bare) then 
-     call write_twobody_operator(HS,'bare')   
-     call write_umat(coefs)
+     call write_twobody_operator(HS,'bare')    
+     call write_umat(coefs)   ! store HF transformation 
   end if
 
-  ! Normal Order Observables 
+  ! Normal order scalar observables 
 90 if (hartree_fock) then    
- !    call observable_to_HF(rho21,coefs,jbas) 
+     call observable_to_HF(Oscal,coefs,jbas) 
      call observable_to_HF(pipj,coefs,jbas)
      call observable_to_HF(rirj,coefs,jbas)
      call observable_to_HF(r2_rms,coefs,jbas)
   else 
-!     call normal_order(rho21,jbas) 
+     call normal_order(Oscal,jbas) 
      call normal_order(pipj,jbas) 
      call normal_order(rirj,jbas)
      call normal_order(r2_rms,jbas)
@@ -185,7 +190,8 @@ print*, 'BASIS SETUP COMPLETE'
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
      
-  call print_header
+call print_header
+
   select case (method_int) 
 
           
@@ -195,12 +201,13 @@ print*, 'BASIS SETUP COMPLETE'
      exp_omega%herm = -1
      decouple=.true.
 
+     !!! if we sucessfully read an omega, "decouple" is set to .false.
      if ( reading_omega ) then
         decouple = read_twobody_operator( exp_omega ,'omega' )
      end if 
 
      if (trips .ne. 'n') then 
-        call duplicate_Sq_op(HS,H0)
+        call duplicate_sq_op(HS,H0)
         call copy_sq_op(HS,H0)
      end if
 
@@ -218,25 +225,19 @@ print*, 'BASIS SETUP COMPLETE'
         print*, 'READ TRANSFORMATION FROM FILE, SKIPPING IMSRG...' 
         call transform_observable_BCH(HS,exp_omega,jbas,quads)
      end if 
-
      
-  !   call transform_observable_BCH(rho21,exp_omega,jbas,quads)
-
-!     print*, 'SRC DENSITY:', rho21%E0
-
-     ! open(unit=81,file=trim(OUTPUT_DIR)//trim(prefix)//"_SRC_density.dat",position="append")
-     ! write(81,*) nint(rho21%hospace), HS%eMax, rho21%E0
-     ! close(81)
-     ! open(unit=81,file=trim(OUTPUT_DIR)//trim(prefix)//"_energy.dat",position="append")
-     ! write(81,*) nint(rho21%hospace), HS%eMax, HS%E0
-     ! close(81)
+     if (.not. (trim(other_obs)=="none")) then 
+        call transform_observable_BCH(Oscal,exp_omega,jbas,quads)
+        call write_scalar_operator(other_obs, Oscal,jbas)
+     end if
+     
 
      if (COM_calc) then 
         print*, 'TRANSFORMING Hcm'
         call transform_observable_BCH(pipj,exp_omega,jbas,quads)
         call transform_observable_BCH(rirj,exp_omega,jbas,quads)
         print*, 'CALCULTING Ecm' 
-        call calculate_CM_energy(pipj,rirj,hw) 
+        call calculate_CM_energy(pipj,rirj) 
      end if 
      
      if (r2rms_calc) then
@@ -248,23 +249,21 @@ print*, 'BASIS SETUP COMPLETE'
   case (2) ! traditional
      if (COM_calc) then 
         call decouple_hamiltonian(HS,jbas,build_gs_white,pipj,rirj)
-        call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
+        call calculate_CM_energy(pipj,rirj)  ! this writes to file
      else if (r2rms_calc) then 
         call decouple_hamiltonian(HS,jbas,build_gs_white,r2_rms)
-!        call write_tilde_from_Rcm(r2_rms)
         print*, sqrt(r2_rms%E0)
     else 
         call decouple_hamiltonian(HS,jbas,build_gs_white) 
-    !    call discrete_decouple(HS,jbas) 
      end if
      
-  case (3) 
+  case (3)    ! product of discrete infinitesimal transformations
      if (COM_calc) then 
         call discrete_decouple(HS,jbas,pipj,rirj)
-        call calculate_CM_energy(pipj,rirj,hw)  ! this writes to file
+        call calculate_CM_energy(pipj,rirj)  ! this writes to file
      else if (r2rms_calc) then 
         call discrete_decouple(HS,jbas,r2_rms)
-        call write_tilde_from_Rcm(r2_rms)     
+        print*, sqrt(r2_rms%E0)
      else 
         call discrete_decouple(HS,jbas) 
      end if
@@ -273,9 +272,6 @@ print*, 'BASIS SETUP COMPLETE'
 !============================================================
 ! store hamiltonian in easiest format for quick reading
 !============================================================
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-!  equation of motion calculation 
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (writing_decoupled) then 
      call write_twobody_operator(HS,'decoupled')
   end if
@@ -283,23 +279,22 @@ print*, 'BASIS SETUP COMPLETE'
 
 !============TRIPLES MAGNUS=============================================
   if (trips == 'y') then 
-!     call enumerate_three_body(threebas,jbas)
      print*, 'computing triples'
      t1 = omp_get_wtime()
-     corr =  restore_triples(H0,exp_omega,jbas) 
+     call restore_triples(H0,exp_omega,jbas,corr,corr_op) 
      t2 = omp_get_wtime()
-     print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
+     print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1,HS%E0
      open(unit=39,file=trim(OUTPUT_DIR)//&
        trim(adjustl(prefix))//'_magnus_triples.dat')
      write(39,'(2(e15.7))') HS%E0,HS%E0+corr
      close(39)
-     
+
   else if (trips == 'C') then
      t1 = omp_get_wtime()
      call duplicate_sq_op(H0,CR)         
      ! completely renormalized bit.
      call CR_EXPAND(CR,exp_omega,H0,jbas,quads) 
-     corr =  restore_triples(CR,exp_omega,jbas)
+     call restore_triples(CR,exp_omega,jbas,corr,corr_op)
      t2 = omp_get_wtime()
      print*, 'FINAL ENERGY:', corr + HS%E0,t2-t1
      open(unit=39,file=trim(OUTPUT_DIR)//&
@@ -308,7 +303,8 @@ print*, 'BASIS SETUP COMPLETE'
      close(39)
   end if
 !=======================================================================
-
+!  equations-of-motion calculation 
+!=======================================================================
 91 t2 = omp_get_wtime() 
   write(*,'(A5,f25.14)') 'TIME:', t2-t1
 
@@ -333,30 +329,25 @@ print*, 'BASIS SETUP COMPLETE'
            call calculate_excited_states(eom_states%ang_mom(q),eom_states%par(q),numstates,HS,&
                 jbas,ladder_ops(1+oldnum:Numstates+oldnum))
         
-               
-!            print*
-!            print*, '=========================================================='
-!            print*, '  J^Pi          dE(1+2)         dE(1+2+3)    dE(3)      time    '
-!            print*, '=========================================================='
-!            do qx = 1+oldnum,Numstates+oldnum
-! !              if (sum(ladder_ops(qx)%fph**2)<0.3) cycle
-              
-! !              if ( ladder_ops(qx)%E0 > 12.0 ) cycle
-              
-!               t1= omp_get_wtime()
-!               dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  
-!               t2= omp_get_wtime()
-              
-!               write(71,'(5(I5),5(e25.14))') 2,2,2,eom_states%ang_mom(q)/2,eom_states%par(q)/2, ladder_ops(qx)%E0+dE_trips , &
-!                 ladder_ops(qx)%E0+HS%E0+dE_trips, 0.d0 , 0.d0 ,sum(ladder_ops(qx)%fph**2)
-  
-!               write(*,'(A2,4(f20.10))') eom_states%name(q),&
-!                    ladder_ops(qx)%E0,ladder_ops(qx)%E0+dE_trips,dE_trips,t2-t1
-!            end do
-           
+
+           if (eom_states%trips) then
+              print*
+              print*, '=========================================================='
+              print*, '  J^Pi          dE(1+2)         dE(1+2+3)    dE(3)      time    '
+              print*, '=========================================================='
+              do qx = 1+oldnum,Numstates+oldnum
+                 
+                 t1= omp_get_wtime()
+                 dE_trips=EOM_triples(HS,ladder_ops(qx),jbas)  
+                 t2= omp_get_wtime()
+                                  
+                 write(*,'(A2,4(f20.10))') eom_states%name(q),&
+                      ladder_ops(qx)%E0,ladder_ops(qx)%E0+dE_trips,dE_trips,t2-t1
+              end do
+           end if
+
         else
-        
-           
+   
            oldnum_dTz = oldnum_dTz + Numstates_dTz
            Numstates_dTz = eom_states%number_requested(q)        
            isoladder_ops(1+oldnum_dTz:Numstates_dTz+oldnum_dTz)%xindx = q
@@ -422,67 +413,6 @@ print*, 'BASIS SETUP COMPLETE'
      end if
      deallocate(isoladder_ops,ladder_ops)
   end if
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-! excited state decoupling
-!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (ex_calc_int==2) then 
-
-     call initialize_TDA(TDA,jbas,HS%Jtarg,HS%Ptarg,HS%valcut)
-
-     deallocate(HS%exlabels) 
-
-     allocate(HS%exlabels(TDA%map(1),2))
-     HS%exlabels=TDA%blkM(1)%labels
-
-     select case (method_int) 
-        case(1) !magnus
-           
-           call magnus_TDA(HS,TDA,exp_omega,jbas,quads,build_specific_space)     
-       
-           if (COM_calc) then 
-              call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
-           else if (r2rms_calc) then
-              print*, 'fail'
-           else 
-              print*, 'superfail'
-        end if
-        
-        case(2) !traditional
-     
-        if (COM_calc) then 
-           call TDA_decouple(HS,TDA,jbas,build_specific_space, &
-                pipj,ppTDA,rirj,rrTDA) 
-           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
-        else if (r2rms_calc) then
-           call TDA_decouple(HS,TDA,jbas,build_specific_space,&
-                r2_rms,rrTDA)
-           print*, rrTDA%blkM(1)%eigval
-        else 
-           call TDA_decouple(HS,TDA,jbas,build_specific_space) 
-!           call calculate_excited_states(HS%Jtarg,HS%Ptarg,10,HS,jbas,Otrans) 
-        end if 
-        
-        case(3) !discrete
-      
-         
-        if (COM_calc) then 
-           call discrete_TDA(HS,TDA,jbas,pipj,ppTDA,rirj,rrTDA) 
-           call calculate_CM_energy_TDA(TDA,rirj,pipj,ppTDA,rrTDA,hw) 
-        else if (r2rms_calc) then
-           call discrete_TDA(HS,TDA,jbas,r2_rms,rrTDA)
-        else 
-           call discrete_TDA(HS,TDA,jbas) 
-        end if 
-      
-     end select
-     
-!     t2 = omp_get_wtime() 
-     write(*,'(A5,f25.14)') 'TIME:', t2-t1
-  
-  end if 
-
-  ! free it up brah
-
   
 contains
 

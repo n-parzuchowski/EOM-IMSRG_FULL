@@ -794,7 +794,6 @@ end subroutine
       nb = LCC%nph(q)
       
       rinx = LCC%rlen(q)  
-      
       if (nb * rinx == 0) cycle
       
       call dgemm('N','T',rinx,rinx,nb,al,LCC%CCX(q)%X,rinx,&

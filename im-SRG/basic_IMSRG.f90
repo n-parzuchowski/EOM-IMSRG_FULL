@@ -24,14 +24,14 @@ module basic_IMSRG
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   TYPE :: spd    ! single particle discriptor
      INTEGER :: total_orbits,Jtotal_max,lmax,spblocks,E3Max_3file,eMax_3file
-     INTEGER :: lmax_3file, eMax_2file, lmax_2file
+     INTEGER :: lmax_3file, eMax_2file, lmax_2file,hw
      INTEGER, ALLOCATABLE,DIMENSION(:) :: nn, ll, jj, itzp, nshell, mvalue
      INTEGER, ALLOCATABLE,DIMENSION(:) :: con,holes,parts 
      type(int_vec), allocatable,dimension(:) :: states
      type(int_vec),allocatable,dimension(:) :: xmap
      type(int_vec),allocatable,dimension(:,:) :: xmap_tensor
      ! for clarity:  nn, ll, nshell are all the true value
-     ! jj is j+1/2 (so it's an integer) 
+     ! jj is 2*j
      ! likewise itzp is 2*tz  
      REAL(8), ALLOCATABLE,DIMENSION(:) :: e
   END TYPE spd
@@ -100,6 +100,7 @@ module basic_IMSRG
      integer :: num,total_dtz
      character(2),allocatable,dimension(:) :: name
      integer,allocatable,dimension(:) :: ang_mom,par,number_requested,dtz 
+     logical :: trips
   end type eom_mgr
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -163,7 +164,7 @@ subroutine read_sp_basis(jbas,hp,hn,eMax,lmax,trips,jbx)
   real(8) :: e
   character(1) :: trips
   
-
+ 
   interm= adjustl(spfile)
   open(unit=39,file=trim(SP_DIR)//trim(interm))
   hk=interm(1:2)
@@ -403,7 +404,11 @@ subroutine print_system(jbas)
   implicit none
   
   type(spd) :: jbas
-  integer :: n,p,i 
+  integer :: n,p,i,eMax,lMax
+
+  eMax = maxval(jbas%nn)*2
+  lMax = maxval(jbas%ll)
+  
   
   p = 0 
   n = 0 
@@ -414,9 +419,20 @@ subroutine print_system(jbas)
         n = n +jbas%con(i) * (jbas%jj(i)+1) 
      end if
   end do 
+
+  write(*,*)
+  write(*,'(A10,I4)') ' PROTONS: ',p 
+  write(*,'(A10,I4)') ' NEUTRONS: ',n 
+  write(*,'(A6,I3)') ' eMax=',eMax
+  if (lMax /= eMax) then
+     write(*,'(A6,I3)') ' lMax=',lMax
+  end if
+  write(*,'(A4,I3)') ' hw=',jbas%hw 
+  write(*,*) "TWO BODY INTERACTION: "//intfile
+  if (.not. (threebody_file == "none") ) then 
+     write(*,*) "THREE BODY INTERACTION: "//threebody_file
+  end if
   
-  write(*,'(A9,I4)') 'PROTONS: ',p 
-  write(*,'(A9,I4)') 'NEUTRONS: ',n 
   write(*,*)
   write(*,*) 'FILLED PROTON ORBITALS:'
   do i = 1, jbas%total_orbits 
@@ -2030,20 +2046,20 @@ real(8) function twobody_monopole(a,b,ja,jb,H,jbas)
 end function 
 !=====================================================
 !=====================================================
-subroutine calculate_h0_harm_osc(hw,jbas,H,Htype) 
+subroutine calculate_h0_harm_osc(jbas,H,Htype) 
   ! fills out the one body piece of the hamiltonian
   implicit none 
   
   integer,intent(in) :: Htype
-  real(8),intent(in) :: hw
   integer :: i,j,mass,c1,c2,cx
   integer :: ni,li,ji,nj,lj,jj,tzi,tzj,AX
-  real(8) :: kij,T,beta,cmhw
+  real(8) :: kij,T,beta,cmhw,hw
   type(sq_op) :: H 
   type(spd) :: jbas
  
   !Htype =  |[1]: T - Tcm + V |[2]: T + Uho + V |[3]: T+V | 
 
+  hw = jbas%hw
   AX = H%belowEF
   mass = H%Aprot + H%Aneut
   
@@ -3617,7 +3633,7 @@ subroutine print_matrix(matrix)
   
 end subroutine print_matrix
 !===============================================  
-subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
+subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,obsname,&
      ME2J,ME2b,MORTBIN,hw,skip_setup,skip_gs,quads,trips,e3max)
   !read inputs from file
   implicit none 
@@ -3625,11 +3641,11 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   character(200) :: input
   character(50) :: valence
   character(1) :: quads,trips
+  character(10) :: obsname
   type(sq_op) :: H 
   integer :: htype,jx,jy,Jtarg,Ptarg,excalc,com_int,rrms_int
-  integer :: method,Exint,ISTAT ,i,e3max
+  integer :: method,Exint,ISTAT ,i,e3max,hw
   logical :: HF,COM,R2RMS,ME2J,ME2B,skip_setup,skip_gs,MORTBIN, found
-  real(8) :: hw
 
     
   input = adjustl(input) 
@@ -3664,23 +3680,19 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*) H%Aprot
   read(22,*)
   read(22,*) H%Aneut
-  read(22,*);read(22,*)
+  read(22,*); read(22,*)
   read(22,*) jx
-  read(22,*);read(22,*)
+  read(22,*); read(22,*)
   read(22,*) method,quads,trips
-  read(22,*);read(22,*)
+  read(22,*); read(22,*)
   read(22,*) excalc
   read(22,*)
-  read(22,*) Jtarg
-  read(22,*)
-  read(22,*) Ptarg
-  read(22,*)
-  read(22,*) valence
-  read(22,*) 
   read(22,*) com_int
   read(22,*)
   read(22,*) rrms_int 
   read(22,*)
+  read(22,*) obsname
+  read(22,*) 
   read(22,*) eomfile
   read(22,*)
   read(22,*) H%lawson_beta,H%com_hw
@@ -3692,11 +3704,7 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   read(22,*) writing_decoupled,reading_decoupled
   read(22,*) 
   read(22,*) writing_omega,reading_omega
-  
-  valence = adjustl(valence)
-  H%Jtarg = Jtarg
-  H%Ptarg = Ptarg
-  
+ 
   if (method .ne. 1) then 
      writing_omega = .false. 
      reading_omega = .false. 
@@ -3708,19 +3716,6 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   if (com_int == 1) COM = .true.
   R2RMS = .false.
   if (rrms_int == 1) R2RMS = .true.
-  
-  select case (trim(valence)) 
-     case ('0p') 
-        H%valcut = 6 
-     case ('1s0d')
-        H%valcut = 12
-     case ('1p0f')
-        H%valcut = 20 
-     case ( '2s1d0g') ! probably not needed 
-        H%valcut = 30
-     case default
-        stop 'valence space not listed in database, SEE basic_IMSRG.f90' 
-  end select 
 
   if (trim(adjustl(threebody_file))=='none') then 
      e3Max = 0
@@ -3775,6 +3770,8 @@ subroutine read_main_input_file(input,H,htype,HF,method,EXcalc,COM,R2RMS,&
   scratch = trim(adjustl(scratch))//'/'
   call getenv("IMSRG_OPERATOR_DUMP",playplace)
   playplace = trim(adjustl(playplace))//'/'
+
+  obsname = adjustl(obsname)
   
 end subroutine read_main_input_file
 !=======================================================  
@@ -3795,7 +3792,7 @@ end function
 !=================================================
 !=================================================
 subroutine vectorize(rec,vout)
-  !!! maps full_ham to vector
+  !!! maps sq_op to vector
   implicit none 
 
   integer ::  i,j,k,l,gx,Atot,Ntot
@@ -3858,7 +3855,7 @@ end subroutine
 !=================================================
 !=================================================
 subroutine repackage(rec,vout)
-  !!! maps full_ham to vector
+  !!! reads sq_op from vector
   implicit none 
 
   integer :: i,j,k,l,gx,Atot,Ntot
@@ -3922,6 +3919,7 @@ end subroutine
 !===============================================================
 !===============================================================  
 real(8) function mat_frob_norm(op) 
+  ! frobenius norm
   implicit none 
   
   type(sq_op) :: op

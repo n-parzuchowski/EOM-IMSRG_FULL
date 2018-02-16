@@ -681,7 +681,7 @@ subroutine allocate_three_body_storage(jbas,jbx,store_3b,eMax,lMax)
   store_3b%num_elems = elems_file
   elems = 0
   do q = 1, num_blocks     
-     if (store_3b%kets(q) .ne. store_3b%bras(q)) print*, 'shit'
+     if (store_3b%kets(q) .ne. store_3b%bras(q)) print*, '$#%#'
      NN = store_3b%kets(q) 
      elems = elems + (NN*NN+NN)/2
      allocate(store_3b%mat(q)%RR((NN*NN+NN)/2))

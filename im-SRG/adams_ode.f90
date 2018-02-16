@@ -202,7 +202,7 @@ subroutine ode ( f,gen,neqn, y, rx, jbas, t, tout, relerr, abserr, iflag, work, 
   type(spd) :: jbas
     
   if (isnan(sum(y))) then 
-     print*, 'fuck... NaNs in the solver...'
+     print*, '$%*@!... NaNs in the solver...'
      stop 
   end if 
  
@@ -1030,7 +1030,7 @@ subroutine step ( x, y, f,gen, rx,jbas, neqn, h, eps, wt, start, hold, k, kold, 
       erk = erk + ( ( yp(l) - phi(l,1) ) / wt(l) )**2
      ! if (isnan(yp(l))) print*, 'cow'
      ! if (isnan(phi(l,1))) print*, 'sex'
-     ! if (wt(l) < 1e-9) print*, 'shit...' 
+     ! if (wt(l) < 1e-9) print*, '$#%#...' 
     end do
    
     if ( 0 < km2 ) then

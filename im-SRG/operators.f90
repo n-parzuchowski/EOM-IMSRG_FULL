@@ -10,6 +10,49 @@ module operators
 contains
 !==================================================================  
 !==================================================================
+subroutine initialize_scalar_operator(name,Op,jbas)
+  implicit none
+
+  type(sq_op) :: Op
+  type(spd) :: jbas
+  character(10) :: name
+
+  ! you can add new scalar operators here. 
+  if (trim(name)=="rho21") then     
+     call  initialize_rho21_zerorange(Op,jbas)
+  else
+     write(*,*) "Operator named "//trim(name)//" not found. FAIL."
+     STOP
+  end if
+  
+end subroutine initialize_scalar_operator
+!==================================================================  
+!==================================================================
+subroutine write_scalar_operator(name,Op,jbas)
+  implicit none
+
+  type(sq_op) :: Op
+  type(spd) :: jbas
+  character(10) :: name
+
+  ! you can add new scalar operators here. 
+  if (trim(name)=="rho21") then
+     print*, 'SRC DENSITY:', Op%E0
+     
+     open(unit=81,file=trim(OUTPUT_DIR)//trim(prefix)//"_SRC_density.dat")
+     write(81,*) nint(Op%hospace), Op%eMax, Op%E0
+     close(81)
+     open(unit=81,file=trim(OUTPUT_DIR)//trim(prefix)//"_energy.dat")
+     write(81,*) nint(Op%hospace), Op%eMax, Op%E0
+     close(81)
+  else
+     write(*,*) "Operator named "//trim(name)//" not found. FAIL."
+     STOP "How did this not get caught in initialize_scalar_operator?"
+  end if
+  
+end subroutine write_scalar_operator
+!==================================================================  
+!==================================================================
 subroutine calculate_pipj(pp,jbas) 
   implicit none
   
@@ -26,7 +69,7 @@ subroutine calculate_pipj(pp,jbas)
      mass = mass + jbas%con(a) *(jbas%jj(a)+1) 
   end do
 
-  call calculate_h0_harm_osc(pp%hospace,jbas,pp,4)
+  call calculate_h0_harm_osc(jbas,pp,4)
 
   do q = 1, pp%nblocks
      
@@ -83,7 +126,7 @@ subroutine calculate_rirj(rr,jbas)
   end do
   ! check if we are concerned with other operators
 
-  call calculate_h0_harm_osc(rr%hospace,jbas,rr,5)
+  call calculate_h0_harm_osc(jbas,rr,5)
      
   do q = 1, rr%nblocks
      
@@ -409,8 +452,10 @@ subroutine initialize_rms_radius(rms,rr,jbas)
   integer :: q,i
   
   mass_factor = 1.d0-1.d0/dfloat(rr%Aprot + rr%Aneut) 
-  
-  call calculate_h0_harm_osc(1.d0,jbas,rms,5)
+
+  jbas%hw = 1
+  call calculate_h0_harm_osc(jbas,rms,5)
+  jbas%hw = rr%hospace
   
   ! multiply by scale factors to make it into r^2 instead of u_ho 
   rms%fhh = rms%fhh * hbarc2_over_mc2 * 2.d0 * mass_factor / rms%hospace
@@ -440,8 +485,10 @@ subroutine initialize_CM_radius(rms,rr,jbas)
   integer :: q,i
   
   mass_factor = 1.d0/dfloat(rr%Aprot + rr%Aneut) 
-  
-  call calculate_h0_harm_osc(1.d0,jbas,rms,5)
+
+  jbas%hw=1
+  call calculate_h0_harm_osc(jbas,rms,5)
+  jbas%hw=rr%hospace
   
   ! multiply by scale factors to make it into r^2 instead of u_ho 
   rms%fhh = rms%fhh * hbarc2_over_mc2 * 2.d0 * mass_factor / rms%hospace
@@ -658,13 +705,14 @@ subroutine build_Hcm(pp,rr,Hcm,jbas)
   call copy_rank0_to_tensor_format(Htemp,Hcm,jbas) 
 end subroutine build_Hcm
 !==================================================================== 
-subroutine calculate_CM_energy(pp,rr,hw) 
+subroutine calculate_CM_energy(pp,rr) 
   implicit none 
   
   type(sq_op) :: pp,rr,Hcm
   real(8) :: hw,wTs(2),Ecm(3) 
   integer :: i
- 
+
+  hw = pp%hospace
   call duplicate_sq_op(pp,Hcm)
   call add_sq_op(pp,1.d0,rr,1.d0,Hcm)
   Ecm(1) = Hcm%E0 - 1.5d0*hw ! store Ecm for this Hcm frequency 
@@ -762,7 +810,7 @@ subroutine calculate_EX(op,jbas)
  ! charge(1) = 1.36
  ! charge(2) = 0.45  
 
-  !!! Ricccchawrd Trippel values
+  !!! Richard Trippel values
   ! charge(1) = 1  
   ! charge(2)=1
 
@@ -1386,7 +1434,6 @@ real(8) function transition_to_ground_ME( Trans_op , Qdag,jbas )
   end do
   sm2 = sm - sm1
   
-  print*, 'onebody: ',sm1,'twobody: ',sm2
   transition_to_ground_ME = sm * (-1.d0)**(rank/2)
   !  BY SUHONEN'S DEFINITION, I SHOULD BE DEVIDING BY Sqrt(2J+1) 
   !  BUT THE LANCZOS ALGORITHM DID THAT FOR US ALREADY. 
@@ -2463,7 +2510,7 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
      print*, '============================================================================='
      print*, '        E_in                E_out         B('&
           //trans%oper//';'//trans%Jpi1(q)//' -> '//trans%Jpi2(q)//&
-          ')      B('//trans%oper//';'//trans%Jpi1(q)//' -> '//trans%Jpi2(q)//')' 
+          ')      B('//trans%oper//';'//trans%Jpi2(q)//' -> '//trans%Jpi1(q)//')' 
      print*, '============================================================================='
 
      Jin = 2* Jin
@@ -2484,9 +2531,7 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
            states = 2*states + 1 ! energies, observs, and gs
            write(flts,'(I2)') states       
            states = 0
- !          open(unit=71, file='He4_stuff',position="append")
-  !         if ((jin == 1).and.(pin==0)) write(71,'(5(I5),5(e25.14))') 2,2,2,Jin/2,Pin/2, 0.d0 , &
-   !             HS%E0, 0.d0,0.d0,0.d0
+
            do in = 1, size(ladder_ops)
 
               IF ( ladder_ops(in)%rank .ne. Jin) cycle
@@ -2504,17 +2549,16 @@ subroutine EOM_observables( ladder_ops, iso_ops, O1,HS, Hcm, trans, mom, eom_sta
               Energies(states) = ladder_ops(in)%E0
 
               write(*,'(4(f19.12))') E_in,E_out,Strength_down,Strength_up           
-              ! write(71,'(5(I5),5(e25.14))') 2,2,2,Jin/2,Pin/2, ladder_ops(in)%E0 , &
-              !      ladder_ops(in)%E0+HS%E0, Strength_down , strength_up,sum(ladder_ops(in)%fph**2)
+
            end do
-!           close(71)
+
            open(unit=31,file=trim(OUTPUT_DIR)//trim(adjustl(prefix))//&
                 '_energies_strengths_'//trans%oper//'_'//trans%Jpi1(q)//'_'//trans%Jpi2(q)//'.dat',position='append')
            write(31,'(2(I5),'//trim(adjustl(flts))//'(f25.14))') nint(HS%hospace),HS%eMax,HS%E0,Energies,strengths
            close(31)
-
+           
            deallocate(Energies,strengths)  
-     
+           
         else
            instate = 0
            do In = 1, size(ladder_ops)

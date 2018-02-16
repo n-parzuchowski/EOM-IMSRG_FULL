@@ -36,7 +36,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
   call duplicate_sq_op(HS,DG) !magnus operator
   G%herm = -1 
   DG%herm = -1 
-   
+
   call build_generator(HS,DG,jbas)  
   call copy_sq_op(HS,H) 
   
@@ -105,7 +105,6 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
               first = .false.
            else
               call write_omega_checkpoint(G,s)
-              stop
            end if
         end if
      end if 
@@ -113,7 +112,7 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      call MAGNUS_EXPAND(DG,G,AD,jbas)
  
      call euler_step(G,DG,s,ds) 
- 
+
      call BCH_EXPAND(HS,G,H,jbas,quads) 
  
      call build_generator(HS,DG,jbas)   
@@ -123,164 +122,10 @@ subroutine magnus_decouple(HS,G,jbas,quads,trips,build_generator)
      crit = abs(E_mbpt2)  
 
      write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-     
+     write(*,'(I6,5(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
   end do
   
-end subroutine  
-!===========================================================================
-!===========================================================================
-subroutine magnus_TDA(HS,TDA,G,jbas,quads,build_generator) 
-  ! runs IMSRG TDA decoupling using magnus expansion method
-  implicit none 
-  
-  integer :: Atot,Ntot,nh,np,nb,q,steps,i,Jsing
-  type(spd) :: jbas
-  type(full_sp_block_mat) :: TDA
-  type(sq_op) :: H , G ,ETA, HS,INT1,INT2,AD,w1,w2,DG,G0,ETA0,H0,Oevolv
-  type(cc_mat) :: GCC,ADCC,WCC,HCC,OeCC
-  real(8) :: ds,s,crit,nrm1,nrm2,wTs(2),Ecm(3)
-  real(8),allocatable,dimension(:) :: E_old,wTvec
-  character(3) :: args
-  character(1) :: quads 
-  character(1) :: Jlabel,Plabel
-  external :: build_generator 
-  
-  call duplicate_sq_op(HS,H) !evolved hamiltonian
-  call duplicate_sq_op(HS,AD) !workspace
-  call duplicate_sq_op(HS,DG) !magnus operator
-
-  G%herm = -1 
-  DG%herm = -1
-    
-  call init_ph_mat(HS,HCC,jbas) !cross coupled ME
-  
-  ! TDA stuff
-  call calculate_cross_coupled(HS,HCC,jbas)
-  call calc_TDA(TDA,HS,HCC,jbas)
-  call diagonalize_blocks(TDA)
-  allocate(E_old(TDA%map(1)))
-
-  s = 0.d0 
-  ds = 0.005d0
-  crit = 10.
-  steps = 0
-
-  E_old = TDA%blkM(1)%eigval
-  Jsing = H%Jtarg/2
-
-  write( Jlabel ,'(I1)') Jsing
-
-  if (H%Ptarg == 0 ) then 
-     Plabel ='+'
-  else 
-     Plabel ='-'
-  end if
-  open(unit=37,file=trim(OUTPUT_DIR)//&
-       trim(adjustl(prefix))//'_'//Jlabel//Plabel//'_excited.dat')
-  
-  call write_excited_states(steps,s,TDA,HS%E0,37)
-  call build_generator(HS,DG,jbas) 
-  call copy_sq_op(HS,H) 
-  
-  !nrm1 = mat_frob_norm(DG) 
- 
-  do while (crit > 1e-5) 
-  
-     call MAGNUS_EXPAND(DG,G,AD,jbas)
-     call euler_step(G,DG,s,ds) 
- 
-     call BCH_EXPAND(HS,G,H,jbas,quads) 
-         
-     call build_generator(HS,DG,jbas)
-    
-     call calculate_cross_coupled(HS,HCC,jbas) 
-     call calc_TDA(TDA,HS,HCC,jbas) 
-     call diagonalize_blocks(TDA)
-  
-     call write_excited_states(steps,s,TDA,HS%E0,37) 
-     
-     crit = sum(abs(E_old-TDA%blkM(1)%eigval))/TDA%map(1)
-     write(*,'(I6,7(e15.7))') steps,s,TDA%blkM(1)%eigval(1:5),crit
-     E_old = TDA%blkM(1)%eigval
-
-     steps = steps + 1
-          
-  end do
- 
-!===========================================================================  
-  close(37)
-end subroutine
-!============================================================================
-!============================================================================
-subroutine magnus_HF(HS,G,jbas,build_generator)
-  ! runs IMSRG using magnus expansion method
-  implicit none 
-  
-  integer :: Atot,Ntot,nh,np,nb,q,steps,i,j
-  type(spd) :: jbas
-  type(tpd),allocatable,dimension(:) :: threebas
-  type(sq_op) :: H,G,HS,AD
-  type(sq_op) :: DG,CR
-  type(cc_mat) :: GCC,ADCC,WCC 
-  real(8) :: ds,s,Eold,E_mbpt2,crit,nrm1,nrm2,wTs(2),Ecm(3),corr,dcgi00,xxx
-  real(8) :: omp_get_wtime,t1,t2
-  character(1) :: quads,trips
-  logical :: trip_calc,xxCR,ecrit
-  external :: build_generator 
-     
-  HS%neq = 1
-  call duplicate_sq_op(HS,H) !evolved hamiltonian
-  if (.not. allocated(G%mat)) call duplicate_sq_op(HS,G) !magnus operator
-  call duplicate_sq_op(HS,AD) !workspace
-
-  call duplicate_sq_op(HS,DG) !magnus operator
-  G%herm = -1 
-  DG%herm = -1 
-   
-  call build_generator(HS,DG,jbas)  
-  call copy_sq_op(HS,H) 
-  
-  s = 0.d0 
-    
-  if (HS%lawson_beta < 3.0) then 
-     ds = 1.0d0
-  else if (HS%lawson_beta < 6.0) then 
-     ds = 0.5d0
-  else
-     ds = 0.1d0
-  end if 
-
-  ds = 1.0
-  crit = 10.
-  steps = 0
-  
-  open(unit=36,file=trim(OUTPUT_DIR)//&
-       trim(adjustl(prefix))//'_0b_magnus_flow.dat')
-
-  write(36,'(I6,4(e15.7))') steps,s,H%E0,HS%E0+E_mbpt2,crit
-  write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-  Eold=0.
-  do while (crit > 1e-12) 
-     
-     call MAGNUS_EXPAND_1b(DG,G,AD,jbas)
-     
-     call euler_step(G,DG,s,ds) 
-     
-     call BCH_EXPAND_1b(HS,G,H,jbas,quads) 
-    
-     call build_generator(HS,DG,jbas)   
-     
-     crit = abs(HS%E0-Eold) 
-     Eold = HS%E0
-     
-     steps = steps + 1
- !    write(36,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-     write(*,'(I6,4(e15.7))') steps,s,HS%E0,HS%E0+E_mbpt2,crit
-
-  end do
-  
-end subroutine magnus_HF
+end subroutine magnus_decouple
 !=========================================================================
 !=========================================================================
 subroutine transform_sq_op_BCH(Op,G,jbas,quads)
@@ -428,7 +273,7 @@ subroutine BCH_EXPAND_1b(HS,G,H,jbas,quads)
  
   advals(1) = abs(H%E0)   
 
-  do iw = 2 ,30
+  do iw = 2 ,60
      coef = coef/(iw-1.d0) 
      ! current value of HS is renamed INT1 
      ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
@@ -455,6 +300,90 @@ subroutine BCH_EXPAND_1b(HS,G,H,jbas,quads)
   end do 
   
 end subroutine BCH_EXPAND_1b
+!=========================================================================
+!=========================================================================
+subroutine BCH_EXPAND_2b(HS,G,H,jbas,quads) 
+  implicit none 
+  
+  real(8), parameter :: conv = 1e-6
+  integer :: trunc,i,m,n,q,j,k,l,a,b,c,d,iw
+  integer :: ix,jx,kx,lx,ax,cx,bx,dx,jmin,jmax,Jtot
+  integer :: mi,mj,mk,ml,ma,mc,mb,md,ja,jb,jj,ji,JT,MT
+  type(spd) :: jbas
+  type(sq_op) :: H , G, ETA, INT1, INT2, INT3,HS, AD,w1,w2
+  type(cc_mat) :: WCC,ADCC,GCC
+  real(8) :: adnorm,fullnorm,s,advals(20),sm,sm2,coef
+  character(3) :: args
+  character(1) :: quads ! enter some character to restore quadrupoles 
+
+
+  call duplicate_sq_op(HS,w1) !workspace
+  call duplicate_sq_op(HS,w2) !workspace
+  call duplicate_sq_op(HS,INT1) !workspace
+  call duplicate_sq_op(HS,INT2) !workspace
+  call duplicate_sq_op(HS,AD) !workspace
+  INT2%herm = 1
+  INT1%herm = 1 
+  AD%herm = 1
+  call init_ph_mat(AD,ADCC,jbas) !cross coupled ME
+  call duplicate_ph_mat(ADCC,GCC) !cross coupled ME
+  call init_ph_wkspc(ADCC,WCC) ! workspace for CCME
+
+  advals = 0.d0 
+  coef = 1.d0 
+
+  ! intermediates must be HERMITIAN
+  INT2%herm = 1
+  INT1%herm = 1 
+  AD%herm = 1
+  
+  !! so here:  H is the current hamiltonian and we 
+  !! copy it onto HS.  We copy this onto 
+  !! INT2, just to make things easier for everyone.
+  if (quads=='y') call duplicate_sq_op(H,INT3)
+
+  call copy_sq_op( H , HS )  !basic_IMSRG
+  call copy_sq_op( HS , INT2 )
+ 
+  advals(1) = abs(H%E0)   
+
+  do iw = 2 ,40
+
+     coef = coef/(iw-1.d0) 
+     ! current value of HS is renamed INT1 
+     ! INT2 is renamed AD, for the AD parameters in BCH and magnus expansions
+     ! AD refers AD_n and INT2 becomes AD_{n+1} . 
+     call copy_sq_op( HS , INT1) 
+     call copy_sq_op( INT2 , AD ) 
+     ! so to start, AD is equal to H
+     call clear_sq_op(INT2)
+     !now: INT2 = [ G , AD ]  
+        
+! zero body commutator 
+     call calculate_cross_coupled(AD,ADCC,jbas)
+     call calculate_cross_coupled(G,GCC,jbas) 
+  
+     INT2%E0 =  commutator_220(G,AD,jbas)
+              
+     call commutator_222_pp_hh(G,AD,INT2,w1,w2,jbas)
+
+     call commutator_221(G,AD,INT2,w1,w2,jbas)
+     call commutator_222_ph(GCC,ADCC,INT2,WCC,jbas)
+     
+     ! so now just add INT1 + c_n * INT2 to get current value of HS
+     if (quads=='y') then 
+        call add_sq_op(INT3, 1.d0 , INT2, 1.d0, INT2)          
+        call restore_quadrupoles(AD,G,w1,w2,INT3,jbas) 
+     end if 
+
+     call add_sq_op(INT1 ,1.d0 , INT2 , coef , HS )   !basic_IMSRG
+          
+     advals(iw) = mat_frob_norm(INT2)*coef
+     if (advals(iw) < conv) exit
+  end do 
+  if (iw > 40) STOP 'clipping BCH'
+  
+end subroutine BCH_EXPAND_2B
 !=========================================================================
 !=========================================================================
 subroutine BCH_TENSOR(G,HS,jbas,quads) 
@@ -837,12 +766,13 @@ subroutine euler_step(G,DG,s,stp)
 end subroutine 
 !=====================================================
 !=====================================================
-real(8) function restore_triples(H,OM,jbas) 
+subroutine restore_triples(H,OM,jbas,sm,smop,Op) 
   implicit none 
   
   type(spd) :: jbas
   type(tpd),allocatable,dimension(:) :: threebas
   type(sq_op) :: H,OM
+  type(sq_op),optional :: Op
   integer :: a,b,c,i,j,k,Jtot,Jab,Jij,g1
   integer :: ja,jb,jc,ji,jj,jk,AAA,q
   integer :: ax,bx,cx,ix,jx,kx,III
@@ -851,15 +781,15 @@ real(8) function restore_triples(H,OM,jbas)
   real(8) :: faa,fbb,fcc,fii,fjj,fkk,Gabab,Gkbkb,Gkckc
   real(8) :: Gacac,Gbcbc,Gijij,Gikik,Gjkjk,Giaia
   real(8) :: Gibib,Gicic,Gjaja,Gjbjb,Gjcjc,Gkaka    
-  real(8) :: sm,denom,dlow,w,pre1,pre2
+  real(8) :: sm,denom,dlow,w,pre1,pre2,wop,smop
   
-  
-  sm = 0.d0   
+  sm = 0.d0
+  smop = 0.d0 
   call enumerate_three_body(threebas,jbas)  
   total_threads = size(threebas(1)%direct_omp) - 1
 
 !$OMP PARALLEL DO DEFAULT(FIRSTPRIVATE) SHARED(threebas,jbas,H,OM) & 
-!$OMP& REDUCTION(+:sm)  
+!$OMP& REDUCTION(+:sm)  REDUCTION(+:smop)
   
   do thread = 1, total_threads
   do q = 1+threebas(1)%direct_omp(thread),&
@@ -962,7 +892,14 @@ real(8) function restore_triples(H,OM,jbas)
                  if ( .not. (triangle(Jtot,jk,Jij))) cycle
                  if ((i==j) .and. (mod(Jij/2,2)==1)) cycle
                  w = commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)
-                  sm = sm + w*w/denom*(Jtot+1.d0)
+
+                 sm = sm + w*w/denom*(Jtot+1.d0)
+
+                 if (present(Op)) then
+                    wop = 2.d0 * commutator_223_single(OM,Op,a,b,c,i,j,k,Jtot,jab,jij,jbas)
+                    smop=smop+ wop*w/denom*(Jtot+1.d0)
+                 end if
+                 
                  !sm =sm  + commutator_223_single(OM,H,a,b,c,i,j,k,Jtot,jab,jij,jbas)**2&
                   !    /denom*(Jtot+1.d0) 
               end do
@@ -973,9 +910,8 @@ real(8) function restore_triples(H,OM,jbas)
   end do
   end do 
  !$OMP END PARALLEL DO 
-  restore_triples = sm! / 9.d0 
 
-end function
+end subroutine restore_triples
 !================================================
 !================================================
 end module
@@ -1205,4 +1141,4 @@ subroutine build_intermediates_For_intermediates(L,R,w1,w2,jbas)
     
   end do
 
-end subroutine 
+end subroutine build_intermediates_For_intermediates

@@ -71,9 +71,10 @@ subroutine allocate_CCMAT(OP,CCME,jbas)
   type(cc_mat) :: CCME
   integer :: JT,ji,jp,jj,jh,JC,q1,q2,g,li,lj,ti,tj
   integer :: a,b,p,h,i,j,r,Jmin,Jmax,NX,TZ,PAR,x,JTM
-  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ
+  integer :: int1,int2,IX,JX,i1,i2,nb,nh,np,numJ,mes 
   real(8) :: sm,sm2
-  
+
+  mes = 0
   NX = OP%Nsp
   CCME%Nsp = NX
   CCME%herm = OP%herm
@@ -135,7 +136,8 @@ subroutine allocate_CCMAT(OP,CCME,jbas)
      end do 
      
      allocate( CCME%CCX(q1)%X(r,nb) ) 
-    
+     mes = mes + r*nb
+     
      nb = 0 
      r = 0 
      do i = 1, NX
@@ -171,6 +173,7 @@ subroutine allocate_CCMAT(OP,CCME,jbas)
      CCME%rlen(q1) = r
      CCME%Jval(q1) = JC 
   end do 
+!  print*, "CC mat storage: ", mes * 8.d0 / 1024.d0/1024.d0, "MB" 
 end subroutine allocate_CCMAT
 !=======================================================  
 !=======================================================
@@ -1073,17 +1076,21 @@ subroutine allocate_CC_wkspc(CCOP,WCC)
   implicit none 
   
   type(cc_mat) :: CCOP,WCC 
-  integer :: q,r
-  
+  integer :: q,r,mes
+
+  mes= 0 
   allocate(WCC%CCX(CCOP%nblocks))
 
   do q = 1,CCOP%nblocks
      
      r = CCOP%rlen(q)      
      allocate(WCC%CCX(q)%X(r,r)) 
+     mes = mes +r*r
      WCC%CCX(q)%X = 0.d0
      
   end do
+
+!  print*, "CC workspace:", mes*8.d0/1024.d0/1024.d0, "MB"
   
 
 end subroutine allocate_CC_wkspc
